@@ -1,9 +1,9 @@
-asset token := fungible nat
-
-source tokenSource of token
-sink tokenSink for token
-
 contract TronToken {
+    asset token := fungible nat
+
+    source tokenSource of token
+    sink tokenSink for token
+
     name stores string := "Tronix"      //  token name
     symbol stores string := "TRX"           //  token symbol
     decimals stores nat := 6            //  token digit
@@ -13,8 +13,8 @@ contract TronToken {
 
     stopped stores bool := false
 
-    uint256 constant valueFounder = 100000000000000000;
-    address owner = 0x0;
+    constant valueFounder : nat := 100000000000000000
+    owner : address := 0x0
 
     view isOwner() of bool := msg.sender = owner
     view isRunning() of bool := not stopped

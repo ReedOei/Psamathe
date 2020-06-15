@@ -22,14 +22,14 @@ contract Ownable {
             owner := newOwner
 }
 
-asset token := fungible nat
-sink destroyedTokens for token
-
 /**
  * @title Basic token
  * @dev Basic version of StandardToken, with no allowances.
  */
 contract BasicToken is Ownable, ERC20Basic {
+    asset token := fungible nat
+    sink destroyedTokens for token
+
     balances stores token by address
 
     // additional variables for use if transaction fees ever became necessary

@@ -1,10 +1,8 @@
-constant initialSupply := 100000
-
-asset token := fungible nat
-
-source tokenSource of token provides initialSupply
-
 contract ERC20Bank {
+    constant initialSupply := 100000
+    asset token := fungible nat
+    source tokenSource of token provides 100000
+
     accounts stores token by address
     approval stores nat by (address, address)
 

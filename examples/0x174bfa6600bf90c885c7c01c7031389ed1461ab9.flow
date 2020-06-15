@@ -14,11 +14,11 @@ interface tokenRecipient {
     transaction receiveApproval(_from : address, _value : nat, _token : address, _extraData : bytes);
 }
 
-asset token := fungible nat
-source tokenSource of token
-sink tokenSink for token
-
 contract TokenERC20 {
+    asset token := fungible nat
+    source tokenSource of token
+    sink tokenSink for token
+
     // Public variables of the token
     name stores string
     symbol stores string
