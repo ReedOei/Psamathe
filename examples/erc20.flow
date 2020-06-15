@@ -19,7 +19,7 @@ contract ERC20Bank {
         flow amount from account[sender] to account[dst]
 
     transaction approve(dst: address, amount: nat):
-        flow approved[sender, dst] to approvalSink
+        flow amount from approved[sender, dst] to approvalSink
         flow amount from nats to approved[sender, dst]
 
     transaction transferFrom(src: address, dst: address, amount: nat):
