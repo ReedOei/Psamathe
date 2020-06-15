@@ -4,8 +4,16 @@
 - How to deal with return values
 
 - How to represent states
+    - Not really happy with the standard solidity way of doing states
+    - I feel like we can use flows to make this work nciely.
 
 - How to handle internal/external calls?
+
+- Only functions that have a parameter with type ether can receive ether
+    - Also, can have at most one parameter with type ether
+
+- How to handle inheritance and interfaces, if at all?
+    - In particular, how to interface with Solidity or Obsidian code, if needed?
 
 - Maybe visualize transactions via diagrams?
 
