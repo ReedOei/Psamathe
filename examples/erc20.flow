@@ -1,0 +1,29 @@
+constant initialSupply := 100000
+
+asset token := fungible nat
+
+source tokenSource of token provides initialSupply
+
+contract ERC20Bank {
+    accounts stores token by address
+    approval stores nat by (address, address)
+
+    on create():
+        flow everything from tokenSource to account[sender]
+
+    view totalSupply() of nat: total token
+    view balanceOf(addr: address) of nat: account[addr]
+    view allowance(src: address, dst: address) of nat: approval[src, dst]
+
+    transaction transfer(dst: address, amount: nat):
+        flow amount from account[sender] to account[dst]
+
+    transaction approve(dst: address, amount: nat):
+        flow approved[sender, dst] to approvalSink
+        flow amount from nats to approved[sender, dst]
+
+    transaction transferFrom(src: address, dst: address, amount: nat):
+        flow amount from approval[src, dst] to nats
+        flow amount from account[src] to account[dst]
+}
+

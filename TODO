@@ -1,0 +1,25 @@
+- How to handle events?
+    - Could link to flows somehow, so whenever there is a flow of some resource, there's a corresponding event fired.
+
+- How to deal with return values
+
+- How to represent states
+
+- How to handle internal/external calls?
+
+- Maybe visualize transactions via diagrams?
+
+- Every primitive type has a corresponding endless pool:
+    - e.g., pool addresses for address, pool nats for nat, pool strings for string, etc.
+    - We could also just not use pools and such but use normal assignment or whatever.
+        - Much less fun, and sort of annoying because there's two sets of semantics.
+
+- Should authentication be first-class?
+    - Probably not. Would be restrictive, and if people want something better they need to be able to implement it themselves.
+
+- Fungible and non-fungible resources actually behave very similarly, so might be easy to combine into some parametric polymorphism.
+
+- Automatically handle short-address attack
+
+- Formalize as graphs?
+
