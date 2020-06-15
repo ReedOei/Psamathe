@@ -11,7 +11,7 @@ contract Ownable {
       * account.
       */
     on create():
-        flow msg.sender from addresses to owner
+        owner := msg.sender
 
     /**
     * @dev Allows the current owner to transfer control of the contract to a newOwner.
@@ -19,7 +19,7 @@ contract Ownable {
     */
     transaction transferOwnership(newOwner : address):
         only when newOwner != 0x0 and msg.sender = owner then
-            swap newOwner from addresses with owner
+            owner := newOwner
 }
 
 asset token := fungible nat
@@ -86,7 +86,7 @@ contract StandardToken is BasicToken, ERC20 {
     */
     transaction approve(_spender : address, _value : nat):
         only when _value = 0 or allowed[msg.sender][_spender] = 0 then
-            swap _value from nats with allowed[msg.sender][_spender]
+            allowed[msg.sender][_spender] := _value
 
     transaction approveUnlimited(_spender : address):
         flow (msg.sender, _spender) from addressPool to unlimited_allowance
@@ -158,10 +158,13 @@ contract BlackList is Ownable, BasicToken {
 contract UpgradedStandardToken is StandardToken {
     // those methods are called by the legacy contract
     // and they must ensure msg.sender to be the contract address
-    transaction transferByLegacy(from : address, to : address, value : nat);
-    transaction transferFromByLegacy(sender : address, from : address, address spender, value : nat);
-    transaction approveByLegacy(from : address, spender : address, value : nat);
+    transaction transferByLegacy(from : address, to : address, value : nat)
+    transaction transferFromByLegacy(sender : address, from : address, address spender, value : nat)
+    transaction approveByLegacy(from : address, spender : address, value : nat)
 }
+
+source tokenSource of token
+sink tokenSink for token
 
 contract TetherToken is Pausable, StandardToken, BlackList {
     name stores string
@@ -179,11 +182,11 @@ contract TetherToken is Pausable, StandardToken, BlackList {
     // @param _decimals Token decimals
     on create(_initialSupply : nat, _name : string, _symbol : string, _decimals : nat):
         flow _initialSupply from tokenSource to balances[owner]
-        flow _name from strings to name
-        flow _symbol from symbols to symbol
-        flow decimals from nats to decimals
-        flow false from bools to deprecated
-    }
+
+        name := _name
+        symbol := _symbol
+        decimals := _decimals
+        deprecated := false
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
     transaction transfer(_to : address, _value : nat):
@@ -197,10 +200,10 @@ contract TetherToken is Pausable, StandardToken, BlackList {
     // Forward ERC20 methods to upgraded contract if this one is deprecated
     transaction transferFrom(_from : address, _to : address, _value : nat):
         only when this not in paused and _from not in blacklist then
-        if deprecated then
-            UpgradedStandardToken(upgradedAddress).transferFromByLegacy(msg.sender, _from, _to, _value)
-        else
-            super.transferFrom(_from, _to, _value)
+            if deprecated then
+                UpgradedStandardToken(upgradedAddress).transferFromByLegacy(msg.sender, _from, _to, _value)
+            else
+                super.transferFrom(_from, _to, _value)
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
     view balanceOf(who : address) of nat :=
@@ -217,80 +220,62 @@ contract TetherToken is Pausable, StandardToken, BlackList {
             super.approve(_spender, _value)
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
-    function allowance(address _owner, address _spender) public constant returns (uint remaining) {
-        if (deprecated) {
-            return StandardToken(upgradedAddress).allowance(_owner, _spender);
-        } else {
-            return super.allowance(_owner, _spender);
-        }
-    }
+    view allowance(_owner : address, _spender : address) of nat :=
+        if deprecated then
+            StandardToken(upgradedAddress).allowance(_owner, _spender)
+        else
+            super.allowance(_owner, _spender)
 
     // deprecate current contract in favour of a new one
-    function deprecate(address _upgradedAddress) public onlyOwner {
-        deprecated = true;
-        upgradedAddress = _upgradedAddress;
-        Deprecate(_upgradedAddress);
-    }
+    transaction deprecate(_upgradedAddress : address):
+        only when msg.sender = owner then
+            deprecated := true
+            upgradedAddress := _upgradedAddress
+            // emit Deprecate(_upgradedAddress);
 
     // deprecate current contract if favour of a new one
-    function totalSupply() public constant returns (uint) {
-        if (deprecated) {
-            return StandardToken(upgradedAddress).totalSupply();
-        } else {
-            return _totalSupply;
-        }
-    }
+    view totalSupply() of nat :=
+        if deprecated then
+            StandardToken(upgradedAddress).totalSupply()
+        else
+            total token
 
     // Issue a new amount of tokens
     // these tokens are deposited into the owner address
     //
     // @param _amount Number of tokens to be issued
-    function issue(uint amount) public onlyOwner {
-        require(_totalSupply + amount > _totalSupply);
-        require(balances[owner] + amount > balances[owner]);
-
-        balances[owner] += amount;
-        _totalSupply += amount;
-        Issue(amount);
-    }
+    transaction issue(amount : nat):
+        only when msg.sender = owner then
+            flow amount from tokenSource to balances[owner]
+            // emit Issue(amount);
 
     // Redeem tokens.
     // These tokens are withdrawn from the owner address
     // if the balance must be enough to cover the redeem
     // or the call will fail.
     // @param _amount Number of tokens to be issued
-    function redeem(uint amount) public onlyOwner {
-        require(_totalSupply >= amount);
-        require(balances[owner] >= amount);
+    transaction redeem(amount : nat)
+        only when msg.sender = owner then
+            flow amount from balances[owner] to tokenSink
+            // emit Redeem(amount);
 
-        _totalSupply -= amount;
-        balances[owner] -= amount;
-        Redeem(amount);
-    }
-
-    function setParams(uint newBasisPoints, uint newMaxFee) public onlyOwner {
+    transaction setParams(newBasisPoints : nat, newMaxFee : nat)
         // Ensure transparency by hardcoding limit beyond which fees can never be added
-        require(newBasisPoints < 20);
-        require(newMaxFee < 50);
-
-        basisPointsRate = newBasisPoints;
-        maximumFee = newMaxFee.mul(10**decimals);
-
-        Params(basisPointsRate, maximumFee);
+        only when msg.sender = owner and newBasisPoints < 20 and newMaxFee < 50 then
+            basisPointsRate := newBasisPoints;
+            maximumFee := newMaxFee.mul(10**decimals);
+            // emit Params(basisPointsRate, maximumFee);
     }
 
     // Called when new token are issued
-    event Issue(uint amount);
+    // event Issue(uint amount);
 
     // Called when tokens are redeemed
-    event Redeem(uint amount);
+    // event Redeem(uint amount);
 
-
-contract Token {
-}
     // Called when contract is deprecated
-    event Deprecate(address newAddress);
+    // event Deprecate(address newAddress);
 
     // Called if contract ever adds fees
-    event Params(uint feeBasisPoints, uint maxFee);
+    // event Params(uint feeBasisPoints, uint maxFee);
 }

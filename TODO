@@ -13,6 +13,13 @@
     - e.g., pool addresses for address, pool nats for nat, pool strings for string, etc.
     - We could also just not use pools and such but use normal assignment or whatever.
         - Much less fun, and sort of annoying because there's two sets of semantics.
+        - We can use just one set of semantics by doing the following:
+            x := e
+            means
+            flow e from t to x
+            where t is a pool that has the type of x
+
+            This syntax can only be used when t is a non-asset type.
 
 - Should authentication be first-class?
     - Probably not. Would be restrictive, and if people want something better they need to be able to implement it themselves.
