@@ -1,5 +1,4 @@
 contract ERC20Bank {
-    constant initialSupply := 100000
     asset token := fungible nat
     source tokenSource of token provides 100000
 
