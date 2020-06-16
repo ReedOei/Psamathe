@@ -1,5 +1,5 @@
 contract ERC20Bank {
-    asset token as fungible nat
+    asset token is fungible nat
     source tokenSource of token provides 100000
 
     consumable asset approval is fungible nat
@@ -9,14 +9,14 @@ contract ERC20Bank {
     allowances stores approval by (address, address)
 
     on create():
-        flow everything from tokenSource to account[sender]
+        flow everything from tokenSource to account[msg.sender]
 
     view totalSupply() of nat: total token
     view balanceOf(addr : address) of nat: account[addr]
     view allowance(src : address, dst : address) of nat: allowances[src, dst]
 
     transaction transfer(dst : address, amount : nat):
-        flow amount from account[sender] to account[dst]
+        flow amount from account[msg.sender] to account[dst]
 
     transaction approve(dst : address, amount : nat):
         consume everything from allowances[src, dst]

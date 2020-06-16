@@ -103,8 +103,8 @@ contract TokenERC20 {
      * @param _extraData some extra information to send to the approved contract
      */
     transaction approveAndCall(_spender : address, _value : uint256, _extraData : bytes):
-        only when approve(_spender, _value) then
-            tokenRecipient(_spender).receiveApproval(msg.sender, _value, address(this), _extraData)
+        flow _value from approvalSource to allowance[msg.sender, _spender],
+            then call receiveApproval(msg.sender, _value, address(this), _extraData)
 
     /**
      * Destroy tokens

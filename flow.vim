@@ -24,11 +24,12 @@ syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not
 
-syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let consume consumable
+syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let consume consumable call is
 syntax keyword specialVars msg this nats addresses strings bools uint256s
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
 
+syn region multilineComment start="/\*"    end="\*/"
 syntax match comment "//.*$"
 syntax keyword todo TODO
 
@@ -64,4 +65,5 @@ hi def link distrSpecifiers Constant
 hi def link num Number
 
 hi def link todo Todo
+hi def link multilineComment Comment
 
