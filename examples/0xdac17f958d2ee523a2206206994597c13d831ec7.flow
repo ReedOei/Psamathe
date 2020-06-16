@@ -193,6 +193,7 @@ contract TetherToken is Pausable, StandardToken, BlackList {
         only when this not in paused and msg.sender not in blacklist then
             // Not super sure about this syntax
             if deprecated then
+                // NOTE: This contract uses lots of external calls. Not sure exactly how I want to handle those, since I think it would be good to restrict reentrancy; for now, this will do.
                 UpgradedStandardToken(upgradedAddress).transferByLegacy(msg.sender, _to, _value);
             else
                 super.transfer(_to, _value)
