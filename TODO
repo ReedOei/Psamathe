@@ -1,13 +1,26 @@
 - How to handle events?
     - Could link to flows somehow, so whenever there is a flow of some resource, there's a corresponding event fired.
 
-- How to deal with return values
+- How to figure out where to put stuff (e.g., memory, calldata, storage, etc.)?
+    - Can we do this automatically and easily?
+
+- Use `consume`, not flowing to sinks, to consume resources
+    - Should ALL resources be consumable, or should you have to declare it?
+    - My initial thought is that it should be declared, because then you can't even non-consumable resources, which may protect against faulty assumptions
+    - On the other hand, this is somewhat burdensome, and it's pretty obvious, I think, that writing `consume` means you will lose resources.
+
+- How to deal with return values? Probably fine to just have a return
+    - But also all transactions should default to returning true when they succeed and false when they fail.
 
 - How to represent states
     - Not really happy with the standard solidity way of doing states
     - I feel like we can use flows to make this work nciely.
 
 - How to handle internal/external calls?
+    - Current idea:
+        - Don't allow ANY external calls except when flowing resources
+            - This lets us naturally handle fallback functions, prevent reentrancy attacks like that on the DAO, etc.
+        - The only allowable internal calls are to views, because those should be safe.
 
 - Only functions that have a parameter with type ether can receive ether
     - Also, can have at most one parameter with type ether
@@ -15,7 +28,7 @@
 - How to handle inheritance and interfaces, if at all?
     - In particular, how to interface with Solidity or Obsidian code, if needed?
 
-- Maybe visualize transactions via diagrams?
+- Maybe visualize transactions via diagrams, like the ones I've been drawing?
 
 - Every primitive type has a corresponding endless pool:
     - e.g., pool addresses for address, pool nats for nat, pool strings for string, etc.
@@ -32,9 +45,41 @@
 - Should authentication be first-class?
     - Probably not. Would be restrictive, and if people want something better they need to be able to implement it themselves.
 
+- Should we have `provides infinity` or just not state a limit on how much it provides when the source is unlimited?
+
 - Fungible and non-fungible resources actually behave very similarly, so might be easy to combine into some parametric polymorphism.
 
-- Automatically handle short-address attack
+- Minor improvements that should definitely be made:
+    - Automatically handle overflow/underflow so SafeMath is unnecessary (or another way of looking at it, automatically included)
+    - Automatically handle short-address attack
 
 - Formalize as graphs?
+    - Or formalize as quivers, which are sort of like graphs, but more algebraic?
+
+- Token is kind of like an existential type, sealed inside ERC-20 bank
+    - I was really thinking of it more like a path-dependent type.
+    - Not sure what the "right" way is.
+
+- What should be part of the static contract construct and what should be an instance?
+    - e.g., should resources, sinks be static or dynamically created.
+    - Not being able to this makes it kind of awkward to make a token exchange, for example.
+
+- Look at other applications that are not ERC-20 and try to write them.
+    - Try other research projects examples?
+        - https://dl.acm.org/doi/proceedings/10.5555/3355356
+    - Implement other proofs of concept
+    - Maybe look at the testnet too (is there a corpus available here?)
+    - That one voting application I found is somewhat interesting.
+
+- See how we can represent things like database operations declaratively that people use
+    - Maybe we only need to support cheap operations.
+    - Look at examples of Fabric stuff, because Fabric has a database
+
+- Potential contributions:
+    - Maybe it's more readable?
+        - Could be evaluated
+    - Asset safety theorem/general discussion of safety properties.
+    - Expressiveness
+        - Sample 10 random ERC-20 tokens, can we express them?
+    - Potential for optimization?
 

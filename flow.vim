@@ -24,7 +24,7 @@ syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not
 
-syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let
+syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let consume consumable
 syntax keyword specialVars msg this nats addresses strings bools uint256s
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
