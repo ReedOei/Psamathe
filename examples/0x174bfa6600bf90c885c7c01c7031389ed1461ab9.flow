@@ -11,22 +11,22 @@ contract owned {
 
 // Not sure how to handle this yet
 interface tokenRecipient {
-    transaction receiveApproval(_from : address, _value : nat, _token : address, _extraData : bytes);
+    transaction receiveApproval(_from : address, _value : uint256, _token : address, _extraData : bytes);
 }
 
 contract TokenERC20 {
-    asset token := fungible nat
+    asset token := fungible uint256
     source tokenSource of token
     sink tokenSink for token
 
     // Public variables of the token
     name stores string
     symbol stores string
-    decimals stores nat
+    decimals stores uint256
 
     // This creates an array with all balances
     balanceOf stores token by address
-    allowance stores nat by (address, address)
+    allowance stores uint256 by (address, address)
 
     // This generates a public event on the blockchain that will notify clients
     // event Transfer(address indexed from, address indexed to, uint256 value);
@@ -42,7 +42,7 @@ contract TokenERC20 {
      *
      * Initializes contract with initial supply tokens to the creator of the contract
      */
-    on create(initialSupply : nat, tokenName : string, tokenSymbol : string): {
+    on create(initialSupply : uint256, tokenName : string, tokenSymbol : string): {
         decimals := 18
         totalSupply := initialSupply * 10 ** uint256(decimals)  // Update total supply with the decimal amount
         flow totalSupply from tokenSource to balanceOf[msg.sender] // Give the creator all initial tokens
@@ -53,7 +53,7 @@ contract TokenERC20 {
     /**
      * Internal transfer, only can be called by this contract
      */
-    internal transaction _transfer(_from : address, _to : address, _value : nat)
+    internal transaction _transfer(_from : address, _to : address, _value : uint256)
         only when _to != 0x0 then
             flow _value from balanceOf[_from] to balanceOf[_to]
 
@@ -65,7 +65,7 @@ contract TokenERC20 {
      * @param _to The address of the recipient
      * @param _value the amount to send
      */
-    transaction transfer(_to : address, _value : nat):
+    transaction transfer(_to : address, _value : uint256):
         _transfer(msg.sender, _to, _value)
 
     /**
@@ -77,8 +77,8 @@ contract TokenERC20 {
      * @param _to The address of the recipient
      * @param _value the amount to send
      */
-    transaction transferFrom(_from : address, _to : address, _value : nat):
-        flow _value from allowance[_from][msg.sender] to nats
+    transaction transferFrom(_from : address, _to : address, _value : uint256):
+        flow _value from allowance[_from][msg.sender] to uint256s
         _transfer(_from, _to, _value)
 
     /**
@@ -89,7 +89,7 @@ contract TokenERC20 {
      * @param _spender The address authorized to spend
      * @param _value the max amount they can spend
      */
-    transaction approve(_spender : address, _value : nat):
+    transaction approve(_spender : address, _value : uint256):
         allowance[msg.sender][_spender] := _value
         // emit Approval(msg.sender, _spender, _value);
 
@@ -102,7 +102,7 @@ contract TokenERC20 {
      * @param _value the max amount they can spend
      * @param _extraData some extra information to send to the approved contract
      */
-    transaction approveAndCall(_spender : address, _value : nat, _extraData : bytes):
+    transaction approveAndCall(_spender : address, _value : uint256, _extraData : bytes):
         only when approve(_spender, _value) then
             tokenRecipient(_spender).receiveApproval(msg.sender, _value, address(this), _extraData)
 
@@ -113,7 +113,7 @@ contract TokenERC20 {
      *
      * @param _value the amount of money to burn
      */
-    transaction burn(_value : nat):
+    transaction burn(_value : uint256):
         flow _value from balanceOf[msg.sender] to tokenSink
         // emit Burn(msg.sender, _value);
 
@@ -125,8 +125,8 @@ contract TokenERC20 {
      * @param _from the address of the sender
      * @param _value the amount of money to burn
      */
-    transaction burnFrom(_from : address, _value : nat):
-        flow _value from allowance[_from][msg.sender] to nats
+    transaction burnFrom(_from : address, _value : uint256):
+        flow _value from allowance[_from][msg.sender] to uint256s
         flow _value from balanceOf[_from] to tokenSink
         // emit Burn(_from, _value);
 }
@@ -136,8 +136,8 @@ contract TokenERC20 {
 /******************************************/
 
 contract MyAdvancedToken is owned, TokenERC20 {
-    sellPrice stores nat
-    buyPrice stores nat
+    sellPrice stores uint256
+    buyPrice stores uint256
 
     frozen stores Set address
 
@@ -152,7 +152,7 @@ contract MyAdvancedToken is owned, TokenERC20 {
     ) TokenERC20(initialSupply, tokenName, tokenSymbol): {}
 
     /* Internal transfer, only can be called by this contract */
-    internal transaction _transfer(_from : address, _to : address, _value : nat):
+    internal transaction _transfer(_from : address, _to : address, _value : uint256):
         only when _to != 0x0 and _from not in frozen and _to not in frozen then
             flow _value from balances[_from] to balances[_to]
             // emit Transfer(_from, _to, _value);
@@ -160,7 +160,7 @@ contract MyAdvancedToken is owned, TokenERC20 {
     /// @notice Create `mintedAmount` tokens and send it to `target`
     /// @param target Address to receive the tokens
     /// @param mintedAmount the amount of tokens it will receive
-    transaction mintToken(target : address, mintedAmount : nat):
+    transaction mintToken(target : address, mintedAmount : uint256):
         only when msg.sender = owner then
             flow mintedAmount from tokenSource to balanceOf[target]
             // emit Transfer(address(0), address(this), mintedAmount);
@@ -181,7 +181,7 @@ contract MyAdvancedToken is owned, TokenERC20 {
     /// @notice Allow users to buy tokens for `newBuyPrice` eth and sell tokens for `newSellPrice` eth
     /// @param newSellPrice Price the users can sell to the contract
     /// @param newBuyPrice Price users can buy from the contract
-    transaction setPrices(newSellPrice : nat, newBuyPrice : nat):
+    transaction setPrices(newSellPrice : uint256, newBuyPrice : uint256):
         only when msg.sender = owner then
             sellPrice := newSellPrice
             buyPrice := newBuyPrice
@@ -194,7 +194,7 @@ contract MyAdvancedToken is owned, TokenERC20 {
 
     /// @notice Sell `amount` tokens to contract
     /// @param amount amount of tokens to be sold
-    transaction sell(amount : nat):
+    transaction sell(amount : uint256):
         let etherAmount := amount * sellPrice
         _transfer(msg.sender, address(this), amount)       // makes the transfers
         flow etherAmount from this.balance to msg.sender.balance // sends ether to the seller. It's important to do this last to avoid recursion attacks

@@ -25,7 +25,7 @@ syntax keyword new new
 syntax keyword boolOps and or not
 
 syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let
-syntax keyword specialVars msg this nats addresses strings bools
+syntax keyword specialVars msg this nats addresses strings bools uint256s
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
 
@@ -38,7 +38,7 @@ syntax keyword constWords true false
 syntax region string start='"' end='"' skip='\\"'
 syntax region string start='\'' end='\'' skip='\\\''
 
-syntax keyword type nat int bool bytes address string ether
+syntax keyword type nat int bool bytes address string ether uint256
 
 syntax keyword contract contract state storage source sink pool interface
 syntax keyword contractModifiers main asset
