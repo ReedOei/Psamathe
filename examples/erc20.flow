@@ -11,9 +11,9 @@ contract ERC20Bank {
     on create():
         flow everything from tokenSource to account[msg.sender]
 
-    view totalSupply() of nat: total token
-    view balanceOf(addr : address) of nat: account[addr]
-    view allowance(src : address, dst : address) of nat: allowances[src, dst]
+    view totalSupply() of nat := total token
+    view balanceOf(addr : address) of nat := account[addr]
+    view allowance(src : address, dst : address) of nat := allowances[src, dst]
 
     transaction transfer(dst : address, amount : nat):
         flow amount from account[msg.sender] to account[dst]

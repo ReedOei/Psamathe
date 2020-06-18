@@ -1,227 +1,95 @@
-// From: https://github.com/WayneJz/COMP6452-19T1/blob/master/Assignment_1/contracts/message.sol
+// Based on: https://github.com/WayneJz/COMP6452-19T1/blob/master/Assignment_1/contracts/message.sol
 
 contract LunchVote {
-    /*
-        Global Variables Definition:
-        Voter struct: Stores whether he/she has voted, and whom he/she votes for.
-        Lunch struct: Stores the id, name, and the number of votes received for this proposal.
-        quorum: The number of votes that the contract will receive.
-                Note if quorum reaches, all vote attempts will be rejected.
-        voteAcceptedCount: The current number of votes.
-        maxVote: The maximum vote count for lunch proposal(s).
-                Note if two lunch proposals have same voteCount 3, the maxVote is also 3.
-        contractCreator: Stores the contract creator's address.
-        authorizedAddr array: Stores all authorized voters' address (including contract creator's).
-        lunchVotes struct array: Stores all lunch proposals.
-        voters mapping: Stores voters address.
-    */
+    // These are "consumable" because we will self-destruct at the end, and consume all of these resources.
+    // That's fine, because these don't really have any meaning outside of the contract, so there's no need to send them to other accounts
+    consumable asset Voter is nonfungible address
+    source newVoters of Voter
 
-    asset Voter is nonfungible nat
-    asset Lunch is nonfungible {
-        id stores nat,
-        name stores string,
-        voters stores Set Voter
+    consumable asset Lunch is nonfungible {
+        // unique, autoincrement mean the same as in SQL
+        // NOTE: The id field is actually never used, and could be removed.
+        id stores nat [unique, autoincrement]
+        name stores string [unique]
+        voters stores many Voter
     }
 
     quorum stores nat
     voteAcceptedCount stores nat
     maxVote stores nat
 
-    acceptsVotes stores bool
+    voteAcceptable stores bool
 
-    address private contractCreator;
-    address[] private authorizedAddr;
-    Lunch[] private lunchVotes;
-    mapping(address => Voter) private voters;
+    contractCreator stores address
+    lunchVotes stores many Lunch // Set[Lunch], Set Lunch, set Lunch, set of Lunch, Lunches
+    voters stores many Voter
 
-    /*
-        Constructor: (Requirement 5)
-        1. Allow this contract to accept votes.
-        2. Set the quorum.
-        3. Initialize other global variables.
-        4. Store the caller's address to the contract creator.
-        5. Store the caller's address to the authorized address array.
-    */
-    on create(quorumSet : nat) {
+    on create(quorumSet : nat):
         voteAcceptable := true
         quorum := quorumSet
         voteAcceptedCount := 0
         maxVote := 0
-        contractCreator = msg.sender;
-        authorizedAddr.push(msg.sender);
-    }
+        contractCreator := msg.sender
+        flow msg.sender from newVoters to voters
 
-    /*
-        choiceCreator Function: (Requirement 1,2)
-        1. Check if the contract creator calls the function. If not, reject it.
-        2. Store input of the string array into the construct array.
-    */
+    transaction choiceCreator(lunchChoicesAdd : many string):
+        only when contractCreator = msg.sender then
+            for each lunchChoice in lunchChoicesAdd,
+                flow { name |-> lunchChoice,
+                       votes |-> new V stores many Votes }
+                from lunchSource to lunchVotes
 
-    function choiceCreator(string[] memory lunchChoicesAdd) public{
-        require(
-            contractCreator == msg.sender,
-            "Lunch choices must be added by the creator!"
-        );
-        uint lastId = lunchVotes.length;
-        for (uint index = 0; index < lunchChoicesAdd.length; index ++){
-            lunchVotes.push(Lunch({
-                id: lastId,
-                name: lunchChoicesAdd[index],
-                voteCount : 0
-            }));
-            lastId += 1;
-        }
-    }
+    transaction authorizeVoter(newVoterAddress : address):
+        only when contractCreator = msg.sender then
+            // Because these addresses are nonfungible resources, we can't create them twice: sending a nonfungible resource twice is an error that will be caught in a precondition, just like sending more of a fungible token than you have in your account
+            // This means we don't need to explicitly check if newVoterAddress is in voters already
+            flow newVoterAddress from newVoters to voters
 
-    /*
-        authorizedChecker Function: (Used by other functions)
-        1. Check if the address is in the authorized address array.
-        2. Return the result.
-    */
+    view getChoices() of many string := { vote.name | vote in lunchVotes }
 
-    function authorizedChecker(address addressToCheck) private view returns (bool) {
-        for (uint index = 0; index < authorizedAddr.length; index ++){
-            if (authorizedAddr[index] == addressToCheck){
-                return true;
-            }
-        }
-        return false;
-    }
+    view getResult() of (string, many (string, nat)) :=
+        if not voteAcceptable then
+            return ("Voting still in progress! You can only use 'getChoices' function.", {})
+        else
+            let winners stores many (string, nat) := { (lunch.name, total lunch.votes) | lunch in lunchVotes, total lunch.votes = maxVote }
 
-    /*
-        authorizeVoter Function: (Requirement 3,4)
-        1. Check if the contract creator calls the function. If not, reject it.
-        2. Check if the voter's address already in the authorized address array. If yes, reject it.
-        3. Grant the right for the address to vote.
-        4. Store the voter's address to the authorized address array.
-    */
+            if total result > 1 then
+                return ("The lunch vote has multiple tie winners:", winners)
+            else
+                return ("The winner is:", winners)
 
-    function authorizeVoter(address newVoterAddress) public{
-        require(
-            contractCreator == msg.sender,
-            "Voter authorization must be executed by the creator!"
-        );
-        require(
-            authorizedChecker(newVoterAddress) == false,
-            "This address is already authorized! Do not re-authorize it."
-        );
-        voters[newVoterAddress].isVoted = false;
-        authorizedAddr.push(newVoterAddress);
-    }
+    transaction vote(voterChoice : string) returns string:
+        only when voteAcceptable then
+            // NOTE: Despite looking nondeterministic, this is okay because we declared that lunch names are unique, so if it exists, there's only one.
+            // NOTE: We could even statically limit it's use to cases where we are guaranteed uniqueness by annotations (e.g., the condition only compares for equality on unique fields, maybe can generlize that somewhat?)
+            // This is actually MORE safety than the original implementation, which allows inserting duplicate names, and would only let you vote on one of them.
+            // This is appealingly declarative, at least to me; though it does complicate the language by these "selectors" in flows.
+            // Could imagine a having a query optimizer here too, in the "enterprise edition"
+            flow one lunch such that lunch.name = voterChoice from lunchVotes to new LunchChoice stores Lunch
 
-    /*
-        getChoices Function: (Requirement 6)
-        1. Initialize a temporary string array.
-        2. Store all the proposal names from struct array to the temporary array.
-        3. Return the temporary string array.
-    */
+            // Another version of the above, that doesn't require creating custom syntax beyond set comprehensions, which I already plan to include
+            // However, the flow is less clear: does choose remove lunch from the list? If it doens't, what are the semantics of mutating it in place, and how can we guarantee that it's safe?
+            // I prefer the above version, because it makes it clearer, I think: lunch is now owned by LunchChoice.
+            // The typechecker will ensure that we deal with LunchChoice
+            let lunch := choose({ lunch | lunch in lunchVotes, lunch.name = voterChoice })
 
-    function getChoices() public view returns (string[] memory choice){
-        choice = new string[](lunchVotes.length);
-        for(uint i = 0; i < lunchVotes.length; i ++){
-            choice[i] = lunchVotes[i].name;
-        }
-    }
+            // This part onward is the same with both implementations
+            flow msg.sender from voters to LunchChoice.votes
 
-    /*
-        getResult Function: (Requirement 9)
-        1. Initialize a string, a string array and an unsigned integer array.
-            String: stores the message.
-            String array: stores names of all the winners (tie winners or one winner).
-            Unsigned integer array: stores their vote counts.
-        2. Check if the voting is still in progress, if yes, message prompted without the results.
-            Note that voters can ONLY get results until this voting is finished.
-            Otherwise it is unfair, and it will make no differences with getChoices function.
-        3. Store winners names and vote counts from struct array to the new arrays.
-        4. The message prompts whether tie winners or not.
-        5. Return the message and new arrays.
-    */
+            maxVote := max(maxVote, total LunchChoice.votes)
+            voteAcceptedCount := voteAcceptedCount + 1
+            voteAcceptable := voteAcceptedCount >= quorum
 
-    function getResult() public view returns (string memory, string[] memory winners, uint[] memory votes) {
-        string memory message;
-        winners = new string[](lunchVotes.length);
-        votes = new uint[](lunchVotes.length);
+            // It's probably possible to detect that we flow LunchChoice out of lunchVotes and then give it back immediately in
+            // So then we can optimize and mutate it in place in the compiled code.
+            // NOTE: We used `held by` here because LunchChoice is a "scalar" Lunch, but lunchVotes is a collection of Lunch
+            LunchChoice held by lunchVotes
 
-        if (voteAcceptable == true){
-            message = "Voting still in progress! You can only use 'getChoices' function.";
-            winners[0] = "Not yet determined";
-            return (message, winners, votes);
-        }
+            return "Vote accepted."
 
-        uint index = 0;
-        for(uint i = 0; i < lunchVotes.length; i ++){
-            if (lunchVotes[i].voteCount == maxVote){
-                winners[index] = lunchVotes[i].name;
-                votes[index] = lunchVotes[i].voteCount;
-                index += 1;
-            }
-        }
-        if (index >= 2){
-            message = "The lunch vote has multiple tie winners:";
-        }
-        else{
-            message = "The winner is:";
-        }
-        return (message, winners, votes);
-    }
-
-    /*
-        vote Function: (Requirement 7,8)
-        1. Check if the voter's address already in the authorized array, if not, reject it.
-        2. Check if the voter has already voted, if yes, reject it.
-        3. Check if the voting is still in progress, if not, reject it.
-        4. Use a iteration to check if the input string matches any proposal names.
-        5. If matches, stores the voteID, increment the vote counts,
-            check if this proposal becomes the most popular one, if yes, maxVote becomes the vote counts,
-            check if the quorum reaches, if yes, set the vote is no more acceptable.
-        6. If not matches, this vote attempt will not be recorded,
-            message will prompt, and the voter can try again.
-    */
-
-    function vote(string memory voterChoice) public returns (string memory) {
-        require(
-            authorizedChecker(msg.sender) == true,
-            "You are not allowed to vote! Please check if you are authorized by the contract creator."
-        );
-        Voter memory validVoter = voters[msg.sender];
-        require(
-            validVoter.isVoted == false,
-            "You can only vote once!"
-        );
-        require(
-            voteAcceptable == true,
-            "Vote not yet accepted because the quorum reaches. Use getResult() to see the result."
-        );
-        for (uint i = 0; i < lunchVotes.length; i ++){
-            if (keccak256(abi.encodePacked(lunchVotes[i].name)) == keccak256(abi.encodePacked(voterChoice))){
-                validVoter.isVoted = true;
-                validVoter.voteId = lunchVotes[i].id;
-                voteAcceptedCount += 1;
-                lunchVotes[i].voteCount += 1;
-                if (lunchVotes[i].voteCount > maxVote){
-                    maxVote = lunchVotes[i].voteCount;
-                }
-                if (voteAcceptedCount >= quorum){
-                    voteAcceptable = false;
-                }
-                return "Vote accepted.";
-            }
-        }
-        return "Your vote does not match any given choices! Please try again.";
-    }
-
-    /*
-        Deconstructor: (Requirement 10)
-        1. Check if the contract creator calls the function. If not, reject it.
-        2. Destroy the contract.
-    */
-
-    function deconstructor() public{
-        require(
-            contractCreator == msg.sender,
-            "Only the creator can deconstructor the vote."
-        );
-        selfdestruct(msg.sender);
-    }
+    transaction deconstructor():
+        only when msg.sender = contractCreator then
+            merge this.balance into msg.sender.balance // Sends all resources from this to msg.sender
+            consume everything from this
 }
 

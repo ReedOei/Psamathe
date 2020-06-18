@@ -12,10 +12,10 @@ endif
 
 let b:current_syntax = "flow"
 
-syntax keyword transaction internal transaction view
+syntax keyword transaction internal transaction view returns returning event
 syntax match specialTransactions "on create"
 syntax keyword import import
-syntax keyword conditional if else only when then
+syntax keyword conditional if else only when then be such that where
 
 syntax keyword distrSpecifiers everything
 
@@ -24,8 +24,8 @@ syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not
 
-syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let consume consumable call is
-syntax keyword specialVars msg this nats addresses strings bools uint256s
+syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let consume consumable call is return total many held each owner key
+syntax keyword specialVars msg this one some any
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
 

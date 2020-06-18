@@ -1,60 +1,100 @@
-- How to handle events?
-    - Could link to flows somehow, so whenever there is a flow of some resource, there's a corresponding event fired.
-
 - How to figure out where to put stuff (e.g., memory, calldata, storage, etc.)?
     - Can we do this automatically and easily?
 
-- Use `consume`, not flowing to sinks, to consume resources
-    - Should ALL resources be consumable, or should you have to declare it?
-    - My initial thought is that it should be declared, because then you can't even non-consumable resources, which may protect against faulty assumptions
-    - On the other hand, this is somewhat burdensome, and it's pretty obvious, I think, that writing `consume` means you will lose resources.
+- If we flow a non-asset into a storage that already holds it, is that an error or is it okay?
+- If we try to consume a non-asset that doesn't exist, is that an error or is it okay?
+
+- Semantics are most consistent if everything is treated like an asset...but would probably be annoying to work with.
+
+- Should we have require() or `only when`.
+    - I like `only when`, but it is harder to provide error messages, so maybe require is the way to go.
+
+- Automatic optimizations:
+    - We will typically track "total" for an asset automatically (i.e., the amount in circulation + the amount in any given storage)
+        - However, if never used, then we can omit it.
+    - In a `flow one x such that P from A to B`, we can detect when the condition P will always designate at most one object and then do an early exit when we're doing the search.
+    - This is somewhat starting to enter query-optimizer-land, so probably out of scope.
+
+    - If we use checking to see if a key is in a mapping, then we create a separate mapping (X => bool) to store this info, otherwise we don't.
+        - Of course, depends exactly how we compile, if we ever get around to actually implementing the langauge.
+
+- Can assets be keys of a mapping?
+    - Probably shouldn't be allowed, because of the nature of maps makes this somewhat confusing.
+
+- Also, how exactly does this whole subtyping/value promotion thing work?
+    - For example, I can write (atm, anyway), `_tokenId in balances[addr]`, where
+        balances stores many token by addr
+
+        and
+
+        _tokenId : nat
+
+- What exactly is the difference between `x : t` and `x stores t`?
+    - Could be the same thing, in which case we should probably just choose one syntax.
+    - Alternatively, we could have two kinds of variables:
+        - "regular" values, x : t, which have no special semantics
+        - and "asset" values, x stores t, which use the flow semantics
+        - Kind of annoying to have two kinds.
+
+- We should allow string equality tests, and just do the keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b)) thing under the hood.
 
 - How to deal with return values? Probably fine to just have a return
-    - But also all transactions should default to returning true when they succeed and false when they fail.
+    - But also all transactions should default to returning true when they succeed and false when they fail? Or not?
 
 - How to represent states
     - Not really happy with the standard solidity way of doing states
-    - I feel like we can use flows to make this work nciely.
+    - I feel like we can use flows to make this work nicely.
+    - We can have a surface-level syntax that becomes preconditions like
 
-- How to handle internal/external calls?
-    - Current idea:
-        - Don't allow ANY external calls except when flowing resources
-            - This lets us naturally handle fallback functions, prevent reentrancy attacks like that on the DAO, etc.
-        - The only allowable internal calls are to views, because those should be safe.
+        this in Paused
 
-- Only functions that have a parameter with type ether can receive ether
+    - And we can then translate each state into a declaration
+
+        Paused stores many address
+        Unpaused stores many address
+
+    - And state transitions (e.g., ->Unpaused) become:
+
+        flow this from Paused to Unpaused
+
+- What about storages that don't have any value in them?
+    - For example, when I declare:
+
+    x stores address
+
+    does it HAVE to store an address?
+
+    - I think yes.
+    - If you flow a value out of a storage that contains exactly one value (e.g., x stores t and you do flow everything from x to ...) that's not okay, you have to merge or hold it.
+    - Don't want to unnecessarily introduce "null" if I can avoid it.
+    - Related: How to handle merging fields from a contract?
+        e.g., merge this.balance into msg.sender.balance
+        - You might do this before you destroy the contract
+        - We could use something like Obsidian does, and only care that the transaction leaves the contract in a valid state.
+        - This is kind of like my initial ideas of making the transaction into a graph that does a single, atomic change.
+
+- Instead of payable: only functions that have a parameter that stores ether can receive ether
     - Also, can have at most one parameter with type ether
 
 - How to handle inheritance and interfaces, if at all?
-    - In particular, how to interface with Solidity or Obsidian code, if needed?
+    - Related: how to interface with Solidity or Obsidian code, if needed?
 
-- Maybe visualize transactions via diagrams, like the ones I've been drawing?
-
-- Every primitive type has a corresponding endless pool:
-    - e.g., pool addresses for address, pool nats for nat, pool strings for string, etc.
-    - We could also just not use pools and such but use normal assignment or whatever.
-        - Much less fun, and sort of annoying because there's two sets of semantics.
-        - We can use just one set of semantics by doing the following:
-            x := e
-            means
-            flow e from t to x
-            where t is a pool that has the type of x
-
-            This syntax can only be used when t is a non-asset type.
-
-- Should authentication be first-class?
-    - Probably not. Would be restrictive, and if people want something better they need to be able to implement it themselves.
-
-- Should we have `provides infinity` or just not state a limit on how much it provides when the source is unlimited?
+- Maybe visualize transactions via diagrams, like the ones I've been drawing
 
 - Fungible and non-fungible resources actually behave very similarly, so might be easy to combine into some parametric polymorphism.
+    - Should we do this?
+    - What syntax should we use for sets and maps?
+        I like:
 
-- Minor improvements that should definitely be made:
-    - Automatically handle overflow/underflow so SafeMath is unnecessary (or another way of looking at it, automatically included)
-    - Automatically handle short-address attack
+        votes stores many Vote
 
-- Formalize as graphs?
-    - Or formalize as quivers, which are sort of like graphs, but more algebraic?
+        and
+
+        balances stores token by address
+
+        for sets and maps, respectively.
+
+    - I also think it would be nice to have polymorphism, but it is somewhat at odds with not allowing any helper methods...
 
 - Token is kind of like an existential type, sealed inside ERC-20 bank
     - I was really thinking of it more like a path-dependent type.
