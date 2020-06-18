@@ -36,12 +36,14 @@ contract LunchVote {
         only when contractCreator = msg.sender then
             for each lunchChoice in lunchChoicesAdd,
                 flow { name |-> lunchChoice,
-                       votes |-> new V stores many Votes }
+                       votes |-> new storage V stores many Votes }
                 from lunchSource to lunchVotes
 
     transaction authorizeVoter(newVoterAddress : address):
         only when contractCreator = msg.sender then
-            // Because these addresses are nonfungible resources, we can't create them twice: sending a nonfungible resource twice is an error that will be caught in a precondition, just like sending more of a fungible token than you have in your account
+            // Because these addresses are nonfungible resources, we can't create them twice:
+            // sending a nonfungible resource twice is an error that will be caught in a precondition,
+            // just like sending more of a fungible token than you have in your account
             // This means we don't need to explicitly check if newVoterAddress is in voters already
             flow newVoterAddress from newVoters to voters
 
@@ -51,7 +53,8 @@ contract LunchVote {
         if not voteAcceptable then
             return ("Voting still in progress! You can only use 'getChoices' function.", {})
         else
-            let winners stores many (string, nat) := { (lunch.name, total lunch.votes) | lunch in lunchVotes, total lunch.votes = maxVote }
+            let winners stores many (string, nat) :=
+                { (lunch.name, total lunch.votes) | lunch in lunchVotes, total lunch.votes = maxVote }
 
             if total result > 1 then
                 return ("The lunch vote has multiple tie winners:", winners)
@@ -60,16 +63,22 @@ contract LunchVote {
 
     transaction vote(voterChoice : string) returns string:
         only when voteAcceptable then
-            // NOTE: Despite looking nondeterministic, this is okay because we declared that lunch names are unique, so if it exists, there's only one.
-            // NOTE: We could even statically limit it's use to cases where we are guaranteed uniqueness by annotations (e.g., the condition only compares for equality on unique fields, maybe can generlize that somewhat?)
-            // This is actually MORE safety than the original implementation, which allows inserting duplicate names, and would only let you vote on one of them.
+            // NOTE: Despite looking nondeterministic, this is okay because we declared that lunch names
+            //            are unique, so if it exists, there's only one.
+            // NOTE: We could even statically limit it's use to cases where we are guaranteed uniqueness by annotations
+            //            (e.g., the condition only compares for equality on unique fields, maybe can generlize that somewhat?)
+            // This is actually MORE safety than the original implementation, which allows inserting duplicate names,
+            //      and would only let you vote on one of them.
             // This is appealingly declarative, at least to me; though it does complicate the language by these "selectors" in flows.
             // Could imagine a having a query optimizer here too, in the "enterprise edition"
-            flow one lunch such that lunch.name = voterChoice from lunchVotes to new LunchChoice stores Lunch
+            flow one lunch such that lunch.name = voterChoice
+            from lunchVotes to new storage LunchChoice stores Lunch
 
-            // Another version of the above, that doesn't require creating custom syntax beyond set comprehensions, which I already plan to include
-            // However, the flow is less clear: does choose remove lunch from the list? If it doens't, what are the semantics of mutating it in place, and how can we guarantee that it's safe?
-            // I prefer the above version, because it makes it clearer, I think: lunch is now owned by LunchChoice.
+            // Another version of the above, that doesn't require creating custom syntax beyond set comprehensions,
+            //  which I already hope to include
+            // However, the flow is less clear: does choose remove lunch from the list?
+            //  If it doesn't, what are the semantics of mutating it in place, and how can we guarantee that it's safe?
+            // I prefer the above version, because it makes it clearer that lunch is now held by LunchChoice.
             // The typechecker will ensure that we deal with LunchChoice
             let lunch := choose({ lunch | lunch in lunchVotes, lunch.name = voterChoice })
 
@@ -91,5 +100,8 @@ contract LunchVote {
         only when msg.sender = contractCreator then
             merge this.balance into msg.sender.balance // Sends all resources from this to msg.sender
             consume everything from this
+            // Could copy Solidity's self-destruct and make it send the balance, but that's slightly
+            // weirder because it's introducing another way that assets could flow
+            selfdestruct
 }
 

@@ -253,7 +253,8 @@ contract NFToken is ERC721, SupportsInterface {
         then emit Transfer(tokenOwner, 0x0, _tokenId)
 
     // This is another version, which would also not currently work because tokens aren't consumable.
-    // This has slightly different semantics to the above version, because you can re-mint a token that flows to the tokenPool, but you can't remint a token that gets consumed.
+    // This has slightly different semantics to the above version, because you can re-mint a token that
+    // flows to the tokenPool, but you can't remint a token that gets consumed.
     consume _tokenId from balances[tokenOwner]
         then emit Transfer(tokenOwner, 0x0, _tokenId)
 }
