@@ -1,0 +1,325 @@
+\documentclass[10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{sagetex}
+\usepackage{hyperref}
+\usepackage{tikz-cd}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{bm}
+\usepackage{listings}
+\usepackage{bbm}
+\usepackage{multicol}
+\usepackage{mathtools}
+\usepackage{mathpartir}
+\usepackage{float}
+\usepackage[inline]{enumitem}
+\usepackage[margin=1.25in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{kpfonts}
+
+\usetikzlibrary{decorations.pathmorphing}
+
+\input{LaTeX/macros.tex}
+
+\lstset{
+  frame=none,
+  xleftmargin=2pt,
+  stepnumber=1,
+  numbers=left,
+  numbersep=5pt,
+  numberstyle=\ttfamily\tiny\color[gray]{0.3},
+  belowcaptionskip=\bigskipamount,
+  captionpos=b,
+  escapeinside={*'}{'*},
+  tabsize=2,
+  emphstyle={\bf},
+  commentstyle=\it,
+  stringstyle=\mdseries\rmfamily,
+  showspaces=false,
+  keywordstyle=\bfseries\rmfamily,
+  columns=flexible,
+  basicstyle=\small\sffamily,
+  showstringspaces=false,
+}
+
+\newcommand{\guard}{\bigg|\bigg|}
+\newcommand{\newc}{\textbf{\texttt{new}}}
+\newcommand{\everything}{\textbf{\texttt{everything}}}
+\newcommand{\then}{\textbf{\texttt{then}}}
+\newcommand{\this}{\textbf{\texttt{this}}}
+\newcommand{\langName}{LANGUAGE-NAME\xspace}
+\newcommand{\consumesarr}{\mathrel{\rotatebox[origin=c]{270}{${\looparrowright}$}}}
+\newcommand{\consumes}[1]{\stackrel{#1}{\consumesarr}}
+\newcommand{\sends}[1]{\stackrel{#1}{\to}}
+\newcommand{\emitsarr}{\mathrel{\rotatebox[origin=c]{270}{${\looparrowleft}$}}}
+\newcommand{\emits}[1]{\emitsarr #1}
+\newcommand{\addresst}{\textbf{\texttt{address}}\xspace}
+\newcommand{\stringt}{\textbf{\texttt{string}}\xspace}
+\newcommand{\manyt}{\textbf{\texttt{many}}\xspace}
+\newcommand{\natt}{\textbf{\texttt{nat}}\xspace}
+\newcommand{\byt}{\textbf{\texttt{by}}\xspace}
+\newcommand{\stores}{\textbf{\texttt{stores}}\xspace}
+\newcommand{\suchthat}{\textbf{s.t.}\xspace}
+\newcommand{\returns}{\textbf{\texttt{returns}}\xspace}
+\newcommand{\merge}{\rightsquigarrow}
+\newcommand{\heldby}{\rightarrowtail}
+\newcommand{\one}{\textbf{\texttt{one}}\xspace}
+\newcommand{\some}{\textbf{\texttt{some}}\xspace}
+\newcommand{\any}{\textbf{\texttt{any}}\xspace}
+
+\begin{document}
+
+\section{Introduction}
+
+\langName is a DSL for implementing programs which manage resources, targeted at writing smart contracts.
+
+\subsection{Contributions}
+
+We make the following main contributions:
+\begin{itemize}
+    \item \textbf{Safety guarantees}: similar to \reed{or maybe just exactly} linear types\reed{or maybe uniqueness types? need to read more about this}, preventing accidental resource loss or duplication.
+        Additionally, provides some amount of reentrancy safety.
+
+        \begin{itemize}
+            \item We can evaluate these by formalizing the language and proving them; the formalization is something that would be nice to do anyway.
+        \end{itemize}
+
+    \item \textbf{Simplicity}: The language is quite simple---it makes writing typical smart contract programs easier and shorter, because many common pitfalls in Solidity are automatically handled by the language, such as overflow/underflow, checking of balances, short address attacks, etc.
+
+        \begin{itemize}
+            \item We can evaluate these by comparing LOC, cyclotomic complexity, etc.
+                Not sure what the right metric would be.
+
+            \item We can also evaluate via a user study, but that will take a long(er) time.
+        \end{itemize}
+
+    \item \reed{Optimizations?}
+
+        \begin{itemize}
+            \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
+        \end{itemize}
+\end{itemize}
+
+
+\subsection{Language Intro}
+
+The basic state-changing in the language is a \emph{flow}.
+This means that it is impossible to lose resources (if done properly, at least).
+
+Note that all flows fail if they can't be performed.
+For example, a flow of fungible resources fails if there aren't enough resources, and a flow of a nonfungible resource fails if it doesn't exist in the source location.
+
+\section{More examples}
+
+\subsection{The DAO attack}
+We can prevent the DAO attack (the below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}):
+\begin{lstlisting}
+function withdrawBalance() public {
+    uint amountToWithdraw = userBalances[msg.sender];
+    // At this point, the caller's code is executed, and can call withdrawBalance again
+    require(msg.sender.call.value(amountToWithdraw)(""));
+    userBalances[msg.sender] = 0;
+}
+\end{lstlisting}
+
+In \langName, we would write this as:
+
+\begin{lstlisting}
+transaction withdrawBalance():
+    flow everything from userBalances[msg.sender] to msg.sender.balance
+\end{lstlisting}
+
+Not only is this simpler, but the compiler can automatically place the actual call that does the transfer last, meaning that the mistake could simply never be made.
+
+\subsection{approveAndCall}
+
+Many token contracts include the concept of \lstinline{approveAndCall}, typically similarly to the following (taken from: \lstinline{0x174bfa6600bf90c885c7c01c7031389ed1461ab9}, one of the most popular contracts on the blockchain by transaction count):
+\begin{lstlisting}
+function approveAndCall(address _spender, uint256 _value, bytes memory _extraData) public returns (bool success) {
+    tokenRecipient spender = tokenRecipient(_spender);
+    if (approve(_spender, _value)) {
+        spender.receiveApproval(msg.sender, _value, address(this), _extraData);
+        return true;
+    }
+}
+\end{lstlisting}
+
+In \langName, we can do the same thing by associating a call with a flow.
+\begin{lstlisting}
+transaction approveAndCall(_spender : address, _value : uint256, _extraData : bytes):
+    consume everything from allowance[msg.sender, _spender]
+    flow _value from approvalSource to allowance[msg.sender, _spender],
+        then call receiveApproval(msg.sender, _value, address(this), _extraData)
+\end{lstlisting}
+
+\section{Formalization}
+
+\subsection{Syntax}
+\begin{figure}[ht]
+\begin{align*}
+    C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
+    I &\in \textsc{InterfaceNames} & S &\in \textsc{StateNames}\\
+    D &\in \textsc{ContractNames} \cup \textsc{InterfaceNames} & p &\in \Q \\
+    E &\in \textsc{EventNames} & f &\in \textsc{FieldNames} \\
+    x &\in \textsc{IdentifierNames} & \mathcal{R} &\in \textsc{ResourceNames} \\
+\end{align*}
+\caption{Abstract syntax of \langName.}
+\label{lang-syntax}
+\end{figure}
+
+\begin{definition}
+    A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
+    \begin{enumerate}[label=(\roman*)]
+        \item $(R, +, 0)$ is a commutative monoid.
+        \item $(R, \leq)$ is a partial order that is compatible with $(R, +, 0)$.
+            That is, for any $x, y \in R$ such that $x \leq y$, and for any $z \in R$, we have $x + z \leq y + z$.
+        \item $- : R \times R \to R$ is a function so that for any $x,y \in R$ such that $y \leq x$, we have $(x - y) + y = x$.
+    \end{enumerate}
+\end{definition}
+
+\paragraph{Examples}
+
+\begin{enumerate}
+    \item The natural numbers with the standard operations is a resource $(\N, +, 0, \leq, -)$, where $-$ is \emph{saturating subtraction}: $n - m = 0$ if $m > n$.
+    \item For any set $A$, we can build the resource $(\powerset{A}, \cup, \emptyset, \subseteq, \setminus)$, where $X \setminus Y$ is the set difference operation.
+    \item Similarly, given any set $A$, we can build the resource $(\powersetfin{A}, \cup, \emptyset, \subseteq, \setminus)$; this resource is called the \emph{nonfungible resource on $A$}, written $\text{nf}(A)$.
+\end{enumerate}
+
+\section{Examples}
+\paragraph{Basic transfer} ERC-20 transfers.
+\eq{
+    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{amount}): \\
+    \mathcal{A}[\texttt{from}] \xrightarrow{\texttt{amount}} \mathcal{A}[\texttt{to}]
+}
+
+\paragraph{NFT transfer}
+For example, ERC-721 token transfers.
+
+\eq{
+    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{id}): \\
+    \mathcal{A}[\texttt{from}] \xrightarrow{\texttt{id}} \mathcal{A}[\texttt{to}]
+}
+
+\paragraph{Transfer with fees}
+This is fairly common: for example, the contract with the most transactions does this, as do many gambling/auction contracts.
+\eq{
+    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{amount}):
+}
+\begin{tikzcd}
+    & & \mathcal{A}[\texttt{owner}] \\
+    \mathcal{A}[\texttt{from}] \arrow{r}{\texttt{amount}} & \arrow{ur}{\texttt{fee} \%} \arrow[rightsquigarrow]{dr}{} & \\
+    & & \mathcal{A}[\texttt{to}] \\
+\end{tikzcd}
+\reed{Unclear that the percent thing is actually the best idea, but we should have some way of ensuring that splitting doesn't forget anything (and doesn't create anything!)}
+\reed{Not really happy with this syntax.
+I think the diagram is clear in what it does, but the actual concrete syntax is not.}
+
+\paragraph{Transfer with guards}
+For example, when minting.
+\eq{
+    \texttt{mint}(\texttt{to}, \texttt{amount}): \\
+    \mathcal{S}
+    \xrightarrow{\texttt{amount}}
+    \underbrace{\guard}_{\texttt{sender} = \texttt{owner}}
+    \mathcal{A}[\texttt{to}]
+}
+
+\paragraph{Transfer to Timelock}
+\eq{
+    \texttt{timeLock}(\texttt{time}, \texttt{from}, \texttt{beneficiary}, \texttt{amount}): \\
+    \mathcal{A}[\texttt{from}]
+    \xrightarrow{\texttt{amount}}
+    \newc ~ T(\texttt{time}, \texttt{beneficiary})
+    \rightarrowtail \this
+}
+\begin{lstlisting}
+timeLock(time, from, beneficiary, amount):
+    flow amount from account[from] to new T(time, beneficiary) held by this
+\end{lstlisting}
+
+\eq{
+    \texttt{claim}(): & \\
+    T(\texttt{time}, \texttt{beneficiary}) &
+    \rightsquigarrow
+    \underbrace{\guard}_{\texttt{sender} = \texttt{beneficiary} ~\texttt{and}~ \texttt{now} > \texttt{time}}
+    \mathcal{A}[\texttt{beneficiary}] \\
+}
+\begin{lstlisting}
+claim():
+    only when sender = beneficiary and now > time then
+    merge T(time, beneficiary) into account[beneficiary]
+\end{lstlisting}
+
+\paragraph{Nonfungible resources} a la ERC-721, but also useful for other things, like accounts.
+Saying that something \lstinline{stores account} here means that it stores a set of accounts, because accounts are a nonfungible resource.
+\reed{Not sure I like this or if it will be too confusing, but will have to look into this more with more examples and such}
+\begin{lstlisting}
+resource account := nonfungible address
+source accountSource of account
+
+contract FreezeAccounts {
+    storage {
+        normal stores account
+        frozen stores account
+    }
+
+    createAccount(addr: address):
+        flow addr from accountSource to normal
+
+    freezeAccount(addr: address):
+        flow addr from normal to frozen
+}
+\end{lstlisting}
+\reed{I don't think I really like this for managing states.
+Will need to work on this more.}
+
+\paragraph{RefundVault}
+This is a real example from \lstinline{0xa15c7ebe1f07caf6bff097d8a589fb8ac49ae5b3.sol}.
+
+\begin{lstlisting}
+// This should probably be part of the standard library, and not allow the use of "total"
+resource ether := fungible nat
+resource contract := nonfungible address
+
+source addressSource of address
+source initialize of address provides 1
+
+contract RefundVault {
+    storage {
+        active stores contract
+        refunding stores contract
+        closed stores contract
+
+        deposited stores ether by address
+
+        wallet stores address
+        owner stores address
+    }
+
+    on create(wallet_addr) uses sender:
+        merge sender into owner
+        flow this from initialize to active
+        flow wallet_addr from addressSource to wallet
+
+    deposit(investor) has value:
+        merge value into deposited[investor]
+
+    close() uses sender:
+        only when sender in owner then
+            flow this from active to closed,
+            and
+            merge all in deposited into wallet // Will we be able to optimize this somehow?
+
+    enableRefunds() uses sender:
+        only when sender in owner then
+            flow this from active to refunding
+
+    refund(investor):
+        only when this in refunding then
+            merge deposited[investor] into investor
+}
+\end{lstlisting}
+
+\end{document}
+
