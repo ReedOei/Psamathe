@@ -19,12 +19,12 @@ syntax keyword conditional if else only when then be such that where
 
 syntax keyword distrSpecifiers everything
 
-syntax match operator '[&\|!=+\-*/>@<:%]\+'
+syntax match operator '[~&\|!=+\-*/>@<:%]\+'
 syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not
 
-syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let consume consumable call is return total many held each owner key
+syntax keyword specialKeywords into swap with flow constant from to merge hold provides for of fungible nonfungible identified by stores emit let consume consumable call is return total many held each owner key type via
 syntax keyword specialVars msg this one some any
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
@@ -39,7 +39,7 @@ syntax keyword constWords true false
 syntax region string start='"' end='"' skip='\\"'
 syntax region string start='\'' end='\'' skip='\\\''
 
-syntax keyword type nat int bool bytes address string ether uint256
+syntax keyword type nat int bool bytes address string ether uint256 set
 
 syntax keyword contract contract state storage source sink pool interface
 syntax keyword contractModifiers main asset

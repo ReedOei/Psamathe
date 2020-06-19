@@ -13,6 +13,7 @@ contract LunchVote {
         name stores string [unique]
         voters stores many Voter
     }
+    source lunchSource of Lunch
 
     quorum stores nat
     voteAcceptedCount stores nat
@@ -72,7 +73,7 @@ contract LunchVote {
             // This is appealingly declarative, at least to me; though it does complicate the language by these "selectors" in flows.
             // Could imagine a having a query optimizer here too, in the "enterprise edition"
             flow one lunch such that lunch.name = voterChoice
-            from lunchVotes to new storage LunchChoice stores Lunch
+                from lunchVotes to new storage lunchChoice stores Lunch
 
             // Another version of the above, that doesn't require creating custom syntax beyond set comprehensions,
             //  which I already hope to include
@@ -92,7 +93,7 @@ contract LunchVote {
             // It's probably possible to detect that we flow LunchChoice out of lunchVotes and then give it back immediately in
             // So then we can optimize and mutate it in place in the compiled code.
             // NOTE: We used `held by` here because LunchChoice is a "scalar" Lunch, but lunchVotes is a collection of Lunch
-            LunchChoice held by lunchVotes
+            lunchChoice held by lunchVotes
 
             return "Vote accepted."
 

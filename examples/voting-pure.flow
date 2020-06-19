@@ -1,0 +1,165 @@
+// Based on: https://github.com/WayneJz/COMP6452-19T1/blob/master/Assignment_1/contracts/message.sol
+
+contract LunchVote {
+    // These are "consumable" because we can self-destruct, and consume all of these resources.
+    // That's fine, because these resources don't have any meaning outside of the contract, so there's no need to preserve them.
+    type Voter is nonfungible consumable asset address
+    source voterSource of Voter
+
+    type LunchName is nonfungible consumable asset string
+    source lunchNameSource of LunchName
+
+    private quorum : nat
+    private voteAcceptedCount : nat
+    private maxVote : nat
+
+    private voteAcceptable : bool
+
+    private contractCreator : address
+
+    // A linking is like a mapping, but is bidirectional in the sense that you can query which key maps to a given value
+    //  So you can do something like lunchChoices.linkedTo(voter), which will return which key is linked to SET containing voter.
+    //  This is a useful operation, because you don't need a separate mapping keeping track of the same information,
+    //  which would require several operations to make a single change; this is what the reference implementation of ERC-721
+    //  does, which I believe introduces more potential for errors.
+    // Unsure about the name "linking", but I think it's decent because it's similar to mapping, but not the same, so
+    //  developers will not assume that it works the same.
+    // My other concern about it is that the construct has different semantics if it contains a set vs. a different type.
+    //  This can be resolved in the following ways:
+    //  1. Treat linkings holding nonfungible assets differently from those holding fungible assets.
+    //    Pros:
+    //    - Works with built-in constructs
+    //    - Corresponds to the most likely use cases: usually have a "balance" of nonfungible assets associated to some identifier.
+    //    Cons:
+    //    - You can't tell how the linking will function without looking somewhere else to see how a given type is defined.
+    //  2. Add first-class functions, so we can write lunchChoices.linkedTo(\x -> voter in x)
+    //    Pros:
+    //    - Consistency
+    //    - First-class functions are relatively common and understand (I think? Javascript has them, at least, and lots of people use JS)
+    //    Cons:
+    //    - Complicates the language
+    //    - Worse performance:
+    //      - If we special case this, we could generate two mappings:
+    //         mapping (LunchName => Voter[])
+    //         mapping (Voter => LunchName)
+    //      - And update them in parallel, giving us fast lookups in both directions.
+    //      - But for arbitrary functions, we would have to loop through every key and every voter.
+    //  3. Have two linking types: "linking" and "set linking" (name to be improved).
+    //    Pros:
+    //    - Clearly the two types will behave differently, because they have different names.
+    //    Cons:
+    //    - Naming issues:
+    //      - "set linking" sounds weird, and doesn't immediately suggest the intended semantics.
+    //      - We could have "mapping", which works like in Solidity, and call a "set linking" simply a "linking"
+    //          - This is good because "mapping" will work exactly like in Solidity, so developers won't have to learn anything new.
+    //          - But "linking" doesn't suggest that the values are an entire SET of values.
+    //          - For that matter, neither does "set linking", as discussed above.
+    //              - But at least it's weird enough that people will probably think twice before blindly using it...
+    // For the moment, I've gone with option 3, because it seems like the only issue is with naming.
+    private lunchChoices : set linking LunchName with Voter
+
+    // Alternate syntax options:
+    private lunchChoices : set linking LunchName to Voter
+    private lunchChoices : linking LunchName (set Voter)
+    private lunchChoices : linking[LunchName, set Voter]
+    // An symbol-version, emphasize the bidirectionality of the structure.
+    // Use <-|-> isntead of <-> or <--> to signal there's no connection between this and the flow operators, introduced below.
+    private lunchChoices : LunchName <-|-> set Voter
+
+    private authorizedVoters : set Voter
+
+    on create(quorumSet : nat):
+        // Using "pure" flows
+        flow true from boolSource to voteAcceptable
+        flow everything from quorumSet to quorum
+        flow msg.sender from voterSource to authorizedVoters
+        flow everything from msg.sender to contractCreator
+
+        // Operator version, now the selector goes in the middle---it's an edge label.
+        // The follow 'modes' of flow can be used:
+        // --> means "flow" (default operation, standard way of writing arrows)
+        // ~~> means "merge" (similar to flow, so written similarly)
+        // #-> means "hold" (not sure what to use for this one)
+        // Currently no "consume" arrow, because it works differently than all the other operations: there's no destination.
+        boolSource --> true --> voteAcceptable
+        quorumSet --> everything --> quorum
+        voterSource --> msg.sender --> authorizedVoters
+        msg.sender --> everything --> contractCreator
+
+        // Another version, but where X -> Y is an abbreviation for X -> everything -> Y
+        boolSource --> true --> voteAcceptable
+        quorumSet --> quorum
+        voterSource --> msg.sender --> authorizedVoters
+        msg.sender --> contractCreator
+
+    transaction choiceCreator(lunchChoicesAdd : set string):
+        only when contractCreator = msg.sender then
+            // TODO: Also unsure here, should we even have loops. It seems sort of against the design principles.
+            for each choice in lunchChoicesAdd:
+                var name : LunchName
+                lunchNameSource --> choice --> name
+
+                hold (link name with {}) in lunchChoices
+                // Operator version
+                (link name with {}) #-> lunchChoices
+
+    transaction authorizeVoter(newVoterAddress : address):
+        only when contractCreator = msg.sender then
+            // Because these addresses are nonfungible resources, we can't create them twice:
+            // sending a nonfungible resource twice is an error that will be caught in a precondition,
+            // just like sending more of a fungible token than you have in your account
+            // This means we don't need to explicitly check if newVoterAddress is in authorizedVoters already
+            flow newVoterAddress from voterSource to authorizedVoters
+            // Operator version
+            voterSource --> newVoterAddress --> authorizedVoters
+
+    view getChoices() of set string := { vote.name | vote in lunchVotes }
+
+    view getResult() of (string, set (string, nat)) :=
+        if not voteAcceptable then
+            return ("Voting still in progress! You can only use 'getChoices' function.", {})
+        else
+            let winners : set (string, nat) :=
+                { (lunch.name, total lunch.votes) | lunch in lunchVotes, total lunch.votes = maxVote }
+
+            if total result > 1 then
+                return ("The lunch vote has multiple tie winners:", winners)
+            else
+                return ("The winner is:", winners)
+
+    transaction vote(voterChoice : string) returns string:
+        only when voteAcceptable then
+            flow msg.sender from authorizedVoters to lunchChoices[voterChoice]
+            // Operator version
+            authorizedVoters --> msg.sender --> lunchChoices[voterChoice]
+
+            maxVote := max(maxVote, total LunchChoice.votes)
+            voteAcceptable := (total Voter - ) >= quorum
+
+            // It's probably possible to detect that we flow LunchChoice out of lunchVotes and then give it back immediately in
+            // So then we can optimize and mutate it in place in the compiled code.
+            // NOTE: We used `held by` here because LunchChoice is a "scalar" Lunch, but lunchVotes is a collection of Lunch
+            hold lunchChoice in lunchVotes
+            // Operator version
+            lunchChoice #-> lunchVotes
+
+            return "Vote accepted."
+
+    // TODO: Finish this
+    transaction deconstructor():
+        only when msg.sender = contractCreator then
+            // Sends all ether from this contract to msg.sender
+            // TODO: Somewhat strange, because it "destroys" a field of this object...
+            //          If we had states, this wouldn't be so bad.
+            // Alternatively, merge doesn't destroy the sender, just sends everything
+            // In that case, we don't even need merge, we can just "flow everything"
+            // But this causes another potential issue:
+            merge this.balance into msg.sender.balance
+            // Operator version:
+            this.balance ~~> msg.sender.balance
+
+            // Consume all resources, include ourselves (a self-destruct).
+            // In addition to self-destructing, this ensures that only consumable resources are held by this contract.
+            consume this
+}
+
