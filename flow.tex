@@ -102,15 +102,82 @@ We make the following main contributions:
 \end{itemize}
 
 
-\subsection{Language Intro}
+\section{Language Intro}
 
-The basic state-changing in the language is a \emph{flow}.
-This means that it is impossible to lose resources (if done properly, at least).
+The basic state-changing construct in the language is a \emph{flow}.
+A flow describes a transfer of a \emph{resource} from one \emph{storage} to another.
+A \emph{transaction} is a sequence of flows. \reed{sort of...except for when we use for loops. It's still a set, but it can change based on the inputs/current state.}
+
+A flow can have one of four \emph{modes}:
+\begin{enumerate}
+    \item send
+    \item merge
+    \item hold
+    \item consume
+\end{enumerate}
+
+Each flow also has a \emph{source}, a \emph{destination}, and a \emph{selector}.
+The source and destination are two storages which hold a resource, and the selector describes which part of the resource in the source should be transferred to the destination.
 
 Note that all flows fail if they can't be performed.
-For example, a flow of fungible resources fails if there aren't enough resources, and a flow of a nonfungible resource fails if it doesn't exist in the source location.
+For example, a flow of fungible resources fails if there is enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
 
-\section{More examples}
+\section{Examples}
+\paragraph{Basic transfer} ERC-20 transfers.
+\eq{
+    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{amount}): \\
+    \mathcal{A}[\texttt{from}] \xrightarrow{\texttt{amount}} \mathcal{A}[\texttt{to}]
+}
+
+\paragraph{NFT transfer}
+For example, ERC-721 token transfers.
+
+\eq{
+    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{id}): \\
+    \mathcal{A}[\texttt{from}] \xrightarrow{\texttt{id}} \mathcal{A}[\texttt{to}]
+}
+
+\paragraph{Transfer with fees}
+This is fairly common: for example, the contract with the most transactions does this, as do many gambling/auction contracts.
+\eq{
+    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{amount}):
+}
+\begin{tikzcd}
+    & & \mathcal{A}[\texttt{owner}] \\
+    \mathcal{A}[\texttt{from}] \arrow{r}{\texttt{amount}} & \arrow{ur}{\texttt{fee} \%} \arrow[rightsquigarrow]{dr}{} & \\
+    & & \mathcal{A}[\texttt{to}] \\
+\end{tikzcd}
+
+\paragraph{Transfer with guards}
+For example, when minting.
+\eq{
+    \texttt{mint}(\texttt{to}, \texttt{amount}): \\
+    \underbrace{\guard}_{\texttt{sender} = \texttt{owner}}
+    \mathcal{S}
+    \xrightarrow{\texttt{amount}}
+    \mathcal{A}[\texttt{to}]
+}
+
+\paragraph{Transfer to Timelock}
+\[
+    \texttt{timeLock}(\texttt{time}, \texttt{from}, \texttt{beneficiary}, \texttt{amount}):
+\]
+\[
+    \mathcal{A}[\texttt{from}]
+    \xrightarrow{\texttt{amount}}
+    \newc ~ \texttt{Lock}(\texttt{time}, \texttt{beneficiary})
+    \rightarrowtail \texttt{locks}
+\]
+
+\[
+    \texttt{claim}():
+\]
+\[
+    \underbrace{\guard}_{\texttt{sender} = \texttt{beneficiary} ~\texttt{and}~ \texttt{now} > \texttt{time}}
+    T(\texttt{time}, \texttt{beneficiary})
+    \rightsquigarrow
+    \mathcal{A}[\texttt{beneficiary}] \\
+\]
 
 \subsection{The DAO attack}
 We can prevent the DAO attack (the below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}):
@@ -153,105 +220,7 @@ transaction approveAndCall(_spender : address, _value : uint256, _extraData : by
         then call receiveApproval(msg.sender, _value, address(this), _extraData)
 \end{lstlisting}
 
-\section{Formalization}
-
-\subsection{Syntax}
-\begin{figure}[ht]
-\begin{align*}
-    C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
-    I &\in \textsc{InterfaceNames} & S &\in \textsc{StateNames}\\
-    D &\in \textsc{ContractNames} \cup \textsc{InterfaceNames} & p &\in \Q \\
-    E &\in \textsc{EventNames} & f &\in \textsc{FieldNames} \\
-    x &\in \textsc{IdentifierNames} & \mathcal{R} &\in \textsc{ResourceNames} \\
-\end{align*}
-\caption{Abstract syntax of \langName.}
-\label{lang-syntax}
-\end{figure}
-
-\begin{definition}
-    A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
-    \begin{enumerate}[label=(\roman*)]
-        \item $(R, +, 0)$ is a commutative monoid.
-        \item $(R, \leq)$ is a partial order that is compatible with $(R, +, 0)$.
-            That is, for any $x, y \in R$ such that $x \leq y$, and for any $z \in R$, we have $x + z \leq y + z$.
-        \item $- : R \times R \to R$ is a function so that for any $x,y \in R$ such that $y \leq x$, we have $(x - y) + y = x$.
-    \end{enumerate}
-\end{definition}
-
-\paragraph{Examples}
-
-\begin{enumerate}
-    \item The natural numbers with the standard operations is a resource $(\N, +, 0, \leq, -)$, where $-$ is \emph{saturating subtraction}: $n - m = 0$ if $m > n$.
-    \item For any set $A$, we can build the resource $(\powerset{A}, \cup, \emptyset, \subseteq, \setminus)$, where $X \setminus Y$ is the set difference operation.
-    \item Similarly, given any set $A$, we can build the resource $(\powersetfin{A}, \cup, \emptyset, \subseteq, \setminus)$; this resource is called the \emph{nonfungible resource on $A$}, written $\text{nf}(A)$.
-\end{enumerate}
-
-\section{Examples}
-\paragraph{Basic transfer} ERC-20 transfers.
-\eq{
-    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{amount}): \\
-    \mathcal{A}[\texttt{from}] \xrightarrow{\texttt{amount}} \mathcal{A}[\texttt{to}]
-}
-
-\paragraph{NFT transfer}
-For example, ERC-721 token transfers.
-
-\eq{
-    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{id}): \\
-    \mathcal{A}[\texttt{from}] \xrightarrow{\texttt{id}} \mathcal{A}[\texttt{to}]
-}
-
-\paragraph{Transfer with fees}
-This is fairly common: for example, the contract with the most transactions does this, as do many gambling/auction contracts.
-\eq{
-    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{amount}):
-}
-\begin{tikzcd}
-    & & \mathcal{A}[\texttt{owner}] \\
-    \mathcal{A}[\texttt{from}] \arrow{r}{\texttt{amount}} & \arrow{ur}{\texttt{fee} \%} \arrow[rightsquigarrow]{dr}{} & \\
-    & & \mathcal{A}[\texttt{to}] \\
-\end{tikzcd}
-\reed{Unclear that the percent thing is actually the best idea, but we should have some way of ensuring that splitting doesn't forget anything (and doesn't create anything!)}
-\reed{Not really happy with this syntax.
-I think the diagram is clear in what it does, but the actual concrete syntax is not.}
-
-\paragraph{Transfer with guards}
-For example, when minting.
-\eq{
-    \texttt{mint}(\texttt{to}, \texttt{amount}): \\
-    \mathcal{S}
-    \xrightarrow{\texttt{amount}}
-    \underbrace{\guard}_{\texttt{sender} = \texttt{owner}}
-    \mathcal{A}[\texttt{to}]
-}
-
-\paragraph{Transfer to Timelock}
-\eq{
-    \texttt{timeLock}(\texttt{time}, \texttt{from}, \texttt{beneficiary}, \texttt{amount}): \\
-    \mathcal{A}[\texttt{from}]
-    \xrightarrow{\texttt{amount}}
-    \newc ~ T(\texttt{time}, \texttt{beneficiary})
-    \rightarrowtail \this
-}
-\begin{lstlisting}
-timeLock(time, from, beneficiary, amount):
-    flow amount from account[from] to new T(time, beneficiary) held by this
-\end{lstlisting}
-
-\eq{
-    \texttt{claim}(): & \\
-    T(\texttt{time}, \texttt{beneficiary}) &
-    \rightsquigarrow
-    \underbrace{\guard}_{\texttt{sender} = \texttt{beneficiary} ~\texttt{and}~ \texttt{now} > \texttt{time}}
-    \mathcal{A}[\texttt{beneficiary}] \\
-}
-\begin{lstlisting}
-claim():
-    only when sender = beneficiary and now > time then
-    merge T(time, beneficiary) into account[beneficiary]
-\end{lstlisting}
-
-\paragraph{Nonfungible resources} a la ERC-721, but also useful for other things, like accounts.
+\paragraph{Nonfungible resources} \`a la ERC-721, but also useful for other things, like accounts.
 Saying that something \lstinline{stores account} here means that it stores a set of accounts, because accounts are a nonfungible resource.
 \reed{Not sure I like this or if it will be too confusing, but will have to look into this more with more examples and such}
 \begin{lstlisting}
@@ -320,6 +289,43 @@ contract RefundVault {
             merge deposited[investor] into investor
 }
 \end{lstlisting}
+
+\section{Formalization}
+
+\subsection{Syntax}
+\begin{figure}[ht]
+\begin{align*}
+    C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
+    I &\in \textsc{InterfaceNames} & S &\in \textsc{StateNames}\\
+    D &\in \textsc{ContractNames} \cup \textsc{InterfaceNames} & p &\in \Q \\
+    E &\in \textsc{EventNames} & f &\in \textsc{FieldNames} \\
+    x &\in \textsc{IdentifierNames} & \mathcal{R} &\in \textsc{ResourceNames} \\
+\end{align*}
+\caption{Abstract syntax of \langName.}
+\label{lang-syntax}
+\end{figure}
+
+\reed{Transactions are ``flow graphs'', which perform atomic state updates}
+\reed{Asset retentiont theorem?}
+
+\begin{definition}
+    A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
+    \begin{enumerate}[label=(\roman*)]
+        \item $(R, +, 0)$ is a commutative monoid.
+        \item $(R, \leq)$ is a partial order that is compatible with $(R, +, 0)$.
+            That is, for any $x, y \in R$ such that $x \leq y$, and for any $z \in R$, we have $x + z \leq y + z$.
+        \item $- : R \times R \to R$ is a function so that for any $x,y \in R$ such that $y \leq x$, we have $(x - y) + y = x$.
+    \end{enumerate}
+    The elements of a resource are called \emph{resource values}.
+\end{definition}
+
+\paragraph{Examples}
+
+\begin{enumerate}
+    \item The natural numbers with the standard operations is a resource $(\N, +, 0, \leq, -)$, where $-$ is \emph{saturating subtraction}: $n - m = 0$ if $m > n$.
+    \item For any set $A$, we can build the resource $(\powerset{A}, \cup, \emptyset, \subseteq, \setminus)$, where $X \setminus Y$ is the set difference operation.
+    \item Similarly, given any set $A$, we can build the resource $(\powersetfin{A}, \cup, \emptyset, \subseteq, \setminus)$; this resource is called the \emph{nonfungible resource on $A$}, written $\text{nf}(A)$.
+\end{enumerate}
 
 \end{document}
 

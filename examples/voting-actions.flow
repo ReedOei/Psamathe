@@ -1,0 +1,59 @@
+// Based on: https://github.com/WayneJz/COMP6452-19T1/blob/master/Assignment_1/contracts/message.sol
+
+// Removed most code, keeping the parts that are directly related to the "action" concept.
+contract LunchVote {
+    // These are "consumable" because we can self-destruct, and consume all of these resources.
+    // That's fine, because these resources don't have any meaning outside of the contract, so there's no need to preserve them.
+    type Voter is nonfungible consumable asset address
+    source voterSource of Voter
+
+    contractCreator : address
+
+    authorizedVoters : set Voter
+
+    event AuthorizedVoter(addr : address)
+
+    on create():
+        voterSource --- msg.sender --> authorizedVoters
+        msg.sender ~~> contractCreator
+
+    transaction authorizeVoter(newVoterAddress : address):
+        only when contractCreator = msg.sender then
+            // The basic version, which fails if the newVoterAddress has already been taken out of voterSource
+            voterSource --- newVoterAddress --> authorizedVoters
+
+            // Error Handling (Version 1): We name this flow "F" so we can refer to it later.
+            // This version lets us attach multiple "actions" to F, which all depend on the outcome of F
+            // Other actions can only occur at the end of the
+            F: voterSource --- newVoterAddress --> authorizedVoters
+
+            // Attach an "action" that occurs when the "trigger" activates.
+            // Triggers, and so also actions, only occur at the end of the transaction, providing protection from reentrancy
+            //   in the way that Scilla does. The notable difference is that we allow checking the return value of contracts.
+
+            // Here, Err may contain more specific failure information, such as an error message
+            action on fail F with Err: revert("This address is already authorized! Do not re-authorize it.")
+
+            // Events can also be handled via the action mechanism. Probably not really necessary; there shouldn't be
+            //  any issues with having emit just look like it does in Solidity, but it does unify everything as an action.
+            //  It also let's us easy trigger certain events "on fail"
+            action on success emit AuthorizedVoter(newVoterAddress)
+
+            // This action isn't necessary for this transaction, but is the original motivation for this mechanism.
+            // This type of external call is **required** by ERC-721, and also a couple other Ethereum standards and common patterns.
+            // Obviously there's other kinds of external calls, but in my experience, this is sufficient for most contracts.
+            action on success F call newVoterAddress.receiveAuthorization()
+                                returning resultCode such that resultCode = "SUCCESS"
+            // The syntax for the above could omit the word "action" and only write the trigger.
+
+            // Error Handling (Version 2): A "standard" try-catch
+            // This looks familiar, which is good.
+            // But "actions" provides a unified method for error handling, events, and external calls
+            try {
+                voterSource --- newVoterAddress --> authorizedVoters
+                emit AuthorizedVoter(newVoterAddress)
+            } catch (Err) {
+                revert("This address is already authorized! Do not re-authorize it.")
+            }
+}
+

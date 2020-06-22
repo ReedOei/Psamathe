@@ -4,8 +4,6 @@
 - If we flow a non-asset into a storage that already holds it, is that an error or is it okay?
 - If we try to consume a non-asset that doesn't exist, is that an error or is it okay?
 
-- Semantics are most consistent if everything is treated like an asset...but would probably be annoying to work with.
-
 - Should we have require() or `only when`.
     - I like `only when`, but it is harder to provide error messages, so maybe require is the way to go.
 
@@ -18,10 +16,7 @@
     - If we use checking to see if a key is in a mapping, then we create a separate mapping (X => bool) to store this info, otherwise we don't.
         - Of course, depends exactly how we compile, if we ever get around to actually implementing the langauge.
 
-- Can assets be keys of a mapping?
-    - Probably shouldn't be allowed, because of the nature of maps makes this somewhat confusing.
-
-- Also, how exactly does this whole subtyping/value promotion thing work?
+- Also, how exactly does this whole subtyping/value demotion thing work?
     - For example, I can write (atm, anyway), `_tokenId in balances[addr]`, where
         balances stores many token by addr
 
@@ -29,17 +24,7 @@
 
         _tokenId : nat
 
-- What exactly is the difference between `x : t` and `x stores t`?
-    - Could be the same thing, in which case we should probably just choose one syntax.
-    - Alternatively, we could have two kinds of variables:
-        - "regular" values, x : t, which have no special semantics
-        - and "asset" values, x stores t, which use the flow semantics
-        - Kind of annoying to have two kinds.
-
 - We should allow string equality tests, and just do the keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b)) thing under the hood.
-
-- How to deal with return values? Probably fine to just have a return
-    - But also all transactions should default to returning true when they succeed and false when they fail? Or not?
 
 - How to represent states
     - Not really happy with the standard solidity way of doing states
