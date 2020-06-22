@@ -31,80 +31,26 @@ contract NFToken is ERC721, SupportsInterface {
   approval stores many tokenApproval by address
   ownerToOperators stores many address by address
 
-  /**
-   * @dev Emits when ownership of any NFT changes by any mechanism. This event emits when NFTs are
-   * created (`from` == 0) and destroyed (`to` == 0). Exception: during contract creation, any
-   * number of NFTs may be created and assigned without emitting Transfer. At the time of any
-   * transfer, the approved address for that NFT (if any) is reset to none.
-   * @param _from Sender of NFT (if address is zero address it indicates token creation).
-   * @param _to Receiver of NFT (if address is zero address it indicates token destruction).
-   * @param _tokenId The NFT that got transfered.
-   */
-  event Transfer(_from : address, _to : address, _tokenId : nat);
+  event Transfer(_from : address, _to : address, _tokenId : nat)
+  event Approval(_owner : address, _approved : address, _tokenId : nat)
+  event ApprovalForAll(_owner : address, _operator : address, _approved : bool)
 
-  /**
-   * @dev This emits when the approved address for an NFT is changed or reaffirmed. The zero
-   * address indicates there is no approved address. When a Transfer event emits, this also
-   * indicates that the approved address for that NFT (if any) is reset to none.
-   * @param _owner Owner of NFT.
-   * @param _approved Address that we are approving.
-   * @param _tokenId NFT which we are approving.
-   */
-  event Approval(_owner : address, _approved : address, _tokenId : nat);
-
-  /**
-   * @dev This emits when an operator is enabled or disabled for an owner. The operator can manage
-   * all NFTs of the owner.
-   * @param _owner Owner of NFT.
-   * @param _operator Address to which we are setting operator rights.
-   * @param _approved Status of operator rights(true if operator rights are given and false if
-   * revoked).
-   */
-  event ApprovalForAll(_owner : address, _operator : address, _approved : bool);
-
-  /**
-   * @dev Guarantees that the msg.sender is an owner or operator of the given NFT.
-   * @param _tokenId ID of the NFT to validate.
-   */
+  //  Checks that the msg.sender is an owner or operator of the given NFT.
   view canOperate(_tokenId : nat) of bool :=
     _tokenId in balances[msg.sender] or msg.sender in ownerToOperators[tokenOwner]
 
-  /**
-   * @dev Guarantees that the msg.sender is allowed to transfer NFT.
-   * @param _tokenId ID of the NFT to transfer.
-   */
+  // Checks that the msg.sender is allowed to transfer NFT.
   view canTransfer(_tokenId : nat) of bool :=
     _tokenId in balances[msg.sender] or
-    msg.sender = owner of _tokenId from approval or
-    // Alternate syntax that's less special-cased: msg.sender = approval.ownerOf(_tokenId) or
     msg.sender in ownerToOperators[owner of _tokenId from balances]
 
-  /**
-   * @dev Guarantees that _tokenId is a valid Token.
-   * @param _tokenId ID of the NFT to validate.
-   */
+  // Checks that _tokenId is a valid Token.
   view validNFToken(_tokenId : nat) of bool := _tokenId not in tokenSource
 
-  /**
-   * @dev Contract constructor.
-   */
   on create():
     supportedInterfaces[0x80ac58cd] := true // ERC721
 
-  /**
-   * @dev Transfers the ownership of an NFT from one address to another address. This function can
-   * be changed to payable.
-   * @notice Throws unless `msg.sender` is the current owner, an authorized operator, or the
-   * approved address for this NFT. Throws if `_from` is not the current owner. Throws if `_to` is
-   * the zero address. Throws if `_tokenId` is not a valid NFT. When transfer is complete, this
-   * function checks if `_to` is a smart contract (code size > 0). If so, it calls
-   * `onERC721Received` on `_to` and throws if the return value is not
-   * `bytes4(keccak256("onERC721Received(address,uint256,bytes)"))`.
-   * @param _from The current owner of the NFT.
-   * @param _to The new owner.
-   * @param _tokenId The NFT to transfer.
-   * @param _data Additional data with no specified format, sent in call to `_to`.
-   */
+  // Transfers the ownership of an NFT from one address to another address. This function can
   transaction safeTransferFrom(_from : address, _to : address, _tokenId : nat, _data : bytes):
     // NOTE: It is interesting to note that the reference implementation (linked above) is actually very inefficient:
     //          - it performs the same safety checks many times over (e.g., requiring the _from address to own the token).
@@ -114,54 +60,27 @@ contract NFToken is ERC721, SupportsInterface {
             flow _tokenId from approval[owner of _tokenId from approval] to tokenApprovalPool
 
         flow _tokenId from balances[_from] to balances[_to]
-            then emit Transfer(from, _to, _tokenId)
-            // Could do:
-            // then finally emit Transfer(from, _to, _tokenId)
-            // To emphasize that these events and calls only happen at the very end of the transaction.
-            then if isContract(_to) then
-                    call ERC721TokenReceiver(_to).onERC721Received(msg.sender, _from, _tokenId, _data)
-                    returning retval such that retval = MAGIC_ON_ERC721_RECEIVED
 
-  /**
-   * @dev Transfers the ownership of an NFT from one address to another address. This function can
-   * be changed to payable.
-   * @notice This works identically to the other function with an extra data parameter, except this
-   * function just sets data to ""
-   * @param _from The current owner of the NFT.
-   * @param _to The new owner.
-   * @param _tokenId The NFT to transfer.
-   */
-   // NOTE: This transaction is basically identical to the previous transaction; maybe we should allow simple overloading or default arguments.
-   // What I'd actually like to do is just say: If you want to pass "" as the data, just call safeTransferFrom() with "" as the data.
-   // Unfortunately, the ERC-721 standard actually explicitly requires that this overloaded version be present...
+        action on success: emit Transfer(from, _to, _tokenId)
+        action on success:
+            if isContract(_to) then
+                call ERC721TokenReceiver(_to).onERC721Received(msg.sender, _from, _tokenId, _data)
+                returning retval such that retval = MAGIC_ON_ERC721_RECEIVED
+
   transaction safeTransferFrom(_from : address, _to : address, _tokenId : nat):
-    safeTransferFrom(_from, _to, _tokenId, "")
+    // This transaction doesn't do anything else, so the "on success" part is a bit superfluous.
+    action on success: call safeTransferFrom(_from, _to, _tokenId, "")
 
-  /**
-   * @dev Throws unless `msg.sender` is the current owner, an authorized operator, or the approved
-   * address for this NFT. Throws if `_from` is not the current owner. Throws if `_to` is the zero
-   * address. Throws if `_tokenId` is not a valid NFT. This function can be changed to payable.
-   * @notice The caller is responsible to confirm that `_to` is capable of receiving NFTs or else
-   * they maybe be permanently lost.
-   * @param _from The current owner of the NFT.
-   * @param _to The new owner.
-   * @param _tokenId The NFT to transfer.
-   */
   transaction transferFrom(_from : address, _to : address, _tokenId : nat):
     only when _to != 0x0 and canTransfer(_tokenId) then
         if _tokenId not in tokenApprovalPool then
             flow _tokenId from approval[owner of _tokenId from approval] to tokenApprovalPool
 
         flow _tokenId from balances[_from] to balances[_to]
-            then emit Transfer(from, _to, _tokenId)
 
-  /**
-   * @dev Set or reaffirm the approved address for an NFT. This function can be changed to payable.
-   * @notice The zero address indicates there is no approved address. Throws unless `msg.sender` is
-   * the current NFT owner, or an authorized operator of the current owner.
-   * @param _approved Address to be approved for the given NFT ID.
-   * @param _tokenId ID of the token to be approved.
-   */
+        action on success: emit Transfer(from, _to, _tokenId)
+
+  // Set or reaffirm the approved address for an NFT.
   transaction approve(_approved : address, _tokenId : nat)
     only when _approved != owner of _tokenId from balances and canOperate(_tokenId) then
         // If it's already been given to someone else, then remove their approval
@@ -169,54 +88,31 @@ contract NFToken is ERC721, SupportsInterface {
             flow _tokenId from approval[owner of _tokenId from approval] to tokenApprovalPool
 
         flow _tokenId from tokenApprovalPool to approval[_approved]
-            then emit Approval(owner of _tokenId from balances, _approved, _tokenId)
 
-  /**
-   * @dev Enables or disables approval for a third party ("operator") to manage all of
-   * `msg.sender`'s assets. It also emits the ApprovalForAll event.
-   * @notice This works even if sender doesn't own any tokens at the time.
-   * @param _operator Address to add to the set of authorized operators.
-   * @param _approved True if the operators is approved, false to revoke approval.
-   */
+        action on success: emit Approval(owner of _tokenId from balances, _approved, _tokenId)
+
+  // Enables or disables approval for a third party ("operator") to manage all of `msg.sender`'s assets.
   transaction setApprovalForAll(_operator : address, _approved : bool):
     if _approved then
         flow _operator from addressSource to ownerToOperators[msg.sender]
-            then emit ApprovalForAll(msg.sender, _operator, _approved)
     else
         // Consume is fine here because address is a primitive type, all of which are consumable.
         consume _operator from ownerToOperators[msg.sender]
-            then emit ApprovalForAll(msg.sender, _operator, _approved)
 
-  /**
-   * @dev Returns the number of NFTs owned by `_owner`. NFTs assigned to the zero address are
-   * considered invalid, and this function throws for queries about the zero address.
-   * @param _owner Address for whom to query the balance.
-   * @return Balance of _owner.
-   */
-  view balanceOf(_owner : address) of nat := total balances[_owner]
+    action on success: emit ApprovalForAll(msg.sender, _operator, _approved)
 
-  /**
-   * @dev Returns the address of the owner of the NFT. NFTs assigned to zero address are considered
-   * invalid, and queries about them do throw.
-   * @param _tokenId The identifier for an NFT.
-   * @return _owner Address of _tokenId owner.
-   */
+  // Returns the number of NFTs owned by `_owner`.
+  view balanceOf(_owner : address) of nat :=
+    only when _owner != 0x0 then
+        total balances[_owner]
+
+  // Returns the address of the owner of the NFT.
   view ownerOf(_tokenId : nat) of address := owner of _tokenId from balances
 
-  /**
-   * @dev Get the approved address for a single NFT.
-   * @notice Throws if `_tokenId` is not a valid NFT.
-   * @param _tokenId ID of the NFT to query the approval of.
-   * @return Address that _tokenId is approved for.
-   */
+  // Get the approved address for a single NFT.
   view getApproved(_tokenId : nat) of address := owner of _tokenId from approval
 
-  /**
-   * @dev Checks if `_operator` is an approved operator for `_owner`.
-   * @param _owner The address that owns the NFTs.
-   * @param _operator The address that acts on behalf of the owner.
-   * @return True if approved for all, false otherwise.
-   */
+  // Checks if `_operator` is an approved operator for `_owner`.
   view isApprovedForAll(_owner : address, _operator : address) of bool := _operator in ownerToOperators[_owner]
 
   /**
@@ -232,7 +128,7 @@ contract NFToken is ERC721, SupportsInterface {
     // Would include something like: only when msg.sender = minterAddr then
     only when _to != 0x0 then
         flow _tokenId from tokenSource to balances[_to]
-            then emit Transfer(0x0, _to, _tokenId)
+        action on success: emit Transfer(0x0, _to, _tokenId)
 
   /**
    * @dev Burns a NFT.
@@ -250,12 +146,14 @@ contract NFToken is ERC721, SupportsInterface {
 
     // We would have to add a tokenPool for this to work
     flow _tokenId from balances[tokenOwner] to tokenPool
-        then emit Transfer(tokenOwner, 0x0, _tokenId)
+
 
     // This is another version, which would also not currently work because tokens aren't consumable.
     // This has slightly different semantics to the above version, because you can re-mint a token that
     // flows to the tokenPool, but you can't remint a token that gets consumed.
     consume _tokenId from balances[tokenOwner]
-        then emit Transfer(tokenOwner, 0x0, _tokenId)
+
+    action on success: emit Transfer(tokenOwner, 0x0, _tokenId)
+    action on success: emit Transfer(tokenOwner, 0x0, _tokenId)
 }
 

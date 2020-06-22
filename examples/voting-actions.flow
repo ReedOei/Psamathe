@@ -1,6 +1,6 @@
 // Based on: https://github.com/WayneJz/COMP6452-19T1/blob/master/Assignment_1/contracts/message.sol
 
-// Removed most code, keeping the parts that are directly related to the "action" concept.
+// Removed most code, keeping only the parts that are directly related to the "action" concept.
 contract LunchVote {
     // These are "consumable" because we can self-destruct, and consume all of these resources.
     // That's fine, because these resources don't have any meaning outside of the contract, so there's no need to preserve them.
@@ -19,17 +19,20 @@ contract LunchVote {
 
     transaction authorizeVoter(newVoterAddress : address):
         only when contractCreator = msg.sender then
-            // The basic version, which fails if the newVoterAddress has already been taken out of voterSource
-            voterSource --- newVoterAddress --> authorizedVoters
-
-            // Error Handling (Version 1): We name this flow "F" so we can refer to it later.
-            // This version lets us attach multiple "actions" to F, which all depend on the outcome of F
-            // Other actions can only occur at the end of the
+            // Actions: We name this flow "F" so we can refer to it later.
+            // This version lets us attach multiple "actions" to F, which depend on the outcome of F
+            // In this case, as there's only one flow in this transaction, there's not actually any need to name it.
             F: voterSource --- newVoterAddress --> authorizedVoters
 
             // Attach an "action" that occurs when the "trigger" activates.
-            // Triggers, and so also actions, only occur at the end of the transaction, providing protection from reentrancy
+            // Triggers only occur at the end of the transaction, providing protection from reentrancy
             //   in the way that Scilla does. The notable difference is that we allow checking the return value of contracts.
+            //   Actions are otherwise processed in lexical order.
+
+            // Syntax is currently:
+            action TRIGGER: ACTION
+            // It could be something like to emphasize that it doesn't happen when it is written.
+            create/setup [action] TRIGGER : ACTION
 
             // Here, Err may contain more specific failure information, such as an error message
             action on fail F with Err: revert("This address is already authorized! Do not re-authorize it.")
@@ -46,14 +49,28 @@ contract LunchVote {
                                 returning resultCode such that resultCode = "SUCCESS"
             // The syntax for the above could omit the word "action" and only write the trigger.
 
-            // Error Handling (Version 2): A "standard" try-catch
-            // This looks familiar, which is good.
-            // But "actions" provides a unified method for error handling, events, and external calls
+            // Complete version below:
+            F: voterSource --- newVoterAddress --> authorizedVoters
+            action on fail F with Err:
+                revert("This address is already authorized! Do not re-authorize it.")
+            action on success F:
+                emit AuthorizedVoter(newVoterAddress)
+                call newVoterAddress.receiveAuthorization()
+                    returning resultCode such that resultCode = "SUCCESS"
+
+            // A more typical looking approach:
+            // Pros:
+            // - Looks "normal"
+            // Cons:
+            // - More opportunity for reentrancy bugs.
+            // - More complicated program structure (a transaction is just a list of actions/flows vs. having every construct that any other language would have)
             try {
                 voterSource --- newVoterAddress --> authorizedVoters
                 emit AuthorizedVoter(newVoterAddress)
             } catch (Err) {
                 revert("This address is already authorized! Do not re-authorize it.")
             }
+            if newVoterAddress.receiveAuthorization() != "SUCCESS" then
+                revert();
 }
 

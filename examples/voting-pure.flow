@@ -48,8 +48,6 @@ contract LunchVote {
     CurrentlyVoting : set address
     VotingFinished : set address
 
-    event AuthorizedVoter(addr : address)
-
     on create(quorumSet : nat):
         // Not sure exactly how to treat constants---are they storages or selectors?
         // Below, they're treated as whichever one would be appropriate, which seems to work.
@@ -69,28 +67,27 @@ contract LunchVote {
         // >-> means "hold" (not sure what to use for this one)
         // No "consume" arrow, because it works differently than all the others: there's no destination.
         true --- everything --> voteAcceptable
-        quorumSet ~~> quorum
+        quorumSet --> quorum
         voterSource --- msg.sender --> authorizedVoters
         msg.sender ~~> contractCreator
         this.address >-> CurrentlyVoting
 
         // Another version, but where X -> Y is an abbreviation for X -> everything -> Y
         true --> voteAcceptable
-        quorumSet ~~> quorum
+        quorumSet --> quorum
         voterSource --- msg.sender --> authorizedVoters
         msg.sender ~~> contractCreator
         this.address >-> CurrentlyVoting
 
         // Yet another alternate version, putting the destination on the LHS, which is more typical for assignment
         voteAcceptable <-- true
-        quorumSet <~~ quorum
+        quorumSet <-- quorum
         authorizedVoters <-- msg.sender --- voterSource
         contractCreator <~~ msg.sender
         CurrentlyVoting <-< this.address
 
     transaction choiceCreator(choicesToAdd : set string):
         only when contractCreator = msg.sender then
-            // TODO: Also unsure here, should we even have loops. It seems sort of against the design principles.
             for each choice in choicesToAdd:
                 var name : LunchName
                 lunchNameSource --- choice --> name
@@ -105,6 +102,12 @@ contract LunchVote {
     transaction authorizeVoter(newVoterAddress : address):
         only when contractCreator = msg.sender then
             voterSource --- newVoterAddress --> authorizedVoters
+
+        // NOTE: If we wanted to be "super pure", we can implement precondition with just flows by doing something like:
+        consume true from { contractCreator = msg.sender }
+        // This works because { contractCreator = msg.sender } : set bool (specifically, a singleton), so
+        //  if `contractCreator = msg.sender` doesn't evaluate to true, then we will fail to consume true from it.
+        // I don't think actually doing this is a good idea (at least, in the surface language. Maybe it would simplify the compiler?), but it's interesting/entertaining.
 
     view getChoices() of set string := { name | (link name with voters) in lunchVotes }
 
@@ -125,10 +128,9 @@ contract LunchVote {
             authorizedVoters --- msg.sender --> lunchChoices[voterChoice]
 
             // This is an awkward way to do assignment, so a "pure flow" language probably isn't a good idea.
-            // TODO: maybe this is the wrong way to write this piece of code in this sort of language?
-            let origValue := maxVote
-            max(maxVote, total lunchChoices[voterChoice]) --> maxVote
-            consume origValue from maxVote
+            // TODO: maybe this is just the wrong way to write this piece of code in this sort of language?
+            if total lunchChoices[voterChoice] > maxVote then
+                (total lunchChoices[voterChoice] - maxVote) --> maxVote
 
             // authorizedVoters stores all the voters who are allowed to vote, but have not yet voted.
             // So total Voter - total authorizedVoters is the number of voters who have voted.
@@ -140,12 +142,12 @@ contract LunchVote {
     transaction deconstructor():
         only when msg.sender = contractCreator then
             // Sends all ether from this contract to msg.sender
-            // TODO: Somewhat strange, because it "destroys" a field of this object...
-            //          If we had states, this wouldn't be so bad.
+            // Additionally, because merge destroys the source, there will be no way to finish this transaction without doing `consume this`
+            // Any "pack" operation would require all fields be consistent, and, in particular, not destroyed.
             this.balance ~~> msg.sender.balance
 
             // Consume all resources, include ourselves (a self-destruct).
-            // In addition to self-destructing, this ensures that only consumable resources are held by this contract.
+            // In addition to self-destructing, this acts as a check that only consumable resources are held by this contract at this point.
             consume this
 }
 

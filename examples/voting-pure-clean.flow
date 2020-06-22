@@ -1,0 +1,73 @@
+// Based on: https://github.com/WayneJz/COMP6452-19T1/blob/master/Assignment_1/contracts/message.sol
+
+contract LunchVote {
+    // These are "consumable" because we can self-destruct, and consume all of these resources.
+    // That's fine, because these resources don't have any meaning outside of the contract, so there's no need to preserve them.
+    type Voter is nonfungible consumable asset address
+    source voterSource of Voter
+
+    type LunchName is nonfungible consumable asset string
+    source lunchNameSource of LunchName
+
+    quorum : nat
+    voteAcceptedCount : nat
+    maxVote : nat
+
+    contractCreator : address
+    lunchChoices : set linking LunchName with Voter
+
+    authorizedVoters : set Voter
+
+    CurrentlyVoting : set address
+    VotingFinished : set address
+
+    on create(quorumSet : nat):
+        true --> voteAcceptable
+        quorumSet --> quorum
+        voterSource --- msg.sender --> authorizedVoters
+        msg.sender --> contractCreator
+        this.address >-> CurrentlyVoting
+
+    transaction choiceCreator(choicesToAdd : set string):
+        only when contractCreator = msg.sender then
+            for each choice in choicesToAdd:
+                var name : LunchName
+                lunchNameSource --- choice --> name
+                (link name with {}) >-> lunchChoices
+
+    transaction authorizeVoter(newVoterAddress : address):
+        only when contractCreator = msg.sender then
+            voterSource --- newVoterAddress --> authorizedVoters
+
+    view getChoices() of set string := { name | (link name with voters) in lunchVotes }
+
+    view getResult() of (string, set (string, nat)) :=
+        if this.address in CurrentlyVoting then
+            return ("Voting still in progress! You can only use 'getChoices' function.", {})
+        else
+            let winners : set (string, nat) :=
+                { (name, total voters) | (link name with voters) in lunchVotes, total voters = maxVote }
+
+            if total winners > 1 then
+                return ("The lunch vote has multiple tie winners:", winners)
+            else
+                return ("The winner is:", winners)
+
+    transaction vote(voterChoice : string) returns string:
+        only when this.address in CurrentlyVoting then
+            authorizedVoters --- msg.sender --> lunchChoices[voterChoice]
+
+            if total lunchChoices[voterChoice] > maxVote then
+                (total lunchChoices[voterChoice] - maxVote) --> maxVote
+
+            if (total Voter - total authorizedVoters) >= quorum then
+                CurrentlyVoting --- this.address --> VotingFinished
+
+            return "Vote accepted."
+
+    transaction deconstructor():
+        only when msg.sender = contractCreator then
+            this.balance ~~> msg.sender.balance
+            consume this
+}
+
