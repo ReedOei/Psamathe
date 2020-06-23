@@ -30,33 +30,42 @@ contract LunchVote {
             //   Actions are otherwise processed in lexical order.
 
             // Syntax is currently:
-            action TRIGGER: ACTION
+            [action] TRIGGER: ACTION
             // It could be something like to emphasize that it doesn't happen when it is written.
             create/setup [action] TRIGGER : ACTION
 
             // Here, Err may contain more specific failure information, such as an error message
+            on fail F with Err: revert("This address is already authorized! Do not re-authorize it.")
+            // Alternate version with the "action" keyword.
             action on fail F with Err: revert("This address is already authorized! Do not re-authorize it.")
 
             // Events can also be handled via the action mechanism. Probably not really necessary; there shouldn't be
             //  any issues with having emit just look like it does in Solidity, but it does unify everything as an action.
             //  It also let's us easy trigger certain events "on fail"
-            action on success emit AuthorizedVoter(newVoterAddress)
+            on success emit AuthorizedVoter(newVoterAddress)
 
             // This action isn't necessary for this transaction, but is the original motivation for this mechanism.
             // This type of external call is **required** by ERC-721, and also a couple other Ethereum standards and common patterns.
             // Obviously there's other kinds of external calls, but in my experience, this is sufficient for most contracts.
-            action on success F call newVoterAddress.receiveAuthorization()
-                                returning resultCode such that resultCode = "SUCCESS"
+            on success F call newVoterAddress.receiveAuthorization()
+                         returning resultCode such that resultCode = "SUCCESS"
             // The syntax for the above could omit the word "action" and only write the trigger.
 
             // Complete version below:
             F: voterSource --- newVoterAddress --> authorizedVoters
-            action on fail F with Err:
+            on fail F with Err:
                 revert("This address is already authorized! Do not re-authorize it.")
-            action on success F:
+            on success F:
                 emit AuthorizedVoter(newVoterAddress)
                 call newVoterAddress.receiveAuthorization()
                     returning resultCode such that resultCode = "SUCCESS"
+
+            // This version does the same (in this particlar case)
+            voterSource --- newVoterAddress --> authorizedVoters
+            on fail with Err: revert("This address is already authorized! Do not re-authorize it.")
+            on success: emit AuthorizedVoter(newVoterAddress)
+            on success: call newVoterAddress.receiveAuthorization()
+                        returning resultCode such that resultCode = "SUCCESS"
 
             // A more typical looking approach:
             // Pros:
@@ -66,10 +75,10 @@ contract LunchVote {
             // - More complicated program structure (a transaction is just a list of actions/flows vs. having every construct that any other language would have)
             try {
                 voterSource --- newVoterAddress --> authorizedVoters
-                emit AuthorizedVoter(newVoterAddress)
             } catch (Err) {
                 revert("This address is already authorized! Do not re-authorize it.")
             }
+            emit AuthorizedVoter(newVoterAddress)
             if newVoterAddress.receiveAuthorization() != "SUCCESS" then
                 revert();
 }

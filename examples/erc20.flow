@@ -10,6 +10,7 @@ contract ERC20Bank {
 
     on create():
         flow everything from tokenSource to account[msg.sender]
+        // Operator version:
         tokenSource --> account[msg.sender]
 
     view totalSupply() of nat := total token
