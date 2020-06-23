@@ -19,26 +19,19 @@ contract LunchVote {
     //  which will return which key is linked to the SET containing voter.
     //  This is a useful operation: you don't need a separate mapping keeping track of the same information,
     //  which would require several operations to make a single change; this is what the reference implementation of ERC-721
-    //  does, which I would guess introduces more potential for errors.
-    // Unsure about the name "linking", but I think it's decent because it's similar to mapping, but not the same, so
-    //  developers will not assume that it works the same.
-    //  - Naming issues:
-    //      - "set linking"/SetLinking sounds weird, and doesn't immediately suggest the intended semantics.
-    //      - We could have "mapping", which works like in Solidity, and call a "set linking" simply a "linking"
-    //          - This is good because "mapping" will work exactly like in Solidity, so developers won't have to learn anything new.
-    //          - But "linking" doesn't suggest that the values are an entire SET of values.
-    //          - For that matter, neither does "set linking", as discussed above.
-    //          - But at least it's weird enough that people will probably think twice before blindly using it...
-    lunchChoices : set linking LunchName with Voter
+    //  does, which introduces more potential for errors (at least, that's my assumption).
+    // Syntax below is chosen to be similar to the map syntax, but using --- to emphasize the bidrectional nature of the structure.
+    // With curly brackets, to indicate that it stores a set of Voters; otherwise, people may expect it stores a single Voter
+    // OTOH, kind of strange, because the syntax for a linking is "linking (KeyType--- {ValType})"; the curly brackets are NOT part of the
+    // value type.
+    lunchChoices : linking LunchName <=> {Voter}
+    // Alternate version, without curly brackets; avoiding the weird syntax but introducing the confusion.
+    lunchChoices : linking LunchName <=> Voter
 
-    // Alternate syntax options:
-    lunchChoices : set linking LunchName to Voter
-    lunchChoices : linking LunchName (set Voter)
-    lunchChoices : linking[LunchName, set Voter]
-    // An symbol-version, emphasize the bidirectionality of the structure.
-    // Use <-|-> isntead of <-> or <--> to signal there's no connection between this and the flow operators, introduced below.
-    lunchChoices : LunchName <-|-> set Voter
-    lunchChoices : LunchName <-|-> Voter // looks like a single name maps to a single voter
+    // Also provide a "map": map address => nat
+    // Intentionally using a word other than "mapping" because I think we should fix the weird behavior of Solidity's maps, such as:
+    // 1. Can't check if a key already exists
+    // 2. Can't iterate through the keys
 
     authorizedVoters : set Voter
 
@@ -49,55 +42,25 @@ contract LunchVote {
     VotingFinished : set address
 
     on create(quorumSet : nat):
-        // Not sure exactly how to treat constants---are they storages or selectors?
-        // Below, they're treated as whichever one would be appropriate, which seems to work.
-        flow everything from true to voteAcceptable
-        flow true from boolSource to voteAcceptable
-
-        flow everything from quorumSet to quorum
-        flow msg.sender from voterSource to authorizedVoters
-        flow everything from msg.sender to contractCreator
-        flow this.address from addressSource to Voting
-
-        // Operator version, now the selector goes in the middle---it's an edge label.
         // The follow 'modes' of flow can be used:
-        // --- x --> means "flow x" (default operation, standard way of writing arrows)
-        //  - Could also do --> x --> (with both arrows the same)
-        // ~~> means "merge" (similar to flow, so written similarly)
-        // >-> means "hold" (not sure what to use for this one)
+        // --- x --> means "flow x"
+        // +=        means "hold", so the resource is added to the set of resources held by the destination
         // No "consume" arrow, because it works differently than all the others: there's no destination.
-        true --- everything --> voteAcceptable
         quorumSet --> quorum
         voterSource --- msg.sender --> authorizedVoters
-        msg.sender ~~> contractCreator
-        this.address >-> CurrentlyVoting
-
-        // Another version, but where X -> Y is an abbreviation for X -> everything -> Y
-        true --> voteAcceptable
-        quorumSet --> quorum
-        voterSource --- msg.sender --> authorizedVoters
-        msg.sender ~~> contractCreator
-        this.address >-> CurrentlyVoting
-
-        // Yet another alternate version, putting the destination on the LHS, which is more typical for assignment
-        voteAcceptable <-- true
-        quorumSet <-- quorum
-        authorizedVoters <-- msg.sender --- voterSource
-        contractCreator <~~ msg.sender
-        CurrentlyVoting <-< this.address
+        contractCreator := msg.sender
+        CurrentlyVoting += this.address
 
     transaction choiceCreator(choicesToAdd : set string):
         only when contractCreator = msg.sender then
+            // TODO: For loops are convenient, but sort of weird and don't really fit into the paradigm very well.
             for each choice in choicesToAdd:
                 var name : LunchName
                 lunchNameSource --- choice --> name
-                (link name with {}) >-> lunchChoices
+                lunchChoices += name <=> {}
 
-                // Altenate versions of the previous line:
-                lunchChoices <-< link name with {}
-                (name <-> {}) >-> lunchChoices
-                hold (name <-> {}) in lunchChoices
-                hold (link name with {}) in lunchChoices
+                // Alternate version:
+                lunchChoices += link name with {}
 
     transaction authorizeVoter(newVoterAddress : address):
         only when contractCreator = msg.sender then
@@ -107,7 +70,8 @@ contract LunchVote {
         consume true from { contractCreator = msg.sender }
         // This works because { contractCreator = msg.sender } : set bool (specifically, a singleton), so
         //  if `contractCreator = msg.sender` doesn't evaluate to true, then we will fail to consume true from it.
-        // I don't think actually doing this is a good idea (at least, in the surface language. Maybe it would simplify the compiler?), but it's interesting/entertaining.
+        // I don't think actually doing this is a good idea; at least, not in the surface language.
+        // Maybe it would simplify the compiler and/or formalization), but it's interesting/entertaining.
 
     view getChoices() of set string := { name | (link name with voters) in lunchVotes }
 
