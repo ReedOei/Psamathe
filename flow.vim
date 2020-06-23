@@ -31,9 +31,9 @@ syntax keyword specialVars msg this one some any
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
 
-syn region multilineComment start="/\*"    end="\*/"
-syntax match comment "//.*$"
-syntax keyword todo TODO
+syn region multilineComment start="/\*"    end="\*/" contains=todo
+syntax match comment "//.*$" contains=todo
+syntax keyword todo contained TODO NOTE
 
 syntax match num '\<#\?[-+]\?\d\+\.\?\d*'
 syntax keyword constWords true false

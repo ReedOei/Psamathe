@@ -127,10 +127,7 @@ contract LunchVote {
         only when this.address in CurrentlyVoting then
             authorizedVoters --- msg.sender --> lunchChoices[voterChoice]
 
-            // This is an awkward way to do assignment, so a "pure flow" language probably isn't a good idea.
-            // TODO: maybe this is just the wrong way to write this piece of code in this sort of language?
-            if total lunchChoices[voterChoice] > maxVote then
-                (total lunchChoices[voterChoice] - maxVote) --> maxVote
+            maxVote := max(maxVote, total lunchChoices[voterChoice])
 
             // authorizedVoters stores all the voters who are allowed to vote, but have not yet voted.
             // So total Voter - total authorizedVoters is the number of voters who have voted.
@@ -141,10 +138,7 @@ contract LunchVote {
 
     transaction deconstructor():
         only when msg.sender = contractCreator then
-            // Sends all ether from this contract to msg.sender
-            // Additionally, because merge destroys the source, there will be no way to finish this transaction without doing `consume this`
-            // Any "pack" operation would require all fields be consistent, and, in particular, not destroyed.
-            this.balance ~~> msg.sender.balance
+            this.balance --> msg.sender.balance
 
             // Consume all resources, include ourselves (a self-destruct).
             // In addition to self-destructing, this acts as a check that only consumable resources are held by this contract at this point.

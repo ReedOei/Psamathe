@@ -53,19 +53,70 @@ contract LunchVote {
 
             // Complete version below:
             F: voterSource --- newVoterAddress --> authorizedVoters
-            on fail F with Err:
-                revert("This address is already authorized! Do not re-authorize it.")
-            on success F:
-                emit AuthorizedVoter(newVoterAddress)
-                call newVoterAddress.receiveAuthorization()
-                    returning resultCode such that resultCode = "SUCCESS"
+            handler [for] F {
+            handler [for] {F} {
+                on fail with Err:
+                    revert("This address is already authorized! Do not re-authorize it.")
+                on success:
+                    emit AuthorizedVoter(newVoterAddress)
+                    call newVoterAddress.receiveAuthorization()
+                        returning resultCode such that resultCode = "SUCCESS"
+            }
+
+            // If you have multiple flows:
+            F1: A --- x ---> B
+            F2: C --- y ---> D
+
+            // So we run "on success" if F1 AND F2 succeed
+            // And we run "on fail" if F1 OR F2 fail.
+            handler {F1, F2} {
+                on fail with Err:
+                    // Stuff
+
+                on success:
+                    // Stuff
+            }
+
+            // We **could** later add even more handlers if we want to handle other weird combinations of flows, but I don't think that's going to be very useful.
+            // Note that you **cannot** flow in a handler.
+            // If you wanted to do something like
+            try
+                A --- x --> B
+            catch
+                C --- y --> D
+
+            // So that the second flow only happens if the first fails, you should instead
+            // just check whatever condition you're actually interested in.
+            // I don't think this will greatly impact usability, and in fact is probably easier to read
+            // because the condition has to be specified, and you won't get unexpected failures causing the flow
+            // For example, say you want to do the second flow only when there isn't enough money in A for the flow to occur
+            // But the above implementation would also cause the money to be taken from C in the case that there's
 
             // This version does the same (in this particlar case)
             voterSource --- newVoterAddress --> authorizedVoters
-            on fail with Err: revert("This address is already authorized! Do not re-authorize it.")
-            on success: emit AuthorizedVoter(newVoterAddress)
-            on success: call newVoterAddress.receiveAuthorization()
+
+            // A handler without any specified flows means that it's a handler for ALL flows in this transaction.
+            handler {
+                on fail with Err:
+                    revert("This address is already authorized! Do not re-authorize it.")
+                on success:
+                    emit AuthorizedVoter(newVoterAddress)
+                    call newVoterAddress.receiveAuthorization()
                         returning resultCode such that resultCode = "SUCCESS"
+            }
+
+            // This is also like a try-catch, but more "action-y". Is it though?
+            do {
+                voterSource --- newVoterAddress --> authorizedVoters
+            } and handle {
+                failure with Err:
+                    revert("This address is already authorized! Do not re-authorize it.")
+
+                success:
+                    emit AuthorizedVoter(newVoterAddress)
+                    call newVoterAddress.receiveAuthorization()
+                        returning resultCode such that resultCode = "SUCCESS"
+            }
 
             // A more typical looking approach:
             // Pros:

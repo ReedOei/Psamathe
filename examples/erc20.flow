@@ -9,8 +9,6 @@ contract ERC20Bank {
     allowances stores approval by (address, address)
 
     on create():
-        flow everything from tokenSource to account[msg.sender]
-        // Operator version:
         tokenSource --> account[msg.sender]
 
     view totalSupply() of nat := total token
@@ -18,14 +16,14 @@ contract ERC20Bank {
     view allowance(src : address, dst : address) of nat := allowances[src, dst]
 
     transaction transfer(dst : address, amount : nat):
-        flow amount from account[msg.sender] to account[dst]
+        account[msg.sender] --- amount --> account[dst]
 
     transaction approve(dst : address, amount : nat):
         consume everything from allowances[src, dst]
-        flow amount from approvalSource to allowances[msg.sender, dst]
+        approvalSource --- amount --> allowances[msg.sender, dst]
 
     transaction transferFrom(src : address, dst : address, amount : nat):
         consume amount from allowances[src, dst]
-        flow amount from account[src] to account[dst]
+        account[src] --- amount --> account[dst]
 }
 
