@@ -123,6 +123,14 @@ A flow may optionally have a \emph{name}.
 Note that all flows fail if they can't be performed.
 For example, a flow of fungible resources fails if there is enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
 
+NOTE: If we wanted to be "super pure", we can implement preconditions with just flows by doing something like:
+\begin{lstlisting}
+consume true from { contractCreator = msg.sender }
+\end{lstlisting}
+This works because \lstinline|{ contractCreator = msg.sender } : set bool| (specifically, a singleton), so if \lstinline{contractCreator = msg.sender} doesn't evaluate to true, then we will fail to consume true from it.
+I don't think actually doing this is a good idea; at least, not in the surface language.
+Maybe it would simplify the compiler and/or formalization), but it's interesting/entertaining.
+
 \paragraph{Actions}
 In addition to flows, transactions may contain \emph{handlers}, which are a pair of a \emph{trigger} and an \emph{action}.
 Triggers specify when an action should be executed.
@@ -204,34 +212,6 @@ So that the second flow only happens if the first fails, you should instead just
 I don't think this will greatly impact usability, and in fact is probably easier to read because the condition has to be specified, and you won't get unexpected failures causing the flow.
 For example, say you want to do the third flow only when there isn't enough money in \lstinline{A} and \lstinline{C} for first two flows to occur.
 But the above implementation would also cause the money to be taken from C in the case that there's, for example, and overflow when you transfer to B, or if A has enough money, but not C, which may is desirable.
-
-% // This is also like a try-catch, but more "action-y". Is it though?
-% do {
-%     voterSource --- newVoterAddress --> authorizedVoters
-% } and handle {
-%     failure with Err:
-%         revert("This address is already authorized! Do not re-authorize it.")
-
-%     success:
-%         emit AuthorizedVoter(newVoterAddress)
-%         call newVoterAddress.receiveAuthorization()
-%             returning resultCode such that resultCode = "SUCCESS"
-% }
-
-% // Alternate version, using a more typical looking approach.
-% // Pros:
-% // - Looks "normal"
-% // Cons:
-% // - More opportunity for reentrancy bugs.
-% // - More complicated program structure (a transaction is just a list of actions/flows vs. having every construct that any other language would have)
-% try {
-%     voterSource --- newVoterAddress --> authorizedVoters
-% } catch (Err) {
-%     revert("This address is already authorized! Do not re-authorize it.")
-% }
-% emit AuthorizedVoter(newVoterAddress)
-% if newVoterAddress.receiveAuthorization() != "SUCCESS" then
-%     revert();
 
 \section{Examples}
 \paragraph{Basic transfer} ERC-20 transfers.
@@ -426,6 +406,12 @@ contract RefundVault {
         \item $(R, \leq)$ is a partial order that is compatible with $(R, +, 0)$.
             That is, for any $x, y \in R$ such that $x \leq y$, and for any $z \in R$, we have $x + z \leq y + z$.
         \item $- : R \times R \to R$ is a function so that for any $x,y \in R$ such that $y \leq x$, we have $(x - y) + y = x$.
+
+        % NOTE: An alternate definition with splitting built-in.
+        % \item $\splits$ is a function $R \times \parens{R \cup \curlys{\top}}^R \to R \times R$, where $\top$ is a value not in $R$ for which we define $r < \top$ for all $r \in R$.
+        %     We write $r \stackrel{f}{\splits} (a,b)$ instead of $\splits(r, f) = (a,b)$.
+        %     Let $f : R \to R \cup \curlys{\top}$ and $r \in R$.
+        %     If $f(r) \leq r$, then $r \stackrel{f}{\splits} (a,b)$ such that $f(r) = b$ and $a + b = r$.
     \end{enumerate}
     The elements of a resource are called \emph{resource values}.
 \end{definition}
@@ -437,6 +423,23 @@ contract RefundVault {
     \item For any set $A$, we can build the resource $(\powerset{A}, \cup, \emptyset, \subseteq, \setminus)$, where $X \setminus Y$ is the set difference operation.
     \item Similarly, given any set $A$, we can build the resource $(\powersetfin{A}, \cup, \emptyset, \subseteq, \setminus)$; this resource is called the \emph{nonfungible resource on $A$}, written $\text{nf}(A)$.
 \end{enumerate}
+
+\begin{definition}
+    Let $\mathcal{R}$ be a resource and let $A$ be a set.
+    The exponential resource $\mathcal{R}^A$ \reed{I suspect this would be an exponential, anyway} is defined so
+    \[
+        \mathcal{R}^A := (R^A, +, \bm{0}, \leq, -)
+    \]
+    where for $f,g \in R^A$, we define
+    \begin{align*}
+        \bm{0}(x) &:= 0 \\
+        (f + g)(x) &:= f(x) + g(x) \\
+        f \leq g &:\Leftrightarrow \forall x \in A. f(x) \leq g(x) \\
+        (f - g)(x) &:= f(x) - g(x)
+    \end{align*}
+
+    Note that $f - g$ is only defined when $g \leq f$.
+\end{definition}
 
 \end{document}
 

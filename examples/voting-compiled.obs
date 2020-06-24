@@ -1,0 +1,246 @@
+// Based on: https://github.com/WayneJz/COMP6452-19T1/blob/master/Assignment_1/contracts/message.sol
+
+// A "compiled" version of examples/voting-pure.flow.
+
+// type Voter is nonfungible consumable asset address
+asset contract Voter {
+    address addr;
+
+    Voter@Owned(address addr) {
+        this.addr = addr;
+    }
+
+    transaction getVal(Voter@Unowned this) returns address {
+        return addr;
+    }
+}
+
+asset contract VoterSource {
+    Set[address]@Owned created;
+
+    VoterSource@Owned() {
+        created = new Set[string]();
+    }
+
+    transaction create(address newAddress) {
+        if (created.contains(newAddress)) {
+            revert("Voter already created.")
+        }
+
+        return new Voter(newAddress);
+    }
+
+    transaction total(VoterSource@Unowned this) returns int {
+        return created.size();
+    }
+}
+
+// type LunchName is nonfungible consumable asset string
+asset contract LunchName {
+    string name;
+
+    LunchName@Owned(string name) {
+        this.name = name;
+    }
+
+    transaction getVal(LunchName@Unowned this) returns string {
+        return name;
+    }
+}
+
+asset contract LunchNameSource {
+    Set[string]@Owned created;
+
+    LunchNameSource@Owned() {
+        created = new Set[string]();
+    }
+
+    transaction create(string newName) {
+        if (created.contains(newName)) {
+            revert("LunchName already created");
+        }
+
+        return new LunchName(newName);
+    }
+}
+
+contract GetChoicesIterator implements Iterator[LunchName, Set[Voter@Owned]] {
+    state Running {
+        Set[string]@Owned result;
+    }
+    state Consumed;
+
+    GetChoicesIterator@Running() {
+        ->Running(result = new Set[string]());
+    }
+
+    transaction performAction(LunchName@Unowned key, Set[Voter@Owned]@Unowned value, bool last) {
+        result.add(key.getVal());
+    }
+
+    transaction getResult(GetChoicesIterator@Running >> Consumed this) returns Set[string]@Owned {
+        Set[string]@Owned res = result;
+        ->Consumed;
+        return res;
+    }
+}
+
+contract GetResultIterator implements Iterator[LunchName, Set[Voter@Owned]] {
+    state Running {
+        Set[Pair[string, int]@Owned]@Owned result;
+    }
+    state Consumed;
+
+    int maxVote;
+
+    GetChoicesIterator@Running(int maxVote) {
+        this.maxVote = maxVote;
+        ->Running(result = new Set[Pair[string, int]]());
+    }
+
+    transaction performAction(LunchName@Unowned key, Set[Voter@Owned]@Unowned value, bool last) {
+        if (value.size() == maxVote) {
+            result.add(new Pair[string, int](key.getVal(), value.size()));
+        }
+    }
+
+    transaction getResult(GetChoicesIterator@Running >> Consumed this) returns Set[Pair[string, int]@Owned]@Owned {
+        Set[Pair[string,int]@Owned]@Owned res = result;
+        ->Consumed;
+        return res;
+    }
+}
+
+main asset contract LunchVote {
+    // source voterSource of Voter
+    VoterSource@Owned voterSource;
+    // source lunchNameSource of LunchName
+    LunchNameSource@Owned lunchNameSource;
+
+    int quorum;
+    int voteAcceptedCount;
+    int maxVote;
+
+    address contractCreator;
+
+    Linking[LunchName@Owned, Voter@Owned]@Owned lunchChoices;
+
+    Set[Voter@Owned]@Owned authorizedVoters;
+
+    Set[address]@Owned CurrentlyVoting;
+    Set[address]@Owned VotingFinished;
+
+    LunchVote@Owned(Message@Unowned msg, int quorumSet) {
+        // quorumSet --> quorum
+        quorum = quorumSet;
+
+        // voterSource --- msg.sender --> authorizedVoters
+        authorizedVoters.add(voterSource.create(msg.getSender()));
+
+        // contractCreator := msg.sender
+        contractCreator = msg.getSender();
+
+        CurrentlyVoting.add(this.address);
+    }
+
+    transaction choiceCreator(Set[string]@Owned >> Unowned choices) {
+        // only when contractCreator = msg.sender then
+        if (contractCreator != msg.sender) {
+            revert();
+        }
+        // We could also imagine that Obsidian had loops, which would make this translation somewhat easier.
+        choiceCreatorLoop(choices);
+    }
+
+    private transaction choiceCreatorLoop(Set[string]@Owned >> Unowned choices) {
+        // for each choice in choicesToAdd:
+        if (choices.empty()) {
+            disown choices;
+        } else {
+            string choice = choices.pop();
+            choiceCreatorHelper(choice);
+            choiceCreatorLoop(choices);
+        }
+    }
+
+    private transaction choiceCreatorHelper(string choice) {
+        // var name : LunchName
+        // lunchNameSource --- choice --> name
+        LunchName name = lunchNameSource.create(choice);
+        // lunchChoices += name <=> {}
+        lunchChoices.add(new Link[LunchName@Owned, Voter@Owned](name, new Set[Voter@Owned]()));
+    }
+
+    transaction authorizeVoter(address newVoterAddress) {
+        // only when contractCreator = msg.sender then
+        if (contractCreator != msg.sender) {
+            revert();
+        }
+
+        // voterSource --- newVoterAddress --> authorizedVoters
+        authorizedVoters.add(voterSource.create(newVoterAddress));
+    }
+
+    transaction getChoices() returns Set[string]@Owned {
+        // { name | (name <=> voters) in lunchVotes }
+        GetChoicesIterator@Running it = new GetChoicesIterator();
+        lunchChoices.iterate(it);
+        return it.getResult();
+    }
+
+    transaction getResult() returns Pair[string, Set[Pair[string, int]@Owned]@Owned]@Owned {
+        // if this.address in CurrentlyVoting then
+        if (CurrentlyVoting.contains(this.address)) {
+            // return ("Voting still in progress! You can only use 'getChoices' function.", {})
+            return new Pair[string, Set[Pair[string, int]]]("Voting still in progress! You can only use 'getChoices' function.", new Set[Pair[string, int]]());
+        } else {
+            // let winners : set (string, nat) :=
+            //  { (name, total voters) | (name <=> voters) in lunchVotes, total voters = maxVote }
+            GetChoicesIterator@Running it = new GetResultIterator(maxVote);
+            lunchChoices.iterate(it);
+            Set[Pair[string, int]@Owned]@Owned winners = it.getResult();
+
+            // if total winners > 1 then
+            if (winners.size() > 1) {
+                // return ("The lunch vote has multiple tie winners:", winners)
+                return new Pair[string, Set[Pair[string, int]@Owned]@Owned]("The lunch vote has multiple tie winners:", winners);
+            } else {
+                // return ("The winner is:", winners)
+                return new Pair[string, Set[Pair[string, int]@Owned]@Owned]("The winner is:", winners);
+            }
+        }
+    }
+
+    transaction vote(Message@Unowned msg, string voterChoice) returns string {
+        // only when this.address in CurrentlyVoting
+        if (!CurrentlyVoting.contains(this.address)) {
+            revert();
+        }
+
+        // authorizedVoters --- msg.sender --> lunchChoices[voterChoice]
+        Link[LunchName@Owned, Voter@Owned]@Owned link = lunchChoices.remove(voterChoice);
+        link.addValue(authorizedVoters.create(msg.sender));
+
+        maxVote = max(maxVote, link.valueSize());
+
+        lunchChoices.add(link);
+
+        if (voterSource.total() - authorizedVoters.size()) >= quorum {
+            CurrentlyVoting.remove(this.address):
+            VotingFinished.add(this.address);
+        }
+
+        return "Vote accepted."
+    }
+
+    transaction deconstructor(Message@Unowned msg) {
+        // only when msg.sender = contractCreator then
+        if (msg.sender != contractCreator) {
+            revert();
+        }
+
+        // consume this
+        selfdestruct();
+    }
+}
+

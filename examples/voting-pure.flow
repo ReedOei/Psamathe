@@ -15,23 +15,19 @@ contract LunchVote {
 
     contractCreator : address
 
-    // A linking is like a mapping, but is bidirectional, so you can do something like lunchChoices.linkedTo(voter),
-    //  which will return which key is linked to the SET containing voter.
-    //  This is a useful operation: you don't need a separate mapping keeping track of the same information,
-    //  which would require several operations to make a single change; this is what the reference implementation of ERC-721
-    //  does, which introduces more potential for errors (at least, that's my assumption).
-    // Syntax below is chosen to be similar to the map syntax, but using --- to emphasize the bidrectional nature of the structure.
+    // Syntax for linking is chosen to be similar to the map syntax, but using <=> to emphasize the bidrectional nature of the structure.
     // With curly brackets, to indicate that it stores a set of Voters; otherwise, people may expect it stores a single Voter
-    // OTOH, kind of strange, because the syntax for a linking is "linking (KeyType--- {ValType})"; the curly brackets are NOT part of the
+    // OTOH, kind of strange, because the syntax for a linking is "linking (KeyType <=> {ValType})"; the curly brackets are NOT part of the
     // value type.
     lunchChoices : linking LunchName <=> {Voter}
     // Alternate version, without curly brackets; avoiding the weird syntax but introducing the confusion.
     lunchChoices : linking LunchName <=> Voter
 
-    // Also provide a "map": map address => nat
-    // Intentionally using a word other than "mapping" because I think we should fix the weird behavior of Solidity's maps, such as:
+    // We also provide a "map": map address => nat
+    // Intentionally using a word other than "mapping" because I think we should fix the weird behavior of Solidity's mappings, such as:
     // 1. Can't check if a key already exists
     // 2. Can't iterate through the keys
+    // However, that means we also shouldn't call it a mapping, because that would suggest it works just like Solidity's.
 
     authorizedVoters : set Voter
 
@@ -44,7 +40,7 @@ contract LunchVote {
     on create(quorumSet : nat):
         // The follow 'modes' of flow can be used:
         // --- x --> means "flow x"
-        // +=        means "hold", so the resource is added to the set of resources held by the destination
+        // +=        means "insert", so the resource is added to the set of resources held by the destination
         // No "consume" arrow, because it works differently than all the others: there's no destination.
         quorumSet --> quorum
         voterSource --- msg.sender --> authorizedVoters
@@ -52,28 +48,31 @@ contract LunchVote {
         CurrentlyVoting += this.address
 
     transaction choiceCreator(choicesToAdd : set string):
-        only when contractCreator = msg.sender then
-            // TODO: For loops are convenient, but sort of weird and don't really fit into the paradigm very well.
-            for each choice in choicesToAdd:
-                var name : LunchName
-                lunchNameSource --- choice --> name
-                lunchChoices += name <=> {}
+        only when contractCreator = msg.sender
 
-                // Alternate version:
-                lunchChoices += link name with {}
+        // TODO: For loops are convenient, but sort of weird and don't really fit into the paradigm very well.
+        for each choice in choicesToAdd:
+            var name : LunchName
+            LunchName[choice] --> name
+            lunchChoices += name <=> {}
+
+            // Alternate version:
+            lunchChoices += link name with {}
+
+        // An alternate version, avoiding the use of a loop via a more powerful flow construct.
+        // The basic idea here is that
+        LunchName --- choicesToAdd --> (\name. lunchChoices += name <=> {})
+        // A Scala-like lambda (using an underscore to mark the argument location)
+        LunchName --- choicesToAdd --> (lunchChoices += _ <=> {})
+        // A more verbose version, Javascript-style anonymous transaction.
+        LunchName --- choicesToAdd --> transaction(name : string) { lunchChoices += name <=> {} }
 
     transaction authorizeVoter(newVoterAddress : address):
-        only when contractCreator = msg.sender then
-            voterSource --- newVoterAddress --> authorizedVoters
+        only when contractCreator = msg.sender
 
-        // NOTE: If we wanted to be "super pure", we can implement precondition with just flows by doing something like:
-        consume true from { contractCreator = msg.sender }
-        // This works because { contractCreator = msg.sender } : set bool (specifically, a singleton), so
-        //  if `contractCreator = msg.sender` doesn't evaluate to true, then we will fail to consume true from it.
-        // I don't think actually doing this is a good idea; at least, not in the surface language.
-        // Maybe it would simplify the compiler and/or formalization), but it's interesting/entertaining.
+        voterSource --- newVoterAddress --> authorizedVoters
 
-    view getChoices() returns set string := { name | (link name with voters) in lunchVotes }
+    view getChoices() returns set string := { name | (name <=> voters) in lunchVotes }
 
     view getResult() returns string * set (string * nat) :=
         if this.address in CurrentlyVoting then
