@@ -80,6 +80,11 @@ contract LunchVote {
         // The addition of `transformer` is meant to emphasize that it's not **exactly** a function.
         LunchName --- choicesToAdd --> transformer (name |-> name <=> {}) --> lunchChoices
 
+        // I could imagine having a syntax like
+        var t : transformer (LunchName -> Link[LunchName, Voter])
+        // Then also allowing
+        LunchName --- choicesToAdd --> t --> lunchChoices
+
         // Could also imagine having a built-in link creating function, so we could do:
         LunchName --- choicesToAdd --> createLink --> lunchChoices
 
@@ -89,6 +94,13 @@ contract LunchVote {
         A --- x --> B --- y --> C
         // Given how flows work, it seems reasonable that this would transfer x from A to B, and then
         //  transfer y from B to C (assuming these transfers could be made).
+        // That is,
+        A --- x --> B --- y --> C
+        =
+        {
+            A --- x --> B
+            B --- y --> C
+        }
 
         // An alternate version, avoiding the use of a loop via anonymous transactions.
         // Still functional style, but avoids the need for creating new
