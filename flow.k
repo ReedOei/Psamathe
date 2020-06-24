@@ -10,6 +10,8 @@ module FLOW-SYNTAX
                  | Bool
                  | String
                  | TxResult
+    syntax Vals ::= List{Val, ","} [klabel(vals)]
+    syntax Ids ::= List{Id, ","} [klabel(vals)]
 
     syntax Storage ::= Id
                      | Int
@@ -18,29 +20,60 @@ module FLOW-SYNTAX
     syntax Expr ::= Val
                   | Storage
                   | "(" Expr ")"        [bracket]
-                  | "if" Expr "then" Expr "else" Expr [strict(1)]
-                  | Expr "+" Expr [strict]
-                  | Expr "-" Expr [strict]
-                  > Expr "=" Expr [strict]
-                  | Expr "<=" Expr [strict]
-                  | Expr "<" Expr [strict]
+                  | Id "(" Exprs ")"
+                  > Expr "or" Expr [strict(1)]
+                  | Expr "and" Expr [strict(1)]
+                  > Expr "+" Expr [left, seqstrict]
+                  | Expr "-" Expr [left, seqstrict]
+                  > Expr "=" Expr [seqstrict]
+                  | Expr "<=" Expr [seqstrict]
+                  | Expr "<" Expr [seqstrict]
+                  | Expr ">=" Expr [seqstrict]
+                  | Expr ">" Expr [seqstrict]
+                  > Expr "in" Storage [seqstrict]
+                  > "not" Expr [strict]
+                  > "if" Expr "then" Expr "else" Expr [strict(1)]
+    syntax Exprs ::= List{Expr, ","} [seqstrict]
 
     syntax Everything ::= "everything" [token]
+    // Quantifiers and their symbol synonyms
+    /* syntax Quant ::= "exactly" "one" */
+    /*                | "!" */
+    /*                | "any" */
+    /*                | "*" */
+    /*                | "at" "least" "one" */
+    /*                | "+" */
     syntax Selector ::= Expr
                       | Everything
+                      /* | Quant Id "such" "that" Expr */
 
     syntax Flow ::= Storage "---" Selector "-->" Storage [strict(2)]
                   | Storage "-->" Storage
                   | Storage "+=" Expr
+                  | Storage ":=" Expr // Assignment only allowed for consumable types
                   | "consume" Selector "from" Storage
                   | "consume" Storage
 
     syntax VarDef ::= Id ":" Type
     syntax VarDefs ::= List{VarDef, ","}
 
+    syntax BaseTrigger ::= "on" "fail" | "on" "success"
+    syntax TriggerTarget ::= Id | "{" Ids "}"
+    syntax Trigger ::= BaseTrigger
+                     | BaseTrigger TriggerTarget
+                     | BaseTrigger TriggerTarget "with" Id
+
+    syntax Action ::= "emit" Id "(" Exprs ")"
+                    | "revert" "(" Expr ")"
+                    | "call" Id "(" Exprs ")"
+                    | "call" Id "(" Exprs ")" "returning" Id "such" "that" Expr
+                    | Action Action [right]
+
+    syntax Handler ::= Trigger ":" Action
+
     syntax Stmt ::= Flow
                   | VarDef
-                  | Storage ":=" Expr
+                  | Handler
                   | Stmt Stmt [right]
 
     // Add the built-in types to the Id sort so we can reference them in the rules below
@@ -51,6 +84,7 @@ module FLOW-SYNTAX
 
     syntax Type ::= Id
                   | "(" Type ")" [bracket]
+                  | Type "*" Type
                   | "map" Type "=>" Type
                   | "linking" Type "---" "{" Type "}"
                   | "set" Type
@@ -63,18 +97,21 @@ module FLOW-SYNTAX
                       | "asset"       [token]
     syntax Modifiers ::= List{Modifier, " "}
     syntax TypeDef ::= "type" Id "is" Modifier Type
-    syntax TypeDefs ::= List{TypeDef, " "}
 
     syntax Transaction ::= "transaction" Id "(" VarDefs ")" ":" Stmt
                          | "transaction" Id "(" VarDefs ")" "returns" Type ":" Stmt
-                         | "view" Id "(" VarDefs ")" returns Type ":=" Expr
-    syntax Transactions ::= List{Transaction, " "}
+    syntax View ::= "view" Id "(" VarDefs ")" "returns" Type ":=" Expr
+
+    syntax SourceDef ::= "source" Id "of" Type
 
     syntax Decl ::= TypeDef
                   | VarDef
                   | Transaction
+                  | View
+                  | SourceDef
+    syntax Decls ::= List{Decl, " "}
 
-    syntax Contract ::= "contract" Id "{" TypeDefs Transactions "}"
+    syntax Contract ::= "contract" Id "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
     syntax Program ::= Contracts Stmt
 
@@ -88,6 +125,7 @@ module FLOW
     imports SUBSTITUTION
 
     syntax KResult ::= Val
+                     | Vals
                      | Everything
 
     configuration
@@ -116,8 +154,8 @@ module FLOW
     syntax Storage ::= "#null" [token]
 
     rule I:Int --- Sel --> D => split(Sel, fungible(nat, I), #null, D)
-    rule
-        <k> S:Storage --- Sel --> D => split(Sel, SV, S, D) ... </k>
+
+    rule <k> S:Storage --- Sel --> D => split(Sel, SV, S, D) ... </k>
         <storage>
             ...
             S |-> SV
@@ -137,16 +175,14 @@ module FLOW
          =>
          flow(nonfungible(R, Rest), S) ~> flow(nonfungible(R, SetItem(Val)), D)
 
-    rule
-        <k> flow(fungible(R, V), S) => . ... </k>
+    rule <k> flow(fungible(R, V), S) => . ... </k>
         <storage>
             ...
             S |-> (fungible(R, Cur) => fungible(R, Cur +Int V))
             ...
         </storage>
 
-    rule
-        <k> flow(fungible(R, V), S) => . ... </k>
+    rule <k> flow(fungible(R, V), S) => . ... </k>
         <storage>
             Store
             =>
@@ -155,16 +191,14 @@ module FLOW
         </storage>
         requires notBool (S in keys(Store))
 
-    rule
-        <k> flow(nonfungible(R, V), S) => . ... </k>
+    rule <k> flow(nonfungible(R, V), S) => . ... </k>
         <storage>
             ...
             S |-> (nonfungible(R, Cur) => nonfungible(R, Cur V))
             ...
         </storage>
 
-    rule
-        <k> flow(nonfungible(R, V), S) => . ... </k>
+    rule <k> flow(nonfungible(R, V), S) => . ... </k>
         <storage>
             Store
             =>

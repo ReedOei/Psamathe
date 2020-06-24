@@ -118,9 +118,120 @@ A flow can have one of four \emph{modes}:
 
 Each flow also has a \emph{source}, a \emph{destination}, and a \emph{selector}.
 The source and destination are two storages which hold a resource, and the selector describes which part of the resource in the source should be transferred to the destination.
+A flow may optionally have a \emph{name}.
 
 Note that all flows fail if they can't be performed.
 For example, a flow of fungible resources fails if there is enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
+
+\paragraph{Actions}
+In addition to flows, transactions may contain \emph{handlers}, which are a pair of a \emph{trigger} and an \emph{action}.
+Triggers specify when an action should be executed.
+An action can be:
+\begin{enumerate}
+    \item An event
+    \item An external call
+    \item An error handler
+\end{enumerate}
+
+For example, below, we create a flow with a name \lstinline{F}.
+\begin{lstlisting}
+F: voterSource --- newVoterAddress --> authorizedVoters
+\end{lstlisting}
+
+We can then create handlers for this flow, such as the following:
+\begin{lstlisting}
+on fail F with Err:
+    revert("This address is already authorized! Do not re-authorize it.")
+on success F:
+    emit AuthorizedVoter(newVoterAddress)
+    call newVoterAddress.receiveAuthorization()
+        returning resultCode such that resultCode = "SUCCESS"
+\end{lstlisting}
+
+It's possible to have triggers which only occur when some subset of actions occurs.
+Below, we create two flows.
+The trigger \lstinline|on fail {F1,F2}| triggers when any one of the actions \lstinline{F1} or \lstinline{F2} fails.
+The trigger \lstinline|on success {F1,F2}| triggers when \textbf{both} the actions \lstinline{F1} and \lstinline{F2} succeed.
+\reed{Is this confusing, or is this how you would expect it to work?}
+\begin{lstlisting}
+F1: A --- x ---> B
+F2: C --- y ---> D
+on fail {F1,F2}:
+    // Stuff
+on success {F1,F2}:
+    // Stuff
+\end{lstlisting}
+
+In fact, all handlers are internally translated into this form, so \lstinline{on fail F} becomes \lstinline|on fail {F}|, and \lstinline{on fail} becomes \lstinline|on fail {F1,F2,...,Fn}|, where \lstinline{F1}, \lstinline{F2}, ..., \lstinline{Fn} are all the flows preceeding the handler.
+\reed{I think this is the right way to do it.}
+
+We can also allow the following syntax to be used, with minimal additional implementation troubles:
+\begin{lstlisting}
+handle {
+    A --- x --> B
+    C --- y --> D
+    E --- z --> F
+} with {
+    on fail:
+        // Stuff
+    on success:
+        // Stuff
+}
+\end{lstlisting}
+
+This can be mechanically rewritten to:
+\begin{lstlisting}
+F1: A --- x --> B
+F2: C --- y --> D
+F3: E --- z --> F
+on fail {F1,F2,F3}:
+    // Stuff
+on success {F1,F2,F3}:
+    // Stuff
+\end{lstlisting}
+
+\reed{random note}
+The following pattern, while popular in Python \reed{and probably some other languages}, is not possible with this system.
+\begin{lstlisting}
+try
+    A --- x --> B
+    C --- y --> D
+catch
+    E --- z --> F
+\end{lstlisting}
+
+So that the second flow only happens if the first fails, you should instead just check whatever condition you're actually interested in.
+I don't think this will greatly impact usability, and in fact is probably easier to read because the condition has to be specified, and you won't get unexpected failures causing the flow.
+For example, say you want to do the third flow only when there isn't enough money in \lstinline{A} and \lstinline{C} for first two flows to occur.
+But the above implementation would also cause the money to be taken from C in the case that there's, for example, and overflow when you transfer to B, or if A has enough money, but not C, which may is desirable.
+
+% // This is also like a try-catch, but more "action-y". Is it though?
+% do {
+%     voterSource --- newVoterAddress --> authorizedVoters
+% } and handle {
+%     failure with Err:
+%         revert("This address is already authorized! Do not re-authorize it.")
+
+%     success:
+%         emit AuthorizedVoter(newVoterAddress)
+%         call newVoterAddress.receiveAuthorization()
+%             returning resultCode such that resultCode = "SUCCESS"
+% }
+
+% // Alternate version, using a more typical looking approach.
+% // Pros:
+% // - Looks "normal"
+% // Cons:
+% // - More opportunity for reentrancy bugs.
+% // - More complicated program structure (a transaction is just a list of actions/flows vs. having every construct that any other language would have)
+% try {
+%     voterSource --- newVoterAddress --> authorizedVoters
+% } catch (Err) {
+%     revert("This address is already authorized! Do not re-authorize it.")
+% }
+% emit AuthorizedVoter(newVoterAddress)
+% if newVoterAddress.receiveAuthorization() != "SUCCESS" then
+%     revert();
 
 \section{Examples}
 \paragraph{Basic transfer} ERC-20 transfers.

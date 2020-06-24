@@ -27,25 +27,26 @@ contract NFToken is ERC721, SupportsInterface {
   // Use a pool because we want to keep track of which tokenApprovals are currently circulating
   pool tokenApprovalPool of tokenApproval
 
-  balances stores many token by address
-  approval stores many tokenApproval by address
-  ownerToOperators stores many address by address
+  balances : linking address <=> {token}
+  approval : linking address <=> {tokenApproval}
+  ownerToOperators : linking address <=> {address}
 
   event Transfer(_from : address, _to : address, _tokenId : nat)
   event Approval(_owner : address, _approved : address, _tokenId : nat)
   event ApprovalForAll(_owner : address, _operator : address, _approved : bool)
 
   //  Checks that the msg.sender is an owner or operator of the given NFT.
-  view canOperate(_tokenId : nat) of bool :=
-    _tokenId in balances[msg.sender] or msg.sender in ownerToOperators[tokenOwner]
+  view canOperate(_tokenId : nat) returns bool :=
+    _tokenId in balances[msg.sender] or
+    msg.sender in ownerToOperators[tokenOwner]
 
   // Checks that the msg.sender is allowed to transfer NFT.
-  view canTransfer(_tokenId : nat) of bool :=
+  view canTransfer(_tokenId : nat) returns bool :=
     _tokenId in balances[msg.sender] or
     msg.sender in ownerToOperators[owner of _tokenId from balances]
 
   // Checks that _tokenId is a valid Token.
-  view validNFToken(_tokenId : nat) of bool := _tokenId not in tokenSource
+  view validNFToken(_tokenId : nat) returns bool := _tokenId not in tokenSource
 
   on create():
     supportedInterfaces[0x80ac58cd] := true // ERC721
@@ -57,9 +58,9 @@ contract NFToken is ERC721, SupportsInterface {
     //          - However, using this "flow" language, we will only perform the check once, during the flow
     only when _to != 0x0 and canTransfer(_tokenId) then
         if _tokenId not in tokenApprovalPool then
-            flow _tokenId from approval[owner of _tokenId from approval] to tokenApprovalPool
+            approval[owner of _tokenId from approval] --- _tokenId --> tokenApprovalPool
 
-        flow _tokenId from balances[_from] to balances[_to]
+        balances[_from] --- _tokenId ---> balances[_to]
 
         action on success: emit Transfer(from, _to, _tokenId)
         action on success:
@@ -102,18 +103,18 @@ contract NFToken is ERC721, SupportsInterface {
     action on success: emit ApprovalForAll(msg.sender, _operator, _approved)
 
   // Returns the number of NFTs owned by `_owner`.
-  view balanceOf(_owner : address) of nat :=
+  view balanceOf(_owner : address) returns nat :=
     only when _owner != 0x0 then
         total balances[_owner]
 
   // Returns the address of the owner of the NFT.
-  view ownerOf(_tokenId : nat) of address := owner of _tokenId from balances
+  view ownerOf(_tokenId : nat) returns address := owner of _tokenId from balances
 
   // Get the approved address for a single NFT.
-  view getApproved(_tokenId : nat) of address := owner of _tokenId from approval
+  view getApproved(_tokenId : nat) returns address := owner of _tokenId from approval
 
   // Checks if `_operator` is an approved operator for `_owner`.
-  view isApprovedForAll(_owner : address, _operator : address) of bool := _operator in ownerToOperators[_owner]
+  view isApprovedForAll(_owner : address, _operator : address) returns bool := _operator in ownerToOperators[_owner]
 
   /**
    * @dev Mints a new NFT.

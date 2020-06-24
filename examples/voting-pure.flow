@@ -73,9 +73,9 @@ contract LunchVote {
         // I don't think actually doing this is a good idea; at least, not in the surface language.
         // Maybe it would simplify the compiler and/or formalization), but it's interesting/entertaining.
 
-    view getChoices() of set string := { name | (link name with voters) in lunchVotes }
+    view getChoices() returns set string := { name | (link name with voters) in lunchVotes }
 
-    view getResult() of (string, set (string, nat)) :=
+    view getResult() returns string * set (string * nat) :=
         if this.address in CurrentlyVoting then
             return ("Voting still in progress! You can only use 'getChoices' function.", {})
         else

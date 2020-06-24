@@ -1,8 +1,11 @@
 // Source Definition for a **nonfungible** T:
 source S of T
-===
+=>
 S : map demote(T) => option T
 // such that for all x : T, after on create() is run, then S[x] = { v }; i.e., every key is filled.
+// Of course, we can't "actually" implement a source like this, because it would contain infinitely many values.
+// Instead, we can implement it as the "opposite", so S actually keeps track of which values no longer exist in the map.
+// But it's useful as a mental model, because it let's
 // Only one source per nonfungible resource is allowed.
 // Then to "create" assets we do:
 
@@ -12,7 +15,7 @@ S[x] --> y
 
 type LunchName is nonfungible consumable asset string
 source lunchNameSource of LunchName
-===
+=>
 lunchNameSource : map string => option LunchName
 
 // Creating a resource:
@@ -32,7 +35,7 @@ x += { "testing" }
 
 // Source Definition for a **fungible** T:
 source S of T [provides limit]
-===
+=>
 S : T
 // so S holds at most `limit` of T; if no limit is provided, then S has an endless supply of T.
 
