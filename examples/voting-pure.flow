@@ -4,10 +4,7 @@ contract LunchVote {
     // These are "consumable" because we can self-destruct, and consume all of these resources.
     // That's fine, because these resources don't have any meaning outside of the contract, so there's no need to preserve them.
     type Voter is nonfungible consumable asset address
-    source voterSource of Voter
-
     type LunchName is nonfungible consumable asset string
-    source lunchNameSource of LunchName
 
     quorum : nat
     voteAcceptedCount : nat
@@ -43,14 +40,18 @@ contract LunchVote {
         // +=        means "insert", so the resource is added to the set of resources held by the destination
         // No "consume" arrow, because it works differently than all the others: there's no destination.
         quorumSet --> quorum
-        voterSource --- msg.sender --> authorizedVoters
+        Voter[msg.sender] --> authorizedVoters
         contractCreator := msg.sender
         CurrentlyVoting += this.address
 
     transaction choiceCreator(choicesToAdd : set string):
         only when contractCreator = msg.sender
 
-        // TODO: For loops are convenient, but sort of weird and don't really fit into the paradigm very well.
+        // For loops don't really fit into the paradigm very well:
+        // - Without loops, every transaction is a list of (conditional) flows and handlers)
+        // - The program simply executes top to bottom, it never jumps back up.
+        // See below for a suggestion on avoiding loops.
+        // Here is the standard for loop version, below are several versions based on lambda-function-like constructs.
         for each choice in choicesToAdd:
             var name : LunchName
             LunchName[choice] --> name
@@ -59,18 +60,50 @@ contract LunchVote {
             // Alternate version:
             lunchChoices += link name with {}
 
-        // An alternate version, avoiding the use of a loop via a more powerful flow construct.
-        // The basic idea here is that
+        // Here's another version that treats flows as a stream of transformations and filtering
+        // This is good because:
+        // 1. Limits the number of concepts in the language.
+        // 2. Unifies the various concepts of selectors (i.e., selecting a single value, select by predicate, selecting a set of values)
+        // Perhaps at a usability cost? I think that basic functional programming-like ideas are now fairly common
+        //  in mainstream languages, so developers will be used to them.
+        // This part flows a user-specified set of LunchNames out of the LunchName source.
+        LunchName --- choicesToAdd -->
+            // Now we flow these all of these names into a function producing links, essentially
+            //  taking the image of the set of the names we passed in
+            (name |-> name <=> {}) -->
+            // Finally, we flow all of these links into lunchChoices
+            lunchChoices
+        // Here's a one-line version of the same thing
+        LunchName --- choicesToAdd --> (name |-> name <=> {}) --> lunchChoices
+        // A version using the `transformer` keyword, because a potential confusing a function like this is that
+        //  it not only does the transformation, but it will also store resources in a temporary location until they are flowed out of it.
+        // The addition of `transformer` is meant to emphasize that it's not **exactly** a function.
+        LunchName --- choicesToAdd --> transformer (name |-> name <=> {}) --> lunchChoices
+
+        // Could also imagine having a built-in link creating function, so we could do:
+        LunchName --- choicesToAdd --> createLink --> lunchChoices
+
+        // The main issue I have with this is that we have a new construct that lets us "chain" flows.
+        // However, this seems like a natural extension of flows.
+        // If I were to write
+        A --- x --> B --- y --> C
+        // Given how flows work, it seems reasonable that this would transfer x from A to B, and then
+        //  transfer y from B to C (assuming these transfers could be made).
+
+        // An alternate version, avoiding the use of a loop via anonymous transactions.
+        // Still functional style, but avoids the need for creating new
+        LunchName --- choicesToAdd --> (name |-> lunchChoices += name <=> {})
+        // A version using a more typical lambda notation (could also be \name ->, name =>, name ->, etc.)
         LunchName --- choicesToAdd --> (\name. lunchChoices += name <=> {})
         // A Scala-like lambda (using an underscore to mark the argument location)
         LunchName --- choicesToAdd --> (lunchChoices += _ <=> {})
-        // A more verbose version, Javascript-style anonymous transaction.
+        // A more verbose version, old Javascript-style anonymous function.
         LunchName --- choicesToAdd --> transaction(name : string) { lunchChoices += name <=> {} }
 
     transaction authorizeVoter(newVoterAddress : address):
         only when contractCreator = msg.sender
 
-        voterSource --- newVoterAddress --> authorizedVoters
+        Voter[newVoterAddress] --> authorizedVoters
 
     view getChoices() returns set string := { name | (name <=> voters) in lunchVotes }
 
