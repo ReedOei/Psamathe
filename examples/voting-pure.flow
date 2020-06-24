@@ -70,43 +70,20 @@ contract LunchVote {
         LunchName --- choicesToAdd -->
             // Now we flow these all of these names into a function producing links, essentially
             //  taking the image of the set of the names we passed in
-            (name |-> name <=> {}) -->
+            transformer (name |-> name <=> {}) -->
             // Finally, we flow all of these links into lunchChoices
             lunchChoices
         // Here's a one-line version of the same thing
-        LunchName --- choicesToAdd --> (name |-> name <=> {}) --> lunchChoices
-        // A version using the `transformer` keyword, because a potential confusing a function like this is that
-        //  it not only does the transformation, but it will also store resources in a temporary location until they are flowed out of it.
-        // The addition of `transformer` is meant to emphasize that it's not **exactly** a function.
         LunchName --- choicesToAdd --> transformer (name |-> name <=> {}) --> lunchChoices
 
-        // I could imagine having a syntax like
+        // Could also imagine having a syntax like
         var t : transformer (LunchName -> Link[LunchName, Voter])
         // Then also allowing
         LunchName --- choicesToAdd --> t --> lunchChoices
 
-        // Could also imagine having a built-in link creating function, so we could do:
-        LunchName --- choicesToAdd --> createLink --> lunchChoices
-
-        // The main issue I have with this is that we have a new construct that lets us "chain" flows.
-        // However, this seems like a natural extension of flows.
-        // If I were to write
-        A --- x --> B --- y --> C
-        // Given how flows work, it seems reasonable that this would transfer x from A to B, and then
-        //  transfer y from B to C (assuming these transfers could be made).
-        // That is,
-        A --- x --> B --- y --> C
-        =
-        {
-            A --- x --> B
-            B --- y --> C
-        }
-
         // An alternate version, avoiding the use of a loop via anonymous transactions.
-        // Still functional style, but avoids the need for creating new
+        // Still functional-style, but somewhat different in that the flow itself happens in the "anonymous transaction"
         LunchName --- choicesToAdd --> (name |-> lunchChoices += name <=> {})
-        // A version using a more typical lambda notation (could also be \name ->, name =>, name ->, etc.)
-        LunchName --- choicesToAdd --> (\name. lunchChoices += name <=> {})
         // A Scala-like lambda (using an underscore to mark the argument location)
         LunchName --- choicesToAdd --> (lunchChoices += _ <=> {})
         // A more verbose version, old Javascript-style anonymous function.
