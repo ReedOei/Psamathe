@@ -2,6 +2,7 @@
 source S of T
 =>
 S : map demote(T) => option T
+// where demote(nat) = nat, demote(asset T) = demote(T), etc.
 // such that for all x : T, after on create() is run, then S[x] = { v }; i.e., every key is filled.
 // Of course, we can't "actually" implement a source like this, because it would contain infinitely many values.
 // Instead, we can implement it as the "opposite", so S actually keeps track of which values no longer exist in the map.
