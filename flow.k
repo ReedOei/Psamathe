@@ -116,10 +116,8 @@ module FLOW
     rule I1 < I2 => I1 <Int I2
     rule I1 <= I2 => I1 <=Int I2
 
-    // A dummy storage location, for use with constants
-    syntax Storage ::= "#null" [token]
-
-    rule I:Int --[ Sel ]-> D => split(Sel, fungible(nat, I), #null, D)
+    rule I:Int --[ everything ]-> D => flow(fungible(nat, I), D)
+    rule Str:String --[ everything ]-> D => flow(nonfungible(string, SetItem(Str)), D)
 
     rule <k> S:Storage --[ Sel ]-> D => split(Sel, SV, S, D) ... </k>
         <storage> ...  S |-> SV => .Map ... </storage>
