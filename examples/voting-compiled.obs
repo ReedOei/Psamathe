@@ -111,6 +111,40 @@ contract GetResultIterator implements Iterator[LunchName, Set[Voter@Owned]] {
     }
 }
 
+contract ChoiceCreatorIterator implements Iterator[string] {
+    LunchNameSource@Owned source available in Running, NeedsCleanup;
+
+    asset state Running {
+        Linking[LunchName@Owned, Voter@Owned]@Owned result;
+    }
+    asset state NeedsCleanup;
+    state Consumed;
+
+    ChoiceCreatorIterator@Running(LunchNameSource@Owned >> Unowned _source) {
+        ->Running(result = new Linking[LunchName@Owned, Voter@Owned](), source = _source);
+    }
+
+    transaction performAction(string value, bool last) {
+        // var name : LunchName
+        // lunchNameSource --- choice --> name
+        LunchName name = lunchNameSource.create(choice);
+        // lunchChoices += name <=> {}
+        result.add(new Link[LunchName@Owned, Voter@Owned](name, new Set[Voter@Owned]()));
+    }
+
+    transaction getResult(ChoiceCreatorIterator@Running >> NeedsCleanup this) returns Linking[LunchName@Owned, Voter@Owned]@Owned {
+        Linking[LunchName@Owned, Voter@Owned]@Owned res = result;
+        ->NeedsCleanup;
+        return res;
+    }
+
+    transaction getSource(ChoiceCreatorIterator@NeedsCleanup >> Consumed this) returns LunchNameSource@Owned {
+        LunchNameSource@Owned res = source;
+        ->Consumed;
+        return res;
+    }
+}
+
 main asset contract LunchVote {
     // source voterSource of Voter
     VoterSource@Owned voterSource;
@@ -143,32 +177,17 @@ main asset contract LunchVote {
         CurrentlyVoting.add(this.address);
     }
 
-    transaction choiceCreator(Set[string]@Owned >> Unowned choices) {
-        // only when contractCreator = msg.sender then
+    transaction choiceCreator(Set[string]@Owned choices) {
+        // only when contractCreator = msg.sender
         if (contractCreator != msg.sender) {
             revert();
         }
-        // We could also imagine that Obsidian had loops, which would make this translation somewhat easier.
-        choiceCreatorLoop(choices);
-    }
 
-    private transaction choiceCreatorLoop(Set[string]@Owned >> Unowned choices) {
         // for each choice in choicesToAdd:
-        if (choices.empty()) {
-            disown choices;
-        } else {
-            string choice = choices.pop();
-            choiceCreatorHelper(choice);
-            choiceCreatorLoop(choices);
-        }
-    }
-
-    private transaction choiceCreatorHelper(string choice) {
-        // var name : LunchName
-        // lunchNameSource --- choice --> name
-        LunchName name = lunchNameSource.create(choice);
-        // lunchChoices += name <=> {}
-        lunchChoices.add(new Link[LunchName@Owned, Voter@Owned](name, new Set[Voter@Owned]()));
+        ChoiceCreatorIterator@Running it = new ChoiceCreatorIterator(lunchNameSource);
+        choices.iterate(it);
+        lunchChoices.addAll(it.getResult());
+        lunchNameSource = it.getSource();
     }
 
     transaction authorizeVoter(address newVoterAddress) {
