@@ -149,6 +149,9 @@ An action can be:
     \item An error handler
 \end{enumerate}
 
+\reed{Can you do actions other than just providing an error message in on fail?}
+\reed{Sending ether will also trigger an external call, which should be considered as being part of the \lstinline{on success} block, probably}
+
 For example, below, we create a flow with a name \lstinline{F}.
 \begin{lstlisting}
 F: voterSource --- newVoterAddress --> authorizedVoters
@@ -222,20 +225,6 @@ For example, say you want to do the third flow only when there isn't enough mone
 But the above implementation would also cause the money to be taken from C in the case that there's, for example, and overflow when you transfer to B, or if A has enough money, but not C, which may is desirable.
 
 \section{Examples}
-\paragraph{Basic transfer} ERC-20 transfers.
-\eq{
-    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{amount}): \\
-    \mathcal{A}[\texttt{from}] \xrightarrow{\texttt{amount}} \mathcal{A}[\texttt{to}]
-}
-
-\paragraph{NFT transfer}
-For example, ERC-721 token transfers.
-
-\eq{
-    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{id}): \\
-    \mathcal{A}[\texttt{from}] \xrightarrow{\texttt{id}} \mathcal{A}[\texttt{to}]
-}
-
 \paragraph{Transfer with fees}
 This is fairly common: for example, the contract with the most transactions does this, as do many gambling/auction contracts.
 \eq{
@@ -246,37 +235,6 @@ This is fairly common: for example, the contract with the most transactions does
     \mathcal{A}[\texttt{from}] \arrow{r}{\texttt{amount}} & \arrow{ur}{\texttt{fee} \%} \arrow[rightsquigarrow]{dr}{} & \\
     & & \mathcal{A}[\texttt{to}] \\
 \end{tikzcd}
-
-\paragraph{Transfer with guards}
-For example, when minting.
-\eq{
-    \texttt{mint}(\texttt{to}, \texttt{amount}): \\
-    \underbrace{\guard}_{\texttt{sender} = \texttt{owner}}
-    \mathcal{S}
-    \xrightarrow{\texttt{amount}}
-    \mathcal{A}[\texttt{to}]
-}
-
-\paragraph{Transfer to Timelock}
-\[
-    \texttt{timeLock}(\texttt{time}, \texttt{from}, \texttt{beneficiary}, \texttt{amount}):
-\]
-\[
-    \mathcal{A}[\texttt{from}]
-    \xrightarrow{\texttt{amount}}
-    \newc ~ \texttt{Lock}(\texttt{time}, \texttt{beneficiary})
-    \rightarrowtail \texttt{locks}
-\]
-
-\[
-    \texttt{claim}():
-\]
-\[
-    \underbrace{\guard}_{\texttt{sender} = \texttt{beneficiary} ~\texttt{and}~ \texttt{now} > \texttt{time}}
-    T(\texttt{time}, \texttt{beneficiary})
-    \rightsquigarrow
-    \mathcal{A}[\texttt{beneficiary}] \\
-\]
 
 \subsection{The DAO attack}
 We can prevent the DAO attack (the below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}):
