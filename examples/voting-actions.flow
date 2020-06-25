@@ -65,6 +65,8 @@ contract LunchVote {
 
     // Finally, note that it is easy to support structures like
     transaction T(x):
+        // It's not quite a try-catch, because you also do your external calls in handlers.
+        // This emphasizes that the external calls won't happen until after all the flows.
         handle {
             A --- x --> B
             C --- y --> D
