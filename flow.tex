@@ -56,17 +56,25 @@
 \newcommand{\emits}[1]{\emitsarr #1}
 \newcommand{\addresst}{\textbf{\texttt{address}}\xspace}
 \newcommand{\stringt}{\textbf{\texttt{string}}\xspace}
-\newcommand{\manyt}{\textbf{\texttt{many}}\xspace}
+\newcommand{\setof}{\textbf{\texttt{set}}\xspace}
+\newcommand{\optiont}{\textbf{\texttt{option}}\xspace}
+\newcommand{\boolt}{\textbf{\texttt{bool}}\xspace}
 \newcommand{\natt}{\textbf{\texttt{nat}}\xspace}
 \newcommand{\byt}{\textbf{\texttt{by}}\xspace}
 \newcommand{\stores}{\textbf{\texttt{stores}}\xspace}
 \newcommand{\suchthat}{\textbf{s.t.}\xspace}
 \newcommand{\returns}{\textbf{\texttt{returns}}\xspace}
 \newcommand{\merge}{\rightsquigarrow}
+\newcommand{\flowsto}{\rightsquigarrow}
 \newcommand{\heldby}{\rightarrowtail}
 \newcommand{\one}{\textbf{\texttt{one}}\xspace}
 \newcommand{\some}{\textbf{\texttt{some}}\xspace}
 \newcommand{\any}{\textbf{\texttt{any}}\xspace}
+\newcommand{\map}{\textbf{\texttt{map}}\xspace}
+\newcommand{\linking}{\textbf{\texttt{linking}}\xspace}
+\newcommand{\transformer}{\textbf{\texttt{transformer}}\xspace}
+\newcommand{\selects}{\textbf{\texttt{selects}}\xspace}
+\newcommand{\transforms}{\Rrightarrow}
 
 \begin{document}
 
@@ -311,94 +319,71 @@ transaction approveAndCall(_spender : address, _value : uint256, _extraData : by
         then call receiveApproval(msg.sender, _value, address(this), _extraData)
 \end{lstlisting}
 
-\paragraph{Nonfungible resources} \`a la ERC-721, but also useful for other things, like accounts.
-Saying that something \lstinline{stores account} here means that it stores a set of accounts, because accounts are a nonfungible resource.
-\reed{Not sure I like this or if it will be too confusing, but will have to look into this more with more examples and such}
-\begin{lstlisting}
-resource account := nonfungible address
-source accountSource of account
-
-contract FreezeAccounts {
-    storage {
-        normal stores account
-        frozen stores account
-    }
-
-    createAccount(addr: address):
-        flow addr from accountSource to normal
-
-    freezeAccount(addr: address):
-        flow addr from normal to frozen
-}
-\end{lstlisting}
-\reed{I don't think I really like this for managing states.
-Will need to work on this more.}
-
-\paragraph{RefundVault}
-This is a real example from \lstinline{0xa15c7ebe1f07caf6bff097d8a589fb8ac49ae5b3.sol}.
-
-\begin{lstlisting}
-// This should probably be part of the standard library, and not allow the use of "total"
-resource ether := fungible nat
-resource contract := nonfungible address
-
-source addressSource of address
-source initialize of address provides 1
-
-contract RefundVault {
-    storage {
-        active stores contract
-        refunding stores contract
-        closed stores contract
-
-        deposited stores ether by address
-
-        wallet stores address
-        owner stores address
-    }
-
-    on create(wallet_addr) uses sender:
-        merge sender into owner
-        flow this from initialize to active
-        flow wallet_addr from addressSource to wallet
-
-    deposit(investor) has value:
-        merge value into deposited[investor]
-
-    close() uses sender:
-        only when sender in owner then
-            flow this from active to closed,
-            and
-            merge all in deposited into wallet // Will we be able to optimize this somehow?
-
-    enableRefunds() uses sender:
-        only when sender in owner then
-            flow this from active to refunding
-
-    refund(investor):
-        only when this in refunding then
-            merge deposited[investor] into investor
-}
-\end{lstlisting}
-
-\section{Formalization}
+\section{Specification}
 
 \subsection{Syntax}
 \begin{figure}[ht]
 \begin{align*}
     C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
-    I &\in \textsc{InterfaceNames} & S &\in \textsc{StateNames}\\
-    D &\in \textsc{ContractNames} \cup \textsc{InterfaceNames} & p &\in \Q \\
-    E &\in \textsc{EventNames} & f &\in \textsc{FieldNames} \\
+    t &\in \textsc{TypeNames} & S &\in \textsc{StateNames}\\
+    D &\in \textsc{ContractNames} \cup \textsc{InterfaceNames} & n &\in \Z \\
     x &\in \textsc{IdentifierNames} & \mathcal{R} &\in \textsc{ResourceNames} \\
 \end{align*}
+\begin{tabular}{l r l l}
+    $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ \bnfalt $\some$ & (type quantities \reed{Not sure what to call these}) \\
+    $\tau$ & \bnfdef & $\mathcal{Q} \tau$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\tau \times \tau$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
+    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\transformer~(\lambda x : \tau. E)$ & (values) \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
+    $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{F}$ & (flows) \\
+
+    % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
+    % $A$ & \bnfdef & $T(x_1, \ldots, x_n)$ \bnfalt $\emits{E(x_1, \ldots, x_n)}$ & (actions) \\
+    % $Q$ & \bnfdef & \one \bnfalt \some \bnfalt \any & (flow quantities) \\
+    % $f$ & \bnfdef & $v$ \bnfalt $x$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\delta + \delta$ \bnfalt $\delta - \delta$ \bnfalt $\min(\delta, \delta)$ \bnfalt $\max(\delta, \delta)$ \bnfalt $Q~x~\suchthat~\varphi(x)$ & (prim. dist. specifier) \\
+\end{tabular}
 \caption{Abstract syntax of \langName.}
 \label{lang-syntax}
 \end{figure}
+Note: In the surface language, you write $x : \tau$ to mean $x : \one~\tau$.
 
-\reed{Transactions are ``flow graphs'', which perform atomic state updates}
-\reed{Asset retentiont theorem?}
+\subsection{Statics}
+Some basic flow typing rules:
 
+\begin{mathpar}
+    \inferrule*[right=Select-Var]{
+        \Gamma \proves x : \mathcal{Q}~\tau
+    }{ \Gamma \proves x ~ \selects~\tau }
+
+    \inferrule*[right=Select-Var]{
+        \Gamma \proves x : \tau
+    }{ \Gamma \proves x ~ \selects~\tau }
+
+    \inferrule*[right=Transformer]{
+        \Gamma, x : \tau \proves e : \sigma
+    }{ \Gamma \proves \transformer (\lambda x : \tau. e) : \tau \to \sigma }
+
+    \inferrule*[right=Flow-Storage]{
+        \Gamma \proves x : \mathcal{Q}~\tau
+    }{ \Gamma \proves x : \tau \flowsto \tau }
+
+    \inferrule*[right=Flow-Transformer]{
+        \Gamma \proves \transformer (\lambda x : \tau. e) : \tau \to \sigma
+    }{ \Gamma \proves \transformer (\lambda x : \tau. e) : \tau \flowsto \sigma }
+
+    \inferrule*[right=Flow]{
+        \Gamma \proves S : \tau
+        \and
+        \Gamma \proves f ~ \selects~\tau
+        \and
+        \Gamma \proves D : \tau \flowsto \sigma
+    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \sigma }
+\end{mathpar}
+
+\reed{Asset retention theorem?}
+\reed{Resource accessiblity theorem?}
+
+\subsection{Unfinished}
+\reed{Ignore this for now, just some stuff for fun}
 \begin{definition}
     A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
     \begin{enumerate}[label=(\roman*)]
