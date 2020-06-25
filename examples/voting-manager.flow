@@ -1,0 +1,126 @@
+// Based on: https://github.com/WayneJz/COMP6452-19T1/blob/master/Assignment_1/contracts/message.sol
+
+contract LunchVote {
+    // These are "consumable" because we can self-destruct, and consume all of these resources.
+    // That's fine, because these resources don't have any meaning outside of the contract, so there's no need to preserve them.
+    type Voter is nonfungible consumable asset address
+    source voterSource of Voter
+
+    type LunchName is nonfungible consumable asset string
+    source lunchNameSource of LunchName
+
+    quorum : nat
+    voteAcceptedCount : nat
+    maxVote : nat
+
+    contractCreator : address
+
+    lunchChoices : linking LunchName <=> {Voter}
+
+    authorizedVoters : set Voter
+
+    CurrentlyVoting : set address
+    VotingFinished : set address
+
+    on create(quorumSet : nat):
+        quorumSet --> quorum
+        voterSource --- msg.sender --> authorizedVoters
+        contractCreator := msg.sender
+        CurrentlyVoting += this.address
+
+    transaction choiceCreator(choicesToAdd : set string):
+        only when contractCreator = msg.sender
+
+        // TODO: For loops are convenient, but sort of weird and don't really fit into the paradigm very well.
+        for each choice in choicesToAdd:
+            var name : LunchName
+            lunchNameSource --- choice --> name
+            lunchChoices += name <=> {}
+
+            // Alternate version:
+            lunchChoices += link name with {}
+
+    transaction authorizeVoter(newVoterAddress : address):
+        only when contractCreator = msg.sender
+
+        voterSource --- newVoterAddress --> authorizedVoters
+
+        // NOTE: If we wanted to be "super pure", we can implement precondition with just flows by doing something like:
+        consume true from { contractCreator = msg.sender }
+        // This works because { contractCreator = msg.sender } : set bool (specifically, a singleton), so
+        //  if `contractCreator = msg.sender` doesn't evaluate to true, then we will fail to consume true from it.
+        // I don't think actually doing this is a good idea; at least, not in the surface language.
+        // Maybe it would simplify the compiler and/or formalization), but it's interesting/entertaining.
+
+    view getChoices() returns set string := { name | (name <=> voters) in lunchVotes }
+
+    view getResult() returns string * set (string * nat) :=
+        if this.address in CurrentlyVoting then
+            return ("Voting still in progress! You can only use 'getChoices' function.", {})
+        else
+            let winners : set (string, nat) :=
+                { (name, total voters) | (name <=> voters) in lunchVotes, total voters = maxVote }
+
+            if total winners > 1 then
+                return ("The lunch vote has multiple tie winners:", winners)
+            else
+                return ("The winner is:", winners)
+
+    transaction vote(voterChoice : string) returns string:
+        only when this.address in CurrentlyVoting
+
+        authorizedVoters --- msg.sender --> lunchChoices[voterChoice]
+
+        maxVote := max(maxVote, total lunchChoices[voterChoice])
+
+        // authorizedVoters stores all the voters who are allowed to vote, but have not yet voted.
+        // So total Voter - total authorizedVoters is the number of voters who have voted.
+        if (total Voter - total authorizedVoters) >= quorum then
+            CurrentlyVoting --- this.address --> VotingFinished
+
+        return "Vote accepted."
+
+    transaction deconstructor():
+        only when msg.sender = contractCreator
+
+        this.balance --> msg.sender.balance
+
+        // Consume all resources, include ourselves (a self-destruct).
+        // In addition to self-destructing, this acts as a check that only consumable resources are held by this contract at this point.
+        consume this
+}
+
+contract LunchVoteManager {
+    lunchVotes : map nat => LunchVote
+
+    contractCreator : address
+    curId : nat
+    quorum : nat
+
+    on create(quorumSet : nat):
+        contractCreator := msg.sender
+        quorumSet --> quorum
+
+    transaction newVote(lunchChoices : set string):
+        only when contractCreator = msg.sender
+
+        LunchVote(quorum) --> lunchVotes[curId]
+        1 --> curId
+
+        on success:
+            call lunchVotes[curId].choiceCreator(lunchChoices)
+
+    transaction authorizeVoter(newVoterAddress : address):
+        only when contractCreator = msg.sender
+
+        on success:
+            call lunchVotes[curId].authorizeVoter(newVoterAddress)
+
+    view getChoices(voteId : nat) returns set string := lunchVotes[voteId].getChoices()
+    view getResult(voteId : nat) returns string * set(string * nat) := lunchVotes[voteId].getResult()
+
+    transaction vote(voterChoice : string) returns string:
+        on success:
+            lunchVotes[curId].vote(voterChoice)
+}
+
