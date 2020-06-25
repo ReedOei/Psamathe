@@ -218,6 +218,8 @@ main asset contract LunchVote {
         }
 
         // authorizedVoters --- msg.sender --> lunchChoices[voterChoice]
+        // Assumes that .remove() will fail if the link isn't in the structure.
+        // Could also return an Option, then we'd just have to check.
         Link[LunchName@Owned, Voter@Owned]@Owned link = lunchChoices.remove(voterChoice);
         link.addValue(authorizedVoters.create(msg.sender));
 
