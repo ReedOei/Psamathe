@@ -76,6 +76,9 @@
 \newcommand{\selects}{\textbf{\texttt{selects}}\xspace}
 \newcommand{\transforms}{\Rrightarrow}
 
+\newcommand{\flowproves}{\mathbin{|\hskip -0.14em\scalebox{0.7}[1]{$\leadsto$}}}
+\newcommand{\flowproveout}{\mathbin{\scalebox{0.7}[1]{$\leadsto$}\hskip -0.14em|}}
+
 \begin{document}
 
 \section{Introduction}
@@ -289,7 +292,7 @@ transaction approveAndCall(_spender : address, _value : uint256, _extraData : by
 \end{align*}
 \begin{tabular}{l r l l}
     $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ \bnfalt $\some$ & (type quantities \reed{Not sure what to call these}) \\
-    $\tau$ & \bnfdef & $\mathcal{Q} \tau$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\tau \times \tau$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
+    $\tau$ & \bnfdef & $\mathcal{Q}~\tau$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\tau \times \tau$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\transformer~(\lambda x : \tau. E)$ & (values) \\
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
     $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{F}$ & (flows) \\
@@ -309,32 +312,31 @@ Some basic flow typing rules:
 
 \begin{mathpar}
     \inferrule*[right=Select-Var]{
-        \Gamma \proves x : \mathcal{Q}~\tau
-    }{ \Gamma \proves x ~ \selects~\tau }
-
-    \inferrule*[right=Select-Var]{
         \Gamma \proves x : \tau
     }{ \Gamma \proves x ~ \selects~\tau }
 
-    \inferrule*[right=Transformer]{
-        \Gamma, x : \tau \proves e : \sigma
-    }{ \Gamma \proves \transformer (\lambda x : \tau. e) : \tau \to \sigma }
+    \inferrule*[right=Select-Var-Quant]{
+        \Gamma \proves x : \mathcal{Q}~\tau
+    }{ \Gamma \proves x ~ \selects~\tau }
 
     \inferrule*[right=Flow-Storage]{
         \Gamma \proves x : \mathcal{Q}~\tau
     }{ \Gamma \proves x : \tau \flowsto \tau }
 
     \inferrule*[right=Flow-Transformer]{
-        \Gamma \proves \transformer (\lambda x : \tau. e) : \tau \to \sigma
+        \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
     }{ \Gamma \proves \transformer (\lambda x : \tau. e) : \tau \flowsto \sigma }
 
     \inferrule*[right=Flow]{
-        \Gamma \proves S : \tau
+        \Gamma \proves S : \mathcal{Q}~\tau
         \and
         \Gamma \proves f ~ \selects~\tau
         \and
         \Gamma \proves D : \tau \flowsto \sigma
     }{ \Gamma \proves S \sends{f} D : \tau \flowsto \sigma }
+
+    \inferrule*[right=Resource-Lookup]{
+    }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
 \end{mathpar}
 
 \reed{Asset retention theorem?}
@@ -345,7 +347,7 @@ Some basic flow typing rules:
 \begin{definition}
     A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
     \begin{enumerate}[label=(\roman*)]
-        \item $(R, +, 0)$ is a commutative monoid.
+        \item $(R, +, 0)$ is a monoid.
         \item $(R, \leq)$ is a partial order that is compatible with $(R, +, 0)$.
             That is, for any $x, y \in R$ such that $x \leq y$, and for any $z \in R$, we have $x + z \leq y + z$.
         \item $- : R \times R \to R$ is a function so that for any $x,y \in R$ such that $y \leq x$, we have $(x - y) + y = x$.
@@ -356,7 +358,6 @@ Some basic flow typing rules:
         %     Let $f : R \to R \cup \curlys{\top}$ and $r \in R$.
         %     If $f(r) \leq r$, then $r \stackrel{f}{\splits} (a,b)$ such that $f(r) = b$ and $a + b = r$.
     \end{enumerate}
-    The elements of a resource are called \emph{resource values}.
 \end{definition}
 
 \paragraph{Examples}
@@ -365,7 +366,26 @@ Some basic flow typing rules:
     \item The natural numbers with the standard operations is a resource $(\N, +, 0, \leq, -)$, where $-$ is \emph{saturating subtraction}: $n - m = 0$ if $m > n$.
     \item For any set $A$, we can build the resource $(\powerset{A}, \cup, \emptyset, \subseteq, \setminus)$, where $X \setminus Y$ is the set difference operation.
     \item Similarly, given any set $A$, we can build the resource $(\powersetfin{A}, \cup, \emptyset, \subseteq, \setminus)$; this resource is called the \emph{nonfungible resource on $A$}, written $\text{nf}(A)$.
+    \item \reed{I have no idea if this is useful, but it's fun}
+        The set of strings on an alphabet $\Sigma$ can be made into the \emph{prefix resource} $(\Sigma^*, \epsilon, \cdot, \leq_p, -_p)$ or the \emph{suffix resource} $(\Sigma^*, \epsilon, \cdot, \leq_s, -_s)$, where $\cdot$ is concatenation, $x \leq_p y$ if $x$ is a prefix of $y$ and similarly $x \leq_s y$ if $x$ is a suffix of $y$.
+        The functions $-_p$ and $-_s$ are defined as follows:
+        \[
+            (x \cdot y) -_p x = y
+        \]
+        and
+        \[
+            (x \cdot y) -_s y = x
+        \]
 \end{enumerate}
+
+\begin{definition}
+    For any two resources $\mathcal{R}$ and $\mathcal{S}$, their \emph{direct product}, $\mathcal{R} \oplus \mathcal{S}$ is $(R \times S, +_{RS}, (0_R, 0_S), \leq_{RS}, -_{RS})$, where
+    \begin{align*}
+        (r_1, s_1) +_{RS} (r_2, s_2) &:= (r_1 +_R r_2, s_1 +_S s_2) \\
+        (r_1, s_1) -_{RS} (r_2, s_2) &:= (r_1 -_R r_2, s_1 -_S s_2) \\
+        (r_1, s_1) \leq_{RS} (r_2, s_2) &:\iff r_1 \leq_R r_2 \land s_1 \leq_S s_2
+    \end{align*}
+\end{definition}
 
 \begin{definition}
     Let $\mathcal{R}$ be a resource and let $A$ be a set.

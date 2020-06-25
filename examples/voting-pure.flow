@@ -47,47 +47,12 @@ contract LunchVote {
     transaction choiceCreator(choicesToAdd : set string):
         only when contractCreator = msg.sender
 
-        // For loops don't really fit into the paradigm very well:
-        // - Without loops, every transaction is a list of (conditional) flows and handlers)
-        // - The program simply executes top to bottom, it never jumps back up.
-        // See below for a suggestion on avoiding loops.
-        // Here is the standard for loop version, below are several versions based on lambda-function-like constructs.
-        for each choice in choicesToAdd:
-            var name : LunchName
-            LunchName[choice] --> name
-            lunchChoices += name <=> {}
-
-            // Alternate version:
-            lunchChoices += link name with {}
-
-        // Here's another version that treats flows as a stream of transformations and filtering
-        // This is good because:
-        // 1. Limits the number of concepts in the language.
-        // 2. Unifies the various concepts of selectors (i.e., selecting a single value, select by predicate, selecting a set of values)
-        // Perhaps at a usability cost? I think that basic functional programming-like ideas are now fairly common
-        //  in mainstream languages, so developers will be used to them.
-        // This part flows a user-specified set of LunchNames out of the LunchName source.
-        LunchName --- choicesToAdd -->
-            // Now we flow these all of these names into a function producing links, essentially
-            //  taking the image of the set of the names we passed in
-            transformer (name |-> name <=> {}) -->
-            // Finally, we flow all of these links into lunchChoices
-            lunchChoices
         // Here's a one-line version of the same thing
-        LunchName --- choicesToAdd --> transformer (name |-> name <=> {}) --> lunchChoices
+        LunchName --- choicesToAdd --> transformer (\name. name <=> {}) --> lunchChoices
 
-        // Could also imagine having a syntax like
-        var t : transformer (LunchName -> Link[LunchName, Voter])
-        // Then also allowing
+        // Could also use a temporary variable
+        var t : LunchName ~> Link[LunchName, Voter] := (\name. name <=> {})
         LunchName --- choicesToAdd --> t --> lunchChoices
-
-        // An alternate version, avoiding the use of a loop via anonymous transactions.
-        // Still functional-style, but somewhat different in that the flow itself happens in the "anonymous transaction"
-        LunchName --- choicesToAdd --> (name |-> lunchChoices += name <=> {})
-        // A Scala-like lambda (using an underscore to mark the argument location)
-        LunchName --- choicesToAdd --> (lunchChoices += _ <=> {})
-        // A more verbose version, old Javascript-style anonymous function.
-        LunchName --- choicesToAdd --> transaction(name : string) { lunchChoices += name <=> {} }
 
     transaction authorizeVoter(newVoterAddress : address):
         only when contractCreator = msg.sender

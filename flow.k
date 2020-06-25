@@ -6,7 +6,7 @@ module FLOW-SYNTAX
     syntax Val ::= Int
                  | Bool
                  | String
-                 | "transformer" "(" "\\" Id "|->" Expr ")"
+                 | "transformer" "(" "\\" Id "|->" Expr ")" [binder]
     syntax Vals ::= List{Val, ","} [klabel(vals)]
     syntax Ids ::= List{Id, ","} [klabel(vals)]
 
@@ -21,6 +21,9 @@ module FLOW-SYNTAX
                   | "{" Exprs "}"
                   // Link literal
                   | Expr "<=>" Expr
+                  // Tuples
+                  | "(" Exprs ")"
+                  // Function call (can only call views)
                   | Id "(" Exprs ")"
                   > Expr "or" Expr [strict(1)]
                   | Expr "and" Expr [strict(1)]
@@ -50,7 +53,7 @@ module FLOW-SYNTAX
                    | "+"
     syntax Selector ::= Expr
                       | SpecialSelect
-                      | Quant Id "such" "that" Expr
+                      | Quant Id "such" "that" Expr [binder]
 
     syntax Flow ::= Storage
                   | Storage "--[" Selector "]->" Flow [strict(2)]
@@ -64,6 +67,11 @@ module FLOW-SYNTAX
                 | "bool"       [token]
                 | "string"     [token]
                 | "address"    [token]
+
+    syntax Modifier ::= "nonfungible" [token]
+                      | "fungible"    [token]
+                      | "consumable"  [token]
+                      | "asset"       [token]
 
     syntax Stmt ::= Flow
                   | Stmt Stmt [right]
