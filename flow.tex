@@ -54,6 +54,7 @@
 \newcommand{\sends}[1]{\stackrel{#1}{\to}}
 \newcommand{\emitsarr}{\mathrel{\rotatebox[origin=c]{270}{${\looparrowleft}$}}}
 \newcommand{\emits}[1]{\emitsarr #1}
+\newcommand{\asset}{\textbf{\texttt{asset}}\xspace}
 \newcommand{\addresst}{\textbf{\texttt{address}}\xspace}
 \newcommand{\stringt}{\textbf{\texttt{string}}\xspace}
 \newcommand{\setof}{\textbf{\texttt{set}}\xspace}
@@ -335,16 +336,20 @@ Some basic flow typing rules:
         \Gamma \proves D : \tau \flowsto \sigma
     }{ \Gamma \proves S \sends{f} D : \tau \flowsto \sigma }
 
-    \inferrule*[right=Resource-Lookup]{
+    \inferrule*[right=Asset-Lookup]{
+            x ~ \asset
     }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
 \end{mathpar}
 
+\reed{I think only one kind of expression will actually behave linearly, which is the expressions in the transformers.
+Everything else works ``normally''?}
 \reed{Asset retention theorem?}
 \reed{Resource accessiblity theorem?}
 
 \subsection{Unfinished}
-\reed{Ignore this for now, just some stuff for fun}
+\reed{Ignore this for now, just some stuff for fun that may or may not end up being useful.}
 \begin{definition}
+    \reed{Don't think this really has a good name}
     A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
     \begin{enumerate}[label=(\roman*)]
         \item $(R, +, 0)$ is a monoid.
