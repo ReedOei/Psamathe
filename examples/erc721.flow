@@ -115,14 +115,7 @@ contract NFToken is ERC721, SupportsInterface {
   // Checks if `_operator` is an approved operator for `_owner`.
   view isApprovedForAll(_owner : address, _operator : address) returns bool := _operator in ownerToOperators[_owner]
 
-  /**
-   * @dev Mints a new NFT.
-   * @notice This is an internal function which should be called from user-implemented external
-   * mint function. Its purpose is to show and properly initialize data structures when using this
-   * implementation.
-   * @param _to The address that will own the minted NFT.
-   * @param _tokenId of the NFT to be minted by the msg.sender.
-   */
+  // Mints a new NFT.
   transaction mint(_to : address, _tokenId : nat):
     // NOTE: This is just an example, so there's no authorization or anything.
     // Would include something like: only when msg.sender = minterAddr then
@@ -130,14 +123,7 @@ contract NFToken is ERC721, SupportsInterface {
         Token[_tokenId] --[ _tokenId ]-> balances[_to]
         on success: emit Transfer(0x0, _to, _tokenId)
 
-  /**
-   * @dev Burns a NFT.
-   * @notice This is an internal function which should be called from user-implemented external burn
-   * function. Its purpose is to show and properly initialize data structures when using this
-   * implementation. Also, note that this burn implementation allows the minter to re-mint a burned
-   * NFT.
-   * @param _tokenId ID of the NFT to be burned.
-   */
+  // Burns a NFT.
   transaction burn(_tokenId : nat):
     // In a real implementation, this would be guarded by some condition like mint() would be
     let tokenOwner := owner of _tokenId from balances
