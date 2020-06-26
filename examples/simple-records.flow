@@ -1,0 +1,51 @@
+// Based on: https://bitbucket.org/rhitchens2/soliditycrud/src/master/contracts/SolidityCRUD-part2.sol
+
+contract UserCrud {
+    type UserStruct is {
+        userEmail : bytes,
+        userAge : nat
+    }
+
+    userStructs : map address => UserStruct
+
+    event LogNewUser(userAddress : address, userEmail : bytes, userAge : nat);
+    event LogUpdateUser(userAddress : address, userEmail : bytes, userAge : nat);
+    event LogDeleteUser(userAddress : address);
+
+    view isUser(userAddress : address) returns bool := userAddress in userStructs
+
+    transaction insertUser(userAddress : address, userEmail : bytes, userAge : nat):
+        // only when isUser(userAddress)
+
+        // Note, this will raise an error if the UserStruct already exists, so there is no need to explicitly check.
+        // This is because overwriting an asset would be an error.
+        UserStruct[userEmail, userAge] --> userStructs[userAddress]
+        // Alternate syntax? Uses name parameters.
+        UserStruct{userEmail: userEmail, userAge: userAge} --> userStructs[userAddress]
+
+        on success:
+            emit LogNewUser(userAddress, userEmail, userAge)
+
+    transaction deleteUser(userAddress : address):
+        consume userStructs[userAddress]
+
+        on success:
+            emit LogDeleteUser(userAddress)
+
+    view getUser(userAddress : address) returns (bytes, nat) := (userStructs[userAddress].userEmail, userStructs[userAddress].userAge)
+
+    transaction updateUserEmail(userAddress : address, userEmail : bytes):
+        userStructs[userAddress].userEmail := userEmail
+
+        on success:
+            emit LogUpdateUser(userAddress, userEmail, userStructs[userAddress].userAge)
+
+    transaction updateUserAge(userAddress : address, userAge : nat):
+        userStructs[userAddress].userAge := userAge
+
+        on success:
+            emit LogUpdateUser(userAddress, userStructs[userAddress].userEmail, userAge)
+
+    view getUserCount() returns nat := total userStructs
+}
+
