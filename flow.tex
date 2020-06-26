@@ -252,47 +252,37 @@ Note: In the surface language, you write $x : \tau$ to mean $x : \one~\tau$.
 The syntax $f : \tau \flowsto \sigma$ means $f$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
 
 \subsection{Statics}
-Some basic flow typing rules:
+Some flow typing rules:
 
 \begin{mathpar}
     \inferrule*[right=Select-Var]{
         \Gamma \proves x : \tau
     }{ \Gamma \proves x ~ \selects~\tau }
 
-    \inferrule*[right=Lookup-NoCosume]{
-    }{ \Gamma, x : \tau \proves x : \demote(\tau) }
-
     \inferrule*[right=Select-Var-Quant]{
         \Gamma \proves x : \mathcal{Q}~\tau
     }{ \Gamma \proves x ~ \selects~\tau }
 
-    \inferrule*[right=Flow-Storage]{
-        \Gamma \proves x : \mathcal{Q}~\tau
-    }{ \Gamma \proves x : \tau \flowsto \tau }
+    \inferrule*[right=Lookup-NoConsume]{
+    }{ \Gamma, x : \tau \proves x : \demote(\tau) }
 
-    \inferrule*[right=Flow-Transformer]{
+    \inferrule*[right=Check-Transformer]{
         \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
     }{ \Gamma \proves (\lambda x : \tau. e) : \tau \flowsto \sigma }
 
     \inferrule*[right=Flow-Transformer]{
-        \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
-    }{ \Gamma \flowproves (\lambda x : \tau. e) : \tau \flowsto \sigma }
+    }{ \Gamma, S : \tau \flowsto \sigma \flowproves S : \tau \flowsto \sigma \flowproveout \Gamma, S : \mathcal{Q}~\sigma }
+
+    \inferrule*[right=Flow-Storage]{
+    }{ \Gamma, S : \mathcal{Q}~\tau \flowproves S : \tau \flowsto \tau \flowproveout \Gamma, S : \mathcal{Q}~\sigma }
 
     \inferrule*[right=Flow]{
-        \Gamma \proves S : \mathcal{Q}~\tau
+        \Gamma \flowproves S : \tau \flowsto \sigma \flowproveout \Delta
         \and
-        \Gamma \proves f~\selects~\demote(\tau)
+        \Delta \proves f~\selects~\demote(\sigma)
         \and
-        \Gamma \proves D : \tau \flowsto \sigma
-    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \sigma }
-
-    \inferrule*[right=Flow-Experimental]{
-        \Gamma \proves S : \mathcal{Q}~\tau
-        \and
-        \Gamma \proves f ~ \selects~\tau
-        \and
-        \Gamma \flowproves D : \tau \flowsto \sigma \flowproveout \Delta
-    }{ \Gamma \flowproves S \sends{f} D : \tau \flowsto \sigma \flowproveout \Delta }
+        \Delta \flowproves D : \sigma \flowsto \pi \flowproveout \Xi
+    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \pi \flowproveout \Xi }
 
     \inferrule*[right=Storage-Lookup]{
         \Gamma \proves \mathcal{S} : \one~\map~\tau~\Rightarrow~\sigma
