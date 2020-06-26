@@ -1,4 +1,5 @@
 contract Main {
+    type LunchName is nonfungible consumable asset string
 }
 
 ;
@@ -12,4 +13,7 @@ A --[ 1 ]-> C --> B
 "foo" --> D
 "bar" --> D
 D --[ "foo" ]-> E
+
+consume A
+consume 1 from B
 

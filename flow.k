@@ -16,19 +16,14 @@ module FLOW-SYNTAX
 
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]
-                  // Set literals
-                  | "{" Exprs "}"
-                  // Link literal
-                  | Expr "<=>" Expr
-                  // Tuples
-                  | "(" Exprs ")"
-                  // Function call (can only call views)
-                  | Id "(" Exprs ")"
+                  | "{" Exprs "}" // Set literals
+                  | Expr "<=>" Expr // Link literal
+                  | "(" Exprs ")" // Tuples
+                  | Id "(" Exprs ")" // Function call (can only call views)
                   > Expr "or" Expr [strict(1)]
                   | Expr "and" Expr [strict(1)]
                   > Expr "+" Expr [left, seqstrict]
                   | Expr "-" Expr [left, seqstrict]
-                  // Comparison operators
                   > Expr "=" Expr [seqstrict]
                   | Expr "!=" Expr [seqstrict]
                   | Expr "<=" Expr [seqstrict]
@@ -108,17 +103,36 @@ module FLOW
             <k> $PGM:Program </k>
             <storage> .Map </storage>
             <contracts> .Map </contracts>
+            <types> .Map </types>
         </T>
 
-    syntax Resource ::= fungible(Id, Int)
-                      | nonfungible(Id, Set)
+    // Helper terms
+    syntax TypeName ::= Id
+                      | qualified(Id, TypeName)
+
+    syntax TypeMod ::= modified(Set, Type)
+
+    syntax Resource ::= fungible(TypeName, Int)
+                      | nonfungible(TypeName, Set)
 
     syntax K ::= split(Selector, Resource, Storage, Flow)
                | flow(Resource, Flow)
+               | processDecls(Id, Decls)
 
-    rule <k> contract C { Ds } Cs ; S => Cs ; S </k>
-         <contracts> ...  .Map => C |-> contract C { Ds } ... </contracts>
+    syntax KItem ::= TypeName
+                   | TypeMod
+
+    rule <k> contract C { Ds } Cs ; S => processDecls(C, Ds) ~> Cs ; S ... </k>
+        <contracts> ... .Map => C |-> contract C { Ds } ... </contracts>
     rule .Contracts ; S => S [structural]
+
+    syntax Set ::= modToSet(Modifiers) [function]
+    rule modToSet(.Modifiers) => .Set
+    rule modToSet(M:Modifier Ms) => SetItem(M) modToSet(Ms)
+
+    rule <k> processDecls(C, (type T is Mods BaseType) Ds) => processDecls(C, Ds) ... </k>
+        <types> ... .Map => qualified(C, T) |-> modified(modToSet(Mods), BaseType) ... </types>
+    rule processDecls(C, .Decls) => .
 
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
@@ -167,5 +181,13 @@ module FLOW
     rule <k> flow(nonfungible(R, V), S:Storage) => . ... </k>
         <storage> Store => Store S |-> nonfungible(R, V) </storage>
         requires notBool (S in keys(Store))
+
+    // TODO: Need to check that SV is consumable
+    rule <k> consume S => . ... </k>
+        <storage> ... S |-> SV => .Map ... </storage>
+
+    syntax Storage ::= "freshStorage" "(" Int ")" [freshGenerator, function, functional, klabel(freshStorage)]
+
+    rule consume V from S => S --[ V ]-> !Fresh ~> consume !Fresh
 endmodule
 
