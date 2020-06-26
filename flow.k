@@ -6,14 +6,13 @@ module FLOW-SYNTAX
     syntax Val ::= Int
                  | Bool
                  | String
-                 | "transformer" "(" "\\" Id "|->" Expr ")" [binder]
+                 | "\\" Id "." Expr [binder]
     syntax Vals ::= List{Val, ","} [klabel(vals)]
     syntax Ids ::= List{Id, ","} [klabel(vals)]
 
-    syntax PersistStorage ::= Id
-                            | Storage "[" Expr "]"     [strict(2)]
-    syntax Storage ::= PersistStorage
-                     | Val
+    syntax Storage ::= Val
+                     | Id
+                     | Storage "[" Expr "]" [strict(2)]
 
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]
@@ -72,16 +71,24 @@ module FLOW-SYNTAX
                       | "fungible"    [token]
                       | "consumable"  [token]
                       | "asset"       [token]
+    syntax Modifiers ::= List{Modifier, " "}
+
+    syntax Type ::= Id
+
+    syntax TypeDef ::= "type" Id "is" Modifiers Type
+    syntax Decl ::= TypeDef
+    syntax Decls ::= List{Decl, " "}
 
     syntax Stmt ::= Flow
                   | Stmt Stmt [right]
 
+    syntax Contract ::= "contract" Id "{" Decls "}"
+    syntax Contracts ::= List{Contract, " "}
+
+    syntax Program ::= Contracts ";" Stmt
+
     // Basic desugaring
     rule S --> D => S --[ everything ]-> D [macro]
-    rule S --[ Sel1 ]-> T:PersistStorage --[ Sel2 ]-> F
-         =>
-         (S --[ Sel1 ]-> T)
-         (T --[ Sel2 ]-> F) [macro-rec]
 
     rule X > Y => Y < X   [macro]
     rule X >= Y => Y <= X [macro]
@@ -98,15 +105,20 @@ module FLOW
 
     configuration
         <T>
-            <k> $PGM:Stmt </k>
+            <k> $PGM:Program </k>
             <storage> .Map </storage>
+            <contracts> .Map </contracts>
         </T>
 
     syntax Resource ::= fungible(Id, Int)
                       | nonfungible(Id, Set)
 
-    syntax K ::= split(Selector, Resource, Storage, Storage)
-               | flow(Resource, Storage)
+    syntax K ::= split(Selector, Resource, Storage, Flow)
+               | flow(Resource, Flow)
+
+    rule <k> contract C { Ds } Cs ; S => Cs ; S </k>
+         <contracts> ...  .Map => C |-> contract C { Ds } ... </contracts>
+    rule .Contracts ; S => S [structural]
 
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
@@ -127,8 +139,8 @@ module FLOW
     rule I:Int --[ everything ]-> D => flow(fungible(nat, I), D)
     rule Str:String --[ everything ]-> D => flow(nonfungible(string, SetItem(Str)), D)
 
-    rule <k> S:Storage --[ Sel ]-> D => split(Sel, SV, S, D) ... </k>
-        <storage> ...  S |-> SV => .Map ... </storage>
+    rule <k> S --[ Sel ]-> D => flow(SV, S --[ Sel ]-> D) ... </k>
+         <storage> ...  S |-> SV => .Map ... </storage>
 
     rule split(everything, fungible(R, V), S, D) => split(V, fungible(R, V), S, D)
     rule split(everything, nonfungible(R, Vals), S, D) => flow(nonfungible(R, .Set), S) ~> flow(nonfungible(R, Vals), D)
@@ -140,17 +152,19 @@ module FLOW
          =>
          flow(nonfungible(R, Rest), S) ~> flow(nonfungible(R, SetItem(Val)), D)
 
-    rule <k> flow(fungible(R, V), S) => . ... </k>
+    rule flow(R, S --[ Sel ]-> D) => split(Sel, R, S, D)
+
+    rule <k> flow(fungible(R, V), S:Storage) => . ... </k>
         <storage> ...  S |-> (fungible(R, Cur) => fungible(R, Cur +Int V)) ... </storage>
 
-    rule <k> flow(fungible(R, V), S) => . ... </k>
+    rule <k> flow(fungible(R, V), S:Storage) => . ... </k>
         <storage> Store => Store S |-> fungible(R, V) </storage>
         requires notBool (S in keys(Store))
 
-    rule <k> flow(nonfungible(R, V), S) => . ... </k>
+    rule <k> flow(nonfungible(R, V), S:Storage) => . ... </k>
         <storage> ...  S |-> (nonfungible(R, Cur) => nonfungible(R, Cur V)) ...  </storage>
 
-    rule <k> flow(nonfungible(R, V), S) => . ... </k>
+    rule <k> flow(nonfungible(R, V), S:Storage) => . ... </k>
         <storage> Store => Store S |-> nonfungible(R, V) </storage>
         requires notBool (S in keys(Store))
 endmodule

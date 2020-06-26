@@ -1,8 +1,13 @@
+contract Main {
+}
+
+;
+
 2 --> A
 A --[ 1 ]-> B
 B --> C
 
-A --[ 1 ]-> C --[ 1 ]-> B
+A --[ 1 ]-> C --> B
 
 "foo" --> D
 "bar" --> D

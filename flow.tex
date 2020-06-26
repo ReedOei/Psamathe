@@ -55,6 +55,8 @@
 \newcommand{\emitsarr}{\mathrel{\rotatebox[origin=c]{270}{${\looparrowleft}$}}}
 \newcommand{\emits}[1]{\emitsarr #1}
 \newcommand{\asset}{\textbf{\texttt{asset}}\xspace}
+\newcommand{\fungible}{\textbf{\texttt{fungible}}\xspace}
+\newcommand{\nonfungible}{\textbf{\texttt{nonfungible}}\xspace}
 \newcommand{\addresst}{\textbf{\texttt{address}}\xspace}
 \newcommand{\stringt}{\textbf{\texttt{string}}\xspace}
 \newcommand{\setof}{\textbf{\texttt{set}}\xspace}
@@ -75,6 +77,7 @@
 \newcommand{\linking}{\textbf{\texttt{linking}}\xspace}
 \newcommand{\transformer}{\textbf{\texttt{transformer}}\xspace}
 \newcommand{\selects}{\textbf{\texttt{selects}}\xspace}
+\newcommand{\demote}{\textbf{\texttt{demote}}\xspace}
 \newcommand{\transforms}{\Rrightarrow}
 
 \newcommand{\flowproves}{\mathbin{|\hskip -0.14em\scalebox{0.7}[1]{$\leadsto$}}}
@@ -292,21 +295,22 @@ transaction approveAndCall(_spender : address, _value : uint256, _extraData : by
     x &\in \textsc{IdentifierNames} & \mathcal{R} &\in \textsc{ResourceNames} \\
 \end{align*}
 \begin{tabular}{l r l l}
-    $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ \bnfalt $\some$ & (type quantities \reed{Not sure what to call these}) \\
-    $\tau$ & \bnfdef & $\mathcal{Q}~\tau$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\tau \times \tau$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
-    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\transformer~(\lambda x : \tau. E)$ & (values) \\
+    $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ & (type quantities \reed{Not sure what to call these}) \\
+    $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\mathcal{Q}~\tau \times \mathcal{Q}~\tau$ \bnfalt $\map~\mathcal{Q}~\tau \Rightarrow \mathcal{Q}~\tau$ \bnfalt $\curlys{\overline{x : \mathcal{Q}~\tau}}$ \bnfalt $t$ & (types) \\
+    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
-    $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{F}$ & (flows) \\
+    $f$ & \bnfdef & $\mathcal{V}$ \bnfalt \everything & (selectors) \\
+$\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
 
     % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
     % $A$ & \bnfdef & $T(x_1, \ldots, x_n)$ \bnfalt $\emits{E(x_1, \ldots, x_n)}$ & (actions) \\
-    % $Q$ & \bnfdef & \one \bnfalt \some \bnfalt \any & (flow quantities) \\
     % $f$ & \bnfdef & $v$ \bnfalt $x$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\delta + \delta$ \bnfalt $\delta - \delta$ \bnfalt $\min(\delta, \delta)$ \bnfalt $\max(\delta, \delta)$ \bnfalt $Q~x~\suchthat~\varphi(x)$ & (prim. dist. specifier) \\
 \end{tabular}
 \caption{Abstract syntax of \langName.}
 \label{lang-syntax}
 \end{figure}
 Note: In the surface language, you write $x : \tau$ to mean $x : \one~\tau$.
+The syntax $f : \tau \flowsto \sigma$ means $f$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
 
 \subsection{Statics}
 Some basic flow typing rules:
@@ -326,7 +330,7 @@ Some basic flow typing rules:
 
     \inferrule*[right=Flow-Transformer]{
         \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
-    }{ \Gamma \proves \transformer (\lambda x : \tau. e) : \tau \flowsto \sigma }
+    }{ \Gamma \proves (\lambda x : \tau. e) : \tau \flowsto \sigma }
 
     \inferrule*[right=Flow]{
         \Gamma \proves S : \mathcal{Q}~\tau
@@ -336,15 +340,37 @@ Some basic flow typing rules:
         \Gamma \proves D : \tau \flowsto \sigma
     }{ \Gamma \proves S \sends{f} D : \tau \flowsto \sigma }
 
-    \inferrule*[right=Asset-Lookup]{
-            x ~ \asset
-    }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
+%     \inferrule*[right=Nonfungible-Lookup]{
+%         \tau ~ \nonfungible
+%     }{ \Gamma, x : \mathcal{Q}~\tau \flowproves x : \mathcal{Q}~\tau \flowproveout \Gamma }
+
+%     \inferrule*[right=Lookup]{
+%         \lnot (\tau ~ \nonfungible)
+%     }{ \Gamma, x : \mathcal{Q}~\tau \flowproves x : \mathcal{Q}~\tau \flowproveout \Gamma, x : \mathcal{Q}~\tau }
 \end{mathpar}
 
-\reed{I think only one kind of expression will actually behave linearly, which is the expressions in the transformers.
-Everything else works ``normally''?}
+\reed{I think the only kind of expression that will actually behave linearly is the expressions in the transformers.
+And also the external calls, when we give a resource to them, which I suppose is possible?
+Also depends what it's flowing to---if you flow from an option to a set, it's fine if it doesn't contain anything.
+Everything else works ``normally''?
+We could also guard on things like $A \to B; A \to B$ where $A : \one~\tau$, because the second one will always fail.
+Not sure if we care to put this in the type system, or just have a linting check.
+It's safe either way because of dynamic checks.
+Probably would be nice to check for, we need to worry about this for all $\mathcal{Q}$ except for $\setof$; but also only for nonfungible types.
+Fungible types can be flowed from infinitely many times, the later flows just don't do anything.
+That seems like a better candidate for a lint check.}
+
+Demote definition
+\reed{TODO: Finish}
+
+\begin{align*}
+    \demote(\natt) &:= \natt \\
+    \demote(\boolt) &:= \boolt \\
+    \demote(t) &:= \demote(\tau) & \twhere t ~\text{is}~ \asset~\tau
+\end{align*}
+
 \reed{Asset retention theorem?}
-\reed{Resource accessiblity theorem?}
+\reed{Resource accessiblity?}
 
 \subsection{Unfinished}
 \reed{Ignore this for now, just some stuff for fun that may or may not end up being useful.}

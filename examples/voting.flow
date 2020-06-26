@@ -47,7 +47,7 @@ contract LunchVote {
     transaction choiceCreator(choicesToAdd : set string):
         only when contractCreator = msg.sender
 
-        // Here's a one-line version of the same thing
+        // TODO: Not sure if the transformer keyword is necessary.
         LunchName --- choicesToAdd --> transformer (\name. name <=> {}) --> lunchChoices
 
         // Could also use a temporary variable
