@@ -1,0 +1,60 @@
+\lstset{
+  frame=none,
+  xleftmargin=2pt,
+  stepnumber=1,
+  numbers=left,
+  numbersep=5pt,
+  numberstyle=\ttfamily\tiny\color[gray]{0.3},
+  belowcaptionskip=\bigskipamount,
+  captionpos=b,
+  escapeinside={*'}{'*},
+  tabsize=2,
+  emphstyle={\bf},
+  commentstyle=\it,
+  stringstyle=\mdseries\rmfamily,
+  showspaces=false,
+  keywordstyle=\bfseries\rmfamily,
+  columns=flexible,
+  basicstyle=\small\sffamily,
+  showstringspaces=false,
+}
+
+\newcommand{\guard}{\bigg|\bigg|}
+\newcommand{\newc}{\textbf{\texttt{new}}}
+\newcommand{\everything}{\textbf{\texttt{everything}}}
+\newcommand{\then}{\textbf{\texttt{then}}}
+\newcommand{\this}{\textbf{\texttt{this}}}
+\newcommand{\langName}{LANGUAGE-NAME\xspace}
+\newcommand{\consumesarr}{\mathrel{\rotatebox[origin=c]{270}{${\looparrowright}$}}}
+\newcommand{\consumes}[1]{\stackrel{#1}{\consumesarr}}
+\newcommand{\sends}[1]{\stackrel{#1}{\to}}
+\newcommand{\emitsarr}{\mathrel{\rotatebox[origin=c]{270}{${\looparrowleft}$}}}
+\newcommand{\emits}[1]{\emitsarr #1}
+\newcommand{\asset}{\textbf{\texttt{asset}}\xspace}
+\newcommand{\fungible}{\textbf{\texttt{fungible}}\xspace}
+\newcommand{\nonfungible}{\textbf{\texttt{nonfungible}}\xspace}
+\newcommand{\addresst}{\textbf{\texttt{address}}\xspace}
+\newcommand{\stringt}{\textbf{\texttt{string}}\xspace}
+\newcommand{\setof}{\textbf{\texttt{set}}\xspace}
+\newcommand{\optiont}{\textbf{\texttt{option}}\xspace}
+\newcommand{\boolt}{\textbf{\texttt{bool}}\xspace}
+\newcommand{\natt}{\textbf{\texttt{nat}}\xspace}
+\newcommand{\byt}{\textbf{\texttt{by}}\xspace}
+\newcommand{\stores}{\textbf{\texttt{stores}}\xspace}
+\newcommand{\suchthat}{\textbf{s.t.}\xspace}
+\newcommand{\returns}{\textbf{\texttt{returns}}\xspace}
+\newcommand{\merge}{\rightsquigarrow}
+\newcommand{\flowsto}{\rightsquigarrow}
+\newcommand{\heldby}{\rightarrowtail}
+\newcommand{\one}{\textbf{\texttt{one}}\xspace}
+\newcommand{\some}{\textbf{\texttt{some}}\xspace}
+\newcommand{\any}{\textbf{\texttt{any}}\xspace}
+\newcommand{\map}{\textbf{\texttt{map}}\xspace}
+\newcommand{\linking}{\textbf{\texttt{linking}}\xspace}
+\newcommand{\transformer}{\textbf{\texttt{transformer}}\xspace}
+\newcommand{\selects}{\textbf{\texttt{selects}}\xspace}
+\newcommand{\demote}{\textbf{\texttt{demote}}\xspace}
+\newcommand{\transforms}{\Rrightarrow}
+
+\newcommand{\flowproves}{\mathbin{|\hskip -0.14em\scalebox{0.7}[1]{$\leadsto$}}}
+\newcommand{\flowproveout}{\mathbin{\scalebox{0.7}[1]{$\leadsto$}\hskip -0.14em|}}
