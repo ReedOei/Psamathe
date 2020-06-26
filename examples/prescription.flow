@@ -64,14 +64,12 @@ contract Patient {
 	name : string
 
     transaction depositPrescription(pharmacy : Pharmacy, prescription : demoted Prescription):
-        // Strictly speaking, we need "on success"
+        // Strictly speaking, we need "on success", because that's the only way to do external calls.
         // We could implicitly add it whenever the whole body of a transaction is ONLY actions.
-        on success:
-            call pharmacy.depositPrescription(prescription)
+        on success: call pharmacy.depositPrescription(prescription)
 
 	// Assume that this prescription is for this patient; no separate checking is needed.
 	transaction fillPrescription(pharmacy : Pharmacy, prescription : Prescription):
-        on success:
-		    call pharmacy.fillPrescription(prescription)
+        on success: call pharmacy.fillPrescription(prescription)
 }
 

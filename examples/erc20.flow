@@ -1,14 +1,14 @@
 contract ERC20Bank {
-    type token is fungible asset nat
-    type approval is fungible consumable asset nat
+    type Token is fungible asset nat
+    type Approval is fungible consumable asset nat
 
-    accounts : map address => token
-    allowances : map address => map address => approval
+    accounts : map address => Token
+    allowances : map address => map address => Approval
 
     on create():
-        token --[ 1000000 ]-> account[msg.sender]
+        Token --[ 1000000 ]-> account[msg.sender]
 
-    view totalSupply() returns nat := total token
+    view totalSupply() returns nat := total Token
     view balanceOf(addr : address) returns nat := account[addr]
     view allowance(src : address, dst : address) returns nat := allowances[src][dst]
 
@@ -17,7 +17,7 @@ contract ERC20Bank {
 
     transaction approve(dst : address, amount : nat):
         consume everything from allowances[msg.sender][dst]
-        approval --[ amount ]-> allowances[msg.sender][dst]
+        Approval --[ amount ]-> allowances[msg.sender][dst]
 
     transaction transferFrom(src : address, dst : address, amount : nat):
         consume amount from allowances[src][dst]

@@ -20,12 +20,6 @@ contract LunchVote {
     // Alternate version, without curly brackets; avoiding the weird syntax but introducing the confusion.
     lunchChoices : linking LunchName <=> Voter
 
-    // We also provide a "map": map address => nat
-    // Intentionally using a word other than "mapping" because I think we should fix the weird behavior of Solidity's mappings, such as:
-    // 1. Can't check if a key already exists
-    // 2. Can't iterate through the keys
-    // However, that means we also shouldn't call it a mapping, because that would suggest it works just like Solidity's.
-
     authorizedVoters : set Voter
 
     // This is a sort of ad-hoc way to represent states using flows
@@ -35,10 +29,6 @@ contract LunchVote {
     VotingFinished : set address
 
     on create(quorumSet : nat):
-        // The follow 'modes' of flow can be used:
-        // --- x --> means "flow x"
-        // +=        means "insert", so the resource is added to the set of resources held by the destination
-        // No "consume" arrow, because it works differently than all the others: there's no destination.
         quorumSet --> quorum
         Voter[msg.sender] --> authorizedVoters
         contractCreator := msg.sender
@@ -48,11 +38,11 @@ contract LunchVote {
         only when contractCreator = msg.sender
 
         // TODO: Not sure if the transformer keyword is necessary.
-        LunchName --- choicesToAdd --> transformer (\name. name <=> {}) --> lunchChoices
+        LunchName --[ choicesToAdd ]-> transformer (\name. name <=> {}) --> lunchChoices
 
         // Could also use a temporary variable
         var t : LunchName ~> Link[LunchName, Voter] := (\name. name <=> {})
-        LunchName --- choicesToAdd --> t --> lunchChoices
+        LunchName --[ choicesToAdd ]-> t --> lunchChoices
 
     transaction authorizeVoter(newVoterAddress : address):
         only when contractCreator = msg.sender
@@ -75,14 +65,14 @@ contract LunchVote {
 
     transaction vote(voterChoice : string) returns string:
         only when this.address in CurrentlyVoting then
-            authorizedVoters --- msg.sender --> lunchChoices[voterChoice]
+            authorizedVoters --[ msg.sender ]-> lunchChoices[voterChoice]
 
             maxVote := max(maxVote, total lunchChoices[voterChoice])
 
             // authorizedVoters stores all the voters who are allowed to vote, but have not yet voted.
             // So total Voter - total authorizedVoters is the number of voters who have voted.
             if (total Voter - total authorizedVoters) >= quorum then
-                CurrentlyVoting --- this.address --> VotingFinished
+                CurrentlyVoting --[ this.address ]-> VotingFinished
 
             return "Vote accepted."
 

@@ -1,106 +1,105 @@
 // Based on: https://github.com/0xcert/ethereum-erc721/blob/master/src/contracts/tokens/nf-token.sol
 
 contract NFToken is ERC721, SupportsInterface {
-  /**
-   * List of revert message codes. Implementing dApp should handle showing the correct message.
-   * Based on 0xcert framework error codes.
-   */
-  string constant ZERO_ADDRESS = "003001";
-  string constant NOT_VALID_NFT = "003002";
-  string constant NOT_OWNER_OR_OPERATOR = "003003";
-  string constant NOT_OWNER_APPROWED_OR_OPERATOR = "003004";
-  string constant NOT_ABLE_TO_RECEIVE_NFT = "003005";
-  string constant NFT_ALREADY_EXISTS = "003006";
-  string constant NOT_OWNER = "003007";
-  string constant IS_OWNER = "003008";
+    /**
+    * List of revert message codes. Implementing dApp should handle showing the correct message.
+    * Based on 0xcert framework error codes.
+    */
+    string constant ZERO_ADDRESS = "003001";
+    string constant NOT_VALID_NFT = "003002";
+    string constant NOT_OWNER_OR_OPERATOR = "003003";
+    string constant NOT_OWNER_APPROWED_OR_OPERATOR = "003004";
+    string constant NOT_ABLE_TO_RECEIVE_NFT = "003005";
+    string constant NFT_ALREADY_EXISTS = "003006";
+    string constant NOT_OWNER = "003007";
+    string constant IS_OWNER = "003008";
 
-  /**
-   * @dev Magic value of a smart contract that can recieve NFT.
-   * Equal to: bytes4(keccak256("onERC721Received(address,address,uint256,bytes)")).
-   */
-  bytes4 internal constant MAGIC_ON_ERC721_RECEIVED = 0x150b7a02;
+    /**
+    * @dev Magic value of a smart contract that can recieve NFT.
+    * Equal to: bytes4(keccak256("onERC721Received(address,address,uint256,bytes)")).
+    */
+    bytes4 internal constant MAGIC_ON_ERC721_RECEIVED = 0x150b7a02;
 
-  asset token is nonfungible nat
-  source tokenSource of token
+    type Token is nonfungible asset nat
+    type TokenApproval is nonfungible consumable asset nat
 
-  asset tokenApproval is nonfungible nat
-  // Use a pool because we want to keep track of which tokenApprovals are currently circulating
-  pool tokenApprovalPool of tokenApproval
+    balances : linking address <=> {Token}
+    approval : linking address <=> {TokenApproval}
+    ownerToOperators : linking address <=> {address}
 
-  balances : linking address <=> {token}
-  approval : linking address <=> {tokenApproval}
-  ownerToOperators : linking address <=> {address}
+    event Transfer(_from : address, _to : address, _tokenId : nat)
+    event Approval(_owner : address, _approved : address, _tokenId : nat)
+    event ApprovalForAll(_owner : address, _operator : address, _approved : bool)
 
-  event Transfer(_from : address, _to : address, _tokenId : nat)
-  event Approval(_owner : address, _approved : address, _tokenId : nat)
-  event ApprovalForAll(_owner : address, _operator : address, _approved : bool)
-
-  //  Checks that the msg.sender is an owner or operator of the given NFT.
-  view canOperate(_tokenId : nat) returns bool :=
+    //  Checks that the msg.sender is an owner or operator of the given NFT.
+    view canOperate(_tokenId : nat) returns bool :=
     _tokenId in balances[msg.sender] or
     msg.sender in ownerToOperators[tokenOwner]
 
-  // Checks that the msg.sender is allowed to transfer NFT.
-  view canTransfer(_tokenId : nat) returns bool :=
+    // Checks that the msg.sender is allowed to transfer NFT.
+    view canTransfer(_tokenId : nat) returns bool :=
     _tokenId in balances[msg.sender] or
     msg.sender in ownerToOperators[owner of _tokenId from balances]
 
-  // Checks that _tokenId is a valid Token.
-  view validNFToken(_tokenId : nat) returns bool := _tokenId not in tokenSource
+    // Checks that _tokenId is a valid Token.
+    view validNFToken(_tokenId : nat) returns bool :=
+        // Alternatively, could use "_tokenId not in Token", if we think of Token as a storage of Tokens
+        Token created _tokenId
 
-  on create():
-    supportedInterfaces[0x80ac58cd] := true // ERC721
+    on create():
+        supportedInterfaces[0x80ac58cd] := true // ERC721
 
-  // Transfers the ownership of an NFT from one address to another address. This function can
-  transaction safeTransferFrom(_from : address, _to : address, _tokenId : nat, _data : bytes):
-    // NOTE: It is interesting to note that the reference implementation (linked above) is actually very inefficient:
-    //          - it performs the same safety checks many times over (e.g., requiring the _from address to own the token).
-    //          - However, using this "flow" language, we will only perform the check once, during the flow
-    only when _to != 0x0 and canTransfer(_tokenId) then
-        if _tokenId not in tokenApprovalPool then
-            approval[owner of _tokenId from approval] --- _tokenId --> tokenApprovalPool
+    // Transfers the ownership of an NFT from one address to another address. This function can
+    transaction safeTransferFrom(_from : address, _to : address, _tokenId : nat, _data : bytes):
+        // NOTE: It is interesting to note that the reference implementation (linked above) is actually very inefficient:
+        //          - It performs the same safety checks many times over (e.g., requiring the _from address to own the token).
+        //          - However, using this "flow" language, we will only perform the check once, during the flow
+        only when _to != 0x0 and canTransfer(_tokenId) then
+            if TokenApproval created _tokenId then
+                consume _tokenId from approval[owner of _tokenId from approval]
 
-        balances[_from] --- _tokenId ---> balances[_to]
+            balances[_from] --[ _tokenId ]--> balances[_to]
 
-        action on success: emit Transfer(from, _to, _tokenId)
-        action on success:
-            if isContract(_to) then
-                call ERC721TokenReceiver(_to).onERC721Received(msg.sender, _from, _tokenId, _data)
-                returning retval such that retval = MAGIC_ON_ERC721_RECEIVED
+            on success:
+                emit Transfer(from, _to, _tokenId)
 
-  transaction safeTransferFrom(_from : address, _to : address, _tokenId : nat):
-    // This transaction doesn't do anything else, so the "on success" part is a bit superfluous.
-    action on success: call safeTransferFrom(_from, _to, _tokenId, "")
+                if isContract(_to) then
+                    call _to.onERC721Received(msg.sender, _from, _tokenId, _data)
+                    returning retval such that retval = MAGIC_ON_ERC721_RECEIVED
+
+    transaction safeTransferFrom(_from : address, _to : address, _tokenId : nat):
+        // This transaction doesn't do anything else, so the "on success" part is a bit superfluous.
+        on success: call safeTransferFrom(_from, _to, _tokenId, "")
 
   transaction transferFrom(_from : address, _to : address, _tokenId : nat):
     only when _to != 0x0 and canTransfer(_tokenId) then
-        if _tokenId not in tokenApprovalPool then
-            flow _tokenId from approval[owner of _tokenId from approval] to tokenApprovalPool
+        if TokenApproval created _tokenId then
+            consume _tokenId from approval[owner of _tokenId from approval]
 
-        flow _tokenId from balances[_from] to balances[_to]
+        balances[_from] --[ _tokenId ]-> balances[_to]
 
-        action on success: emit Transfer(from, _to, _tokenId)
+        on success: emit Transfer(from, _to, _tokenId)
 
   // Set or reaffirm the approved address for an NFT.
   transaction approve(_approved : address, _tokenId : nat)
     only when _approved != owner of _tokenId from balances and canOperate(_tokenId) then
         // If it's already been given to someone else, then remove their approval
-        if _tokenId not in tokenApprovalPool then
-            flow _tokenId from approval[owner of _tokenId from approval] to tokenApprovalPool
+        if TokenApproval created _tokenId then
+            consume _tokenId from approval[owner of _tokenId from approval]
 
-        flow _tokenId from tokenApprovalPool to approval[_approved]
+        TokenApproval[_tokenId] --> approval[_approved]
 
-        action on success: emit Approval(owner of _tokenId from balances, _approved, _tokenId)
+        on success: emit Approval(owner of _tokenId from balances, _approved, _tokenId)
 
   // Enables or disables approval for a third party ("operator") to manage all of `msg.sender`'s assets.
   transaction setApprovalForAll(_operator : address, _approved : bool):
     if _approved then
-        flow _operator from addressSource to ownerToOperators[msg.sender]
+        _operator --> ownerToOperators[msg.sender]
     else
         // Consume is fine here because address is a primitive type, all of which are consumable.
         consume _operator from ownerToOperators[msg.sender]
 
-    action on success: emit ApprovalForAll(msg.sender, _operator, _approved)
+    on success: emit ApprovalForAll(msg.sender, _operator, _approved)
 
   // Returns the number of NFTs owned by `_owner`.
   view balanceOf(_owner : address) returns nat :=
@@ -128,8 +127,8 @@ contract NFToken is ERC721, SupportsInterface {
     // NOTE: This is just an example, so there's no authorization or anything.
     // Would include something like: only when msg.sender = minterAddr then
     only when _to != 0x0 then
-        flow _tokenId from tokenSource to balances[_to]
-        action on success: emit Transfer(0x0, _to, _tokenId)
+        Token[_tokenId] --[ _tokenId ]-> balances[_to]
+        on success: emit Transfer(0x0, _to, _tokenId)
 
   /**
    * @dev Burns a NFT.
@@ -142,19 +141,12 @@ contract NFToken is ERC721, SupportsInterface {
   transaction burn(_tokenId : nat):
     // In a real implementation, this would be guarded by some condition like mint() would be
     let tokenOwner := owner of _tokenId from balances
-    if _tokenId not in tokenApprovalPool then
-        flow _tokenId from approval[owner of _tokenId from approval] to tokenApprovalPool
+    if TokenApproval created _tokenId then
+        consume _tokenId from approval[owner of _tokenId from approval]
 
-    // We would have to add a tokenPool for this to work
-    flow _tokenId from balances[tokenOwner] to tokenPool
-
-
-    // This is another version, which would also not currently work because tokens aren't consumable.
-    // This has slightly different semantics to the above version, because you can re-mint a token that
-    // flows to the tokenPool, but you can't remint a token that gets consumed.
+    // Note that this won't currently work, because tokens aren't consumable.
     consume _tokenId from balances[tokenOwner]
 
-    action on success: emit Transfer(tokenOwner, 0x0, _tokenId)
-    action on success: emit Transfer(tokenOwner, 0x0, _tokenId)
+    on success: emit Transfer(tokenOwner, 0x0, _tokenId)
 }
 
