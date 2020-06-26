@@ -230,16 +230,15 @@ transaction approveAndCall(_spender : address, _value : uint256, _extraData : by
 \begin{figure}[ht]
 \begin{align*}
     C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
-    t &\in \textsc{TypeNames} & S &\in \textsc{StateNames}\\
-    D &\in \textsc{ContractNames} \cup \textsc{InterfaceNames} & n &\in \Z \\
-    x &\in \textsc{IdentifierNames} & \mathcal{R} &\in \textsc{ResourceNames} \\
+    t &\in \textsc{TypeNames} & x &\in \textsc{IdentifierNames} \\
+    n &\in \Z \\
 \end{align*}
 \begin{tabular}{l r l l}
     $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ & (type quantities \reed{Not sure what to call these}) \\
     $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\mathcal{Q}~\tau \times \mathcal{Q}~\tau$ \bnfalt $\map~\mathcal{Q}~\tau \Rightarrow \mathcal{Q}~\tau$ \bnfalt $\curlys{\overline{x : \mathcal{Q}~\tau}}$ \bnfalt $t$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
-    $f$ & \bnfdef & $\mathcal{V}$ \bnfalt \everything & (selectors) \\
+    $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
 $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
 
     % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
@@ -260,6 +259,9 @@ Some basic flow typing rules:
         \Gamma \proves x : \tau
     }{ \Gamma \proves x ~ \selects~\tau }
 
+    \inferrule*[right=Lookup-NoCosume]{
+    }{ \Gamma, x : \tau \proves x : \demote(\tau) }
+
     \inferrule*[right=Select-Var-Quant]{
         \Gamma \proves x : \mathcal{Q}~\tau
     }{ \Gamma \proves x ~ \selects~\tau }
@@ -272,13 +274,31 @@ Some basic flow typing rules:
         \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
     }{ \Gamma \proves (\lambda x : \tau. e) : \tau \flowsto \sigma }
 
+    \inferrule*[right=Flow-Transformer]{
+        \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
+    }{ \Gamma \flowproves (\lambda x : \tau. e) : \tau \flowsto \sigma }
+
     \inferrule*[right=Flow]{
+        \Gamma \proves S : \mathcal{Q}~\tau
+        \and
+        \Gamma \proves f~\selects~\demote(\tau)
+        \and
+        \Gamma \proves D : \tau \flowsto \sigma
+    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \sigma }
+
+    \inferrule*[right=Flow-Experimental]{
         \Gamma \proves S : \mathcal{Q}~\tau
         \and
         \Gamma \proves f ~ \selects~\tau
         \and
-        \Gamma \proves D : \tau \flowsto \sigma
-    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \sigma }
+        \Gamma \flowproves D : \tau \flowsto \sigma \flowproveout \Delta
+    }{ \Gamma \flowproves S \sends{f} D : \tau \flowsto \sigma \flowproveout \Delta }
+
+    \inferrule*[right=Storage-Lookup]{
+        \Gamma \proves \mathcal{S} : \one~\map~\tau~\Rightarrow~\sigma
+        \and
+        \Gamma \proves E : \demote(\tau)
+    }{ \Gamma \proves \mathcal{S}[E] : \sigma }
 
 %     \inferrule*[right=Nonfungible-Lookup]{
 %         \tau ~ \nonfungible
@@ -311,7 +331,9 @@ Demote definition
 
 \reed{Asset retention theorem?}
 \reed{Resource accessiblity?}
+\reed{NOTE: Transformers \textbf{must} be consumed, because they might be holding resources if partially applied}
 
+\begin{comment}
 \subsection{Unfinished}
 \reed{Ignore this for now, just some stuff for fun that may or may not end up being useful.}
 \begin{definition}
@@ -374,6 +396,7 @@ Demote definition
 
     Note that $f - g$ is only defined when $g \leq f$.
 \end{definition}
+\end{comment}
 
 \end{document}
 

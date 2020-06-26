@@ -13,6 +13,7 @@ module FLOW-SYNTAX
     syntax Storage ::= Val
                      | Id
                      | Storage "[" Expr "]" [strict(2)]
+                     | Storage "." Storage [left]
 
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]

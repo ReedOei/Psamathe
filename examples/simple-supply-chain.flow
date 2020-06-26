@@ -1,0 +1,99 @@
+// Based on: https://github.com/NemboKid/SupplyChain/blob/master/contracts/SupplyChain.sol
+// which itself is based on a tutorial: https://github.com/ConsenSys-Academy/supply-chain-exercise/blob/master/contracts/SupplyChain.sol
+
+contract SupplyChain {
+    /* set owner */
+    owner : address // payable
+
+    /* Add a variable called skuCount to track the most recent sku # */
+    skuCount : nat
+
+    /* Create a struct named Item.
+      Here, add a name, sku, price, state, seller, and buyer
+      We've left you to figure out what the appropriate types are,
+      if you need help you can ask around :)
+    */
+    type Item is asset {
+        name : string,
+        sku : nat,
+        price : nat,
+        // TODO: For payable transactions, it seems reasonable to just have an ether parameter
+        // Should we handle payable addresses too?
+        seller : address, // payable
+        buyer : address // payable
+    }
+
+    type sku is nonfungible asset nat
+
+    items : map nat => Item
+
+    forSaleItems : set sku
+    soldItems : set sku
+    shippedItems : set sku
+    receivedItems : set sku
+
+    event ForSale(sku : nat)
+    event Sold(sku : nat)
+    event Shipped(sku : nat)
+    event Received(sku : nat)
+
+    view isOwner() returns bool := msg.sender = owner
+    view paidEnough(price : nat) returns bool := msg.value >= price
+
+    // TODO: How to deal with transfer vs. call.value with flows of ether?
+
+    // NOTE: Have these views because the original code had them (as modifiers)
+    view forSale(sku : nat) returns bool := sku in forSaleItems
+    view sold(sku : nat) returns bool := sku in soldItems
+    view shipped(sku : nat) returns bool := sku in shippedItems
+    view received(sku : nat) returns bool := sku in receivedItems
+
+    on create():
+        owner := msg.sender
+        skuCount := 0
+
+    transaction addItem(name : string, price : nat):
+        sku[skuCount] --> forSaleItems
+        Item[name, price, msg.sender, 0x0] --> items[skuCount]
+        1 --> skuCount
+
+        on success: emit ForSale(skuCount - 1)
+
+        // Concept: Another special selector, like everything, which selects the "next" sku.
+        //          This can easily be defined for nats, not sure about other types.
+        // Adding this let's us avoid the skuCount variable. Doesn't seem to be a **huge** benefit.
+        // However, another benefit of this is that we can avoid the expense of keeping around
+        //  a set that holds all of the resources we've allocated before to ensure that we never allocate the same resource twice.
+        // Probably have to make the user specify a "generator" and **only** allow creation via `next` to make this optimization work.
+        var mapPairGen : sku ~> Item ~> MapPair sku Item := \newSku it. newSku => it
+        sku --[ next ]-> mapPairGen
+        Item[name, price, msg.sender, 0x0] --> mapPairGen --> items
+
+        on success: emit ForSale(newest sku)
+
+    transaction buyItem(sku : nat, val : ether):
+        val --[ items[sku].price ]-> items[sku].seller.balance
+        // Send the excess money back
+        val --> msg.sender.balance
+
+        forSaleItems --[ sku ]-> soldItems
+
+        items[sku].buyer := msg.sender
+
+        on success: emit Sold(sku)
+
+    transaction shipItem(sku : nat):
+        only when msg.sender = items[sku].seller
+
+        soldItems --[ sku ]-> shippedItems
+
+        on success: emit Shipped(sku)
+
+    transaction receiveItem(sku : nat):
+        only when msg.sender = items[sku].buyer
+
+        shippedItems --[ sku ]-> receivedItems
+
+        on success: emit Received(sku)
+}
+
