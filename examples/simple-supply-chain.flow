@@ -2,25 +2,19 @@
 // which itself is based on a tutorial: https://github.com/ConsenSys-Academy/supply-chain-exercise/blob/master/contracts/SupplyChain.sol
 
 contract SupplyChain {
-    /* set owner */
-    owner : address // payable
+    owner : address // payable address
 
     /* Add a variable called skuCount to track the most recent sku # */
     skuCount : nat
 
-    /* Create a struct named Item.
-      Here, add a name, sku, price, state, seller, and buyer
-      We've left you to figure out what the appropriate types are,
-      if you need help you can ask around :)
-    */
     type Item is asset {
         name : string,
         sku : nat,
         price : nat,
         // TODO: For payable transactions, it seems reasonable to just have an ether parameter
         // Should we handle payable addresses too?
-        seller : address, // payable
-        buyer : address // payable
+        seller : address, // payable address
+        buyer : address // payable address
     }
 
     type sku is nonfungible asset nat

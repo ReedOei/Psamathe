@@ -1,0 +1,763 @@
+// Based on: https://github.com/pnalvarez/Meditrack-Solidity
+
+contract Request{
+    type Approver is nonfungible consumable asset address
+
+    id : nat
+    approved : bool
+    voted : set Approver
+
+    view isApproved() returns bool := approved
+
+    transaction approve() returns (bool)
+    transaction updateApprovers(newApprover : address)
+}
+
+contract ManagerRequest is Request {
+    newUser : address
+    approvers : set Approver
+
+    event ApprovedBy(approver : address)
+    event Approved(approveCounts : nat)
+    event NewApprover(newApprover : address)
+
+    view notApproved() returns bool := not approved
+
+    on create(_id : nat, _newUser : address, _approvers : set address):
+        id := _id
+        newUser := _newUser
+        Approver --[ _approvers ]-> approvers
+        approved := false
+
+    view getNewUser() returns address := newUser
+
+    transaction approve() returns bool:
+        only when notApproved()
+
+        approvers --[ msg.sender ]-> voted
+
+        approved := total voted >= total approvers
+        on success:
+            if approved then emit Approved(total voted)
+
+        on success: emit ApprovedBy(msg.sender)
+
+        return approved
+
+    transaction updateApprovers(newApprover : address):
+        Approver[newApprover] --> approvers
+        on success: emit NewApprover(newApprover)
+}
+
+contract MedicineRequest is Request {
+    medicineId : string
+    name : string
+    description : string
+    value : nat
+    validity : nat
+
+    approvers : set Approver
+    uint approveCounts;
+
+    event ApprovedBy(approver : address)
+    event Approved(medicineId : string)
+    event NewApprover(newApprover : address)
+
+    view notApproved() returns bool := not approved
+
+    on create(_id : nat, _medicineId : string, _name : string, _description : string, uint _value, uint _validity, address[] _approvers):
+        id := _id
+        medicineId := _medicineId
+        name := _name
+        description := _description
+        value := _value
+        validity := _validity
+
+        Approver --[ _approvers ]-> approvers
+        approved := false
+
+    view getMedicineName() returns string := name
+    view getMedicineDescription() returns string := description
+    view getMedicineValue() returns nat := value
+    view getMedicineValidity() returns nat := validity
+    view getMedicineId() returns string := medicineId
+
+    transaction approve() returns bool:
+        only when notApproved()
+
+        approvers --[ msg.sender ]-> voted
+
+        approved := total voted >= total approvers
+        on success:
+            if approved then emit Approved(total voted)
+
+        on success: emit ApprovedBy(msg.sender)
+
+        return approved
+
+    transaction updateApprovers(newApprover : address):
+        newApprover --> approvers
+        on success: emit NewApprover(newApprover)
+}
+
+contract TransferRequest is Request {
+    productId : string
+    approver : option Approver
+    approverAddr : address
+    sender : address
+
+    event TransferRequestCreated(productId : string, sender : address, approver : address)
+    event Approved()
+    event NewApprover(newApprover : address)
+
+    view notApproved() returns bool := not approved
+
+    on create(_id : nat, _approver : address, _productId : string, _sender : address):
+        productId := _productId
+        id := _id
+        sender := _sender
+
+        approverAddr := approver
+        Approver[_approver] --> approver
+        approved := false
+
+        on success: emit TransferRequestCreated( _productId, _sender, _approver)
+
+    view getProductId() returns string := productId
+    view getApprover() returns address := approverAddr
+
+    transaction approve() returns bool:
+        only when notApproved()
+
+        approver --[ msg.sender ]-> voted
+        approved := true
+
+        on success: emit Approved()
+
+        return approved
+
+    transaction updateApprovers(newApprover : address):
+        newApprover --> approvers
+        on success: emit NewApprover(newApprover)
+}
+
+contract UserRequest is Request {
+    newUser : address
+    func : string
+    approvers : set Approver
+
+    event ApprovedBy(approver : address)
+    event Approved(approveCounts : nat)
+    event NewApprover(newApprover : address)
+
+    view notApproved() returns bool := not approved
+
+    on create(_id : nat, _newUser : address, f : string, _approvers : set address):
+        id := _id
+        newUser := _newUser
+        func := f
+
+        Approver --[ _approvers ]-> approvers
+        approved := false
+
+    view getNewUser() returns address := newUser
+    view getFunc() returns string := func
+
+    transaction approve() returns bool:
+        only when notApproved()
+
+        approvers --[ msg.sender ]-> voted
+
+        approved := total voted >= total approvers
+        on success:
+            if approved then emit Approved(total voted)
+            emit ApprovedBy(msg.sender)
+
+        return approved
+
+    transaction updateApprovers(newApprover : address):
+        newApprover --> approvers
+        on success: emit NewApprover(newApprover)
+}
+
+contract SupplyChain {
+    type Receive is {
+        uuid : string,
+        id : string,
+        timestamp : nat,
+        from : address,
+        to : address
+    }
+
+    type Person is nonfungible asset address
+    type Function is Nothing | Producer | Stock | Transport | SurgicalCenter | Seller | Buyer
+    functions : linking Function <=> {Person}
+
+    type Wallet is {
+        isManager : bool,
+        medicines : map string => nat,
+        products : set string, // TODO: Maybe this should be: set Product
+        creationTime : nat
+    }
+
+    type Medicine is {
+        string name;
+        string description;
+        bool initialized;
+        uint value;
+        uint validity;
+    }
+
+    type Product is {
+        string id;
+        address owner;
+        uint creationTime;
+        address[] path;
+        uint[] timestamps;
+    }
+
+    type Sinister is {
+        string title;
+        string description;
+        string envolvedProduct;
+        address responsible;
+        uint timestamp;
+    }
+
+    managers : set address
+
+    // NOTE: The original contract included a `productExist` variable storing which keys exist,
+    //          as well lists of all the medicine names, product names, and wallets.
+    // This suggests that generating and managing these extra variables is actually **not** a waste of resources.
+    medicines : map string => Medicine
+    wallets : map address => Wallet
+    products : map string => Product
+
+    begin : nat
+
+    receives : map address => map string => Receive
+    sinisters : map address => map string => Sinister
+
+    isInAlfaCenter : set address
+    stringToFunc : map string => Function
+
+    productWasDeleted : set string
+
+    managerRequests : map nat => ManagerRequest
+    transferRequests : map nat => TransferRequest
+    userRequests : map nat => UserRequest
+    medicineRequests : map nat => MedicineRequest
+
+    event medicineCreated(id : string)
+    event medicineTransfered(uuid : string, id : string, from : address, to : address)
+    event productGenerated(by : address, uuid : string, id : string)
+    event changeSent(to : address, change : nat)
+    event medicineBought(by : address, uuid : string)
+    event FunctionDesignated(to : address, f : Function)
+    event ProductOutOfValidity(uuid : string, id : string, time : nat)
+    event NewSinister(title : string, uuid : string, responsible : address)
+    event PathIncremented(uuid : string, id : string, adr : address, timestamp : nat)
+    event DiscardedProduct(uuid : string, lastowner : address, timestamp : nat)
+    event ThrowProductAway(uuid : string, by : address, timestamp : nat)
+    event NewRequest()
+    event NewManagerApproved(newManager : address)
+
+    view isManager() returns bool := wallets[msg.sender].isManager
+    view hasFunction(f : Function) returns bool := msg.sender in functions[f]
+    view productExists(uuid : string) returns bool := uuid in products
+    view isProductOwner(a : address, uuid : string) returns bool := uuid in wallets[a].products
+    view personExists(a : address) returns bool := a in wallets
+    view validProduct(uuid : string) returns bool :=
+        let product := products[uuid] in
+            (now - product.creationTime) < medicines[product.id].validity
+
+    view walletExists(adr : address) returns bool := adr in wallets
+
+    view isValidTransfer(_from : address, _to : address) :=
+        (key of _from in functions, key of _to in functions) in
+            {
+                (Producer, Transport),
+                (Transport, Stock),
+                (Stock, Stock),
+                (Stock, SurgicalCenter),
+                (Stock, Seller)
+            }
+
+    on create():
+        msg.sender --> managers
+        begin := now
+        wallets[msg.sender] = Wallet(true, now, Function.Productor)
+
+        Nothing --> stringToFunction["Nothing"]
+        Producer --> stringToFunction["Productor"]
+        Stock --> stringToFunction["Stock"]
+        Transport --> stringToFunction["Transport"]
+        SurgicalCenter --> stringToFunction["SurgicalCenter"]
+        Seller --> stringToFunction["Seller"]
+        Buyer --> stringToFunction["Buyer"]
+
+    private transaction designateFunction(wallet : address, func : string):
+        functions[owner of wallet in functions] --[ wallet ]-> functions[stringToFunction[func]]
+        on success: emit FunctionDesignated(wallet, stringToFunction[func])
+
+    private transaction transferOperation(_from : address, uuid : string, _to : address)
+
+   function transferOperation(address from, string uuid, address to)private
+   returns(Receive){
+
+       uint timestamp = now;
+       string memory id = products[uuid].id;
+
+       incrementPath(uuid, to);
+
+       wallets[from].products[uuid] = false;
+       wallets[from].medicines[id] -= 1;
+
+       products[uuid].owner = to;
+
+       wallets[to].products[uuid] = true;
+       wallets[to].medicines[id] += 1;
+
+       Receive memory receive = Receive(uuid, id, timestamp, from, to);
+
+       receives[to].push(receive);
+
+       emit medicineTransfered(uuid, id, from, to);
+
+       return receive;
+   }
+   function sendMedicine(string uuid)private{
+
+        string memory id = products[uuid].id;
+
+       wallets[msg.sender].products[uuid] = false;
+       wallets[msg.sender].medicines[id] -= 1;
+   }
+
+    private transaction sendChange() returns nat:
+        var oldBalance : nat := this.balance
+        this.balance --> msg.sender.transfer
+
+        on success:
+            emit changeSent(msg.sender, balance);
+
+        return balance
+
+   function compareStrings (string a, string b)private pure returns (bool){
+       if(bytes(a).length != bytes(b).length){
+           return false;
+       }
+       else{
+           return keccak256(bytes(a)) == keccak256(bytes(b));
+       }
+  }
+
+  function searchProductIndex(string uuid)public view returns(int){
+
+      for(int i = 0; i < int(allProducts.length); i++){
+        uint ui = uint(i);
+
+        string memory product = allProducts[ui];
+
+        if(compareStrings(product,uuid)){
+          return i;
+        }
+      }
+      return -1;
+  }
+
+    view checkValidity() returns bool :=
+  function checkValidity()private{
+
+      for(uint i = 0; i < allProducts.length; i++){
+
+          Product storage product = products[allProducts[i]];
+
+           if(product.isValid){
+               uint timestamp = now - product.creationTime;
+
+               if(timestamp >= medicines[product.id].validity){
+                    product.isValid = false;
+                    emit ProductOutOfValidity(allProducts[i], product.id, timestamp - medicines[product.id].validity);
+               }
+           }
+      }
+  }
+
+    private transaction incrementPath(uuid : string, adr : address):
+        only when productExists(uuid)
+
+        adr --> products[uuid].path
+  function incrementPath(string uuid, address adr)private productExists(uuid){
+
+       uint time = now;
+
+       products[uuid].path.push(adr);
+       products[uuid].timestamps.push(time);
+
+       emit PathIncremented(uuid, products[uuid].id, adr, time);
+  }
+
+  function discardProduct(string uuid)private productExists(uuid){
+
+      address owner = getOwnerof(uuid);
+      string storage id = products[uuid].id;
+
+      wallets[owner].medicines[id] -= 1;
+      wallets[owner].products[uuid] = false;
+      products[uuid].owner = 0x0;
+      productExist[uuid] = false;
+      productWasDeleted[uuid] = true;
+
+      int index = searchProductIndex(uuid);
+
+      if(index >= 0){
+        uint ui = uint(index);
+        delete allProducts[ui];
+      }
+
+      uint timestamp = now;
+
+      emit DiscardedProduct(uuid, owner, timestamp);
+  }
+   function medicineCreate(string id, string _name, string _description, uint _value, uint _validity)
+   private{
+       require(!medicines[id].initialized, "Medicine already exists");
+
+       medicines[id] = Medicine(_name, _description, true, _value, _validity);
+       medicineNames.push(id);
+
+       emit medicineCreated(id);
+   }
+
+   function createWallet(address adr, string f)private{
+
+       wallets[adr] = Wallet(false,now,stringToFunction[f]);
+       allWallets.push(adr);
+   }
+
+   function medicineGenerate(string uuid, string id)public only(Function.Productor)
+   checkTime{
+       require(medicines[id].initialized, "medicine does not exist");
+       require(!productExist[uuid], "product already generated");
+       require(!productWasDeleted[uuid], "product has already existed and been deleted at some point");
+
+       uint time = now;
+       wallets[msg.sender].medicines[id] += 1;
+       productExist[uuid] = true;
+       wallets[msg.sender].products[uuid] = true;
+
+       address[] memory array;
+       uint[] memory times;
+       products[uuid] = Product(id, msg.sender, true, time, array, times);
+
+       incrementPath(uuid, msg.sender);
+       allProducts.push(uuid);
+
+       emit productGenerated(msg.sender,uuid,id);
+   }
+
+
+   function buyMedicine(address from, string uuid)public payable
+   only(Function.Buyer)
+   productExists(uuid) productOwner(from, uuid) checkTime
+   validProduct(uuid)
+   returns(uint){
+
+       require(msg.value >= medicines[products[uuid].id].value, "Not enough balance");
+       require(wallets[from].func == Function.Seller, "Only seller can sell");
+
+       uint change = sendChange();
+       transferOperation(from, uuid, msg.sender);
+
+       emit medicineBought(msg.sender, uuid);
+
+       return change;
+   }
+
+   function addNewMedicineRequest(string id, string name, string description, uint value, uint validity)public
+   onlyManager
+   checkTime{
+       require(!medicines[id].initialized, "Medicine already exists");
+
+       MedicineRequest request = new MedicineRequest(medicineRequests.length, id, name, description, value, validity, managers);
+       medicineRequests.push(request);
+
+       emit NewRequest();
+   }
+
+   function approveNewMedicineRequest(uint id)public onlyManager checkTime{
+
+       require(medicineRequests.length > id, "Request invalid");
+
+       medicineRequests[id].approve();
+
+       if(medicineRequests[id].isApproved()){
+
+           string memory medicineId = medicineRequests[id].getMedicineId();
+           string memory name = medicineRequests[id].getMedicineName();
+           string memory description = medicineRequests[id].getMedicineDescription();
+           uint value = medicineRequests[id].getMedicineValue();
+           uint validity = medicineRequests[id].getMedicineValidity();
+
+           medicineCreate(medicineId, name, description, value, validity);
+       }
+   }
+
+   function addNewUserRequest(address adr, string f)public
+   onlyManager
+   inexistantWallet(adr)
+   checkTime{
+
+       UserRequest request = new UserRequest(userRequests.length, adr, f, managers);
+       userRequests.push(request);
+
+       emit NewRequest();
+   }
+
+   function approveNewUserRequest(uint id)public checkTime{
+       require(userRequests.length > id, "Request invalid");
+
+       userRequests[id].approve();
+
+       if(userRequests[id].isApproved()){
+
+           address newUser = userRequests[id].getNewUser();
+           string memory func = userRequests[id].getFunc();
+
+           createWallet(newUser, func);
+       }
+   }
+
+   function addNewManagerRequest(address newManager)public
+   onlyManager
+   personExists(newManager)
+   checkTime {
+       require(!wallets[newManager].isManager, "he is already a manager");
+
+       ManagerRequest request = new ManagerRequest(managerRequests.length, newManager, managers);
+       managerRequests.push(request);
+
+       emit NewRequest();
+   }
+
+   function approveNewManagerRequest(uint id)public checkTime{
+       require(managerRequests.length > id, "Request invalid");
+
+       managerRequests[id].approve();
+
+       if(managerRequests[id].isApproved()){
+
+           address newManager = managerRequests[id].getNewUser();
+           managers.push(newManager);
+
+           for(uint i = 0; i < managerRequests.length; i++){
+               if(!managerRequests[i].isApproved()){
+                   managerRequests[i].updateApprovers(newManager);
+               }
+           }
+
+           emit NewManagerApproved(newManager);
+       }
+   }
+
+   function newTransferRequest(string uuid, address to)public
+   validProduct(uuid)
+   productOwner(msg.sender, uuid)
+   supplychainRule(msg.sender, to)
+   checkTime{
+
+    only when isValidTransfer(msg.sender, to)
+
+       TransferRequest request = new TransferRequest(transferRequests.length, to, uuid, msg.sender);
+       transferRequests.push(request);
+
+       emit NewRequest();
+   }
+
+   function approveTransferRequest(uint id)public checkTime{
+       require(transferRequests.length > id, "Request invalid");
+
+       transferRequests[id].approve();
+
+       string memory uuid = transferRequests[id].getProductId();
+       address to = transferRequests[id].getApprover();
+
+       transferOperation(msg.sender, uuid, to);
+   }
+
+   function notifySinister(string _title, string _description, string _product)public checkTime
+   productExists(_product) productOwner(msg.sender, _product) returns(Sinister){
+
+       uint _timestamp = now;
+       Sinister memory sinister = Sinister(_title,_description,_product,msg.sender,_timestamp);
+       sinisters[msg.sender].push(sinister);
+
+       discardProduct(_product);
+
+       emit NewSinister(_title, _product, msg.sender);
+
+       return sinister;
+   }
+
+    function throwAway(string uuid)public checkTime productOwner(msg.sender, uuid){
+        discardProduct(uuid);
+        uint timestamp = now;
+
+        emit ThrowProductAway(uuid, msg.sender, timestamp);
+    }
+
+    function getOwnerof(string uuid)public view returns(address){
+        return products[uuid].owner;
+    }
+
+    view getReceive(uuid : string) returns Receive := receives[msg.sender][uuid]
+
+   function trackProduct(string uuid, uint timestamp)public view
+    productExists(uuid) returns(address){
+      uint currentTime = now;
+
+      require(timestamp <= currentTime, "Please enter a valid time");
+
+      uint[] memory timestamps = products[uuid].timestamps;
+
+      for(uint i = 0; i < timestamps.length - 1; i++){
+        if(timestamps[i] <= timestamp && timestamp <= timestamps[i+1]){
+          return products[uuid].path[i];
+        }
+      }
+      return products[uuid].owner;
+   }
+
+   function getMedicineName(string id)public view returns(string){
+     return medicines[id].name;
+   }
+   function getMedicineDescription(string id)public view returns(string){
+     return medicines[id].description;
+   }
+   function getMedicineValue(string id)public view returns(uint){
+     return medicines[id].value;
+   }
+   function getMedicineValidity(string id)public view returns(uint){
+     return medicines[id].validity;
+   }
+
+   function getWalletMedicineQtd(address adr, string id)public view returns(uint){
+      return wallets[adr].medicines[id];
+   }
+
+   function getWalletFunction(address adr)public view returns(string){
+
+     if(wallets[adr].func == Function.Productor){
+       return "Productor";
+     }
+     else if(wallets[adr].func == Function.Stock){
+       return "Stock";
+     }
+     else if(wallets[adr].func == Function.Transport){
+       return "Transport";
+     }
+     else if(wallets[adr].func == Function.CirurgicCenter){
+       return "Cirurgic center";
+     }
+     else if(wallets[adr].func == Function.Nothing){
+       return "Nothing";
+     }
+     else if(wallets[adr].func == Function.Seller){
+       return "Seller";
+     }
+     else{
+       return "Buyer";
+     }
+   }
+   function walletHasProduct(address adr, string uuid)public view returns(bool){
+      return wallets[adr].products[uuid];
+   }
+   function getWalletCreationTime(address adr)public view returns(uint){
+       return wallets[adr].creationTime;
+   }
+
+   function getProductExist(string uuid)public view returns(bool){
+     return productExist[uuid];
+   }
+
+   function getProductId(string uuid)public view returns(string){
+     return products[uuid].id;
+   }
+   function getProductOwner(string uuid)public view returns(address){
+     return products[uuid].owner;
+   }
+   function getProductValid(string uuid)public view returns(bool){
+     return products[uuid].isValid;
+   }
+   function getProductCreationTime(string uuid)public view returns(uint){
+     return products[uuid].creationTime;
+   }
+   function getProductCreator(string uuid)public view returns(address){
+       return products[uuid].path[0];
+   }
+   function getTimestamp(string uuid, uint index)public view returns(uint){
+       return products[uuid].timestamps[index];
+   }
+
+   function getReceiveProduct(uint index, address adr)public view returns(string){
+     return receives[adr][index].uuid;
+   }
+   function getReceiveMedicine(uint index, address adr)public view returns(string){
+     return receives[adr][index].id;
+   }
+   function getReceiveTimestamp(uint index, address adr)public view returns(uint){
+     return receives[adr][index].timestamp;
+   }
+   function getReceiveFrom(uint index, address adr)public view returns(address){
+     return receives[adr][index].from;
+   }
+   function getReceiveTo(uint index, address adr)public view returns(address){
+     return receives[adr][index].to;
+   }
+   function getReceivesQtd(address adr)public view returns(uint){
+       return receives[adr].length;
+   }
+
+   function getSinisterTitle(uint index, address adr)public view returns(string){
+        return sinisters[adr][index].title;
+   }
+   function getSinisterDescription(uint index, address adr)public view returns(string){
+        return sinisters[adr][index].description;
+   }
+   function getSinisterEnvolvedProduct(uint index, address adr)public view returns(string){
+        return sinisters[adr][index].envolvedProduct;
+   }
+   function getSinisterResponsible(uint index, address adr)public view returns(address){
+        return sinisters[adr][index].responsible;
+   }
+   function getSinisterTimestamp(uint index, address adr)public view returns(uint){
+        return sinisters[adr][index].timestamp;
+   }
+   function getSinistersQtd(address adr)public view returns(uint){
+       return sinisters[adr].length;
+   }
+   function getBalanceof(address adr)public view returns(uint){
+     return adr.balance;
+   }
+
+   function productStillExist(string uuid)public view returns(bool){
+
+      int index = searchProductIndex(uuid);
+
+      return index >= 0;
+
+   }
+
+   function getMedicineNamesTotal()public view returns(uint){
+    return medicineNames.length;
+}
+  function getAllProductsTotal()public view returns(uint){
+    return allProducts.length;
+}
+  function getAllWalletsTotal()public view returns(uint){
+      return allWallets.length;
+  }
+
+}
+

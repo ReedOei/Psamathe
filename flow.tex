@@ -50,6 +50,12 @@ We make the following main contributions:
         \end{itemize}
 
     \item \reed{Optimizations?}
+        Some of the Solidity contracts are actually inefficient because:
+        \begin{enumerate}
+            \item They use lots of modifiers which repeat checks (see reference implementation of ERC-721).
+            \item They tend to use arrays to represent sets.
+                Maybe this is more efficient for very small sets, but checking containment is going to be much faster with a \lstinline{mapping (X => bool)} eventually.
+        \end{enumerate}
 
         \begin{itemize}
             \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
@@ -171,6 +177,17 @@ I don't think this will greatly impact usability, and in fact is probably easier
 For example, say you want to do the third flow only when there isn't enough money in \lstinline{A} and \lstinline{C} for first two flows to occur.
 But the above implementation would also cause the money to be taken from C in the case that there's, for example, and overflow when you transfer to B, or if A has enough money, but not C, which may is desirable.
 
+\paragraph{Transformers}
+
+Partially applied transformers: suppose you want to flow two resources into pairs (e.g., a zip).
+If you use a partially applied transformer, this might cause issues for several reasons:
+\begin{enumerate}
+    \item If I have a $f : \tau \flowsto \sigma \flowsto \pi$, and I flow into $f$, then $\sigma \flowsto \pi$ flows out.
+        However---in what order?
+
+    \item We need a ``list selector'' that lets us control what order things flow in.
+\end{enumerate}
+
 \section{Examples}
 \paragraph{Transfer with fees}
 This is fairly common: for example, the contract with the most transactions does this, as do many gambling/auction contracts.
@@ -267,9 +284,11 @@ Some flow typing rules:
     \inferrule*[right=Lookup]{
     }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
 
-    \inferrule*[right=View-Var]{
+    \inferrule*[right=View]{
+        \Gamma \proves x : \tau
+        \and
         \lnot (\tau ~ \asset)
-    }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma, x : \tau }
+    }{ \Gamma \flowproves x : \tau \flowproveout \Gamma }
 
     \inferrule*[right=Flow-Transformer]{
         \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
@@ -315,9 +334,11 @@ Demote definition
     \demote(\mathcal{Q}~\tau) &:= \mathcal{Q}~\demote(\tau) \\
 \end{align*}
 
+\reed{Selecting from or with a list should yield a list, probably}
 \reed{Asset retention theorem?}
 \reed{Resource accessiblity?}
-\reed{NOTE: Transformers \textbf{must} be consumed, because they might be holding resources if partially applied}
+\reed{NOTE: Transformers \textbf{must} be consumed, because they might be holding resources if partially applied.
+This is just like any asset local variable.}
 
 \begin{comment}
 \subsection{Unfinished}

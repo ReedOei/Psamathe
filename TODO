@@ -1,3 +1,7 @@
+- It would be cool to have dataflow-like programming available, so I could say:
+    - dataflow X := f()
+    - So that whenever one of the dependencies of X is updated, teh value of X is also updated.
+
 - How to figure out where to put stuff (e.g., memory, calldata, storage, etc.)?
     - Can we do this automatically and easily?
 
