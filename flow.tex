@@ -198,7 +198,7 @@ In \langName, we would write this as:
 
 \begin{lstlisting}
 transaction withdrawBalance():
-    flow everything from userBalances[msg.sender] to msg.sender.balance
+    userBalances[msg.sender] --> msg.sender.balance
 \end{lstlisting}
 
 Not only is this simpler, but the compiler can automatically place the actual call that does the transfer last, meaning that the mistake could simply never be made.
@@ -220,8 +220,8 @@ In \langName, we can do the same thing by associating a call with a flow.
 \begin{lstlisting}
 transaction approveAndCall(_spender : address, _value : uint256, _extraData : bytes):
     consume everything from allowance[msg.sender, _spender]
-    flow _value from approvalSource to allowance[msg.sender, _spender],
-        then call receiveApproval(msg.sender, _value, address(this), _extraData)
+    approvalSource --[ _value ]-> allowance[msg.sender, _spender],
+    on success: call receiveApproval(msg.sender, _value, address(this), _extraData)
 \end{lstlisting}
 
 \section{Specification}
@@ -235,7 +235,7 @@ transaction approveAndCall(_spender : address, _value : uint256, _extraData : by
 \end{align*}
 \begin{tabular}{l r l l}
     $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ & (type quantities \reed{Not sure what to call these}) \\
-    $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\mathcal{Q}~\tau \times \mathcal{Q}~\tau$ \bnfalt $\map~\mathcal{Q}~\tau \Rightarrow \mathcal{Q}~\tau$ \bnfalt $\curlys{\overline{x : \mathcal{Q}~\tau}}$ \bnfalt $t$ & (types) \\
+    $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
     $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
@@ -248,62 +248,57 @@ $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{
 \caption{Abstract syntax of \langName.}
 \label{lang-syntax}
 \end{figure}
-Note: In the surface language, you write $x : \tau$ to mean $x : \one~\tau$.
-The syntax $f : \tau \flowsto \sigma$ means $f$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
+Note: Consider $\tau \equiv \one~\tau$, so $x : \natt$ and $x : \one~\natt$ are the same (and so is $x : \one~\one~\natt$, etc.).
+The syntax $S : \tau \flowsto \sigma$ means $S$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
 
 \subsection{Statics}
 Some flow typing rules:
 
+\reed{How to handle transfer everything making it safe to ignore things?}
+
 \begin{mathpar}
     \inferrule*[right=Select-Var]{
-        \Gamma \proves x : \tau
-    }{ \Gamma \proves x ~ \selects~\tau }
-
-    \inferrule*[right=Select-Var-Quant]{
         \Gamma \proves x : \mathcal{Q}~\tau
     }{ \Gamma \proves x ~ \selects~\tau }
 
     \inferrule*[right=Lookup-NoConsume]{
     }{ \Gamma, x : \tau \proves x : \demote(\tau) }
 
-    \inferrule*[right=Check-Transformer]{
+    \inferrule*[right=Lookup]{
+    }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
+
+    \inferrule*[right=View-Var]{
+        \lnot (\tau ~ \asset)
+    }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma, x : \tau }
+
+    \inferrule*[right=Flow-Transformer]{
         \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
     }{ \Gamma \proves (\lambda x : \tau. e) : \tau \flowsto \sigma }
 
-    \inferrule*[right=Flow-Transformer]{
-    }{ \Gamma, S : \tau \flowsto \sigma \flowproves S : \tau \flowsto \sigma \flowproveout \Gamma, S : \mathcal{Q}~\sigma }
-
     \inferrule*[right=Flow-Storage]{
-    }{ \Gamma, S : \mathcal{Q}~\tau \flowproves S : \tau \flowsto \tau \flowproveout \Gamma, S : \mathcal{Q}~\sigma }
+    }{ \Gamma, S : \mathcal{Q}~\tau \proves S : \tau \flowsto \tau }
 
     \inferrule*[right=Flow]{
-        \Gamma \flowproves S : \tau \flowsto \sigma \flowproveout \Delta
+        \Gamma \proves S : \tau \flowsto \sigma
         \and
-        \Delta \proves f~\selects~\demote(\sigma)
+        \Gamma \proves f~\selects~\demote(\sigma)
         \and
-        \Delta \flowproves D : \sigma \flowsto \pi \flowproveout \Xi
-    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \pi \flowproveout \Xi }
+        \Gamma \proves D : \sigma \flowsto \pi
+    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \pi }
 
-    \inferrule*[right=Storage-Lookup]{
-        \Gamma \proves \mathcal{S} : \one~\map~\tau~\Rightarrow~\sigma
-        \and
-        \Gamma \proves E : \demote(\tau)
-    }{ \Gamma \proves \mathcal{S}[E] : \sigma }
+    % \inferrule*[right=Storage-Lookup]{
+    %     \Gamma \proves \mathcal{S} : \map~\tau~\Rightarrow~\sigma
+    %     \and
+    %     \Gamma \proves E : \demote(\tau)
+    % }{ \Gamma \proves \mathcal{S}[E] : \sigma }
 
 %     \inferrule*[right=Nonfungible-Lookup]{
 %         \tau ~ \nonfungible
 %     }{ \Gamma, x : \mathcal{Q}~\tau \flowproves x : \mathcal{Q}~\tau \flowproveout \Gamma }
-
-%     \inferrule*[right=Lookup]{
-%         \lnot (\tau ~ \nonfungible)
-%     }{ \Gamma, x : \mathcal{Q}~\tau \flowproves x : \mathcal{Q}~\tau \flowproveout \Gamma, x : \mathcal{Q}~\tau }
 \end{mathpar}
 
-\reed{I think the only kind of expression that will actually behave linearly is the expressions in the transformers.
-And also the external calls, when we give a resource to them, which I suppose is possible?
-Also depends what it's flowing to---if you flow from an option to a set, it's fine if it doesn't contain anything.
-Everything else works ``normally''?
-We could also guard on things like $A \to B; A \to B$ where $A : \one~\tau$, because the second one will always fail.
+\reed{Probably should only be possible to transfer resources via. ``external'' calls to calls to the same contract.}
+\reed{We could also guard on things like $A \to B; A \to B$ where $A : \one~\tau$, because the second one will always fail.
 Not sure if we care to put this in the type system, or just have a linting check.
 It's safe either way because of dynamic checks.
 Probably would be nice to check for, we need to worry about this for all $\mathcal{Q}$ except for $\setof$; but also only for nonfungible types.
@@ -316,7 +311,8 @@ Demote definition
 \begin{align*}
     \demote(\natt) &:= \natt \\
     \demote(\boolt) &:= \boolt \\
-    \demote(t) &:= \demote(\tau) & \twhere t ~\text{is}~ \asset~\tau
+    \demote(t) &:= \demote(\tau) & \twhere t ~\text{is}~ \asset~\tau \\
+    \demote(\mathcal{Q}~\tau) &:= \mathcal{Q}~\demote(\tau) \\
 \end{align*}
 
 \reed{Asset retention theorem?}
