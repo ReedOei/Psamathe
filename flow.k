@@ -8,7 +8,6 @@ module FLOW-SYNTAX
                  | String
                  | "\\" Id "." Expr [binder]
     syntax Vals ::= List{Val, ","} [klabel(vals)]
-    syntax Ids ::= List{Id, ","} [klabel(vals)]
 
     syntax Storage ::= Val
                      | Id

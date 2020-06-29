@@ -12,7 +12,7 @@ endif
 
 let b:current_syntax = "flow"
 
-syntax keyword transaction internal transaction view returns returning event
+syntax keyword transaction internal transaction view returns returning event private
 syntax match specialTransactions "on create"
 syntax match specialTransactions "on fail"
 syntax match specialTransactions "on success"
@@ -41,7 +41,7 @@ syntax keyword constWords true false
 syntax region string start='"' end='"' skip='\\"'
 syntax region string start='\'' end='\'' skip='\\\''
 
-syntax keyword type nat int bool bytes address string ether uint256 set linking map option
+syntax keyword type nat int bool bytes address string ether uint256 set linking map option list
 
 syntax keyword contract contract state storage source sink pool interface
 syntax keyword contractModifiers main asset

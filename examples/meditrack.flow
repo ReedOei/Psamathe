@@ -193,35 +193,38 @@ contract SupplyChain {
     type Function is Nothing | Producer | Stock | Transport | SurgicalCenter | Seller | Buyer
     functions : linking Function <=> {Person}
 
-    type Wallet is {
+    type Wallet is asset {
         isManager : bool,
-        medicines : map string => nat,
+        medicines : set string,
         products : set string, // TODO: Maybe this should be: set Product
         creationTime : nat
     }
 
-    type Medicine is {
-        string name;
-        string description;
-        bool initialized;
-        uint value;
-        uint validity;
+    type Medicine is nonfungible asset {
+        name : string,
+        description : string,
+        initialized : bool,
+        value : nat,
+        validity : nat
     }
 
-    type Product is {
-        string id;
-        address owner;
-        uint creationTime;
-        address[] path;
-        uint[] timestamps;
+    type PathRecord is {
+        addr : address,
+        timestamp : nat
+    }
+
+    type Product is asset {
+        id : string,
+        owner : address,
+        creationTime : nat
     }
 
     type Sinister is {
-        string title;
-        string description;
-        string envolvedProduct;
-        address responsible;
-        uint timestamp;
+        title : string,
+        description : string,
+        envolvedProduct : string,
+        responsible : address,
+        timestamp : nat
     }
 
     managers : set address
@@ -231,7 +234,10 @@ contract SupplyChain {
     // This suggests that generating and managing these extra variables is actually **not** a waste of resources.
     medicines : map string => Medicine
     wallets : map address => Wallet
+
     products : map string => Product
+    productPath : map string => list PathRecord
+    destroyedProducts : map string => Product
 
     begin : nat
 
@@ -286,7 +292,8 @@ contract SupplyChain {
     on create():
         msg.sender --> managers
         begin := now
-        wallets[msg.sender] = Wallet(true, now, Function.Productor)
+        Wallet(true, now) --> wallets[msg.sender]
+        msg.sender --> functions[Producer]
 
         Nothing --> stringToFunction["Nothing"]
         Producer --> stringToFunction["Productor"]
@@ -300,32 +307,22 @@ contract SupplyChain {
         functions[owner of wallet in functions] --[ wallet ]-> functions[stringToFunction[func]]
         on success: emit FunctionDesignated(wallet, stringToFunction[func])
 
-    private transaction transferOperation(_from : address, uuid : string, _to : address)
+    private transaction transferOperation(_from : address, uuid : string, _to : address) returns Receive:
+        var id : string := products[uuid].id
 
-   function transferOperation(address from, string uuid, address to)private
-   returns(Receive){
+        wallets[_from].products --[ uuid ]-> wallets[_to].products
+        wallets[_from].medicines --[ id ]-> wallets[_to].medicines
 
-       uint timestamp = now;
-       string memory id = products[uuid].id;
+        products[uuid].owner := _to
 
-       incrementPath(uuid, to);
+        Receive(uuid, id, now, _from, _to) --> receives[_to][uuid]
 
-       wallets[from].products[uuid] = false;
-       wallets[from].medicines[id] -= 1;
+        on success:
+            call incrementPath(uuid, _to)
+            emit medicineTransfered(uuid, id, _from, _to);
 
-       products[uuid].owner = to;
+        return receives[_to][uuid]
 
-       wallets[to].products[uuid] = true;
-       wallets[to].medicines[id] += 1;
-
-       Receive memory receive = Receive(uuid, id, timestamp, from, to);
-
-       receives[to].push(receive);
-
-       emit medicineTransfered(uuid, id, from, to);
-
-       return receive;
-   }
    function sendMedicine(string uuid)private{
 
         string memory id = products[uuid].id;
@@ -343,15 +340,6 @@ contract SupplyChain {
 
         return balance
 
-   function compareStrings (string a, string b)private pure returns (bool){
-       if(bytes(a).length != bytes(b).length){
-           return false;
-       }
-       else{
-           return keccak256(bytes(a)) == keccak256(bytes(b));
-       }
-  }
-
   function searchProductIndex(string uuid)public view returns(int){
 
       for(int i = 0; i < int(allProducts.length); i++){
@@ -366,9 +354,61 @@ contract SupplyChain {
       return -1;
   }
 
-    view checkValidity() returns bool :=
-  function checkValidity()private{
+    private transaction incrementPath(uuid : string, adr : address):
+        only when productExists(uuid)
 
+        PathRecord(adr, time) --> productPath[uuid]
+
+        on success: emit PathIncremented(uuid, products[uuid].id, adr, time);
+
+    private transaction discardProduct(uuid : string):
+        only when productExists(uuid)
+
+        consume products[uuid].id from wallets[products[uuid].owner].medicines
+        consume uuid from wallets[owner].products[uuid]
+
+        products[uuid].owner := 0x0
+        products[uuid] --> destroyedProducts[uuid]
+
+        on success: emit DiscardedProduct(uuid, owner, now)
+
+    private transaction medicineCreate(id : string, _name : string, _description : string, _value : nat, _validity : nat):
+       Medicine(_name, _description, true, _value, _validity) --> medicines[id]
+       on success: emit medicineCreated(id)
+
+    private transaction createWallet(adr : address, f : string):
+        Wallet(false, now) --> wallets[adr]
+        adr --> functions[stringToFunction[f]]
+
+    transaction medicineGenerate(uuid : string, id : string):
+        only when hasFunction(Producer) and uuid not in destroyedProducts
+
+        Product(id, msg.sender, true, time) --> products[uuid]
+        uuid --> wallets[msg.sender].products
+        id --> wallets[msg.sender].medicines
+
+        on success:
+            emit productGenerated(msg.sender, uuid, id)
+            call incrementPath(uuid, msg.sender)
+
+    transaction buyMedicine(_from : address, uuid : string, value : ether) returns nat:
+        only when hasFunction(Buyer) and
+                  value >= medicines[products[uuid].id].value and
+                  validProduct(uuid) and
+                  _from in functions[Seller]
+
+        uint change = sendChange();
+        transferOperation(from, uuid, msg.sender);
+
+        on success:
+            emit medicineBought(msg.sender, uuid)
+            call transferOperation(_from, uuid, msg.sender)
+
+        return change
+
+    // Invalidates all products that have expired
+    transaction checkValidity():
+        products --[ any (uuid => prod) such that not validProduct(uuid) ]-> invalidProducts
       for(uint i = 0; i < allProducts.length; i++){
 
           Product storage product = products[allProducts[i]];
@@ -384,81 +424,6 @@ contract SupplyChain {
       }
   }
 
-    private transaction incrementPath(uuid : string, adr : address):
-        only when productExists(uuid)
-
-        adr --> products[uuid].path
-  function incrementPath(string uuid, address adr)private productExists(uuid){
-
-       uint time = now;
-
-       products[uuid].path.push(adr);
-       products[uuid].timestamps.push(time);
-
-       emit PathIncremented(uuid, products[uuid].id, adr, time);
-  }
-
-  function discardProduct(string uuid)private productExists(uuid){
-
-      address owner = getOwnerof(uuid);
-      string storage id = products[uuid].id;
-
-      wallets[owner].medicines[id] -= 1;
-      wallets[owner].products[uuid] = false;
-      products[uuid].owner = 0x0;
-      productExist[uuid] = false;
-      productWasDeleted[uuid] = true;
-
-      int index = searchProductIndex(uuid);
-
-      if(index >= 0){
-        uint ui = uint(index);
-        delete allProducts[ui];
-      }
-
-      uint timestamp = now;
-
-      emit DiscardedProduct(uuid, owner, timestamp);
-  }
-   function medicineCreate(string id, string _name, string _description, uint _value, uint _validity)
-   private{
-       require(!medicines[id].initialized, "Medicine already exists");
-
-       medicines[id] = Medicine(_name, _description, true, _value, _validity);
-       medicineNames.push(id);
-
-       emit medicineCreated(id);
-   }
-
-   function createWallet(address adr, string f)private{
-
-       wallets[adr] = Wallet(false,now,stringToFunction[f]);
-       allWallets.push(adr);
-   }
-
-   function medicineGenerate(string uuid, string id)public only(Function.Productor)
-   checkTime{
-       require(medicines[id].initialized, "medicine does not exist");
-       require(!productExist[uuid], "product already generated");
-       require(!productWasDeleted[uuid], "product has already existed and been deleted at some point");
-
-       uint time = now;
-       wallets[msg.sender].medicines[id] += 1;
-       productExist[uuid] = true;
-       wallets[msg.sender].products[uuid] = true;
-
-       address[] memory array;
-       uint[] memory times;
-       products[uuid] = Product(id, msg.sender, true, time, array, times);
-
-       incrementPath(uuid, msg.sender);
-       allProducts.push(uuid);
-
-       emit productGenerated(msg.sender,uuid,id);
-   }
-
-
-   function buyMedicine(address from, string uuid)public payable
    only(Function.Buyer)
    productExists(uuid) productOwner(from, uuid) checkTime
    validProduct(uuid)
@@ -470,23 +435,21 @@ contract SupplyChain {
        uint change = sendChange();
        transferOperation(from, uuid, msg.sender);
 
-       emit medicineBought(msg.sender, uuid);
-
        return change;
    }
 
-   function addNewMedicineRequest(string id, string name, string description, uint value, uint validity)public
-   onlyManager
-   checkTime{
-       require(!medicines[id].initialized, "Medicine already exists");
+    transaction addNewMedicineRequest(id : string, name : string, description : string, value : nat, validity : nat):
+        only when isManager() and id not in medicines
 
-       MedicineRequest request = new MedicineRequest(medicineRequests.length, id, name, description, value, validity, managers);
-       medicineRequests.push(request);
+        new MedicineRequest(medicineRequests.length, id, name, description, value, validity, managers) --> medicineRequests[medicineRequests.length]
 
-       emit NewRequest();
-   }
+        on success: emit NewRequest()
 
-   function approveNewMedicineRequest(uint id)public onlyManager checkTime{
+    transaction approveNewMedicineRequest(uint id)public onlyManager checkTime:
+        only when isManager()
+
+        on success:
+            call medicineRequests[id].approve()
 
        require(medicineRequests.length > id, "Request invalid");
 
@@ -504,16 +467,12 @@ contract SupplyChain {
        }
    }
 
-   function addNewUserRequest(address adr, string f)public
-   onlyManager
-   inexistantWallet(adr)
-   checkTime{
+    transaction addNewUserRequest(adr : address, f : string):
+        only when isManager() and not walletExists(adr)
 
-       UserRequest request = new UserRequest(userRequests.length, adr, f, managers);
-       userRequests.push(request);
+        new UserRequest(total userRequests, adr, f, managers) --> userRequests
 
-       emit NewRequest();
-   }
+        on success: emit NewRequest()
 
    function approveNewUserRequest(uint id)public checkTime{
        require(userRequests.length > id, "Request invalid");
@@ -600,15 +559,17 @@ contract SupplyChain {
        return sinister;
    }
 
+    transaction throwAway(uuid : string):
+        only when isProductOwner(msg.sender, uuid)
+
+        on success:
+            call discardProduct(uuid)
+            emit ThrowProductAway(uuid, msg.sender, now)
+
     function throwAway(string uuid)public checkTime productOwner(msg.sender, uuid){
         discardProduct(uuid);
         uint timestamp = now;
 
-        emit ThrowProductAway(uuid, msg.sender, timestamp);
-    }
-
-    function getOwnerof(string uuid)public view returns(address){
-        return products[uuid].owner;
     }
 
     view getReceive(uuid : string) returns Receive := receives[msg.sender][uuid]
