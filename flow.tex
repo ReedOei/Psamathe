@@ -37,6 +37,7 @@
 \begin{tabular}{l r l l}
     $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ \bnfalt $\listt$ & (type quantities \reed{Not sure what to call these}) \\
     $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \flowsto \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
+    $\mathfrak{q}$ & \bnfdef & $\any$ \bnfalt $\one$ \bnfalt $\some$ & (selector quantifiers) \\
     % $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
     % $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
     % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
@@ -57,17 +58,32 @@ Some flow typing rules:
 
 \reed{How to handle transfer everything making it safe to ignore things?}
 
+\framebox{$\Gamma \proves x : \tau$} \textbf{View Typing}
+\begin{mathpar}
+    \inferrule*[right=Lookup-NoConsume]{
+    }{ \Gamma, x : \tau \proves x : \demote(\tau) }
+
+    % \inferrule*[right=BinOp]{
+    %     \Gamma \proves e_1 : \tau
+    %     \and
+    %     \Gamma \proves e_2 : \tau
+    % }{ \Gamma \proves e_1 \oplus e_2 : \tau }
+    % \twhere \oplus \in \curlys{+,-,\cdot,\andop,\orop}
+\end{mathpar}
+
 \framebox{$\Gamma \proves x ~\selects~ \tau$} \textbf{Selectors}
 \begin{mathpar}
     \inferrule*[right=Select-Var]{
         \Gamma \proves x : \mathcal{Q}~\tau
     }{ \Gamma \proves x ~ \selects~\tau }
-\end{mathpar}
 
-\framebox{$\Gamma \proves x : \tau$} \textbf{View Typing}
-\begin{mathpar}
-    \inferrule*[right=Lookup-NoConsume]{
-    }{ \Gamma, x : \tau \proves x : \demote(\tau) }
+    \inferrule*[right=Select-Special]{
+        s \in \curlys{\everything, \nothing}
+    }{ \Gamma \proves s~\selects~\tau }
+
+    \inferrule*[right=Select-Quant]{
+        \Gamma, x : \tau \proves p : \boolt
+    }{ \Gamma \proves \mathfrak{q}~x~\suchthat~p~\selects~\tau }
 \end{mathpar}
 
 \framebox{$\Gamma \flowproves x : \tau \flowproveout \Delta$} \textbf{Linear Expression Typing}
@@ -115,11 +131,14 @@ Probably a good idea? But how to make not confusng }
 Demote definition
 \reed{TODO: Finish}
 
+\framebox{$\demote(\tau) = \sigma$} \textbf{Type Demotion}
 \begin{align*}
     \demote(\natt) &:= \natt \\
     \demote(\boolt) &:= \boolt \\
     \demote(t) &:= \demote(\tau) & \twhere t ~\text{is}~ \asset~\tau \\
     \demote(\mathcal{Q}~\tau) &:= \mathcal{Q}~\demote(\tau) \\
+    \demote(\tau \times \sigma) &:= \demote(\tau) \times \demote(\sigma) \\
+    \demote(\curlys{\overline{x : \tau}}) &:= \curlys{\overline{x : \demote(\tau)}}
 \end{align*}
 
 \reed{Selecting from or with a list should yield a list, probably}

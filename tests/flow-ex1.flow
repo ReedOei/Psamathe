@@ -4,6 +4,12 @@ contract Main {
 
 ;
 
+var A : nat
+var B : nat
+var C : nat
+var D : set string
+var E : set string
+
 2 --> A
 A --[ 1 ]-> B
 B --> C
