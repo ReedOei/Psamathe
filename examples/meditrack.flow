@@ -45,7 +45,7 @@ contract ManagerRequest is Request {
         return approved
 
     transaction updateApprovers(newApprover : address):
-        Approver[newApprover] --> approvers
+        Approver(newApprover) --> approvers
         on success: emit NewApprover(newApprover)
 }
 
@@ -118,7 +118,7 @@ contract TransferRequest is Request {
         sender := _sender
 
         approverAddr := approver
-        Approver[_approver] --> approver
+        Approver(_approver) --> approver
         approved := false
 
         on success: emit TransferRequestCreated( _productId, _sender, _approver)

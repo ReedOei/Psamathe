@@ -30,7 +30,7 @@ contract LunchVote {
 
     on create(quorumSet : nat):
         quorumSet --> quorum
-        Voter[msg.sender] --> authorizedVoters
+        Voter(msg.sender) --> authorizedVoters
         contractCreator := msg.sender
         CurrentlyVoting += this.address
 
@@ -47,7 +47,7 @@ contract LunchVote {
     transaction authorizeVoter(newVoterAddress : address):
         only when contractCreator = msg.sender
 
-        Voter[newVoterAddress] --> authorizedVoters
+        Voter(newVoterAddress) --> authorizedVoters
 
     view getChoices() returns set string := { name | (name <=> voters) in lunchVotes }
 

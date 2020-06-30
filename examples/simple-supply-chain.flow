@@ -47,8 +47,8 @@ contract SupplyChain {
         skuCount := 0
 
     transaction addItem(name : string, price : nat):
-        sku[skuCount] --> forSaleItems
-        Item[name, price, msg.sender, 0x0] --> items[skuCount]
+        sku(skuCount) --> forSaleItems
+        Item(name, price, msg.sender, 0x0) --> items[skuCount]
         1 --> skuCount
 
         on success: emit ForSale(skuCount - 1)
@@ -61,7 +61,7 @@ contract SupplyChain {
         // Probably have to make the user specify a "generator" and **only** allow creation via `next` to make this optimization work.
         var mapPairGen : sku ~> Item ~> MapPair sku Item := \newSku it. newSku => it
         sku --[ next ]-> mapPairGen
-        Item[name, price, msg.sender, 0x0] --> mapPairGen --> items
+        Item(name, price, msg.sender, 0x0) --> mapPairGen --> items
 
         on success: emit ForSale(newest sku)
 

@@ -41,7 +41,7 @@ main contract Pharmacy {
         // Can't create the same prescription twice, so it's impossible to create the same prescription twice.
         // Would probably want some condition like the following in the real version:
         // only when msg.sender in prescribers
-        Prescription[prescription] --> prescriptions
+        Prescription(prescription) --> prescriptions
 
 	transaction fillPrescription(prescription : demoted Prescription):
         var record : PharmacyPrescriptionRecord
