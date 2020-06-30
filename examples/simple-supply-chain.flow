@@ -53,18 +53,6 @@ contract SupplyChain {
 
         on success: emit ForSale(skuCount - 1)
 
-        // Concept: Another special selector, like everything, which selects the "next" sku.
-        //          This can easily be defined for nats, not sure about other types.
-        // Adding this let's us avoid the skuCount variable. Doesn't seem to be a **huge** benefit.
-        // However, another benefit of this is that we can avoid the expense of keeping around
-        //  a set that holds all of the resources we've allocated before to ensure that we never allocate the same resource twice.
-        // Probably have to make the user specify a "generator" and **only** allow creation via `next` to make this optimization work.
-        var mapPairGen : sku ~> Item ~> MapPair sku Item := \newSku it. newSku => it
-        sku --[ next ]-> mapPairGen
-        Item(name, price, msg.sender, 0x0) --> mapPairGen --> items
-
-        on success: emit ForSale(newest sku)
-
     transaction buyItem(sku : nat, val : ether):
         val --[ items[sku].price ]-> items[sku].seller.balance
         // Send the excess money back
