@@ -57,14 +57,21 @@ Some flow typing rules:
 
 \reed{How to handle transfer everything making it safe to ignore things?}
 
+\framebox{$\Gamma \proves x ~\selects~ \tau$} \textbf{Selectors}
 \begin{mathpar}
     \inferrule*[right=Select-Var]{
         \Gamma \proves x : \mathcal{Q}~\tau
     }{ \Gamma \proves x ~ \selects~\tau }
+\end{mathpar}
 
+\framebox{$\Gamma \proves x : \tau$} \textbf{View Typing}
+\begin{mathpar}
     \inferrule*[right=Lookup-NoConsume]{
     }{ \Gamma, x : \tau \proves x : \demote(\tau) }
+\end{mathpar}
 
+\framebox{$\Gamma \flowproves x : \tau \flowproveout \Delta$} \textbf{Linear Expression Typing}
+\begin{mathpar}
     \inferrule*[right=Lookup]{
     }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
 
@@ -73,31 +80,24 @@ Some flow typing rules:
         \and
         \lnot (\tau ~ \asset)
     }{ \Gamma \flowproves x : \tau \flowproveout \Gamma }
+\end{mathpar}
+
+\framebox{$\Gamma \proves x :: \tau \flowsto \sigma$} \textbf{Flow Typing}
+\begin{mathpar}
+    \inferrule*[right=Flow-Storage]{
+    }{ \Gamma, S : \mathcal{Q}~\tau \proves S :: \tau \flowsto \tau }
 
     \inferrule*[right=Flow-Transformer]{
         \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
-    }{ \Gamma \proves (\lambda x : \tau. e) : \tau \flowsto \sigma }
-
-    \inferrule*[right=Flow-Storage]{
-    }{ \Gamma, S : \mathcal{Q}~\tau \proves S : \tau \flowsto \tau }
+    }{ \Gamma \proves (\lambda x : \tau. e) :: \tau \flowsto \sigma }
 
     \inferrule*[right=Flow]{
-        \Gamma \proves S : \tau \flowsto \sigma
+        \Gamma \proves S :: \tau \flowsto \sigma
         \and
         \Gamma \proves f~\selects~\demote(\sigma)
         \and
-        \Gamma \proves D : \sigma \flowsto \pi
-    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \pi }
-
-    % \inferrule*[right=Storage-Lookup]{
-    %     \Gamma \proves \mathcal{S} : \map~\tau~\Rightarrow~\sigma
-    %     \and
-    %     \Gamma \proves E : \demote(\tau)
-    % }{ \Gamma \proves \mathcal{S}[E] : \sigma }
-
-%     \inferrule*[right=Nonfungible-Lookup]{
-%         \tau ~ \nonfungible
-%     }{ \Gamma, x : \mathcal{Q}~\tau \flowproves x : \mathcal{Q}~\tau \flowproveout \Gamma }
+        \Gamma \proves D :: \sigma \flowsto \pi
+    }{ \Gamma \proves S \sends{f} D :: \tau \flowsto \pi }
 \end{mathpar}
 
 \reed{Probably should only be possible to transfer resources via. ``external'' calls to calls to the same contract.}
@@ -107,6 +107,10 @@ It's safe either way because of dynamic checks.
 Probably would be nice to check for, we need to worry about this for all $\mathcal{Q}$ except for $\setof$; but also only for nonfungible types.
 Fungible types can be flowed from infinitely many times, the later flows just don't do anything.
 That seems like a better candidate for a lint check.}
+
+\reed{Selecting using a list from a set should yield a list (i.e., a deterministic order).
+This lets you do things that need a specific order without always storing things in lists.
+Probably a good idea? But how to make not confusng }
 
 Demote definition
 \reed{TODO: Finish}
@@ -232,7 +236,7 @@ We make the following main contributions:
 
 The basic state-changing construct in the language is a \emph{flow}.
 A flow describes a transfer of a \emph{resource} from one \emph{storage} to another.
-A \emph{transaction} is a sequence of flows. \reed{sort of...except for when we use for loops. It's still a set, but it can change based on the inputs/current state.}
+A \emph{transaction} is a sequence of flows and \emph{handlers}.
 
 A flow can have one of four \emph{modes}:
 \begin{enumerate}
@@ -281,8 +285,7 @@ on fail F with Err:
     revert("This address is already authorized! Do not re-authorize it.")
 on success F:
     emit AuthorizedVoter(newVoterAddress)
-    call newVoterAddress.receiveAuthorization()
-        returning resultCode such that resultCode = "SUCCESS"
+    call newVoterAddress.receiveAuthorization() asserting resultCode = "SUCCESS"
 \end{lstlisting}
 
 It's possible to have triggers which only occur when some subset of actions occurs.
