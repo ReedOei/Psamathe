@@ -7,7 +7,7 @@ module FLOW-SYNTAX
                  | Bool
                  | String
                  | "\\" Id "." Expr [binder]
-    syntax Vals ::= List{Val, ","} [klabel(vals)]
+    syntax Vals ::= List{Val, ","}
 
     syntax Storage ::= Val
                      | Id
@@ -17,19 +17,15 @@ module FLOW-SYNTAX
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]
                   | "{" Exprs "}" // Set literals
-                  | Expr "<=>" Expr // Link literal
                   | "(" Exprs ")" // Tuples
-                  | Id "(" Exprs ")" // Function call (can only call views)
+                  | Id "(" Exprs ")" // Function call
                   > Expr "or" Expr [strict(1)]
                   | Expr "and" Expr [strict(1)]
                   > Expr "+" Expr [left, seqstrict]
                   | Expr "-" Expr [left, seqstrict]
                   > Expr "=" Expr [seqstrict]
-                  | Expr "!=" Expr [seqstrict]
                   | Expr "<=" Expr [seqstrict]
                   | Expr "<" Expr [seqstrict]
-                  | Expr ">=" Expr [seqstrict]
-                  | Expr ">" Expr [seqstrict]
                   > Expr "in" Storage [seqstrict]
                   > "not" Expr [strict]
                   > "if" Expr "then" Expr "else" Expr [strict(1)]
@@ -84,9 +80,6 @@ module FLOW-SYNTAX
 
     // Basic desugaring
     rule S --> D => S --[ everything ]-> D [macro]
-
-    rule X > Y => Y < X   [macro]
-    rule X >= Y => Y <= X [macro]
 endmodule
 
 module FLOW
@@ -142,10 +135,7 @@ module FLOW
     rule I1 - I2 => I1 -Int I2
 
     rule I1:Int = I2:Int => I1 ==Int I2
-    rule I1:Int != I2:Int => I1 =/=Int I2
-
     rule S1:String = S2:String => S1 ==String S2
-    rule S1:String != S2:String => S1 =/=String S2
 
     rule I1 < I2 => I1 <Int I2
     rule I1 <= I2 => I1 <=Int I2

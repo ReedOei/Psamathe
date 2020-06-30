@@ -15,24 +15,20 @@ contract UserCrud {
     view isUser(userAddress : address) returns bool := userAddress in userStructs
 
     transaction insertUser(userAddress : address, userEmail : bytes, userAge : nat):
-        // only when isUser(userAddress)
-
-        // Note, this will raise an error if the UserStruct already exists, so there is no need to explicitly check.
+        // Note, this will raise an error if the UserStruct already exists at that address.
         // This is because overwriting an asset would be an error.
-        UserStruct[userEmail, userAge] --> userStructs[userAddress]
-        // Alternate syntax? Uses name parameters.
+        UserStruct(userEmail, userAge) --> userStructs[userAddress]
+        // Alternate syntax? Uses named parameters.
         UserStruct{userEmail: userEmail, userAge: userAge} --> userStructs[userAddress]
 
-        on success:
-            emit LogNewUser(userAddress, userEmail, userAge)
+        on success: emit LogNewUser(userAddress, userEmail, userAge)
 
     transaction deleteUser(userAddress : address):
         consume userStructs[userAddress]
+        on success: emit LogDeleteUser(userAddress)
 
-        on success:
-            emit LogDeleteUser(userAddress)
-
-    view getUser(userAddress : address) returns (bytes, nat) := (userStructs[userAddress].userEmail, userStructs[userAddress].userAge)
+    view getUser(userAddress : address) returns (bytes, nat) :=
+        (userStructs[userAddress].userEmail, userStructs[userAddress].userAge)
 
     transaction updateUserEmail(userAddress : address, userEmail : bytes):
         userStructs[userAddress].userEmail := userEmail

@@ -25,6 +25,170 @@
 
 \begin{document}
 
+\section{Specification}
+
+\subsection{Syntax}
+\begin{figure}[ht]
+\begin{align*}
+    C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
+    t &\in \textsc{TypeNames} & x &\in \textsc{IdentifierNames} \\
+    n &\in \Z \\
+\end{align*}
+\begin{tabular}{l r l l}
+    $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ \bnfalt $\listt$ & (type quantities \reed{Not sure what to call these}) \\
+    $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \flowsto \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
+    % $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
+    % $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
+    % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
+% $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
+
+    % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
+    % $A$ & \bnfdef & $T(x_1, \ldots, x_n)$ \bnfalt $\emits{E(x_1, \ldots, x_n)}$ & (actions) \\
+    % $f$ & \bnfdef & $v$ \bnfalt $x$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\delta + \delta$ \bnfalt $\delta - \delta$ \bnfalt $\min(\delta, \delta)$ \bnfalt $\max(\delta, \delta)$ \bnfalt $Q~x~\suchthat~\varphi(x)$ & (prim. dist. specifier) \\
+\end{tabular}
+\caption{Abstract syntax of \langName.}
+\label{lang-syntax}
+\end{figure}
+Note: Consider $\tau \equiv \one~\tau$, so $x : \natt$ and $x : \one~\natt$ are the same (and so is $x : \one~\one~\natt$, etc.).
+The syntax $S : \tau \flowsto \sigma$ means $S$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
+
+\subsection{Statics}
+Some flow typing rules:
+
+\reed{How to handle transfer everything making it safe to ignore things?}
+
+\begin{mathpar}
+    \inferrule*[right=Select-Var]{
+        \Gamma \proves x : \mathcal{Q}~\tau
+    }{ \Gamma \proves x ~ \selects~\tau }
+
+    \inferrule*[right=Lookup-NoConsume]{
+    }{ \Gamma, x : \tau \proves x : \demote(\tau) }
+
+    \inferrule*[right=Lookup]{
+    }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
+
+    \inferrule*[right=View]{
+        \Gamma \proves x : \tau
+        \and
+        \lnot (\tau ~ \asset)
+    }{ \Gamma \flowproves x : \tau \flowproveout \Gamma }
+
+    \inferrule*[right=Flow-Transformer]{
+        \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
+    }{ \Gamma \proves (\lambda x : \tau. e) : \tau \flowsto \sigma }
+
+    \inferrule*[right=Flow-Storage]{
+    }{ \Gamma, S : \mathcal{Q}~\tau \proves S : \tau \flowsto \tau }
+
+    \inferrule*[right=Flow]{
+        \Gamma \proves S : \tau \flowsto \sigma
+        \and
+        \Gamma \proves f~\selects~\demote(\sigma)
+        \and
+        \Gamma \proves D : \sigma \flowsto \pi
+    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \pi }
+
+    % \inferrule*[right=Storage-Lookup]{
+    %     \Gamma \proves \mathcal{S} : \map~\tau~\Rightarrow~\sigma
+    %     \and
+    %     \Gamma \proves E : \demote(\tau)
+    % }{ \Gamma \proves \mathcal{S}[E] : \sigma }
+
+%     \inferrule*[right=Nonfungible-Lookup]{
+%         \tau ~ \nonfungible
+%     }{ \Gamma, x : \mathcal{Q}~\tau \flowproves x : \mathcal{Q}~\tau \flowproveout \Gamma }
+\end{mathpar}
+
+\reed{Probably should only be possible to transfer resources via. ``external'' calls to calls to the same contract.}
+\reed{We could also guard on things like $A \to B; A \to B$ where $A : \one~\tau$, because the second one will always fail.
+Not sure if we care to put this in the type system, or just have a linting check.
+It's safe either way because of dynamic checks.
+Probably would be nice to check for, we need to worry about this for all $\mathcal{Q}$ except for $\setof$; but also only for nonfungible types.
+Fungible types can be flowed from infinitely many times, the later flows just don't do anything.
+That seems like a better candidate for a lint check.}
+
+Demote definition
+\reed{TODO: Finish}
+
+\begin{align*}
+    \demote(\natt) &:= \natt \\
+    \demote(\boolt) &:= \boolt \\
+    \demote(t) &:= \demote(\tau) & \twhere t ~\text{is}~ \asset~\tau \\
+    \demote(\mathcal{Q}~\tau) &:= \mathcal{Q}~\demote(\tau) \\
+\end{align*}
+
+\reed{Selecting from or with a list should yield a list, probably}
+\reed{Asset retention theorem?}
+\reed{Resource accessiblity?}
+\reed{NOTE: Transformers \textbf{must} be consumed, because they might be holding resources if partially applied.
+This is just like any asset local variable.}
+
+\begin{comment}
+\subsection{Unfinished}
+\reed{Ignore this for now, just some stuff for fun that may or may not end up being useful.}
+\begin{definition}
+    \reed{Don't think this really has a good name}
+    A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
+    \begin{enumerate}[label=(\roman*)]
+        \item $(R, +, 0)$ is a monoid.
+        \item $(R, \leq)$ is a partial order that is compatible with $(R, +, 0)$.
+            That is, for any $x, y \in R$ such that $x \leq y$, and for any $z \in R$, we have $x + z \leq y + z$.
+        \item $- : R \times R \to R$ is a function so that for any $x,y \in R$ such that $y \leq x$, we have $(x - y) + y = x$.
+
+        % NOTE: An alternate definition with splitting built-in.
+        % \item $\splits$ is a function $R \times \parens{R \cup \curlys{\top}}^R \to R \times R$, where $\top$ is a value not in $R$ for which we define $r < \top$ for all $r \in R$.
+        %     We write $r \stackrel{f}{\splits} (a,b)$ instead of $\splits(r, f) = (a,b)$.
+        %     Let $f : R \to R \cup \curlys{\top}$ and $r \in R$.
+        %     If $f(r) \leq r$, then $r \stackrel{f}{\splits} (a,b)$ such that $f(r) = b$ and $a + b = r$.
+    \end{enumerate}
+\end{definition}
+
+\paragraph{Examples}
+
+\begin{enumerate}
+    \item The natural numbers with the standard operations is a resource $(\N, +, 0, \leq, -)$, where $-$ is \emph{saturating subtraction}: $n - m = 0$ if $m > n$.
+    \item For any set $A$, we can build the resource $(\powerset{A}, \cup, \emptyset, \subseteq, \setminus)$, where $X \setminus Y$ is the set difference operation.
+    \item Similarly, given any set $A$, we can build the resource $(\powersetfin{A}, \cup, \emptyset, \subseteq, \setminus)$; this resource is called the \emph{nonfungible resource on $A$}, written $\text{nf}(A)$.
+    \item \reed{I have no idea if this is useful, but it's fun}
+        The set of strings on an alphabet $\Sigma$ can be made into the \emph{prefix resource} $(\Sigma^*, \epsilon, \cdot, \leq_p, -_p)$ or the \emph{suffix resource} $(\Sigma^*, \epsilon, \cdot, \leq_s, -_s)$, where $\cdot$ is concatenation, $x \leq_p y$ if $x$ is a prefix of $y$ and similarly $x \leq_s y$ if $x$ is a suffix of $y$.
+        The functions $-_p$ and $-_s$ are defined as follows:
+        \[
+            (x \cdot y) -_p x = y
+        \]
+        and
+        \[
+            (x \cdot y) -_s y = x
+        \]
+\end{enumerate}
+
+\begin{definition}
+    For any two resources $\mathcal{R}$ and $\mathcal{S}$, their \emph{direct product}, $\mathcal{R} \oplus \mathcal{S}$ is $(R \times S, +_{RS}, (0_R, 0_S), \leq_{RS}, -_{RS})$, where
+    \begin{align*}
+        (r_1, s_1) +_{RS} (r_2, s_2) &:= (r_1 +_R r_2, s_1 +_S s_2) \\
+        (r_1, s_1) -_{RS} (r_2, s_2) &:= (r_1 -_R r_2, s_1 -_S s_2) \\
+        (r_1, s_1) \leq_{RS} (r_2, s_2) &:\iff r_1 \leq_R r_2 \land s_1 \leq_S s_2
+    \end{align*}
+\end{definition}
+
+\begin{definition}
+    Let $\mathcal{R}$ be a resource and let $A$ be a set.
+    The exponential resource $\mathcal{R}^A$ \reed{I suspect this would be an exponential, anyway} is defined so
+    \[
+        \mathcal{R}^A := (R^A, +, \bm{0}, \leq, -)
+    \]
+    where for $f,g \in R^A$, we define
+    \begin{align*}
+        \bm{0}(x) &:= 0 \\
+        (f + g)(x) &:= f(x) + g(x) \\
+        f \leq g &:\Leftrightarrow \forall x \in A. f(x) \leq g(x) \\
+        (f - g)(x) &:= f(x) - g(x)
+    \end{align*}
+
+    Note that $f - g$ is only defined when $g \leq f$.
+\end{definition}
+\end{comment}
+
 \section{Introduction}
 
 \langName is a DSL for implementing programs which manage resources, targeted at writing smart contracts.
@@ -43,8 +207,9 @@ We make the following main contributions:
     \item \textbf{Simplicity}: The language is quite simple---it makes writing typical smart contract programs easier and shorter, because many common pitfalls in Solidity are automatically handled by the language, such as overflow/underflow, checking of balances, short address attacks, etc.
 
         \begin{itemize}
-            \item We can evaluate these by comparing LOC, cyclotomic complexity, etc.
+            \item We can evaluate these by comparing LOC, cyclomatic complexity, etc.
                 Not sure what the right metric would be.
+                \reed{Or how cyclomatic complexity would work exactly in this language.}
 
             \item We can also evaluate via a user study, but that will take a long(er) time.
         \end{itemize}
@@ -240,170 +405,6 @@ transaction approveAndCall(_spender : address, _value : uint256, _extraData : by
     approvalSource --[ _value ]-> allowance[msg.sender, _spender],
     on success: call receiveApproval(msg.sender, _value, address(this), _extraData)
 \end{lstlisting}
-
-\section{Specification}
-
-\subsection{Syntax}
-\begin{figure}[ht]
-\begin{align*}
-    C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
-    t &\in \textsc{TypeNames} & x &\in \textsc{IdentifierNames} \\
-    n &\in \Z \\
-\end{align*}
-\begin{tabular}{l r l l}
-    $\mathcal{Q}$ & \bnfdef & $\setof$ \bnfalt $\optiont$ \bnfalt $\one$ & (type quantities \reed{Not sure what to call these}) \\
-    $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
-    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
-    $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
-$\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
-
-    % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
-    % $A$ & \bnfdef & $T(x_1, \ldots, x_n)$ \bnfalt $\emits{E(x_1, \ldots, x_n)}$ & (actions) \\
-    % $f$ & \bnfdef & $v$ \bnfalt $x$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\delta + \delta$ \bnfalt $\delta - \delta$ \bnfalt $\min(\delta, \delta)$ \bnfalt $\max(\delta, \delta)$ \bnfalt $Q~x~\suchthat~\varphi(x)$ & (prim. dist. specifier) \\
-\end{tabular}
-\caption{Abstract syntax of \langName.}
-\label{lang-syntax}
-\end{figure}
-Note: Consider $\tau \equiv \one~\tau$, so $x : \natt$ and $x : \one~\natt$ are the same (and so is $x : \one~\one~\natt$, etc.).
-The syntax $S : \tau \flowsto \sigma$ means $S$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
-
-\subsection{Statics}
-Some flow typing rules:
-
-\reed{How to handle transfer everything making it safe to ignore things?}
-
-\begin{mathpar}
-    \inferrule*[right=Select-Var]{
-        \Gamma \proves x : \mathcal{Q}~\tau
-    }{ \Gamma \proves x ~ \selects~\tau }
-
-    \inferrule*[right=Lookup-NoConsume]{
-    }{ \Gamma, x : \tau \proves x : \demote(\tau) }
-
-    \inferrule*[right=Lookup]{
-    }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
-
-    \inferrule*[right=View]{
-        \Gamma \proves x : \tau
-        \and
-        \lnot (\tau ~ \asset)
-    }{ \Gamma \flowproves x : \tau \flowproveout \Gamma }
-
-    \inferrule*[right=Flow-Transformer]{
-        \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
-    }{ \Gamma \proves (\lambda x : \tau. e) : \tau \flowsto \sigma }
-
-    \inferrule*[right=Flow-Storage]{
-    }{ \Gamma, S : \mathcal{Q}~\tau \proves S : \tau \flowsto \tau }
-
-    \inferrule*[right=Flow]{
-        \Gamma \proves S : \tau \flowsto \sigma
-        \and
-        \Gamma \proves f~\selects~\demote(\sigma)
-        \and
-        \Gamma \proves D : \sigma \flowsto \pi
-    }{ \Gamma \proves S \sends{f} D : \tau \flowsto \pi }
-
-    % \inferrule*[right=Storage-Lookup]{
-    %     \Gamma \proves \mathcal{S} : \map~\tau~\Rightarrow~\sigma
-    %     \and
-    %     \Gamma \proves E : \demote(\tau)
-    % }{ \Gamma \proves \mathcal{S}[E] : \sigma }
-
-%     \inferrule*[right=Nonfungible-Lookup]{
-%         \tau ~ \nonfungible
-%     }{ \Gamma, x : \mathcal{Q}~\tau \flowproves x : \mathcal{Q}~\tau \flowproveout \Gamma }
-\end{mathpar}
-
-\reed{Probably should only be possible to transfer resources via. ``external'' calls to calls to the same contract.}
-\reed{We could also guard on things like $A \to B; A \to B$ where $A : \one~\tau$, because the second one will always fail.
-Not sure if we care to put this in the type system, or just have a linting check.
-It's safe either way because of dynamic checks.
-Probably would be nice to check for, we need to worry about this for all $\mathcal{Q}$ except for $\setof$; but also only for nonfungible types.
-Fungible types can be flowed from infinitely many times, the later flows just don't do anything.
-That seems like a better candidate for a lint check.}
-
-Demote definition
-\reed{TODO: Finish}
-
-\begin{align*}
-    \demote(\natt) &:= \natt \\
-    \demote(\boolt) &:= \boolt \\
-    \demote(t) &:= \demote(\tau) & \twhere t ~\text{is}~ \asset~\tau \\
-    \demote(\mathcal{Q}~\tau) &:= \mathcal{Q}~\demote(\tau) \\
-\end{align*}
-
-\reed{Selecting from or with a list should yield a list, probably}
-\reed{Asset retention theorem?}
-\reed{Resource accessiblity?}
-\reed{NOTE: Transformers \textbf{must} be consumed, because they might be holding resources if partially applied.
-This is just like any asset local variable.}
-
-\begin{comment}
-\subsection{Unfinished}
-\reed{Ignore this for now, just some stuff for fun that may or may not end up being useful.}
-\begin{definition}
-    \reed{Don't think this really has a good name}
-    A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
-    \begin{enumerate}[label=(\roman*)]
-        \item $(R, +, 0)$ is a monoid.
-        \item $(R, \leq)$ is a partial order that is compatible with $(R, +, 0)$.
-            That is, for any $x, y \in R$ such that $x \leq y$, and for any $z \in R$, we have $x + z \leq y + z$.
-        \item $- : R \times R \to R$ is a function so that for any $x,y \in R$ such that $y \leq x$, we have $(x - y) + y = x$.
-
-        % NOTE: An alternate definition with splitting built-in.
-        % \item $\splits$ is a function $R \times \parens{R \cup \curlys{\top}}^R \to R \times R$, where $\top$ is a value not in $R$ for which we define $r < \top$ for all $r \in R$.
-        %     We write $r \stackrel{f}{\splits} (a,b)$ instead of $\splits(r, f) = (a,b)$.
-        %     Let $f : R \to R \cup \curlys{\top}$ and $r \in R$.
-        %     If $f(r) \leq r$, then $r \stackrel{f}{\splits} (a,b)$ such that $f(r) = b$ and $a + b = r$.
-    \end{enumerate}
-\end{definition}
-
-\paragraph{Examples}
-
-\begin{enumerate}
-    \item The natural numbers with the standard operations is a resource $(\N, +, 0, \leq, -)$, where $-$ is \emph{saturating subtraction}: $n - m = 0$ if $m > n$.
-    \item For any set $A$, we can build the resource $(\powerset{A}, \cup, \emptyset, \subseteq, \setminus)$, where $X \setminus Y$ is the set difference operation.
-    \item Similarly, given any set $A$, we can build the resource $(\powersetfin{A}, \cup, \emptyset, \subseteq, \setminus)$; this resource is called the \emph{nonfungible resource on $A$}, written $\text{nf}(A)$.
-    \item \reed{I have no idea if this is useful, but it's fun}
-        The set of strings on an alphabet $\Sigma$ can be made into the \emph{prefix resource} $(\Sigma^*, \epsilon, \cdot, \leq_p, -_p)$ or the \emph{suffix resource} $(\Sigma^*, \epsilon, \cdot, \leq_s, -_s)$, where $\cdot$ is concatenation, $x \leq_p y$ if $x$ is a prefix of $y$ and similarly $x \leq_s y$ if $x$ is a suffix of $y$.
-        The functions $-_p$ and $-_s$ are defined as follows:
-        \[
-            (x \cdot y) -_p x = y
-        \]
-        and
-        \[
-            (x \cdot y) -_s y = x
-        \]
-\end{enumerate}
-
-\begin{definition}
-    For any two resources $\mathcal{R}$ and $\mathcal{S}$, their \emph{direct product}, $\mathcal{R} \oplus \mathcal{S}$ is $(R \times S, +_{RS}, (0_R, 0_S), \leq_{RS}, -_{RS})$, where
-    \begin{align*}
-        (r_1, s_1) +_{RS} (r_2, s_2) &:= (r_1 +_R r_2, s_1 +_S s_2) \\
-        (r_1, s_1) -_{RS} (r_2, s_2) &:= (r_1 -_R r_2, s_1 -_S s_2) \\
-        (r_1, s_1) \leq_{RS} (r_2, s_2) &:\iff r_1 \leq_R r_2 \land s_1 \leq_S s_2
-    \end{align*}
-\end{definition}
-
-\begin{definition}
-    Let $\mathcal{R}$ be a resource and let $A$ be a set.
-    The exponential resource $\mathcal{R}^A$ \reed{I suspect this would be an exponential, anyway} is defined so
-    \[
-        \mathcal{R}^A := (R^A, +, \bm{0}, \leq, -)
-    \]
-    where for $f,g \in R^A$, we define
-    \begin{align*}
-        \bm{0}(x) &:= 0 \\
-        (f + g)(x) &:= f(x) + g(x) \\
-        f \leq g &:\Leftrightarrow \forall x \in A. f(x) \leq g(x) \\
-        (f - g)(x) &:= f(x) - g(x)
-    \end{align*}
-
-    Note that $f - g$ is only defined when $g \leq f$.
-\end{definition}
-\end{comment}
 
 \end{document}
 
