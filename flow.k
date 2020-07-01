@@ -74,7 +74,7 @@ module FLOW
 
     rule A --[ nothing ]-> B => .
 
-    rule <k> S --[ Sel ]-> D => flow(SV, S --[ Sel ]-> D) ... </k>
+    rule <k> S --[ Sel ]-> D => split(Sel, SV, S, D) ... </k>
          <storage> ...  S |-> SV => .Map ... </storage>
 
     rule split(everything, resource(Q, R, V), S, D) => split(V, resource(Q, R, V), S, D)
@@ -152,12 +152,28 @@ module FLOW
     // Actions:
     // =================================
 
-    // Externals calls:
-    syntax Stmt ::= setupArgs(Exprs, VarDefs)
-    rule setupArgs(.Exprs, .VarDefs) => . [structural]
-    rule setupArgs((E, Es), (Y : T, Defs2)) => (E --[ everything ]-> Y) setupArgs(Es, Defs2) [structural]
+    // Action sequencing
+    rule .Actions => . [structural]
+    rule A1:Action As:Actions => A1 ~> As [structural]
 
-    rule <k> call T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ... </k>
+    // Externals calls:
+    syntax K ::= setupArgs(Exprs, VarDefs) [function]
+
+    rule setupArgs(.Exprs, .VarDefs) => .
+    rule setupArgs((E:Storage, Es:Exprs), (Y : T, Defs2)) => (E --[ everything ]-> Y) ~> setupArgs(Es, Defs2)
+
+    syntax K ::= setTypeEnv(Map)
+    syntax Map ::= makeEnv(VarDefs) [function]
+
+    rule makeEnv(.VarDefs) => .Map
+    rule makeEnv((Y : T, Defs)) => (Y |-> T) makeEnv(Defs)
+
+    rule <k> setTypeEnv(Env) => . ... </k>
+        <localTypeEnv> _ => Env </localTypeEnv>
+
+    // TODO: Add pack
+    rule <k> call T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ~> setTypeEnv(Env) ... </k>
         <transactions> ... T |-> transaction(T, FormalArgs, S) ... </transactions>
+        <localTypeEnv> Env => Env makeEnv(FormalArgs) </localTypeEnv>
 endmodule
 

@@ -2,13 +2,13 @@ require "substitution.k"
 
 // The syntax module containing the "core" flow language.
 module FLOW-CORE-SYNTAX
-    imports DOMAINs-SYNTAX
+    imports DOMAINS-SYNTAX
 
     syntax Val ::= Int
                  | Bool
                  | String
                  | "\\" Id ":" Type "." Expr [binder]
-    syntax Vals ::= List{Val, ","}
+    syntax Vals ::= List{Val, ","} [klabel(exprs)]
 
     syntax QualifiedId ::= Id
                          | Storage "[" Expr "]" [strict(2)]
@@ -17,11 +17,13 @@ module FLOW-CORE-SYNTAX
     syntax Storage ::= Val
                      | QualifiedId
 
+    syntax TupleExpr ::= "(" Exprs ")" // Tuples */
+
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]
                   | "{" Exprs "}" // Set literals
-                  | "(" Exprs ")" // Tuples
-                  | Storage "(" Exprs ")" // Function call
+                  | TupleExpr
+                  | Storage TupleExpr // Function call
                   > Expr "or" Expr [strict(1)]
                   | Expr "and" Expr [strict(1)]
                   > Expr "+" Expr [left, seqstrict]
@@ -32,7 +34,7 @@ module FLOW-CORE-SYNTAX
                   > Selector "in" Storage [seqstrict]
                   > "not" Expr [strict]
                   > "if" Expr "then" Expr "else" Expr [strict(1)]
-    syntax Exprs ::= List{Expr, ","} [seqstrict]
+    syntax Exprs ::= List{Expr, ","} [seqstrict, klabel(exprs)]
 
     syntax SpecialSelect ::= "everything" [token]
                            | "nothing" [token]
@@ -84,7 +86,6 @@ module FLOW-CORE-SYNTAX
     syntax Stmt ::= Flow
                   | "var" VarDef
                   | "var" VarDef ":=" Expr
-                  | "var" VarDef "in" Stmt
                   | Stmt Stmt [right]
 
     // Add the built-in types to the Id sort so we can reference them in the rules
@@ -96,9 +97,9 @@ module FLOW-CORE-SYNTAX
     syntax Contract ::= "contract" Id "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
 
-    syntax Action ::= "emit" Id "(" Exprs ")"
+    syntax Action ::= "emit" Id TupleExpr
                     | "error" "(" Expr ")"
-                    | "call" Storage "(" Exprs ")"
+                    | "call" Storage TupleExpr
     syntax Actions ::= List{Action, " "}
 
     syntax Program ::= Contracts ";" Actions
@@ -132,7 +133,6 @@ module FLOW-SYNTAX
          [macro]
 
     rule var X : T := E => (var X : T) (E --[ everything ]-> X) [macro]
-    rule (var X : T) S => var X : T in S [macro]
 
     rule S := E => (consume S) (E --[ everything ]-> S) [macro]
 
