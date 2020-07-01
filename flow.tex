@@ -136,6 +136,8 @@ Define
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
         \Gamma \proves F : \tau \flowsto \sigma
+        \and
+        F = S \sends{f} D
     }{ \Gamma \flowproves F~\wf \flowproveout F[\Gamma] }
 
     \inferrule*[right=Wf-Var-Def]{
