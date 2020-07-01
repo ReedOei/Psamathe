@@ -28,6 +28,7 @@ module FLOW
         <storage> .Map </storage>
         <localTypeEnv> .Map </localTypeEnv>
         <currentContract> NoContract </currentContract>
+        <activations> .Set </activations>
 
     syntax Resource ::= resource(TypeQuant, Type, Val)
     syntax ResourceVal ::= Resource
@@ -79,10 +80,9 @@ module FLOW
 
     rule split(everything, resource(Q, R, V), S, D) => split(V, resource(Q, R, V), S, D)
 
-    rule <k> split(N:Int, resource(one, R, V), S, D)
-             =>
-             flow(resource(one, R, V -Int N), S) ~> flow(resource(one, R, N), D) ... </k>
-        <types> ... R |-> modified(SetItem(fungible) _, _) ... </types>
+    rule split(N:Int, resource(one, nat, V), S, D)
+         =>
+         flow(resource(one, nat, V -Int N), S) ~> flow(resource(one, nat, N), D)
         requires V >=Int N
 
     rule split(Val, resource(Q, R, SetItem(Val) Rest), S, D)
@@ -97,8 +97,8 @@ module FLOW
     rule combineResources(one, one, R, MT, A, emptySingleton) => resource(one, R, A)
     rule combineResources(one, one, R, modified(SetItem(fungible) _, nat), A, B) => resource(one, R, A +Int B)
         requires B =/=K emptySingleton
-    rule combineResources(one, one, R, MT, A, B) => error("Destination already full!")
-        requires notBool(isFungible(MT)) andBool B =/=K emptySingleton
+    rule combineResources(one, one, R, modified(Ms, _), A, B) => error("Destination already full!")
+        requires notBool(fungible in Ms) andBool B =/=K emptySingleton
 
     // one => option
     rule combineResources(one, option, R, MT, A, none) => resource(option, R, some(A))
@@ -160,20 +160,33 @@ module FLOW
     syntax K ::= setupArgs(Exprs, VarDefs) [function]
 
     rule setupArgs(.Exprs, .VarDefs) => .
-    rule setupArgs((E:Storage, Es:Exprs), (Y : T, Defs2)) => (E --[ everything ]-> Y) ~> setupArgs(Es, Defs2)
+    rule setupArgs((E:Storage, Es), (Y : T, Defs2)) => (E --[ everything ]-> Y) ~> setupArgs(Es, Defs2)
 
-    syntax K ::= setTypeEnv(Map)
+    syntax K ::= pack(Id)
+               | packVar(QualifiedId)
     syntax Map ::= makeEnv(VarDefs) [function]
 
     rule makeEnv(.VarDefs) => .Map
     rule makeEnv((Y : T, Defs)) => (Y |-> T) makeEnv(Defs)
 
-    rule <k> setTypeEnv(Env) => . ... </k>
-        <localTypeEnv> _ => Env </localTypeEnv>
+    rule <k> pack(C) => . ... </k>
+        <localTypeEnv> .Map </localTypeEnv>
 
-    // TODO: Add pack
-    rule <k> call T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ~> setTypeEnv(Env) ... </k>
-        <transactions> ... T |-> transaction(T, FormalArgs, S) ... </transactions>
+    rule <k> pack(C) => packVar(X) ~> pack(C) ... </k>
+        <localTypeEnv> ... X |-> T => .Map ... </localTypeEnv>
+
+    // TODO: We'll have to handle packing fields properly (i.e., don't delete them).
+    rule <k> packVar(X) => . ... </k>
+        <storage> ... X |-> V => .Map ... </storage>
+
+    rule <k> packVar(X) => . ... </k>
+        <storage> Env </storage>
+        requires notBool(X in keys(Env))
+
+    // TODO: Put pack back.
+    /* rule <k> call C.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ~> pack(C) ... </k> */
+    rule <k> call C.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ... </k>
+        <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
         <localTypeEnv> Env => Env makeEnv(FormalArgs) </localTypeEnv>
 endmodule
 

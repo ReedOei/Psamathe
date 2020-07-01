@@ -35,7 +35,7 @@
     n &\in \Z \\
 \end{align*}
 \begin{tabular}{l r l l}
-    $\mathcal{Q}$ & \bnfdef & $\emptyq$ \bnfalt $\fullq$ \bnfalt $\one$ \bnfalt $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (type quantities \reed{Not sure what to call these}) \\
+    $\mathcal{Q}$ & \bnfdef & $\emptyq$ \bnfalt \bnfalt $\one$ \bnfalt $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (type quantities \reed{Not sure what to call these}) \\
     $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \flowsto \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
     % $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
@@ -59,12 +59,12 @@ The syntax $S : \tau \flowsto \sigma$ means $S$ accepts $\tau$ and provides $\si
 Define $* \leq \,\, ! \leq +$ (this is based on the amount of resources that every quantifier is \emph{guaranteed} to select).
 Define
 \begin{align*}
-    |\one| &= \,\, + & \text{\reed{I would have made this $!$, but then the value of $|\fullq~\emptyq|$ depends on how you reduce it...}} \\
-    |\fullq~\mathcal{Q}| &= + \\
-    |\emptyq~\mathcal{Q}| &= * \\
-    |\optionq~\mathcal{Q}| &= * \\
-    |\setq~\mathcal{Q}| &= * \\
-    |\listq~\mathcal{Q}| &= *
+    |\mathcal{Q}| =
+    \begin{cases}
+        ! & \tif \mathcal{Q} = \one \\
+        + & \tif \mathcal{Q} \neq \one \tand \mathcal{Q} = \fullq~\mathcal{R}~\text{for some}~\mathcal{R} \\
+        * & \owise
+    \end{cases}
 \end{align*}
 
 \reed{How to handle transfer everything making it safe to ignore things?}
@@ -132,8 +132,6 @@ Define
     }{ \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Delta }
 \end{mathpar}
 
-\reed{IN interpreter, store flow activation for handlers}
-
 \framebox{$\Gamma \flowproves S~\wf \flowproveout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
@@ -159,30 +157,34 @@ Define
 %     \mathcal{Q}~\tau~\consumable \iff \mathcal{Q} \neq \one \lor \tau~\consumable
 % \end{align*}
 
-Let $F$ be a flow, $x$ an identifier and $\mathcal{Q}~\tau$ a type in canonical form (i.e., reduce with $\mathcal{Q}~\one = \mathcal{Q}$ and $\one~\mathcal{Q} = \mathcal{Q}$).
-\begin{definition}
-    \emph{$F$ empties $x : \mathcal{Q}~\tau$} (\emph{$F~\consumesarr~x:\mathcal{Q}~\tau$}) when $F = x \sends{f} D$ and either $f = \everything$ or $\mathcal{Q} = \one$.
-\end{definition}
+% Let $F$ be a flow, $x$ an identifier and $\mathcal{Q}~\tau$ a type in canonical form (i.e., reduce with $\mathcal{Q}~\one = \mathcal{Q}$ and $\one~\mathcal{Q} = \mathcal{Q}$).
+% \begin{definition}
+%     \emph{$F$ empties $x : \mathcal{Q}~\tau$} (\emph{$F~\consumesarr~x:\mathcal{Q}~\tau$}) when $F = x \sends{f} D$ and either $f = \everything$ or $\mathcal{Q} = \one$.
+% \end{definition}
 
-\begin{mathpar}
-    \inferrule*[right=Empty]{
-        \Gamma \proves x : \mathcal{Q}~\tau
-        \and
-        f = \everything \lor \mathcal{Q} = \one
-    }{ \Gamma \proves (x \sends{f} D)~\consumesarr~x }
-\end{mathpar}
+% \begin{align*}
 
-\begin{definition}
-    \emph{$F$ fills $x : \mathcal{Q}~\tau$} (\emph{$F~\fillsarr~x:\mathcal{Q}~\tau$}) when $F = S \sends{f} x$ and $\Gamma \proves f~\selects_\mathfrak{q}~\tau$ where $! \leq \mathfrak{q}$.
-\end{definition}
+% \end{align*}
+
+% \begin{mathpar}
+%     \inferrule*[right=Empty]{
+%         \Gamma \proves x : \mathcal{Q}~\tau
+%         \and
+%         f = \everything \lor \mathcal{Q} = \one
+%     }{ \Gamma \proves (x \sends{f} D)~\consumesarr~x }
+% \end{mathpar}
+
+% \begin{definition}
+%     \emph{$F$ fills $x : \mathcal{Q}~\tau$} (\emph{$F~\fillsarr~x:\mathcal{Q}~\tau$}) when $F = S \sends{f} x$ and $\Gamma \proves f~\selects_\mathfrak{q}~\tau$ where $! \leq \mathfrak{q}$.
+% \end{definition}
 
 \framebox{$F[\Gamma] = \Delta$} \textbf{Storage Tracking}
 For a flow $F$ and an environment $\Gamma$, $F[\Gamma]$ is the new state of the environment after the flow $F$ is performed.
 Specifically, it upates which storages are guaranteed to be empty and which are guaranteed to be nonempty.
 \begin{align*}
-    F[\Gamma] &= \setbuild{x : \tau \in \Gamma}{\lnot (F~\empties~x)} \\
-                          &\cup \setbuild{x : \emptyq~\tau}{x : \tau \in \Gamma, F~\consumesarr~x:\tau} \\
-                          &\cup \setbuild{x : \fullq~\tau}{x : \tau \in \Gamma, F~\fillsarr~x:\tau}
+    F[\Gamma] &= \setbuild{x : \tau \in \Gamma}{\lnot (F~\empties~x:\tau) \tand \lnot (F~\fills~x:\tau)} \\
+              &\cup \setbuild{x : \emptyq~\tau}{x : \tau \in \Gamma, F~\empties~x:\tau} \\
+              &\cup \setbuild{x : \fullq~\tau}{x : \tau \in \Gamma, F~\fills~x:\tau}
 \end{align*}
 % If $\tau = \mathcal{Q}~\sigma$ for some $\sigma$ and $\mathcal{Q}$ such that $\mathcal{Q} \neq \one$, then $\emptyq~\tau = \tau$.
 % \reed{Actually, we only end up using $\emptyq$ on things that are just $\one~\tau$ anyway, so this doesn't really matter.}
@@ -217,8 +219,10 @@ Demote definition
 \reed{Selecting from or with a list should yield a list, probably}
 \reed{Asset retention theorem?}
 \reed{Resource accessiblity?}
-\reed{NOTE: Transformers \textbf{must} be consumed, because they might be holding resources if partially applied.
+\reed{NOTE: Local transformers \textbf{must} be consumed, because they might be holding resources if partially applied.
 This is just like any asset local variable.}
+
+\reed{What guarantees should we provide (no errors except for flowing a resource that doesn't exist in the source/already exists in the destination)?}
 
 \begin{comment}
 \subsection{Unfinished}
