@@ -1,25 +1,28 @@
 contract Main {
     type LunchName is nonfungible consumable asset string
+
+    transaction T():
+        var A : nat
+        var B : nat
+        var C : nat
+        var D : set string
+        var E : set string
+
+        2 --> A
+        A --[ 1 ]-> B
+        B --> C
+
+        A --[ 1 ]-> C --> B
+
+        "foo" --> D
+        "bar" --> D
+        D --[ "foo" ]-> E
+
+        consume A
+        consume 1 from B
 }
 
 ;
 
-var A : nat
-var B : nat
-var C : nat
-var D : set string
-var E : set string
-
-2 --> A
-A --[ 1 ]-> B
-B --> C
-
-A --[ 1 ]-> C --> B
-
-"foo" --> D
-"bar" --> D
-D --[ "foo" ]-> E
-
-consume A
-consume 1 from B
+call Main.T()
 

@@ -21,25 +21,16 @@ module FLOW-TYPECHECK
     syntax Judgement ::= Stmt "wf"
                        | Expr "selects" Type
                        | Expr ":" Type
-                       | Expr "::" Type "~~>" Type
-    syntax K ::= Judgement
-               | setTypeEnv(Map)
-               | assertTypeEnv(Map)
-
-    rule <k> setTypeEnv(M) => . ... </k>
-        <typeEnv> Old => M </typeEnv>
-
-    rule <k> assertTypeEnv(M) => . ... </k>
-        <typeEnv> M </typeEnv>
+                       | Flow ":" Type
+    syntax K ::= Map "|-" Judgement
 
     rule <k> S:Stmt => .Map |- S wf </k>
 
     // Sequence
-    rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf
+    rule Gamma |- (S1:Stmt S2:Stmt) wf => Gamma |- S1 wf ~> Gamma |- S2 wf
 
     // Variable definition
-    rule <k> var X : T => . ... </k>
-        <typeEnv> ... .Map => X |-> T </typeEnv>
+    rule Gamma |- (var X : T in S) wf => Gamma (X |-> T) |- S wf
 
     syntax Type ::= demote(Type) [function]
     rule demote(nat) => nat
@@ -48,12 +39,12 @@ module FLOW-TYPECHECK
     rule demote(address) => address
 
     // Flow typing
-    rule (S --[ Sel ]-> D) wf => S :: ?T1 ~~> ?T2
-    rule S :: T1 ~~> T3 =>
-        S :: T1 ~~> ?T2
+    rule Gamma |- (S --[ Sel ]-> D) wf => Gamma |- (S --[ Sel ]-> D) : ?T1 ~~> ?T2
+    rule Gamma |- (S --[ Sel ]-> D) : T1 ~~> T3 =>
+        Gamma |- S : T1 ~~> ?T2
         ~>
-        Sel selects demote(T1)
+        Gamma |- Sel selects demote(T1)
         ~>
-        D :: ?T2 ~~> T3
+        Gamma |- D : ?T2 ~~> T3
 endmodule
 

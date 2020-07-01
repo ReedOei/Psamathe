@@ -21,28 +21,31 @@ module FLOW
                      | Vals
                      | SpecialSelect
 
+    syntax Id ::= "NoContract" [token]
+
     configuration
         <common />
         <storage> .Map </storage>
+        <localTypeEnv> .Map </localTypeEnv>
+        <currentContract> NoContract </currentContract>
 
-    syntax Resource ::= resource(TypeQuant, TypeName, Val)
+    syntax Resource ::= resource(TypeQuant, Type, Val)
     syntax ResourceVal ::= Resource
                          | ErrorVal
                          | "bottom" [token]
 
-    syntax K ::= split(Selector, Resource, Storage, Flow)
-               | flow(ResourceVal, Flow)
-               | flowError(ErrorVal, Flow)
+    syntax K ::= split(Selector, Resource, Storage, Storage)
+               | flow(ResourceVal, Storage)
+               | flowError(ErrorVal, Storage)
 
-    syntax KItem ::= TypeName
-                   | TypeMod
+    syntax KItem ::= TypeMod
 
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
 
-    // Variable declaration
+    // Temporary variable declaration
     rule <k> var X : T => . ... </k>
-        <localenv> ... .Map => X |-> T </localenv>
+        <localTypeEnv> ... .Map => X |-> T </localTypeEnv>
 
     // Simple arithmetic and boolean expressions
     rule I1 + I2 => I1 +Int I2
@@ -87,7 +90,7 @@ module FLOW
          flow(resource(Q, R, Rest), S) ~> flow(resource(Q, R, SetItem(Val)), D)
 
     // Combine resources: takes two collections of resources and makes a single collection.
-    syntax ResourceVal ::= combineResources(TypeQuant, TypeQuant, TypeName, TypeMod, Val, Val) [function]
+    syntax ResourceVal ::= combineResources(TypeQuant, TypeQuant, Type, TypeMod, Val, Val) [function]
 
     // TODO: Is this all the cases?
     // one => one
@@ -135,7 +138,6 @@ module FLOW
         requires notBool(S in keys(Store))
 
     rule flow(error(E), F) => flowError(error(E), F)
-    rule flow(R:Resource, S --[ Sel ]-> D) => split(Sel, R, S, D)
 
     // Consume rules
     rule <k> consume S => . ... </k>
@@ -145,5 +147,17 @@ module FLOW
     syntax Storage ::= "freshStorage" "(" Int ")" [freshGenerator, function, functional, klabel(freshStorage)]
 
     rule consume V from S => S --[ V ]-> !Fresh ~> consume !Fresh
+
+    // =================================
+    // Actions:
+    // =================================
+
+    // Externals calls:
+    syntax Stmt ::= setupArgs(Exprs, VarDefs)
+    rule setupArgs(.Exprs, .VarDefs) => . [structural]
+    rule setupArgs((E, Es), (Y : T, Defs2)) => (E --[ everything ]-> Y) setupArgs(Es, Defs2) [structural]
+
+    rule <k> call T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ... </k>
+        <transactions> ... T |-> transaction(T, FormalArgs, S) ... </transactions>
 endmodule
 
