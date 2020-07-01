@@ -36,7 +36,7 @@
 \end{align*}
 \begin{tabular}{l r l l}
     $\mathcal{Q}$ & \bnfdef & $\emptyq$ \bnfalt \bnfalt $\one$ \bnfalt $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (type quantities \reed{Not sure what to call these}) \\
-    $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \flowsto \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
+    $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
     % $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
     % $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
@@ -51,9 +51,9 @@
 \label{lang-syntax}
 \end{figure}
 Note: Consider $\tau \equiv \one~\tau$, so $x : \natt$ and $x : \one~\natt$ are the same (and so is $x : \one~\one~\natt$, etc.).
-Additionally, $\fullq~\emptyq \equiv \one$, $\fullq~\fullq \equiv \fullq$, \reed{$\emptyq~\fullq \equiv \emptyq$?}
+Additionally, $\nonempty~\emptyq \equiv \one$, $\nonempty~\nonempty \equiv \nonempty$, \reed{$\emptyq~\nonempty \equiv \emptyq$?}
 
-The syntax $S : \tau \flowsto \sigma$ means $S$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
+The syntax $S : \tau \transforms \sigma$ means $S$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
 
 \subsection{Statics}
 Define $* \leq \,\, ! \leq +$ (this is based on the amount of resources that every quantifier is \emph{guaranteed} to select).
@@ -62,32 +62,19 @@ Define
     |\mathcal{Q}| =
     \begin{cases}
         ! & \tif \mathcal{Q} = \one \\
-        + & \tif \mathcal{Q} \neq \one \tand \mathcal{Q} = \fullq~\mathcal{R}~\text{for some}~\mathcal{R} \\
+        + & \tif \mathcal{Q} \neq \one \tand \mathcal{Q} = \nonempty~\mathcal{R}~\text{for some}~\mathcal{R} \\
         * & \owise
     \end{cases}
 \end{align*}
-
-\reed{How to handle transfer everything making it safe to ignore things?}
 
 \framebox{$\Gamma \proves e : \tau$} \textbf{Typing}
 \begin{mathpar}
     \inferrule*[right=Lookup]{
     }{ \Gamma, x : \tau \proves x : \demote(\tau) }
 
-    \inferrule*[right=Storage]{
-    }{ \Gamma, S : \mathcal{Q}~\tau \proves S : \tau \flowsto \tau }
-
     \inferrule*[right=Transformer]{
-        \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Gamma
-    }{ \Gamma \proves (\lambda x : \tau. e) : \tau \flowsto \sigma }
-
-    \inferrule*[right=Flow]{
-        \Gamma \proves S : \tau \flowsto \sigma
-        \and
-        \Gamma \proves f~\selects_\mathfrak{q}~\demote(\sigma)
-        \and
-        \Gamma \proves D : \sigma \flowsto \pi
-    }{ \Gamma \proves (S \sends{f} D) : \tau \flowsto \pi }
+        \Gamma, x : \tau \flowproves e : \sigma \flowprovesout \Gamma
+    }{ \Gamma \proves (\lambda x : \tau. e) : \tau \transforms \sigma }
 
     % \inferrule*[right=BinOp]{
     %     \Gamma \proves e_1 : \tau
@@ -97,7 +84,39 @@ Define
     % \twhere \oplus \in \curlys{+,-,\cdot,\andop,\orop}
 \end{mathpar}
 
-\reed{Resource functors}
+\begin{align*}
+    \select(f, \mathfrak{q}, \tau) &=
+    \begin{cases}
+        \emptyq~\tau & \tif f = \everything \\
+        \emptyq~\tau & \tif \mathfrak{q} \geq ! \\
+        \tau & \owise
+    \end{cases}
+    &
+    \combine(\mathfrak{q}, \tau) &=
+    \begin{cases}
+        \nonempty~\tau & \tif \mathfrak{q} \geq ! \\
+        \tau & \owise
+    \end{cases}
+\end{align*}
+
+\framebox{$\Gamma \proves F :: \tau \flowsto \sigma \flowprovesout \Delta$} \textbf{Flow Typing}
+\begin{mathpar}
+    \inferrule*[right=Flow-Storage]{
+    }{ \Gamma, S : \mathcal{Q}~\tau \proves S :: \tau \flowsto \tau \flowprovesout \Gamma, S : \mathcal{Q}~\tau}
+
+    \inferrule*[right=Flow-Transformer]{
+    }{ \Gamma, x : \tau \transforms \sigma \proves x :: \tau \flowsto \sigma \flowprovesout \Gamma }
+
+    \inferrule*[right=Flow]{
+        \Gamma \flowproves S :: \tau \flowsto \sigma \flowprovesout \Gamma
+        \and
+        \Gamma \flowproves f~\selects_\mathfrak{q}~\demote(\sigma)
+        \\
+        \Gamma[S \leftarrow \select(f, \mathfrak{q}, \Gamma(S))] \flowproves D :: \sigma \flowsto \pi \flowprovesout \Delta
+    }{ \Gamma \flowproves (S \sends{f} D) :: \tau \flowsto \pi \flowprovesout \Delta[D \leftarrow \combine(\mathfrak{q}, \Delta(D))] }
+\end{mathpar}
+
+% \reed{Resource functors}
 
 \framebox{$\Gamma \proves e ~\selects_\mathfrak{q}~ \tau$} \textbf{Selectors}
 \begin{mathpar}
@@ -114,40 +133,38 @@ Define
     }{ \Gamma \proves (\mathfrak{q}~x~\suchthat~p)~\selects_\mathfrak{q}~\tau }
 \end{mathpar}
 
-\framebox{$\Gamma \flowproves e : \tau \flowproveout \Delta$} \textbf{Linear Expression Typing}
+\framebox{$\Gamma \flowproves e : \tau \flowprovesout \Delta$} \textbf{Linear Expression Typing}
 \begin{mathpar}
     \inferrule*[right=Lin-Lookup]{
-    }{ \Gamma, x : \tau \flowproves x : \tau \flowproveout \Gamma }
+    }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma }
 
     \inferrule*[right=Lin-View]{
         \Gamma \proves x : \tau
         \and
         \lnot (\tau ~ \asset)
-    }{ \Gamma \flowproves x : \tau \flowproveout \Gamma }
+    }{ \Gamma \flowproves x : \tau \flowprovesout \Gamma }
 
-    \inferrule*[right=Lin-Weaken]{
-        \Gamma \flowproves e : \sigma \flowproveout \Delta
-        \and
-        \lnot (\tau ~ \asset)
-    }{ \Gamma, x : \tau \flowproves e : \sigma \flowproveout \Delta }
+    % \inferrule*[right=Lin-Weaken]{
+    %     \Gamma \flowproves e : \sigma \flowprovesout \Delta
+    %     \and
+    %     \lnot (\tau ~ \asset)
+    % }{ \Gamma, x : \tau \flowproves e : \sigma \flowprovesout \Delta }
 \end{mathpar}
 
-\framebox{$\Gamma \flowproves S~\wf \flowproveout \Delta$} \textbf{Statement Well-formedness}
+\framebox{$\Gamma \flowproves S~\wf \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
-        \Gamma \proves F : \tau \flowsto \sigma
-        \and
-        F = S \sends{f} D
-    }{ \Gamma \flowproves F~\wf \flowproveout F[\Gamma] }
+        \Gamma \flowproves F :: \tau \flowsto \sigma \flowprovesout \Delta
+    }{ \Gamma \flowproves F~\wf \flowprovesout \Delta }
 
     \inferrule*[right=Wf-Var-Def]{
-    }{ \Gamma \flowproves \var~x : \tau \flowproveout \Gamma, x : \emptyq~\tau }
+    }{ \Gamma \flowproves \var~x : \tau \flowprovesout \Gamma, x : \emptyq~\tau }
 
     \inferrule*[right=Wf-Seq]{
-        \Gamma \flowproves S_1~\wf \flowproveout \Delta
+        \Gamma \flowproves S_1~\wf \flowprovesout \Delta
         \and
-        \Delta \flowproves S_2~\wf \flowproveout \Xi
-    }{ \Gamma \flowproves S_1~;~S_2 \flowproveout \Xi }
+        \Delta \flowproves S_2~\wf \flowprovesout \Xi
+    }{ \Gamma \flowproves S_1~;~S_2 \flowprovesout \Xi }
 \end{mathpar}
 
 \reed{TODO: Define $\tau~\consumable$}
@@ -158,38 +175,6 @@ Define
 % \begin{align*}
 %     \mathcal{Q}~\tau~\consumable \iff \mathcal{Q} \neq \one \lor \tau~\consumable
 % \end{align*}
-
-% Let $F$ be a flow, $x$ an identifier and $\mathcal{Q}~\tau$ a type in canonical form (i.e., reduce with $\mathcal{Q}~\one = \mathcal{Q}$ and $\one~\mathcal{Q} = \mathcal{Q}$).
-% \begin{definition}
-%     \emph{$F$ empties $x : \mathcal{Q}~\tau$} (\emph{$F~\consumesarr~x:\mathcal{Q}~\tau$}) when $F = x \sends{f} D$ and either $f = \everything$ or $\mathcal{Q} = \one$.
-% \end{definition}
-
-% \begin{align*}
-
-% \end{align*}
-
-% \begin{mathpar}
-%     \inferrule*[right=Empty]{
-%         \Gamma \proves x : \mathcal{Q}~\tau
-%         \and
-%         f = \everything \lor \mathcal{Q} = \one
-%     }{ \Gamma \proves (x \sends{f} D)~\consumesarr~x }
-% \end{mathpar}
-
-% \begin{definition}
-%     \emph{$F$ fills $x : \mathcal{Q}~\tau$} (\emph{$F~\fillsarr~x:\mathcal{Q}~\tau$}) when $F = S \sends{f} x$ and $\Gamma \proves f~\selects_\mathfrak{q}~\tau$ where $! \leq \mathfrak{q}$.
-% \end{definition}
-
-\framebox{$F[\Gamma] = \Delta$} \textbf{Storage Tracking}
-For a flow $F$ and an environment $\Gamma$, $F[\Gamma]$ is the new state of the environment after the flow $F$ is performed.
-Specifically, it upates which storages are guaranteed to be empty and which are guaranteed to be nonempty.
-\begin{align*}
-    F[\Gamma] &= \setbuild{x : \tau \in \Gamma}{\lnot (F~\empties~x:\tau) \tand \lnot (F~\fills~x:\tau)} \\
-              &\cup \setbuild{x : \emptyq~\tau}{x : \tau \in \Gamma, F~\empties~x:\tau} \\
-              &\cup \setbuild{x : \fullq~\tau}{x : \tau \in \Gamma, F~\fills~x:\tau}
-\end{align*}
-% If $\tau = \mathcal{Q}~\sigma$ for some $\sigma$ and $\mathcal{Q}$ such that $\mathcal{Q} \neq \one$, then $\emptyq~\tau = \tau$.
-% \reed{Actually, we only end up using $\emptyq$ on things that are just $\one~\tau$ anyway, so this doesn't really matter.}
 
 \reed{handle $\consume~\this$}
 
@@ -339,8 +324,6 @@ A \emph{transaction} is a sequence of flows and \emph{handlers}.
 A flow can have one of four \emph{modes}:
 \begin{enumerate}
     \item send
-    \item merge
-    \item hold
     \item consume
 \end{enumerate}
 
@@ -442,17 +425,6 @@ So that the second flow only happens if the first fails, you should instead just
 I don't think this will greatly impact usability, and in fact is probably easier to read because the condition has to be specified, and you won't get unexpected failures causing the flow.
 For example, say you want to do the third flow only when there isn't enough money in \lstinline{A} and \lstinline{C} for first two flows to occur.
 But the above implementation would also cause the money to be taken from C in the case that there's, for example, and overflow when you transfer to B, or if A has enough money, but not C, which may is desirable.
-
-\paragraph{Transformers}
-
-Partially applied transformers: suppose you want to flow two resources into pairs (e.g., a zip).
-If you use a partially applied transformer, this might cause issues for several reasons:
-\begin{enumerate}
-    \item If I have a $f : \tau \flowsto \sigma \flowsto \pi$, and I flow into $f$, then $\sigma \flowsto \pi$ flows out.
-        However---in what order?
-
-    \item We need a ``list selector'' that lets us control what order things flow in.
-\end{enumerate}
 
 \section{Examples}
 \paragraph{Transfer with fees}
