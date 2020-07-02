@@ -38,14 +38,16 @@
     $\mathcal{Q}$ & \bnfdef & $\emptyq$ \bnfalt \bnfalt $\one$ \bnfalt $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (type quantities \reed{Not sure what to call these}) \\
     $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
-    % $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \mathcal{Q}~\tau. E$ & (values) \\
-    % $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ & (storage identifiers) \\
+    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \tau. E$ & (values) \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ \bnfalt $\mathcal{S}.x$ & (storage identifiers) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \letvar $x : \tau := e$ \varin e \bnfalt $\mathcal{S}$ \\
+    $f$ & \bnfdef & $E$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x~\suchthat~E$ & (selector) \\
+    $F$ & \bnfdef & $\mathcal{S} \sends{f} \mathcal{D}$ & (flows)
     % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
 % $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
 
     % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
     % $A$ & \bnfdef & $T(x_1, \ldots, x_n)$ \bnfalt $\emits{E(x_1, \ldots, x_n)}$ & (actions) \\
-    % $f$ & \bnfdef & $v$ \bnfalt $x$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\delta + \delta$ \bnfalt $\delta - \delta$ \bnfalt $\min(\delta, \delta)$ \bnfalt $\max(\delta, \delta)$ \bnfalt $Q~x~\suchthat~\varphi(x)$ & (prim. dist. specifier) \\
 \end{tabular}
 \caption{Abstract syntax of \langName.}
 \label{lang-syntax}
@@ -84,11 +86,18 @@ Define
     % \twhere \oplus \in \curlys{+,-,\cdot,\andop,\orop}
 \end{mathpar}
 
+\begin{definition}
+    Let $\tau$ be a type.
+    The \emph{canonical form of $\tau$} is $\llbracket \tau \rrbracket = (\mathcal{Q}, \sigma)$ such that if $\sigma = \mathcal{R}~\pi$ for some quantity $\mathcal{R}$ and type $\pi$, then $\mathcal{R} = \one$.
+\end{definition}
+
+\framebox{$\select(f, \mathfrak{q}, \tau)$}
+\framebox{$\combine(\mathfrak{q}, \tau)$} \textbf{Typing}
 \begin{align*}
     \select(f, \mathfrak{q}, \tau) &=
     \begin{cases}
         \emptyq~\tau & \tif f = \everything \\
-        \emptyq~\tau & \tif \mathfrak{q} \geq ! \\
+        \emptyq~\tau & \tif \mathfrak{q} \geq ! \tand \llbracket \tau \rrbracket = (\one, \sigma) \\
         \tau & \owise
     \end{cases}
     &
@@ -334,6 +343,7 @@ A flow may optionally have a \emph{name}.
 Note that all flows fail if they can't be performed.
 For example, a flow of fungible resources fails if there is enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
 
+
 NOTE: If we wanted to be "super pure", we can implement preconditions with just flows by doing something like:
 \begin{lstlisting}
 consume true from { contractCreator = msg.sender }
@@ -352,6 +362,8 @@ An action can be:
     \item An error handler
 \end{enumerate}
 
+\reed{For the moment, I think it is safe to allow constructors to act like a storage, and \textbf{not} like an external call.
+This is because when you call a constructor, you must have the full source code of the contract you're going to make, and therefore you can be sure that the code it runs is safe.}
 \reed{Can you do actions other than just providing an error message in on fail?}
 \reed{Sending ether will also trigger an external call, which should be considered as being part of the \lstinline{on success} block, probably}
 
