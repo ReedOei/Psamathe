@@ -30,9 +30,9 @@ module FLOW-COMMON
 
     syntax TypeMod ::= modified(Set, Type)
 
-    rule <k> contract C { Ds } Cs ; S => processDecls(C, Ds) ~> Cs ; S ... </k>
+    rule <k> contract C { Ds } Cs ; S A => processDecls(C, Ds) ~> Cs ; S A ... </k>
         <contracts> ... .Map => C |-> contract C { Ds } ... </contracts>
-    rule .Contracts ; S => S [structural]
+    rule .Contracts ; S A => S ~> A [structural]
 
     syntax Set ::= modToSet(Modifiers) [function]
     rule modToSet(.Modifiers) => .Set

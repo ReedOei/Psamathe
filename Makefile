@@ -7,10 +7,10 @@ common:
 
 kompile: dynamic/flow-kompiled/timestamp static/flow-typecheck-kompiled/timestamp
 
-dynamic/flow-kompiled/timestamp: flow.k flow-common.k
+dynamic/flow-kompiled/timestamp: flow.k flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --backend java flow.k -d dynamic/
 
-static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k
+static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --backend java flow-typecheck.k -d static/
 
 %.flow: kompile

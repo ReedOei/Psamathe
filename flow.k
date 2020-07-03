@@ -8,7 +8,6 @@ module FLOW
     imports COLLECTIONS
     imports SUBSTITUTION
 
-    // TODO: Should these really be here?
     syntax ErrorVal ::= error(String)
     syntax Val ::= Set
                  | List
@@ -39,7 +38,7 @@ module FLOW
                | flow(ResourceVal, Storage)
                | flowError(ErrorVal, Storage)
 
-    syntax KItem ::= TypeMod
+    syntax K ::= TypeMod
 
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
@@ -179,13 +178,12 @@ module FLOW
     rule <k> packVar(X) => . ... </k>
         <storage> ... X |-> V => .Map ... </storage>
 
+    // Variables don't have the be in the environment, because they may have already been consumed.
     rule <k> packVar(X) => . ... </k>
         <storage> Env </storage>
         requires notBool(X in keys(Env))
 
-    // TODO: Put pack back.
-    /* rule <k> call C.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ~> pack(C) ... </k> */
-    rule <k> call C.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ... </k>
+    rule <k> call C.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ~> pack(C) ... </k>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
         <localTypeEnv> Env => Env makeEnv(FormalArgs) </localTypeEnv>
 endmodule
