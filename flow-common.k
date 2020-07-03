@@ -71,9 +71,14 @@ module FLOW-COMMON
     // Resolve statement types
     rule resolveTypes(C, var X : T) => var X : resolveType(C, T)
     rule resolveTypes(C, S --[ Sel ]-> D) => resolveTypes(C, S) --[ resolveTypes(C, Sel) ]-> resolveTypes(C, D)
-    rule resolveTypes(C, consume S) => consume resolveTypes(C, S)
-    rule resolveTypes(C, consume Sel from S) => consume resolveTypes(C, Sel) from resolveTypes(C, S)
     rule resolveTypes(C, S1:Stmt S2:Stmt) => resolveTypes(C, S1) resolveTypes(C, S2)
+
+    rule S --[ Sel1 ]-> V:Val --[ Sel2 ]-> D
+         =>
+         (V:Val --> !Fresh)
+         (S --[ Sel1 ]-> !Fresh)
+         (!Fresh --[ Sel2 ]-> D)
+         [strucural]
 
     // Resolve selector types
     rule resolveTypes(_, S:SpecialSelect) => S

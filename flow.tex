@@ -36,13 +36,13 @@
 \end{align*}
 \begin{tabular}{l r l l}
     $\mathcal{Q}$ & \bnfdef & $\emptyq$ \bnfalt \bnfalt $\one$ \bnfalt $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (type quantities \reed{Not sure what to call these}) \\
-    $\tau$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
+    $\tau$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \tau. E$ & (values) \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ \bnfalt $\mathcal{S}.x$ \bnfalt $\consume~\tau$ & (storage identifiers) \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ \bnfalt $\mathcal{S}.x$ \bnfalt $\consume$ & (storages) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{S}$ \bnfalt \letvar $x : \tau := E$ \varin E \\
     $f$ & \bnfdef & $E$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
-    $F$ & \bnfdef & $x \sends{f} x$ & (flows)
+    $F$ & \bnfdef & $\mathcal{S} \sends{f} \mathcal{S}$ & (flows)
     % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
 % $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
 
@@ -92,8 +92,9 @@ Define
 \end{definition}
 
 \framebox{$\select(f, \mathfrak{q}, \tau)$}
-\framebox{$\combine(\mathfrak{q}, \tau)$} \textbf{Storage modification}
-These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it, see the flow typing rules.
+\framebox{$\combine(\mathfrak{q}, \tau)$}
+\framebox{$\update(\Gamma, \mathcal{S}, \tau)$} \textbf{Storage modification}
+These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
 
 \begin{align*}
     \select(f, \mathfrak{q}, \tau) &=
@@ -102,11 +103,16 @@ These auxiliary functions are used to update the statically known information ab
         \emptyq~\tau & \tif \mathfrak{q} \geq ! \tand \llbracket \tau \rrbracket = (\one, \sigma) \\
         \tau & \owise
     \end{cases}
-    &
+    \\
     \combine(\mathfrak{q}, \tau) &=
     \begin{cases}
         \nonempty~\tau & \tif \mathfrak{q} \geq ! \\
         \tau & \owise
+    \end{cases} \\
+    \update(\Gamma, S, \tau) &=
+    \begin{cases}
+        \Delta, S : \tau & \tif \Gamma = \Delta, S : \sigma \\
+        \Gamma & \owise
     \end{cases}
 \end{align*}
 
@@ -118,16 +124,20 @@ These auxiliary functions are used to update the statically known information ab
     \inferrule*[right=Flow-Transformer]{
     }{ \Gamma, x : \tau \transforms \sigma \proves x :: \tau \flowsto \sigma \flowprovesout \Gamma }
 
+    \inferrule*[right=Flow-Consume]{
+    }{ \Gamma \flowproves \consume :: \tau \flowsto \voidt \flowprovesout \Gamma }
+
     \inferrule*[right=Flow]{
         \Gamma \flowproves S :: \tau \flowsto \sigma \flowprovesout \Gamma
         \and
         \Gamma \flowproves f~\selects_\mathfrak{q}~\demote(\sigma)
         \\
-        \Gamma[S \leftarrow \select(f, \mathfrak{q}, \Gamma(S))] \flowproves D :: \sigma \flowsto \pi \flowprovesout \Delta
-    }{ \Gamma \flowproves (S \sends{f} D) :: \tau \flowsto \pi \flowprovesout \Delta[D \leftarrow \combine(\mathfrak{q}, \Delta(D))] }
+        \update(\Gamma, S, \select(f, \mathfrak{q}, \Gamma(S))) \flowproves D :: \sigma \flowsto \pi \flowprovesout \Delta
+    }{ \Gamma \flowproves (S \sends{f} D) :: \tau \flowsto \pi \flowprovesout \update(\Delta, D, \combine(\mathfrak{q}, \Delta(D))) }
 \end{mathpar}
 
-Note that $\Gamma[S \leftarrow \tau]$ is the environment $\Gamma$ after updating the type of $S$ to be $\tau$.
+Note that $\Gamma(S)$ is the type that $S$ currently has in $\Gamma$, or $\voidt$ if it is not in $\Gamma$.
+\reed{Maybe there's a nicer way to do this, but since $\update$ will ignore anything that doesn't exists in the environment already, it works out.}
 
 % \reed{Resource functors}
 
@@ -194,8 +204,6 @@ All transfers of asset values can only be done with flows.}
 % \begin{align*}
 %     \mathcal{Q}~\tau~\consumable \iff \mathcal{Q} \neq \one \lor \tau~\consumable
 % \end{align*}
-
-\reed{handle $\consume~\this$}
 
 \reed{Probably should only be possible to transfer resources via. ``external'' calls to calls to the same contract.}
 
@@ -334,13 +342,7 @@ The basic state-changing construct in the language is a \emph{flow}.
 A flow describes a transfer of a \emph{resource} from one \emph{storage} to another.
 A \emph{transaction} is a sequence of flows and \emph{handlers}.
 
-A flow can have one of four \emph{modes}:
-\begin{enumerate}
-    \item send
-    \item consume
-\end{enumerate}
-
-Each flow also has a \emph{source}, a \emph{destination}, and a \emph{selector}.
+Each flow has a \emph{source}, a \emph{destination}, and a \emph{selector}.
 The source and destination are two storages which hold a resource, and the selector describes which part of the resource in the source should be transferred to the destination.
 A flow may optionally have a \emph{name}.
 
@@ -350,7 +352,7 @@ For example, a flow of fungible resources fails if there is enough of the resour
 
 NOTE: If we wanted to be "super pure", we can implement preconditions with just flows by doing something like:
 \begin{lstlisting}
-consume true from { contractCreator = msg.sender }
+{ contractCreator = msg.sender } --[ true ]-> consume
 \end{lstlisting}
 This works because \lstinline|{ contractCreator = msg.sender } : set bool| (specifically, a singleton), so if \lstinline{contractCreator = msg.sender} doesn't evaluate to true, then we will fail to consume true from it.
 I don't think actually doing this is a good idea; at least, not in the surface language.

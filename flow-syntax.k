@@ -14,6 +14,7 @@ module FLOW-CORE-SYNTAX
 
     syntax Storage ::= Val
                      | QualifiedId
+                     | "consume" [token]
 
     /* syntax TupleExpr ::= "(" Exprs ")" // Tuples *1/ */
 
@@ -48,8 +49,6 @@ module FLOW-CORE-SYNTAX
 
     syntax Flow ::= Storage
                   | Storage "--[" Selector "]->" Flow [strict(2)]
-                  | "consume" Selector "from" Storage
-                  | "consume" Storage
 
     // TODO: Maybe get rid of nonfungible or fungible and have be the default
     // TODO: Warn if people put consumable on non-asset types, because that's redundant.
@@ -121,19 +120,20 @@ module FLOW-SYNTAX
     syntax Flow ::= Storage "-->" Flow
                   | Storage ":=" Expr // Assignment only allowed for consumable types
 
+    syntax Storage ::= "freshStorage" "(" Int ")" [freshGenerator, function, functional, klabel(freshStorage)]
+
     // Basic desugaring
     rule S --> D => S --[ everything ]-> D [macro]
 
-    // TODO: Handle intermediate flows that aren't variables by generating fresh storages
-    rule S --[ Sel1 ]-> T --[ Sel2 ]-> D
+    rule S --[ Sel1 ]-> T:QualifiedId --[ Sel2 ]-> D
          =>
          (S --[ Sel1 ]-> T)
          (T --[ Sel2 ]-> D)
          [macro]
 
-    rule var X : T := E => (var X : T) (E --[ everything ]-> X) [macro]
+    rule var X : T := E => (var X : T) (E --> X) [macro]
 
-    rule S := E => (consume S) (E --[ everything ]-> S) [macro]
+    rule S := E => (S --> consume) (E --> S) [macro]
 
     rule A > B => B < A [macro]
     rule A >= B => B <= A [macro]

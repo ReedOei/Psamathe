@@ -20,8 +20,8 @@ A --[ 1 ]-> C --> B
 "bar" --> D
 D --[ "foo" ]-> E
 
-consume A
-consume 1 from B
+A --> consume
+B --[ 1 ]-> consume
 
 var x : Main
 

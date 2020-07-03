@@ -132,20 +132,14 @@ module FLOW
         <types> ... R |-> MT ... </types>
 
     // TODO: Type checks on S to make sure it's safe to flow this type to it
-    rule <k> flow(resource(Q, R, V), S:Storage) => . ... </k>
+    rule <k> flow(resource(Q, R, V), S:QualifiedId) => . ... </k>
         <storage> Store => Store (S |-> resource(Q, R, V)) </storage>
         requires notBool(S in keys(Store))
 
-    rule flow(error(E), F) => flowError(error(E), F)
-
-    // Consume rules
-    rule <k> consume S => . ... </k>
-        <storage> ... S |-> resource(Q, R, V) => .Map ... </storage>
+    rule <k> flow(resource(Q, R, V), consume) => . ... </k>
         <types> ... R |-> modified(SetItem(consumable) _, _) ... </types>
 
-    syntax Storage ::= "freshStorage" "(" Int ")" [freshGenerator, function, functional, klabel(freshStorage)]
-
-    rule consume V from S => S --[ V ]-> !Fresh ~> consume !Fresh
+    rule flow(error(E), F) => flowError(error(E), F)
 
     // =================================
     // Actions:
@@ -177,11 +171,6 @@ module FLOW
     // TODO: We'll have to handle packing fields properly (i.e., don't delete them).
     rule <k> packVar(X) => . ... </k>
         <storage> ... X |-> V => .Map ... </storage>
-
-    // Variables don't have the be in the environment, because they may have already been consumed.
-    rule <k> packVar(X) => . ... </k>
-        <storage> Env </storage>
-        requires notBool(X in keys(Env))
 
     rule <k> call C.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ~> pack(C) ... </k>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
