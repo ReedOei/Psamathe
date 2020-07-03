@@ -1,0 +1,53 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      Main |-> contract Main { type LunchName is nonfungible  consumable  asset  .Decls string  .Decls }
+    </contracts>
+    <types>
+      Main . LunchName |-> modified ( SetItem ( asset )
+      SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <transactions>
+      .Map
+    </transactions>
+    <log>
+      ListItem ( #ostream ( 1 ) )
+      ListItem ( "on" )
+      ListItem ( #buffer ( "" ) )
+    </log>
+  </common>
+  <storage>
+    A |-> resource ( one , nat , 0 )
+    B |-> resource ( one , nat , 1 )
+    C |-> resource ( one , nat , 0 )
+    D |-> resource ( set , string , SetItem ( "bar" ) )
+    E |-> resource ( set , string , SetItem ( "foo" ) )
+  </storage>
+  <localTypeEnv>
+    A |-> nat
+    B |-> nat
+    C |-> nat
+    D |-> set string
+    E |-> set string
+    x |-> Main
+  </localTypeEnv>
+  <currentContract>
+    NoContract
+  </currentContract>
+  <activations>
+    .Set
+  </activations>
+</generatedTop>
+

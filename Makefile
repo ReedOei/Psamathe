@@ -15,7 +15,7 @@ static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-sy
 
 %.flow: kompile
 	# krun --directory static/ --verbose $@
-	krun --directory dynamic/ --verbose $@
+	$(KDISTR)/krun --directory dynamic/ --verbose $@
 
 clean:
 	rm -rf dynamic/flow-kompiled
