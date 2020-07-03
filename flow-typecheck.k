@@ -47,23 +47,6 @@ module FLOW-TYPECHECK
     /*     ~> */
     /*     Gamma |- D : ?T2 ~~> T3 */
 
-    /* syntax K ::= nonAsset(Type) */
-    /* rule nonAsset(nat) => . */
-    /* rule nonAsset(bool) => . */
-    /* rule nonAsset(string) => . */
-    /* rule nonAsset(address) => . */
-    /* rule nonAsset(set T) => nonAsset(T) */
-    /* rule nonAsset(list T) => nonAsset(T) */
-    /* rule nonAsset(option T) => nonAsset(T) */
-    /* rule nonAsset(one T) => nonAsset(T) */
-    /* rule nonAsset(T1 * T2) => nonAsset(T1) ~> nonAsset(T2) */
-    /* // An empty type is always fine to get rid of. */
-    /* rule nonAsset(empty T) => . */
-
-    /* // NOTE: The following rule intentionally commented out so that */
-    /* // TODO: Provide a real error message. */
-    /* // rule nonAsset(T1 ~~> T2) => . */
-
     /* rule <k> nonAsset(T:QualifiedId) => nonAsset(Base) </k> */
     /*     <types> ... T |-> modified(Ms, Base) ... </types> */
     /*     requires notBool(asset in Ms) */

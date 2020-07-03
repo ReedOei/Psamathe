@@ -56,6 +56,7 @@ module FLOW-CORE-SYNTAX
                       | "fungible"    [token]
                       | "consumable"  [token]
                       | "asset"       [token]
+                      | "copyable"    [token]
     syntax Modifiers ::= List{Modifier, " "}
 
     syntax TypeQuant ::= "set" [token]
@@ -64,11 +65,13 @@ module FLOW-CORE-SYNTAX
                        | "list" [token]
                        | "empty" [token]
 
-    syntax Type ::= QualifiedId
-                  | Type "*" Type
-                  | Type "~~>" Type
-                  | "(" Type ")" [bracket]
-                  | TypeQuant Type
+    syntax QuantifiedType ::= TypeQuant Type
+    syntax BaseType ::= QualifiedId
+                      | Type "*" Type
+                      | Type "~~>" Type
+                      | "(" Type ")" [bracket]
+    syntax Type ::= BaseType
+                  | QuantifiedType
 
     syntax VarDef ::= Id ":" Type
     syntax VarDefs ::= List{VarDef, ","}

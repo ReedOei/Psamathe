@@ -187,7 +187,7 @@ All transfers of asset values can only be done with flows.}
 
     \inferrule*[right=Wf-Var-Def-Init]{
         \Gamma \proves E : \tau
-    }{ \Gamma \flowproves (\var~x : \tau := E)~\wf \flowprovesout \Delta, x : \tau }
+    }{ \Gamma \flowproves (\var~x : \tau := E)~\wf \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Wf-Seq]{
         \Gamma \flowproves S_1~\wf \flowprovesout \Delta

@@ -97,5 +97,43 @@ module FLOW-COMMON
 
     rule <k> processDecls(C, (transaction T(Args) : S) Ds) => processDecls(C, Ds) ... </k>
         <transactions> ... .Map => C.T |-> transaction(resolveType(C, T), resolveTypes(C, Args), resolveTypes(C, S)) ... </transactions>
+
+    syntax Type ::= canonicalize(Type) [function]
+
+    // TODO: Finish this
+    rule canonicalize(X:Id) => one X
+    rule canonicalize(one Q:TypeQuant T) => canonicalize(Q T)
+    rule canonicalize(Q:TypeQuant one T) => canonicalize(Q T)
+    rule canonicalize(set T) => set T
+    rule canonicalize(option T) => option T
+    rule canonicalize(list T) => list T
+
+    syntax K ::= checkConsumable(Type)
+
+    rule checkConsumable(Q:TypeQuant T) => checkConsumable(T)
+
+    rule <k> checkConsumable(T) => . ... </k>
+        <types> ... T |-> modified(SetItem(consumable) _, _) ... </types>
+
+    rule checkConsumable(T1 * T2) => checkConsumable(T1) ~> checkConsumable(T2)
+
+    syntax K ::= nonAsset(Type)
+    /* rule nonAsset(nat) => . */
+    /* rule nonAsset(bool) => . */
+    /* rule nonAsset(string) => . */
+    /* rule nonAsset(address) => . */
+    /* rule nonAsset(set T) => nonAsset(T) */
+    /* rule nonAsset(list T) => nonAsset(T) */
+    /* rule nonAsset(option T) => nonAsset(T) */
+    /* rule nonAsset(one T) => nonAsset(T) */
+    /* rule nonAsset(T1 * T2) => nonAsset(T1) ~> nonAsset(T2) */
+    /* // An empty type is always fine to get rid of. */
+    /* rule nonAsset(empty T) => . */
+
+    // NOTE: The following rule intentionally commented out, because (nonempty) transformers are always resources.
+    // TODO: Provide a real error message.
+    // rule nonAsset(T1 ~~> T2) => .
+
+    // TODO: Finish the consumable rules. Maybe this should be in common, because the typechecker will need this.
 endmodule
 
