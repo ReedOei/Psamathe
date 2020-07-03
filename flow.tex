@@ -126,35 +126,24 @@ These auxiliary functions are used to update the statically known information ab
     \end{cases}
 \end{align*}
 
-\framebox{$\Gamma \proves F :: \tau \flowsto \sigma \flowprovesout \Delta$} \textbf{Flow Typing}
+\framebox{$\Gamma \proves F :: \tau \flowsto \sigma$} \textbf{Storage Typing}
 \begin{mathpar}
     \inferrule*[right=Flow-Storage]{
-    }{ \Gamma, S : \mathcal{Q}~\tau \proves S :: \tau \flowsto \tau \flowprovesout \Gamma, S : \mathcal{Q}~\tau}
+    }{ \Gamma, S : \mathcal{Q}~\tau \proves S :: \tau \flowsto \tau}
 
     \inferrule*[right=Flow-Transformer]{
-    }{ \Gamma, x : \tau \transforms \sigma \proves x :: \tau \flowsto \sigma \flowprovesout \Gamma, x : \tau \transforms \sigma }
+    }{ \Gamma, x : \tau \transforms \sigma \proves x :: \tau \flowsto \sigma }
 
     \inferrule*[right=Flow-Consume]{
         \tau~\consumable
-    }{ \Gamma \flowproves \consume :: \tau \flowsto \voidt \flowprovesout \Gamma }
+    }{ \Gamma \proves \consume :: \tau \flowsto \voidt }
 
     \inferrule*[right=Flow-New]{
         \contract~C~\{ \overline{\mathcal{F}} ~ (\oncreate(\overline{x : \tau})~S) ~  \overline{T} \}
         \and
         \Gamma \proves \overline{y : \tau}
-    }{ \Gamma \proves \newc~C(\overline{y}) : C }
-
-    \inferrule*[right=Flow]{
-        \Gamma \flowproves S :: \tau \flowsto \sigma \flowprovesout \Gamma
-        \and
-        \Gamma \flowproves f~\selects_\mathfrak{q}~\demote(\sigma)
-        \\
-        \update(\Gamma, S, \select(f, \mathfrak{q}, \Gamma(S))) \flowproves D :: \sigma \flowsto \pi \flowprovesout \Delta
-    }{ \Gamma \flowproves (S \sends{f} D) :: \tau \flowsto \pi \flowprovesout \update(\Delta, D, \combine(\mathfrak{q}, \Delta(D))) }
+    }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto C }
 \end{mathpar}
-
-Note that $\Gamma(S)$ is the type that $S$ currently has in $\Gamma$, or $\voidt$ if it is not in $\Gamma$.
-\reed{Maybe there's a nicer way to do this, but since $\update$ will ignore anything that doesn't exists in the environment already, it works out.}
 
 % \reed{Resource functors}
 
@@ -196,8 +185,14 @@ Note that $\Gamma(S)$ is the type that $S$ currently has in $\Gamma$, or $\voidt
 All transfers of asset values can only be done with flows.}
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
-        \Gamma \flowproves F :: \tau \flowsto \sigma \flowprovesout \Delta
-    }{ \Gamma \flowproves F~\wf \flowprovesout \Delta }
+        \Gamma \flowproves S :: \tau \flowsto \sigma
+        \and
+        \Gamma \flowproves f~\selects_\mathfrak{q}~\demote(\sigma)
+        \\
+        \Delta = \update(\Gamma, S, \select(f, \mathfrak{q}, \Gamma(S)))
+        \and
+        \Delta \proves D :: \sigma \flowsto \pi
+    }{ \Gamma \flowproves (S \sends{f} D)~\wf \flowprovesout \update(\Delta, D, \combine(\mathfrak{q}, \Delta(D))) }
 
     \inferrule*[right=Wf-Var-Def]{
     }{ \Gamma \flowproves (\var~x : \tau)~\wf \flowprovesout \Gamma, x : \emptyq~\tau }
@@ -218,6 +213,9 @@ All transfers of asset values can only be done with flows.}
         \Delta \flowproves S_2~\wf \flowprovesout \Xi
     }{ \Gamma \flowproves (S_1 ; S_2)~\wf \flowprovesout \Xi }
 \end{mathpar}
+
+Note that $\Gamma(S)$ is the type that $S$ currently has in $\Gamma$, or $\voidt$ if it is not in $\Gamma$.
+\reed{Maybe there's a nicer way to do this, but since $\update$ will ignore anything that doesn't exists in the environment already, it works out.}
 
 \reed{Not exactly sure how the merge $\Gamma \vee \Delta$ should work, but I imagine it should involve something like $\emptyq~\tau \vee \one~\tau = \optionq~\tau$.
 Then we define type compatibility and check type compatibility when we pack at the end of a transaction.}
