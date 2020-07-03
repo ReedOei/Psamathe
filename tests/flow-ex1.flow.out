@@ -4,10 +4,19 @@
       .
     </k>
     <contracts>
-      Main |-> contract Main { type LunchName is nonfungible  consumable  asset  .Decls string  .Decls }
+      Main |-> contract Main { type Name is nonfungible  consumable  asset  .Decls string  .Decls }
     </contracts>
+    <fields>
+      Main |-> .Set
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      .Map
+    </transactions>
     <types>
-      Main . LunchName |-> modified ( SetItem ( asset )
+      Main . Name |-> modified ( SetItem ( asset )
       SetItem ( consumable )
       SetItem ( nonfungible ) , string )
       address |-> modified ( SetItem ( consumable )
@@ -19,9 +28,6 @@
       string |-> modified ( SetItem ( consumable )
       SetItem ( nonfungible ) , string )
     </types>
-    <transactions>
-      .Map
-    </transactions>
     <log>
       ListItem ( #ostream ( 1 ) )
       ListItem ( "on" )
@@ -29,12 +35,20 @@
     </log>
   </common>
   <storage>
-    A |-> resource ( one nat , 0 )
-    B |-> resource ( one nat , 1 )
-    C |-> resource ( one nat , 0 )
-    D |-> resource ( set string , SetItem ( "bar" ) )
-    E |-> resource ( set string , SetItem ( "foo" ) )
+    loc ( 1 ) |-> resource ( one nat , 0 )
+    loc ( 2 ) |-> resource ( one nat , 1 )
+    loc ( 3 ) |-> resource ( one nat , 0 )
+    loc ( 4 ) |-> resource ( set string , SetItem ( "bar" ) )
+    loc ( 5 ) |-> resource ( set string , SetItem ( "foo" ) )
   </storage>
+  <lookup>
+    A |-> loc ( 1 )
+    B |-> loc ( 2 )
+    C |-> loc ( 3 )
+    D |-> loc ( 4 )
+    E |-> loc ( 5 )
+    x |-> loc ( 6 )
+  </lookup>
   <localTypeEnv>
     A |-> one nat
     B |-> one nat
@@ -44,7 +58,7 @@
     x |-> one Main
   </localTypeEnv>
   <currentContract>
-    NoContract
+    contract ( NoContract , NoContract )
   </currentContract>
   <activations>
     .Set

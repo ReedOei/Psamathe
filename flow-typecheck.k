@@ -18,13 +18,13 @@ module FLOW-TYPECHECK
         <common />
         <typeEnv> .Map </typeEnv>
 
-    /* syntax Judgement ::= Stmt "wf" */
-    /*                    | Expr "selects" Type */
-    /*                    | Expr ":" Type */
-    /*                    | Flow ":" Type */
-    /* syntax K ::= Map "|-" Judgement */
+    syntax Judgement ::= Stmt "wf"
+                       | Expr "selects" Type
+                       | Expr ":" Type
+                       | Flow "::" Type "==>" Type
+    syntax K ::= Judgement
 
-    /* rule <k> S:Stmt => .Map |- S wf </k> */
+    rule <k> S:Stmt => S wf </k>
 
     /* // Sequence */
     /* rule Gamma |- (S1:Stmt S2:Stmt) wf => Gamma |- S1 wf ~> Gamma |- S2 wf */

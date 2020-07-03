@@ -14,8 +14,8 @@ static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-sy
 	$(KDISTR)/kompile --backend java flow-typecheck.k -d static/
 
 %.flow: kompile
-	# krun --directory static/ --verbose $@
-	$(KDISTR)/krun --directory dynamic/ --verbose $@
+	# krun --directory static/ $@
+	$(KDISTR)/krun --directory dynamic/ $@
 
 clean:
 	rm -rf dynamic/flow-kompiled

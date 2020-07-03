@@ -8,25 +8,31 @@ module FLOW
     imports COLLECTIONS
     imports SUBSTITUTION
 
-    syntax ErrorVal ::= error(String)
+    syntax ErrorVal ::= revert(String)
+    syntax ContractVal ::= contract(QualifiedId, Storage)
     syntax Val ::= Set
                  | List
                  | some(Val)
                  | "none" [token]
                  // This can be stored in the middle of a transaction, but not at the end, unless the reference is temporary.
                  | "emptySingleton" [token]
+                 | ContractVal
+    syntax StorageLoc ::= loc(Int) [freshGenerator, function, functional]
     syntax KResult ::= Val
                      | ErrorVal
                      | Vals
                      | SpecialSelect
+                     | StorageLoc
 
     syntax Id ::= "NoContract" [token]
+    syntax KVar ::= Id
 
     configuration
         <common />
         <storage> .Map </storage>
+        <lookup> .Map </lookup>
         <localTypeEnv> .Map </localTypeEnv>
-        <currentContract> NoContract </currentContract>
+        <currentContract> contract(NoContract, NoContract) </currentContract>
         <activations> .Set </activations>
 
     syntax Resource ::= resource(Type, Val)
@@ -41,9 +47,12 @@ module FLOW
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
 
+    rule pass => .
+
     // Temporary variable declaration
     rule <k> var X : T => . ... </k>
         <localTypeEnv> ... .Map => X |-> canonicalize(T) </localTypeEnv>
+        <lookup> ... .Map => X |-> !Loc:StorageLoc </lookup>
 
     // Simple arithmetic and boolean expressions
     rule I1 + I2 => I1 +Int I2
@@ -72,11 +81,13 @@ module FLOW
     // Primitive flows
     rule I:Int --[ everything ]-> D => flow(resource(one nat, I), D)
     rule Str:String --[ everything ]-> D => flow(resource(one string, Str), D)
+    rule contract(C, S) --[ everything ]-> D => flow(resource(one C, contract(C, S)), D)
 
     rule A --[ nothing ]-> B => .
 
     rule <k> S --[ Sel ]-> D => select(Sel, SV, S, D) ... </k>
-        <storage> ...  S |-> SV => .Map ... </storage>
+        <lookup> ... S |-> Loc ... </lookup>
+        <storage> ... Loc |-> SV => .Map ... </storage>
 
     // Select
     // TODO: Handle more selectors (i.e., quantified and set/list selectors)
@@ -92,6 +103,7 @@ module FLOW
     rule select(Val, resource(one R, Val), S, D)
          =>
          flow(resource(empty R, emptySingleton), S) ~> flow(resource(one R, Val), D)
+        requires R =/=K nat
 
     rule select(Val, resource(set R, SetItem(Val) Rest), S, D)
          =>
@@ -117,7 +129,7 @@ module FLOW
     rule convert(resource(one R, V), set R) => resource(set R, SetItem(V))
     rule convert(resource(one R, V), list R) => resource(option R, some(V))
 
-    rule convert(resource(option R, none), one R) => error("No value!")
+    rule convert(resource(option R, none), one R) => revert("No value!")
     rule convert(resource(option R, some(A)), one R) => resource(one R, A)
 
     rule convert(resource(option R, none), set R) => resource(set R, .Set)
@@ -126,24 +138,24 @@ module FLOW
     rule convert(resource(option R, none), list R) => resource(set R, .List)
     rule convert(resource(option R, some(A)), list R) => resource(set R, ListItem(A))
 
-    rule convert(resource(set R, .Set), one R) => error("No value!")
+    rule convert(resource(set R, .Set), one R) => revert("No value!")
     rule convert(resource(set R, SetItem(A)), one R) => resource(one R, A)
-    rule convert(resource(set R, SetItem(A) SetItem(B) _), one R) => error("Too many values!")
+    rule convert(resource(set R, SetItem(A) SetItem(B) _), one R) => revert("Too many values!")
 
     rule convert(resource(set R, .Set), option R) => resource(option R, none)
     rule convert(resource(set R, SetItem(A)), option R) => resource(option R, some(A))
-    rule convert(resource(set R, SetItem(A) SetItem(B) _), option R) => error("Too many values!")
+    rule convert(resource(set R, SetItem(A) SetItem(B) _), option R) => revert("Too many values!")
 
     // Nondeterministic, but that's the most reasonable behavior for this conversion.
     rule convert(resource(set R, A), list R) => resource(list R, Set2List(A))
 
-    rule convert(resource(list R, .List), one R) => error("No value!")
+    rule convert(resource(list R, .List), one R) => revert("No value!")
     rule convert(resource(list R, ListItem(A)), one R) => resource(one R, A)
-    rule convert(resource(list R, ListItem(A) ListItem(B) _), one R) => error("Too many values!")
+    rule convert(resource(list R, ListItem(A) ListItem(B) _), one R) => revert("Too many values!")
 
     rule convert(resource(list R, .List), option R) => resource(option R, none)
     rule convert(resource(list R, ListItem(A)), option R) => resource(option R, some(A))
-    rule convert(resource(list R, ListItem(A) ListItem(B) _), option R) => error("Too many values!")
+    rule convert(resource(list R, ListItem(A) ListItem(B) _), option R) => revert("Too many values!")
 
     rule convert(resource(list R, A), set R) => resource(set R, List2Set(A))
 
@@ -151,18 +163,17 @@ module FLOW
     syntax ResourceVal ::= combine(ResourceVal, ResourceVal) [function]
 
     // Error passing
-    rule combine(error(E), _) => error(E)
-    rule combine(_, error(E)) => error(E)
+    rule combine(revert(E), _) => revert(E)
+    rule combine(_, revert(E)) => revert(E)
 
-    // One
     rule combine(resource(one R, A), resource(empty R, emptySingleton)) => resource(one R, A)
     rule combine(resource(one nat, A), resource(one nat, B)) => resource(one nat, A +Int B)
-    rule combine(resource(one R, A), resource(one R, B)) => error("Destination already full!")
+    rule combine(resource(one R, A), resource(one R, B)) => revert("Destination already full!")
         requires R =/=K nat
 
     rule combine(resource(option R, A), resource(option R, none)) => resource(option R, A)
     rule combine(resource(option R, none), resource(option R, some(B))) => resource(option R, some(B))
-    rule combine(resource(option R, some(A)), resource(option R, some(B))) => error("Destination already full!")
+    rule combine(resource(option R, some(A)), resource(option R, some(B))) => revert("Destination already full!")
 
     rule combine(resource(set R, A:Set), resource(set R, B:Set)) => resource(set R, A B)
     // Combine as `B A` instead of `A B`, because the new values should be **appended**, not prepended.
@@ -170,19 +181,23 @@ module FLOW
 
     // Flow resolution
     rule <k> flow(resource(R1, V), S) => put(combine(convert(resource(R1, V), R2), resource(R2, Cur)), S) ... </k>
-        <storage> ... (S |-> resource(R2, Cur)) => .Map ... </storage>
+        <lookup> ... S |-> Loc ... </lookup>
+        <storage> ... (Loc |-> resource(R2, Cur)) => .Map ... </storage>
 
+    // Reduce this case to the case we already handled above
     rule <k> flow(_, S:QualifiedId) ... </k>
-        <storage> Store => Store (S |-> defaultValue(T)) </storage>
+        <lookup> ... S |-> Loc ... </lookup>
+        <storage> Store => Store (Loc |-> defaultValue(T)) </storage>
         <localTypeEnv> ... S |-> T ... </localTypeEnv>
-        requires notBool(S in keys(Store))
+        requires notBool(Loc in keys(Store))
 
     rule <k> flow(resource(R, V), consume) => checkConsumable(R) ... </k>
 
     syntax K ::= put(ResourceVal, Storage)
 
     rule <k> put(R:Resource, S) => . ... </k>
-        <storage> ... .Map => S |-> R ... </storage>
+        <lookup> ... S |-> Loc ... </lookup>
+        <storage> ... .Map => Loc |-> R ... </storage>
 
     syntax Resource ::= defaultValue(Type) [function]
 
@@ -205,27 +220,50 @@ module FLOW
     syntax K ::= setupArgs(Exprs, VarDefs) [function]
 
     rule setupArgs(.Exprs, .VarDefs) => .
-    rule setupArgs((E:Storage, Es), (Y : T, Defs2)) => (E --[ everything ]-> Y) ~> setupArgs(Es, Defs2)
+    rule setupArgs((E:Storage, Es), (Y : T, Defs2)) => (var Y : T) ~> (E --> Y) ~> setupArgs(Es, Defs2)
 
-    syntax K ::= pack(Id)
-               | packVar(QualifiedId)
-    syntax Map ::= makeEnv(VarDefs) [function]
-
-    rule makeEnv(.VarDefs) => .Map
-    rule makeEnv((Y : T, Defs)) => (Y |-> T) makeEnv(Defs)
-
-    rule <k> pack(C) => . ... </k>
-        <localTypeEnv> .Map </localTypeEnv>
-
-    rule <k> pack(C) => packVar(X) ~> pack(C) ... </k>
-        <localTypeEnv> ... X |-> T => .Map ... </localTypeEnv>
-
-    // TODO: We'll have to handle packing fields properly (i.e., don't delete them).
-    rule <k> packVar(X) => . ... </k>
-        <storage> ... X |-> V => .Map ... </storage>
-
-    rule <k> call C.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S ~> pack(C) ... </k>
+    rule <k> call X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S[this |-> ContractStorage] ~> pack(Old, Lookup, Env) ... </k>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
-        <localTypeEnv> Env => Env makeEnv(FormalArgs) </localTypeEnv>
+        <localTypeEnv> Env => .Map </localTypeEnv>
+        <lookup> Lookup => .Map </lookup>
+        <storage> ... Lookup[X] |-> resource(one C, contract(C, ContractStorage)) ... </storage>
+        <currentContract> Old => contract(C, ContractStorage) </currentContract>
+
+    // TODO: Handle return
+    rule return V => .
+
+    // ============================
+    // New contract
+    // ============================
+    syntax K ::= initFields(Storage, Set)
+
+    rule <k> new C(Args) --[ Sel ]-> D
+             =>
+             setupArgs(Args, FormalArgs) ~> initFields(!New:QualifiedId, Fields) ~> S[this |-> !New] ~> pack(Old, Lookup, Env) ~> contract(C, !New) --[ Sel ]-> D
+             ...
+         </k>
+        <fields> ... C |-> Fields ... </fields>
+        <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
+        <localTypeEnv> Env => .Map </localTypeEnv>
+        <currentContract> Old => contract(C, !New) </currentContract>
+        <lookup> Lookup => .Map </lookup>
+
+    rule initFields(S, .Set) => .
+    rule <k> initFields(S, SetItem(X : T) Rest) => initFields(S, Rest) ... </k>
+        <storage> ... .Map => S.X |-> defaultValue(T) ... </storage>
+
+    // Pack
+    syntax K ::= pack(ContractVal, Map, Map)
+
+    rule <k> pack(Old, Lookup, Env) => . ... </k>
+        <lookup> .Map => Lookup </lookup>
+        <localTypeEnv> .Map => Env </localTypeEnv>
+        <currentContract> _ => Old </currentContract>
+
+    // NOTE: This would be unsafe if used to destroy assets, but the typechecker will ensure that it's safe, so we don't need to check.
+    rule <k> pack(Old, Lookup, Env) ... </k>
+        <localTypeEnv> ... X |-> T => .Map ... </localTypeEnv>
+        <lookup> ... X |-> Loc => .Map ... </lookup>
+        <storage> ... Loc |-> V => .Map ... </storage>
 endmodule
 

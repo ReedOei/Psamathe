@@ -367,7 +367,6 @@ A flow may optionally have a \emph{name}.
 Note that all flows fail if they can't be performed.
 For example, a flow of fungible resources fails if there is enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
 
-
 NOTE: If we wanted to be "super pure", we can implement preconditions with just flows by doing something like:
 \begin{lstlisting}
 { contractCreator = msg.sender } --[ true ]-> consume
@@ -377,7 +376,7 @@ I don't think actually doing this is a good idea; at least, not in the surface l
 Maybe it would simplify the compiler and/or formalization), but it's interesting/entertaining.
 
 \paragraph{Actions}
-In addition to flows, transactions may contain \emph{handlers}, which are a pair of a \emph{trigger} and an \emph{action}.
+A handler is a pair of a \emph{trigger} and an \emph{action}.
 Triggers specify when an action should be executed.
 An action can be:
 \begin{enumerate}

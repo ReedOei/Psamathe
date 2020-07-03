@@ -1,5 +1,5 @@
 contract Main {
-    type LunchName is nonfungible consumable asset string
+    type Name is nonfungible consumable asset string
 }
 
 ;

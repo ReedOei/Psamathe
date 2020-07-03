@@ -15,13 +15,15 @@ module FLOW-COMMON
         <common>
             <k> $PGM:Program </k>
             <contracts> .Map </contracts>
+            <fields> .Map </fields>
+            <constructors> .Map </constructors>
+            <transactions> .Map </transactions>
             <types>
                 nat |-> modified(SetItem(consumable) SetItem(fungible), nat)
                 string |-> modified(SetItem(consumable) SetItem(nonfungible), string)
                 bool |-> modified(SetItem(consumable) SetItem(nonfungible), bool)
                 address |-> modified(SetItem(consumable) SetItem(nonfungible), address)
             </types>
-            <transactions> .Map </transactions>
             <log stream="stdout"> .List </log>
         </common>
 
@@ -30,8 +32,13 @@ module FLOW-COMMON
 
     syntax TypeMod ::= modified(Set, Type)
 
+    syntax KItem ::= constructor(VarDefs, Stmt)
+
     rule <k> contract C { Ds } Cs ; S A => processDecls(C, Ds) ~> Cs ; S A ... </k>
         <contracts> ... .Map => C |-> contract C { Ds } ... </contracts>
+        <fields> ... .Map => C |-> .Set ... </fields>
+        <constructors> ... .Map => C |-> constructor(.VarDefs, pass) ... </constructors>
+        [structural]
     rule .Contracts ; S A => S ~> A [structural]
 
     syntax Set ::= modToSet(Modifiers) [function]
@@ -41,9 +48,24 @@ module FLOW-COMMON
     rule processDecls(C, .Decls) => .
     rule <k> processDecls(C, (type T is Mods BaseType) Ds) => processDecls(C, Ds) ... </k>
         <types> ... .Map => C.T |-> modified(modToSet(Mods), BaseType) ... </types>
+        [structural]
+
+    syntax Expr ::= defaultExpr(Type) [function]
+
+    rule <k> processDecls(C, (X : T) Ds) => processDecls(C, Ds) ... </k>
+        <fields> ... C |-> (Fields => Fields SetItem(X : canonicalize(resolveType(C, T)))) ... </fields>
+        [structural]
+    rule <k> processDecls(C, (X : T := E) Ds) => processDecls(C, Ds) ... </k>
+        <fields> ... C |-> (Fields => Fields SetItem(X : canonicalize(resolveType(C, T)))) ... </fields>
+        <constructors> ... C |-> constructor(Args, S => S (E --> X)) ... </constructors>
+        [structural]
 
     syntax TxData ::= transaction(Type, VarDefs, Stmt)
                     | processTx(Id, Type, VarDefs, Stmt) [function]
+
+    rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
+        <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, S)) ... </transactions>
+        [structural]
 
     syntax Type ::= resolveType(Id, Type) [function]
     syntax VarDefs ::= resolveTypes(Id, VarDefs) [function]
@@ -72,6 +94,7 @@ module FLOW-COMMON
     rule resolveTypes(C, var X : T) => var X : resolveType(C, T)
     rule resolveTypes(C, S --[ Sel ]-> D) => resolveTypes(C, S) --[ resolveTypes(C, Sel) ]-> resolveTypes(C, D)
     rule resolveTypes(C, S1:Stmt S2:Stmt) => resolveTypes(C, S1) resolveTypes(C, S2)
+    rule resolveTypes(C, return E) => return resolveTypes(C, E)
 
     rule S --[ Sel1 ]-> V:Val --[ Sel2 ]-> D
          =>
@@ -94,9 +117,6 @@ module FLOW-COMMON
     rule resolveTypes(C, X[E]) => resolveTypes(C, X) [ resolveTypes(C, E) ]
 
     // TODO: Finish all cases of resolveTypes
-
-    rule <k> processDecls(C, (transaction T(Args) : S) Ds) => processDecls(C, Ds) ... </k>
-        <transactions> ... .Map => C.T |-> transaction(resolveType(C, T), resolveTypes(C, Args), resolveTypes(C, S)) ... </transactions>
 
     syntax Type ::= canonicalize(Type) [function]
 

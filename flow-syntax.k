@@ -15,8 +15,9 @@ module FLOW-CORE-SYNTAX
     syntax Storage ::= Val
                      | QualifiedId
                      | "consume" [token]
+                     | "new" QualifiedId "(" Exprs ")"
 
-    /* syntax TupleExpr ::= "(" Exprs ")" // Tuples *1/ */
+    /* syntax TupleExpr ::= "(" Exprs ")" // Tuples */
 
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]
@@ -48,7 +49,7 @@ module FLOW-CORE-SYNTAX
                       | Quant Id ":" Type "such" "that" Expr [binder]
 
     syntax Flow ::= Storage
-                  | Storage "--[" Selector "]->" Flow [strict(2)]
+                  | Storage "--[" Selector "]->" Flow
 
     // TODO: Maybe get rid of nonfungible or fungible and have be the default
     // TODO: Warn if people put consumable on non-asset types, because that's redundant.
@@ -82,11 +83,14 @@ module FLOW-CORE-SYNTAX
                             | "transaction" Id "(" VarDefs ")" ":" Stmt
     syntax Decl ::= TypeDef
                   | TransactionDef
+                  | FieldDef
     syntax Decls ::= List{Decl, " "}
 
     syntax Stmt ::= Flow
                   | "var" VarDef
                   | "var" VarDef ":=" Expr
+                  | "pass" [token]
+                  | "return" Expr [strict]
                   | Stmt Stmt [right]
 
     // Add the built-in types to the Id sort so we can reference them in the rules
@@ -94,6 +98,7 @@ module FLOW-CORE-SYNTAX
                 | "bool"       [token]
                 | "string"     [token]
                 | "address"    [token]
+    syntax Id ::= "this" [token]
 
     syntax Contract ::= "contract" Id "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
@@ -123,7 +128,10 @@ module FLOW-SYNTAX
     syntax Flow ::= Storage "-->" Flow
                   | Storage ":=" Expr // Assignment only allowed for consumable types
 
-    syntax Storage ::= "freshStorage" "(" Int ")" [freshGenerator, function, functional, klabel(freshStorage)]
+    // TODO: Allow this, return bool by default (i.e., true iff success)
+    /* syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt */
+
+    syntax QualifiedId ::= freshStorage(Int) [freshGenerator, function, functional]
 
     // Basic desugaring
     rule S --> D => S --[ everything ]-> D [macro]
