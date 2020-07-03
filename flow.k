@@ -25,6 +25,8 @@ module FLOW
                      | StorageLoc
 
     syntax Id ::= "NoContract" [token]
+                // A special Id to be used as the "location" of the current contract in the global scope.
+                | "#null" [token]
     syntax KVar ::= Id
 
     configuration
@@ -32,7 +34,7 @@ module FLOW
         <storage> .Map </storage>
         <lookup> .Map </lookup>
         <localTypeEnv> .Map </localTypeEnv>
-        <currentContract> contract(NoContract, NoContract) </currentContract>
+        <currentContract> contract(NoContract, #null) </currentContract>
         <activations> .Set </activations>
 
     syntax Resource ::= resource(Type, Val)
@@ -162,7 +164,7 @@ module FLOW
     // Combine resources: takes two collections of values and makes a single collection.
     syntax ResourceVal ::= combine(ResourceVal, ResourceVal) [function]
 
-    // Error passing
+    // Error propagation
     rule combine(revert(E), _) => revert(E)
     rule combine(_, revert(E)) => revert(E)
 
