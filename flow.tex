@@ -55,7 +55,7 @@
 Note: Consider $\tau \equiv \one~\tau$, so $x : \natt$ and $x : \one~\natt$ are the same (and so is $x : \one~\one~\natt$, etc.).
 Additionally, $\nonempty~\emptyq \equiv \one$, $\nonempty~\nonempty \equiv \nonempty$, \reed{$\emptyq~\nonempty \equiv \emptyq$?}
 
-\reed{Contract types should be assets by default, transformers are assets if their output type is an asset type?}
+\reed{Contract types should be (consumable?) assets by default, transformers are always assets, because they could be partially applied and holding assets.}
 
 The syntax $S : \tau \transforms \sigma$ means $S$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
 
@@ -81,7 +81,7 @@ Define
     }{ \Gamma \proves (\lambda x : \tau. e) : \tau \transforms \sigma }
 
     \inferrule*[right=New]{
-        \contract~C~\{ \overline{F} ~ (\oncreate(\overline{x : \tau})~S) ~  \overline{T} \}
+        \contract~C~\{ \overline{\mathcal{F}} ~ (\oncreate(\overline{x : \tau})~S) ~  \overline{T} \}
         \and
         \Gamma \proves \overline{y : \tau}
     }{ \Gamma \proves \newc~C(\overline{y}) : C }

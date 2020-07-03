@@ -107,7 +107,7 @@ module FLOW-COMMON
     rule resolveTypes(_, S:SpecialSelect) => S
     rule resolveTypes(C, Q:Quant X : T:Type such that E) => Q X : resolveType(C, T) such that resolveTypes(C, E)
 
-    // Resolve value types
+    // Resolve expression types
     rule resolveTypes(_, I:Int) => I
     rule resolveTypes(_, S:String) => S
     rule resolveTypes(_, B:Bool) => B
@@ -115,7 +115,6 @@ module FLOW-COMMON
     rule resolveTypes(C, X:Id) => X
     rule resolveTypes(C, X:Storage.E) => resolveTypes(C, X) . resolveTypes(C, E)
     rule resolveTypes(C, X[E]) => resolveTypes(C, X) [ resolveTypes(C, E) ]
-
     // TODO: Finish all cases of resolveTypes
 
     syntax Type ::= canonicalize(Type) [function]
@@ -136,6 +135,7 @@ module FLOW-COMMON
         <types> ... T |-> modified(SetItem(consumable) _, _) ... </types>
 
     rule checkConsumable(T1 * T2) => checkConsumable(T1) ~> checkConsumable(T2)
+    // TODO: Finish the consumable rules
 
     syntax K ::= nonAsset(Type)
     /* rule nonAsset(nat) => . */
@@ -154,6 +154,8 @@ module FLOW-COMMON
     // TODO: Provide a real error message.
     // rule nonAsset(T1 ~~> T2) => .
 
-    // TODO: Finish the consumable rules. Maybe this should be in common, because the typechecker will need this.
+    /* rule <k> nonAsset(T:QualifiedId) => nonAsset(Base) </k> */
+    /*     <types> ... T |-> modified(Ms, Base) ... </types> */
+    /*     requires notBool(asset in Ms) */
 endmodule
 
