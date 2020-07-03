@@ -39,8 +39,8 @@
     $\tau$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \tau. E$ & (values) \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ \bnfalt $\mathcal{S}.x$ \bnfalt $\consume$ & (storages) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{S}$ \bnfalt \letvar $x : \tau := E$ \varin E \\
+    $\mathcal{S}$ & \bnfdef & $\newc~C(\overline{x})$ \bnfalt $x$ \bnfalt $\mathcal{S}[x]$ \bnfalt $\mathcal{S}.x$ \bnfalt $\consume$ & (storages) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{S}$ \\
     $f$ & \bnfdef & $E$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{f} \mathcal{S}$ & (flows)
     % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
@@ -54,6 +54,8 @@
 \end{figure}
 Note: Consider $\tau \equiv \one~\tau$, so $x : \natt$ and $x : \one~\natt$ are the same (and so is $x : \one~\one~\natt$, etc.).
 Additionally, $\nonempty~\emptyq \equiv \one$, $\nonempty~\nonempty \equiv \nonempty$, \reed{$\emptyq~\nonempty \equiv \emptyq$?}
+
+\reed{Contract types should be assets by default, transformers are assets if their output type is an asset type?}
 
 The syntax $S : \tau \transforms \sigma$ means $S$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
 
@@ -77,6 +79,12 @@ Define
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves e : \sigma \flowprovesout \Gamma
     }{ \Gamma \proves (\lambda x : \tau. e) : \tau \transforms \sigma }
+
+    \inferrule*[right=New]{
+        \contract~C~\{ \overline{F} ~ (\oncreate(\overline{x : \tau})~S) ~  \overline{T} \}
+        \and
+        \Gamma \proves \overline{y : \tau}
+    }{ \Gamma \proves \newc~C(\overline{y}) : C }
 
     % \inferrule*[right=BinOp]{
     %     \Gamma \proves e_1 : \tau
@@ -125,6 +133,7 @@ These auxiliary functions are used to update the statically known information ab
     }{ \Gamma, x : \tau \transforms \sigma \proves x :: \tau \flowsto \sigma \flowprovesout \Gamma }
 
     \inferrule*[right=Flow-Consume]{
+        \tau~\consumable
     }{ \Gamma \flowproves \consume :: \tau \flowsto \voidt \flowprovesout \Gamma }
 
     \inferrule*[right=Flow]{
@@ -189,12 +198,21 @@ All transfers of asset values can only be done with flows.}
         \Gamma \proves E : \tau
     }{ \Gamma \flowproves (\var~x : \tau := E)~\wf \flowprovesout \Gamma, x : \tau }
 
+    \inferrule*[right=Wf-If]{
+        \Gamma \proves x : \boolt
+        \and
+        \Gamma \flowproves S~\wf \flowprovesout \Delta
+    }{ \Gamma \flowproves (\ifS~x~\thenS~S)~\wf \flowprovesout \Gamma \vee \Delta }
+
     \inferrule*[right=Wf-Seq]{
         \Gamma \flowproves S_1~\wf \flowprovesout \Delta
         \and
         \Delta \flowproves S_2~\wf \flowprovesout \Xi
     }{ \Gamma \flowproves (S_1 ; S_2)~\wf \flowprovesout \Xi }
 \end{mathpar}
+
+\reed{Not exactly sure how the merge $\Gamma \vee \Delta$ should work, but I imagine it should involve something like $\emptyq~\tau \vee \one~\tau = \optionq~\tau$.
+Then we define type compatibility and check type compatibility when we pack at the end of a transaction.}
 
 \reed{TODO: Define $\tau~\consumable$}
 % \framebox{$\tau~\consumable$} \textbf{Type Consumability}
