@@ -29,19 +29,19 @@
     </log>
   </common>
   <storage>
-    A |-> resource ( one , nat , 0 )
-    B |-> resource ( one , nat , 1 )
-    C |-> resource ( one , nat , 0 )
-    D |-> resource ( set , string , SetItem ( "bar" ) )
-    E |-> resource ( set , string , SetItem ( "foo" ) )
+    A |-> resource ( one nat , 0 )
+    B |-> resource ( one nat , 1 )
+    C |-> resource ( one nat , 0 )
+    D |-> resource ( set string , SetItem ( "bar" ) )
+    E |-> resource ( set string , SetItem ( "foo" ) )
   </storage>
   <localTypeEnv>
-    A |-> nat
-    B |-> nat
-    C |-> nat
+    A |-> one nat
+    B |-> one nat
+    C |-> one nat
     D |-> set string
     E |-> set string
-    x |-> Main
+    x |-> one Main
   </localTypeEnv>
   <currentContract>
     NoContract
