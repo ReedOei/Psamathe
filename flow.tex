@@ -58,8 +58,6 @@ Additionally, $\nonempty~\emptyq \equiv \one$, $\nonempty~\nonempty \equiv \none
 
 \reed{Contract types should be (consumable?) assets by default, transformers are always assets, because they could be partially applied and holding assets.}
 
-The syntax $S : \tau \transforms \sigma$ means $S$ accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
-
 \subsection{Statics}
 \begin{figure}[ht]
 \begin{tabular}{l r l l}
@@ -126,7 +124,8 @@ These auxiliary functions are used to update the statically known information ab
     \end{cases}
 \end{align*}
 
-\framebox{$\Gamma \proves F :: \tau \flowsto \sigma$} \textbf{Storage Typing}
+\framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto \sigma$} \textbf{Storage Typing}
+The syntax $\tau \flowsto \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
 \begin{mathpar}
     \inferrule*[right=Flow-Storage]{
     }{ \Gamma, S : \mathcal{Q}~\tau \proves S :: \tau \flowsto \tau}
@@ -181,8 +180,6 @@ These auxiliary functions are used to update the statically known information ab
 \end{mathpar}
 
 \framebox{$\Gamma \flowproves S~\wf \flowprovesout \Delta$} \textbf{Statement Well-formedness}
-\reed{For the moment, you can only initialize with non-asset values.
-All transfers of asset values can only be done with flows.}
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
         \Gamma \flowproves S :: \tau \flowsto \sigma
