@@ -23,5 +23,3 @@ D --[ "foo" ]-> E
 A --> consume
 B --[ 1 ]-> consume
 
-var x : Main
-

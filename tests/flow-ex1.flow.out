@@ -47,7 +47,6 @@
     C |-> loc ( 3 )
     D |-> loc ( 4 )
     E |-> loc ( 5 )
-    x |-> loc ( 6 )
   </lookup>
   <localTypeEnv>
     A |-> one nat
@@ -55,7 +54,6 @@
     C |-> one nat
     D |-> set string
     E |-> set string
-    x |-> one Main
   </localTypeEnv>
   <currentContract>
     contract ( NoContract , NoContract )
