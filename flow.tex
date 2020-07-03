@@ -40,7 +40,7 @@
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{S}$ & \bnfdef & $\newc~C(\overline{x})$ \bnfalt $x$ \bnfalt $\mathcal{S}[x]$ \bnfalt $\mathcal{S}.x$ \bnfalt $\consume$ & (storages) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{S}$ \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{S}$ & (expressions) \\
     $f$ & \bnfdef & $E$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{f} \mathcal{S}$ & (flows)
     % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
@@ -162,7 +162,7 @@ Note that $\Gamma(S)$ is the type that $S$ currently has in $\Gamma$, or $\voidt
 
     \inferrule*[right=Select-Quant]{
         \Gamma, x : \tau \proves p : \boolt
-    }{ \Gamma \proves (\mathfrak{q}~x~\suchthat~p)~\selects_\mathfrak{q}~\tau }
+    }{ \Gamma \proves (\mathfrak{q}~x : \tau~\suchthat~p)~\selects_\mathfrak{q}~\tau }
 \end{mathpar}
 
 \framebox{$\Gamma \flowproves e : \tau \flowprovesout \Delta$} \textbf{Linear Expression Typing}
