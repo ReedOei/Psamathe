@@ -40,9 +40,9 @@
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[E]$ \bnfalt $\mathcal{S}.x$ & (storage identifiers) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \letvar $x : \tau := e$ \varin e \bnfalt $\mathcal{S}$ \\
-    $f$ & \bnfdef & $E$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x~\suchthat~E$ & (selector) \\
-    $F$ & \bnfdef & $\mathcal{S} \sends{f} \mathcal{D}$ & (flows)
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{S}$ \bnfalt \letvar $x : \tau := E$ \varin E \\
+    $f$ & \bnfdef & $E$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
+    $F$ & \bnfdef & $x \sends{f} x$ & (flows)
     % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
 % $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
 
@@ -92,7 +92,9 @@ Define
 \end{definition}
 
 \framebox{$\select(f, \mathfrak{q}, \tau)$}
-\framebox{$\combine(\mathfrak{q}, \tau)$} \textbf{Typing}
+\framebox{$\combine(\mathfrak{q}, \tau)$} \textbf{Storage modification}
+These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it, see the flow typing rules.
+
 \begin{align*}
     \select(f, \mathfrak{q}, \tau) &=
     \begin{cases}
@@ -124,6 +126,8 @@ Define
         \Gamma[S \leftarrow \select(f, \mathfrak{q}, \Gamma(S))] \flowproves D :: \sigma \flowsto \pi \flowprovesout \Delta
     }{ \Gamma \flowproves (S \sends{f} D) :: \tau \flowsto \pi \flowprovesout \Delta[D \leftarrow \combine(\mathfrak{q}, \Delta(D))] }
 \end{mathpar}
+
+Note that $\Gamma[S \leftarrow \tau]$ is the environment $\Gamma$ after updating the type of $S$ to be $\tau$.
 
 % \reed{Resource functors}
 
