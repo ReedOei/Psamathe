@@ -57,11 +57,10 @@ module FLOW-COMMON
         [structural]
     rule <k> processDecls(C, (X : T := E) Ds) => processDecls(C, Ds) ... </k>
         <fields> ... C |-> (Fields => Fields SetItem(X : canonicalize(resolveType(C, T)))) ... </fields>
-        <constructors> ... C |-> constructor(Args, S => S (E --> X)) ... </constructors>
+        <constructors> ... C |-> constructor(_, S => S (E --> X)) ... </constructors>
         [structural]
 
     syntax TxData ::= transaction(Type, VarDefs, Stmt)
-                    | processTx(Id, Type, VarDefs, Stmt) [function]
 
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
         <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, S)) ... </transactions>
