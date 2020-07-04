@@ -30,26 +30,28 @@
 \subsection{Syntax}
 \begin{figure}[ht]
 \begin{align*}
-    C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
+    C &\in \textsc{ContractNames} & m &\in \textsc{TransactionNames} \\
     t &\in \textsc{TypeNames} & x &\in \textsc{IdentifierNames} \\
     n &\in \Z \\
 \end{align*}
 \begin{tabular}{l r l l}
-    $\mathcal{Q}$ & \bnfdef & $\emptyq$ \bnfalt $\nonempty$ \bnfalt $\one$ \bnfalt $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (type quantities \reed{Not sure what to call these}) \\
-    $\tau$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
+    $\mathcal{Q}$ & \bnfdef & $\unknown$ \bnfalt $\emptyq$ \bnfalt $\nonempty$ & (\typeQuantities \reed{Not sure what to call these}) \\
+    $\tau$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt \bnfalt $\optionq~T$ \bnfalt $\listq~T$ \bnfalt $\setq~T$ \bnfalt $T \times T$ \bnfalt $T \transforms T$ \bnfalt $\curlys{\overline{x : T}}$ \bnfalt $t$ & (base types) \\
+    $T$ & \bnfdef & $\mathcal{Q}~\tau$ & (types) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
     C & \bnfdef & $n$ \bnfalt true \bnfalt false & (constants) \\
     $\mathcal{V}$ & \bnfdef & C \bnfalt $\lambda x : \tau. E$ & (values) \\
-    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[x]$ \bnfalt $\mathcal{S}.x$ & (locations) \\
+    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
     $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (storages) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $\letvar~x:\tau~\varin~E$ & (expressions) \\
-    $f$ & \bnfdef & $\mathcal{L}$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
+    % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
+    $f$ & \bnfdef & $E$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{f} \mathcal{S}$ & (flows) \\
     $S$ & \bnfdef & $F$ \bnfalt $\ifS~E~\thenS~S$ \bnfalt $S ; S$ \bnfalt $\var~x:\tau$ & (statements) \\
-    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\mathcal{F}}~(\oncreate(\overline{x : \tau})~S)~\overline{T}~\}$ & (contracts) \\
+    $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
+    $\mathcal{D}$ & \bnfdef & $x : \tau$ \bnfalt $\type~t~\is~\overline{M}~\tau$ & (declarations) \\
+    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\mathcal{D}}~\}$ & (contracts) \\
     $\Prog$ & \bnfdef & $\overline{\Con}~;~S$ & (programs \reed{Improve this, define transactions and fields, etc.})
-    % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
-% $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
 
     % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
     % $A$ & \bnfdef & $T(x_1, \ldots, x_n)$ \bnfalt $\emits{E(x_1, \ldots, x_n)}$ & (actions) \\
@@ -57,28 +59,36 @@
 \caption{Abstract syntax of \langName.}
 \label{lang-syntax}
 \end{figure}
-Note: Consider $\tau \equiv \one~\tau$, so $x : \natt$ and $x : \one~\natt$ are the same (and so is $x : \one~\one~\natt$, etc.).
-Additionally, $\nonempty~\emptyq \equiv \one$, $\nonempty~\nonempty \equiv \nonempty$, \reed{$\emptyq~\nonempty \equiv \emptyq$?}
+% Note: Consider $\tau \equiv \one~\tau$, so $x : \natt$ and $x : \one~\natt$ are the same (and so is $x : \one~\one~\natt$, etc.).
+% Additionally, $\nonempty~\emptyq \equiv \one$, $\nonempty~\nonempty \equiv \nonempty$, \reed{$\emptyq~\nonempty \equiv \emptyq$?}
+
+Consider $\tau$ an abbreviation for $\unknown~\tau$.
+
+\reed{What if we got rid of selecting by location and only allowed selecting with quantifiers, and just optimize things like $!~x:\tau~\suchthat~x = y$ into a lookup.}
+\reed{Add at ``at most one'' quantity, which makes the \typeQuantities into a group?}
+\reed{Free group of quantities list set and option makes teh type quantities we care about?
+What are the inverses?}
+
+\begin{align*}
+    \nonempty &= \optionq^{-1} \\
+\end{align*}
 
 \reed{Contract types should be (consumable?) assets by default, transformers are always assets, because they could be partially applied and holding assets.}
 
 \subsection{Statics}
 \begin{figure}[ht]
 \begin{tabular}{l r l l}
-    $\Gamma$ & \bnfdef & $\cdot$ \bnfalt $\Gamma, x : \tau$ & (type environments)
+    $\Gamma$ & \bnfdef & $\emptyset$ \bnfalt $\Gamma, x : \tau$ & (type environments)
 \end{tabular}
 \label{type-env}
 \end{figure}
 
 Define $* \leq \,\, ! \leq +$ (this is based on the amount of resources that every quantifier is \emph{guaranteed} to select).
-Define
+Define $|\mathcal{Q}|$ by
 \begin{align*}
-    |\mathcal{Q}| =
-    \begin{cases}
-        ! & \tif \mathcal{Q} = \one \\
-        + & \tif \mathcal{Q} \neq \one \tand \mathcal{Q} = \nonempty~\mathcal{R}~\text{for some}~\mathcal{R} \\
-        * & \owise
-    \end{cases}
+    |\unknown| &= * \\
+    |\emptyq| &= * \\
+    |\nonempty| &= +
 \end{align*}
 
 \framebox{$\Gamma \proves e : \tau$} \textbf{Typing}
@@ -90,12 +100,13 @@ Define
         \Gamma, x : \tau \flowproves e : \sigma \flowprovesout \Gamma
     }{ \Gamma \proves (\lambda x : \tau. e) : \tau \transforms \sigma }
 
-    % \inferrule*[right=BinOp]{
-    %     \Gamma \proves e_1 : \tau
-    %     \and
-    %     \Gamma \proves e_2 : \tau
-    % }{ \Gamma \proves e_1 \oplus e_2 : \tau }
-    % \twhere \oplus \in \curlys{+,-,\cdot,\andop,\orop}
+    \inferrule*[right=Forget-Empty]{
+        \Gamma \proves x : \emptyq~\tau
+    }{ \Gamma \proves x : \tau }
+
+    \inferrule*[right=Forget-Nonempty]{
+        \Gamma \proves x : \nonempty~\tau
+    }{ \Gamma \proves x : \tau }
 \end{mathpar}
 
 \begin{definition}
@@ -215,11 +226,31 @@ The syntax $\tau \flowsto \sigma$ means that the storage accepts $\tau$ and prov
     }{ \Gamma \flowproves (S_1 ; S_2)~\wf \flowprovesout \Xi }
 \end{mathpar}
 
-Note that $\Gamma(S)$ is the type that $S$ currently has in $\Gamma$, or $\voidt$ if it is not in $\Gamma$.
+Note that $\Gamma(S)$ is the type that $S$ currently has in $\Gamma$, or $\bot$ if it is not in $\Gamma$.
 \reed{Maybe there's a nicer way to do this, but since $\update$ will ignore anything that doesn't exists in the environment already, it works out.}
 
 \reed{Not exactly sure how the merge $\Gamma \vee \Delta$ should work, but I imagine it should involve something like $\emptyq~\tau \vee \one~\tau = \optionq~\tau$.
 Then we define type compatibility and check type compatibility when we pack at the end of a transaction.}
+
+\begin{definition}
+    Let $\Gamma$ and $\Delta$ be type environments.
+    Then $\Gamma \leq \Delta$ if $\forall x \in \dom(\Gamma), \Gamma(x) \leq \Delta(x)$.
+\end{definition}
+
+\begin{definition}
+    Let $\mathcal{Q}~\tau$ and $\mathcal{R}~\sigma$ be types.
+    Then $\mathcal{Q}~\tau \leq \mathcal{R}~\sigma$ if $\mathcal{Q} \leq \mathcal{R}$.
+\end{definition}
+
+\begin{definition}
+    A \typeQuantity $\mathcal{Q}$ is \emph{known} if $\mathcal{Q} = \emptyq~\mathcal{S}$ or $\mathcal{Q} = \nonempty~\mathcal{S}$ for some \typeQuantity $\mathcal{S}$.
+    Say that $\mathcal{Q}$ is \emph{unknown} of it is known.
+    Let $\mathcal{R}$ be a \typeQuantity.
+    Define
+    \[
+        \mathcal{Q} \leq \mathcal{R} \iff \mathcal{Q}~\text{is}
+    \]
+\end{definition}
 
 \reed{TODO: Define $\tau~\consumable$}
 % \framebox{$\tau~\consumable$} \textbf{Type Consumability}
