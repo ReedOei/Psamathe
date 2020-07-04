@@ -38,12 +38,16 @@
     $\mathcal{Q}$ & \bnfdef & $\emptyq$ \bnfalt $\nonempty$ \bnfalt $\one$ \bnfalt $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (type quantities \reed{Not sure what to call these}) \\
     $\tau$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{Q}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (types) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
-    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt true \bnfalt false \bnfalt $\lambda x : \tau. E$ & (values) \\
-    $\mathcal{S}$ & \bnfdef & $\newc~C(\overline{x})$ \bnfalt $x$ \bnfalt $\mathcal{S}[x]$ \bnfalt $\mathcal{S}.x$ \bnfalt $\consume$ & (storages) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{S}$ & (expressions) \\
-    $f$ & \bnfdef & $E$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
+    C & \bnfdef & $n$ \bnfalt true \bnfalt false & (constants) \\
+    $\mathcal{V}$ & \bnfdef & C \bnfalt $\lambda x : \tau. E$ & (values) \\
+    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $\mathcal{S}[x]$ \bnfalt $\mathcal{S}.x$ & (locations) \\
+    $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (storages) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $\letvar~x:\tau~\varin~E$ & (expressions) \\
+    $f$ & \bnfdef & $\mathcal{L}$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{f} \mathcal{S}$ & (flows) \\
-    $\Gamma$ & \bnfdef & $\cdot$ \bnfalt $\Gamma, x : \tau$ & (type environments)
+    $S$ & \bnfdef & $F$ \bnfalt $\ifS~E~\thenS~S$ \bnfalt $S ; S$ \bnfalt $\var~x:\tau$ & (statements) \\
+    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\mathcal{F}}~(\oncreate(\overline{x : \tau})~S)~\overline{T}~\}$ & (contracts) \\
+    $\Prog$ & \bnfdef & $\overline{\Con}~;~S$ & (programs \reed{Improve this, define transactions and fields, etc.})
     % $f$ & \bnfdef & $\mathcal{V}$ \bnfalt $x$ \bnfalt \everything & (selectors) \\
 % $\mathcal{F}$ & \bnfdef & $\mathcal{S}$ \bnfalt $\mathcal{S} \sends{f} \mathcal{F}$ & (flows) \\
 
@@ -194,9 +198,9 @@ The syntax $\tau \flowsto \sigma$ means that the storage accepts $\tau$ and prov
     \inferrule*[right=Wf-Var-Def]{
     }{ \Gamma \flowproves (\var~x : \tau)~\wf \flowprovesout \Gamma, x : \emptyq~\tau }
 
-    \inferrule*[right=Wf-Var-Def-Init]{
-        \Gamma \proves E : \tau
-    }{ \Gamma \flowproves (\var~x : \tau := E)~\wf \flowprovesout \Gamma, x : \tau }
+    % \inferrule*[right=Wf-Var-Def-Init]{
+    %     \Gamma \proves E : \tau
+    % }{ \Gamma \flowproves (\var~x : \tau := E)~\wf \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Wf-If]{
         \Gamma \proves x : \boolt
