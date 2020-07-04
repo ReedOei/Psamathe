@@ -36,6 +36,7 @@ module FLOW
         <localTypeEnv> .Map </localTypeEnv>
         <currentContract> contract(NoContract, #null) </currentContract>
         <activations> .Set </activations>
+        <returnValueStack> .List </returnValueStack>
 
     syntax Resource ::= resource(Type, Val)
     syntax ResourceVal ::= Resource
@@ -224,7 +225,7 @@ module FLOW
     rule setupArgs(.Exprs, .VarDefs) => .
     rule setupArgs((E:Storage, Es), (Y : T, Defs2)) => (var Y : T) ~> (E --> Y) ~> setupArgs(Es, Defs2)
 
-    rule <k> call X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> unpack(ContractStorage, Fields) ~> S ~> pack(Old, Lookup, Env) ... </k>
+    rule <k> call X.T(ActualArgs) asserting E => setupArgs(ActualArgs, FormalArgs) ~> unpack(ContractStorage, Fields) ~> S ~> pack(Old, Lookup, Env) ~> assert(E) ... </k>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
         <localTypeEnv> Env => .Map </localTypeEnv>
         <lookup> Lookup => .Map </lookup>
@@ -232,8 +233,20 @@ module FLOW
         <currentContract> Old => contract(C, ContractStorage) </currentContract>
         <fields> ... C |-> Fields </fields>
 
+    syntax K ::= assert(Expr)
+               | assertTrue(Expr) [strict]
+
     // TODO: Handle return
-    rule return V => .
+    rule <k> return V:Val => . ... </k>
+        <returnValueStack> .List => ListItem(V) ... </returnValueStack>
+
+    rule <k> assert(E) => assertTrue(E[result |-> V]) ... </k>
+        <returnValueStack> ListItem(V) => .List ... </returnValueStack>
+
+    // TODO: Handle the case that they're not equal by reverting
+    rule assertTrue(true) => .
+    rule assertTrue(V:Val) => revert("Assertion not true")
+        requires V =/=K true
 
     // ============================
     // New contract

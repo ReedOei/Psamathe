@@ -98,14 +98,16 @@ module FLOW-CORE-SYNTAX
                 | "bool"       [token]
                 | "string"     [token]
                 | "address"    [token]
+    // Special reserved Ids
     syntax Id ::= "this" [token]
+                | "result" [token]
 
     syntax Contract ::= "contract" Id "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
 
     syntax Action ::= "emit" Id "(" Exprs ")"
                     | "error" "(" Expr ")"
-                    | "call" Storage "(" Exprs ")"
+                    | "call" Storage "(" Exprs ")" "asserting" Expr
     syntax Actions ::= List{Action, " "}
 
     syntax Program ::= Contracts ";" Stmt Actions
@@ -127,6 +129,8 @@ module FLOW-SYNTAX
 
     syntax Flow ::= Storage "-->" Flow
                   | Storage ":=" Expr // Assignment only allowed for consumable types
+
+    syntax Action ::= "call" Storage "(" Exprs ")"
 
     // TODO: Allow this, return bool by default (i.e., true iff success)
     /* syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt */
@@ -154,5 +158,7 @@ module FLOW-SYNTAX
     rule exactly one => ! [macro]
     rule any => * [macro]
     rule at least one => + [macro]
+
+    rule call S(Es) => call S(Es) asserting true [macro]
 endmodule
 
