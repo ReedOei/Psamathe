@@ -236,8 +236,7 @@ module FLOW
     syntax K ::= assert(Expr)
                | assertTrue(Expr) [strict]
 
-    // TODO: Handle return
-    rule <k> return V:Val => . ... </k>
+    rule <k> return V:Val ~> _ ~> pack(Old, Lookup, Env) ~> assert(E) => pack(Old, Lookup, Env) ~> assert(E) ... </k>
         <returnValueStack> .List => ListItem(V) ... </returnValueStack>
 
     rule <k> assert(E) => assertTrue(E[result |-> V]) ... </k>
