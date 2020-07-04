@@ -224,12 +224,13 @@ module FLOW
     rule setupArgs(.Exprs, .VarDefs) => .
     rule setupArgs((E:Storage, Es), (Y : T, Defs2)) => (var Y : T) ~> (E --> Y) ~> setupArgs(Es, Defs2)
 
-    rule <k> call X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> S[this |-> ContractStorage] ~> pack(Old, Lookup, Env) ... </k>
+    rule <k> call X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> unpack(ContractStorage, Fields) ~> S ~> pack(Old, Lookup, Env) ... </k>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
         <localTypeEnv> Env => .Map </localTypeEnv>
         <lookup> Lookup => .Map </lookup>
         <storage> ... Lookup[X] |-> resource(one C, contract(C, ContractStorage)) ... </storage>
         <currentContract> Old => contract(C, ContractStorage) </currentContract>
+        <fields> ... C |-> Fields </fields>
 
     // TODO: Handle return
     rule return V => .
@@ -241,7 +242,7 @@ module FLOW
 
     rule <k> new C(Args) --[ Sel ]-> D
              =>
-             setupArgs(Args, FormalArgs) ~> initFields(!New:QualifiedId, Fields) ~> S[this |-> !New] ~> pack(Old, Lookup, Env) ~> contract(C, !New) --[ Sel ]-> D
+             setupArgs(Args, FormalArgs) ~> initFields(!New:QualifiedId, Fields) ~> unpack(!New, Fields) ~> S ~> pack(Old, Lookup, Env) ~> contract(C, !New) --[ Sel ]-> D
              ...
          </k>
         <fields> ... C |-> Fields ... </fields>
@@ -254,11 +255,16 @@ module FLOW
     rule <k> initFields(S, SetItem(X : T) Rest) => initFields(S, Rest) ... </k>
         <storage> ... .Map => S.X |-> defaultValue(T) ... </storage>
 
-    // Pack
+    // Pack/unpack
     syntax K ::= pack(ContractVal, Map, Map)
+               | unpack(Storage, Set)
+
+    rule unpack(S, .Set) => .
+    rule <k> unpack(S, SetItem(X : T) Rest) => unpack(S, Rest) ... </k>
+        <lookup> ... .Map => this.X |-> S.X ... </lookup>
 
     rule <k> pack(Old, Lookup, Env) => . ... </k>
-        <lookup> .Map => Lookup </lookup>
+        <lookup> _ => Lookup </lookup>
         <localTypeEnv> .Map => Env </localTypeEnv>
         <currentContract> _ => Old </currentContract>
 

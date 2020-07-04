@@ -63,6 +63,11 @@
 % Additionally, $\nonempty~\emptyq \equiv \one$, $\nonempty~\nonempty \equiv \nonempty$, \reed{$\emptyq~\nonempty \equiv \emptyq$?}
 
 Consider $\tau$ an abbreviation for $\unknown~\tau$.
+\reed{Is the default type $\unknown~\tau$ or is it really $\nonempty~\tau$?
+But that's basically saying that all variables are nullable by defualt.
+Also need to distinguish somehow between $\nonempty~\setq~\tau$ and $\nonempty~\one~\setq~\tau$ and such, somehow.
+How does this square nicely with the fact that lots of fields are just
+It can't be nonempty because then that would imply that all sets are always nonempty.}
 
 \reed{What if we got rid of selecting by location and only allowed selecting with quantifiers, and just optimize things like $!~x:\tau~\suchthat~x = y$ into a lookup.}
 \reed{Add at ``at most one'' quantity, which makes the \typeQuantities into a group?}
@@ -91,6 +96,11 @@ Define $|\mathcal{Q}|$ by
     |\nonempty| &= +
 \end{align*}
 
+Define for any quantities $\mathcal{Q}$ and $\mathcal{R}$ the ordering $<$ by
+\[
+    \mathcal{Q} < \mathcal{R} \iff \mathcal{Q} \in \curlys{\nonempty, \emptyq} \tand \mathcal{R} = \unknown
+\]
+
 \framebox{$\Gamma \proves e : \tau$} \textbf{Typing}
 \begin{mathpar}
     \inferrule*[right=Lookup]{
@@ -108,36 +118,6 @@ Define $|\mathcal{Q}|$ by
         \Gamma \proves x : \nonempty~\tau
     }{ \Gamma \proves x : \tau }
 \end{mathpar}
-
-\begin{definition}
-    Let $\tau$ be a type.
-    The \emph{canonical form of $\tau$} is $\llbracket \tau \rrbracket = (\mathcal{Q}, \sigma)$ where $\tau = \mathcal{Q}~\sigma$, such that if $\sigma = \mathcal{R}~\pi$ for some quantity $\mathcal{R}$ and type $\pi$, then $\mathcal{R} = \one$.
-\end{definition}
-
-\framebox{$\select(f, \mathfrak{q}, \tau)$}
-\framebox{$\combine(\mathfrak{q}, \tau)$}
-\framebox{$\update(\Gamma, \mathcal{S}, \tau)$} \textbf{Storage modification}
-These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
-
-\begin{align*}
-    \select(f, \mathfrak{q}, \tau) &=
-    \begin{cases}
-        \emptyq~\tau & \tif f = \everything \\
-        \emptyq~\tau & \tif \mathfrak{q} \geq ! \tand \llbracket \tau \rrbracket = (\one, \sigma) \\
-        \tau & \owise
-    \end{cases}
-    \\
-    \combine(\mathfrak{q}, \tau) &=
-    \begin{cases}
-        \nonempty~\tau & \tif \mathfrak{q} \geq ! \\
-        \tau & \owise
-    \end{cases} \\
-    \update(\Gamma, S, \tau) &=
-    \begin{cases}
-        \Delta, S : \tau & \tif \Gamma = \Delta, S : \sigma \\
-        \Gamma & \owise
-    \end{cases}
-\end{align*}
 
 \framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto \sigma$} \textbf{Storage Typing}
 The syntax $\tau \flowsto \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$.
@@ -193,6 +173,32 @@ The syntax $\tau \flowsto \sigma$ means that the storage accepts $\tau$ and prov
     %     \lnot (\tau ~ \asset)
     % }{ \Gamma, x : \tau \flowproves e : \sigma \flowprovesout \Delta }
 \end{mathpar}
+
+\framebox{$\select(f, \mathfrak{q}, \tau)$}
+\framebox{$\combine(\mathfrak{q}, \tau)$}
+\framebox{$\update(\Gamma, \mathcal{S}, \tau)$} \textbf{Storage modification}
+These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
+
+\begin{align*}
+    \select(f, \mathfrak{q}, \tau) &=
+    \begin{cases}
+        \emptyq~\tau & \tif f = \everything \\
+        \emptyq~\tau & \tif \mathfrak{q} \geq ! \tand \llbracket \tau \rrbracket = (\one, \sigma) \\
+        \tau & \owise
+    \end{cases}
+    \\
+    \combine(\mathfrak{q}, \tau) &=
+    \begin{cases}
+        \nonempty~\tau & \tif \mathfrak{q} \geq ! \\
+        \tau & \owise
+    \end{cases} \\
+    \update(\Gamma, S, \tau) &=
+    \begin{cases}
+        \Delta, S : \tau & \tif \Gamma = \Delta, S : \sigma \\
+        \Gamma & \owise
+    \end{cases}
+\end{align*}
+
 
 \framebox{$\Gamma \flowproves S~\wf \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
