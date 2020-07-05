@@ -1,0 +1,12 @@
+contract Main {
+    transaction foo() returns nat:
+        return 17
+}
+
+;
+
+var x : Main
+new Main() --> x
+
+call x.foo() asserting result = 17
+

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+FLAGS=()
+
+if [[ "$1" == "--debug" ]]; then
+    FLAGS+=("--log")
+    FLAGS+=("--log-cells")
+    FLAGS+=("(k),(#pc),#result,(storage),(lookup),(localTypeEnv),(returnValueStack)")
+    shift # Clear out the debug argument
+fi
+
+set -ex
+
+krun -d dynamic "${FLAGS[@]}" "$@"
+

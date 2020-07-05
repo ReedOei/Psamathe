@@ -1,4 +1,5 @@
 KDISTR := $(HOME)/k-framework/k-distribution/bin
+FLAGS :=
 
 all: $(wildcard tests/*.flow)
 
@@ -14,8 +15,8 @@ static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-sy
 	$(KDISTR)/kompile --backend java flow-typecheck.k -d static/
 
 %.flow: kompile
-	# krun --directory static/ $@
-	$(KDISTR)/krun --directory dynamic/ $@
+	# $(KDISTR)/krun $(FLAGS) --directory static/ $@
+	$(KDISTR)/krun $(FLAGS) --directory dynamic/ $@
 
 clean:
 	rm -rf dynamic/flow-kompiled

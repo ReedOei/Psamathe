@@ -236,6 +236,7 @@ module FLOW
     syntax K ::= assert(Expr)
                | assertTrue(Expr) [strict]
 
+    // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
     rule <k> return V:Val ~> _ ~> pack(Old, Lookup, Env) ~> assert(E) => pack(Old, Lookup, Env) ~> assert(E) ... </k>
         <returnValueStack> .List => ListItem(V) ... </returnValueStack>
 
@@ -281,9 +282,14 @@ module FLOW
         <currentContract> _ => Old </currentContract>
 
     // NOTE: This would be unsafe if used to destroy assets, but the typechecker will ensure that it's safe, so we don't need to check.
+    // NOTE/TODO: We don't **HAVE** to clean up the storage.
+    //       It would be faster if we didn't, but it does save us from some junk lying around from local variables.
     rule <k> pack(Old, Lookup, Env) ... </k>
-        <localTypeEnv> ... X |-> T => .Map ... </localTypeEnv>
-        <lookup> ... X |-> Loc => .Map ... </lookup>
-        <storage> ... Loc |-> V => .Map ... </storage>
+        <localTypeEnv> ... (X |-> T) => .Map ... </localTypeEnv>
+        // TODO: Loc may be something like freshStorage(N).FieldName instead of a StorageLoc
+        //      However, this should be fine, as we will never try to clean up something like that,
+        //      Because it won't be in the localTypeEnv.
+        <lookup> ... (X |-> Loc:StorageLoc) => .Map ... </lookup>
+        <storage> ... (Loc |-> V) => .Map ... </storage>
 endmodule
 
