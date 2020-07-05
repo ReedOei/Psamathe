@@ -1,0 +1,22 @@
+contract Main {
+    balance : nat
+
+    transaction add(n : nat):
+        n --> this.balance
+
+    transaction remove(m : nat) returns nat:
+        var t : nat
+        this.balance --[ m ]-> t
+        return t
+}
+
+;
+
+var x : Main
+
+new Main() --> x
+
+call x.add(25)
+call x.add(75)
+call x.remove(60) asserting result = 60
+
