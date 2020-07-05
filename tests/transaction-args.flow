@@ -4,11 +4,23 @@ contract Main {
         n --> t
         12 --> t
         return t
+
+    transaction add(n : nat, m : nat) returns nat:
+        var t : nat
+        n --> t
+        m --> t
+        return t
 }
 
 ;
 
 var x : Main
+var a : nat
+var b : nat
+
 new Main() --> x
-call x.foo(27) asserting result = 39
+781 --> a
+611 --> b
+
+call x.add(a, b) asserting result = 1392
 

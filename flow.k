@@ -240,10 +240,16 @@ module FLOW
     rule setupArgs(.Exprs, .VarDefs) => .
     rule setupArgs((E:Storage, Es), (Y : T, Defs2)) => (var Y : T) ~> (E --> Y) ~> setupArgs(Es, Defs2)
 
-    rule <k> call X.T(ActualArgs) asserting E => setupArgs(ActualArgs, FormalArgs) ~> unpack(ContractStorage, Fields) ~> S ~> pack(Old, Lookup, Env) ~> assert(E) ... </k>
+    syntax K ::= cleanEnv(Set)
+
+    rule <k> cleanEnv(ToRemove) => . ... </k>
+        <localTypeEnv> Env => removeAll(Env, ToRemove) </localTypeEnv>
+        <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
+
+    rule <k> call X.T(ActualArgs) asserting E => setupArgs(ActualArgs, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(ContractStorage, Fields) ~> S ~> pack(Old, Lookup, Env) ~> assert(E) ... </k>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
-        <localTypeEnv> Env => .Map </localTypeEnv>
-        <lookup> Lookup => .Map </lookup>
+        <localTypeEnv> Env </localTypeEnv>
+        <lookup> Lookup </lookup>
         <storage> ... Lookup[X] |-> resource(one C, contract(C, ContractStorage)) ... </storage>
         <currentContract> Old => contract(C, ContractStorage) </currentContract>
         <fields> ... C |-> Fields </fields>
@@ -269,14 +275,14 @@ module FLOW
 
     rule <k> new C(Args) --[ Sel ]-> D
              =>
-             setupArgs(Args, FormalArgs) ~> initFields(!New:QualifiedId, Fields) ~> unpack(!New, Fields) ~> S ~> pack(Old, Lookup, Env) ~> contract(C, !New) --[ Sel ]-> D
+             initFields(!New:QualifiedId, Fields) ~> setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(!New, Fields) ~> S ~> pack(Old, Lookup, Env) ~> contract(C, !New) --[ Sel ]-> D
              ...
          </k>
         <fields> ... C |-> Fields ... </fields>
         <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
-        <localTypeEnv> Env => .Map </localTypeEnv>
+        <localTypeEnv> Env </localTypeEnv>
         <currentContract> Old => contract(C, !New) </currentContract>
-        <lookup> Lookup => .Map </lookup>
+        <lookup> Lookup </lookup>
 
     rule initFields(S, .Set) => .
     rule <k> initFields(S, SetItem(X : T) Rest) => initFields(S, Rest) ... </k>
@@ -290,20 +296,18 @@ module FLOW
     rule <k> unpack(S, SetItem(X : T) Rest) => unpack(S, Rest) ... </k>
         <lookup> ... .Map => this.X |-> S.X ... </lookup>
 
-    rule <k> pack(Old, Lookup, Env) => . ... </k>
-        <lookup> _ => Lookup </lookup>
-        <localTypeEnv> .Map => Env </localTypeEnv>
-        <currentContract> _ => Old </currentContract>
-
     // NOTE: This would be unsafe if used to destroy assets, but the typechecker will ensure that it's safe, so we don't need to check.
-    // NOTE/TODO: We don't **HAVE** to clean up the storage.
-    //       It would be faster if we didn't, but it does save us from some junk lying around from local variables.
-    rule <k> pack(Old, Lookup, Env) ... </k>
-        <localTypeEnv> ... (X |-> T) => .Map ... </localTypeEnv>
-        // TODO: Loc may be something like freshStorage(N).FieldName instead of a StorageLoc
-        //      However, this should be fine, as we will never try to clean up something like that,
-        //      Because it won't be in the localTypeEnv.
-        <lookup> ... (X |-> Loc:StorageLoc) => .Map ... </lookup>
-        <storage> ... (Loc |-> V) => .Map ... </storage>
+    // NOTE: We don't **HAVE** to clean up the storage.
+    //       It would be (a little) faster if we didn't, but it does save us from some junk lying around from local variables, which
+    //       is probably faster overall, but most importantly, it makes the output nicer to read.
+    rule <k> pack(Cls, Lookup, Env) => . ... </k>
+        <localTypeEnv> .Map => Env </localTypeEnv>
+        <lookup> _ => Lookup </lookup>
+        <currentContract> _ => Cls </currentContract>
+
+    rule <k> pack(Cls, Lookup, Env) ... </k>
+        <localTypeEnv> ... X |-> T => .Map ... </localTypeEnv>
+        <lookup> ... X |-> Loc:StorageLoc ... </lookup>
+        <storage> Store => removeAll(Store, SetItem(Loc)) </storage>
 endmodule
 
