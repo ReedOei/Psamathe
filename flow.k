@@ -8,20 +8,22 @@ module FLOW
     imports COLLECTIONS
     imports SUBSTITUTION
 
+    syntax StorageLoc ::= loc(Int) [freshGenerator, function, functional]
+    syntax BasicVal ::= Val
+                      | Set
+                      | List
+                      | Map
+                      | some(Val)
+                      | "none" [token]
+                      // This can be stored in the middle of a transaction, but not at the end, unless the reference is temporary.
+                      | "emptySingleton" [token]
+                      | StorageLoc
+
     syntax ErrorVal ::= revert(String)
-    syntax Resource ::= resource(Type, Val)
+    syntax Resource ::= resource(Type, BasicVal)
     syntax ResourceVal ::= Resource
                          | ErrorVal
-    syntax ContractVal ::= contract(QualifiedId, Storage)
-    syntax Val ::= Set
-                 | List
-                 | some(Val)
-                 | "none" [token]
-                 // This can be stored in the middle of a transaction, but not at the end, unless the reference is temporary.
-                 | "emptySingleton" [token]
-                 | ContractVal
     syntax Expr ::= ResourceVal
-    syntax StorageLoc ::= loc(Int) [freshGenerator, function, functional]
     syntax KResult ::= ResourceVal
                      | SpecialSelect
                      | StorageLoc
@@ -36,11 +38,11 @@ module FLOW
         <storage> .Map </storage>
         <lookup> .Map </lookup>
         <localTypeEnv> .Map </localTypeEnv>
-        <currentContract> contract(NoContract, #null) </currentContract>
+        <currentContract> NoContract </currentContract>
         <activations> .Set </activations>
         <returnValueStack> .List </returnValueStack>
 
-    syntax K ::= select(Selector, Resource, Storage, Storage)
+    syntax K ::= select(Selector, Resource, Storage, Storage) [strict(1)]
                | flow(ResourceVal, Storage)
 
     syntax K ::= TypeMod
@@ -54,6 +56,7 @@ module FLOW
     rule <k> var X : T => . ... </k>
         <localTypeEnv> ... .Map => X |-> canonicalize(T) </localTypeEnv>
         <lookup> ... .Map => X |-> !Loc:StorageLoc </lookup>
+        <storage> ... .Map => !Loc |-> defaultValue(canonicalize(T)) ... </storage>
 
     rule I:Int => resource(one nat, I)
         requires I >=Int 0
@@ -99,7 +102,6 @@ module FLOW
     // Primitive flows
     rule I:Int --[ everything ]-> D => flow(resource(one nat, I), D)
     rule Str:String --[ everything ]-> D => flow(resource(one string, Str), D)
-    rule contract(C, S) --[ everything ]-> D => flow(resource(one C, contract(C, S)), D)
 
     rule A --[ nothing ]-> B => .
 
@@ -111,25 +113,25 @@ module FLOW
     // TODO: Handle more selectors (i.e., quantified and set/list selectors)
     rule select(everything, resource(R, V), S, D)
          =>
-         select(V, resource(R, V), S, D)
+         select(resource(R, V), resource(R, V), S, D)
 
-    rule select(N:Int, resource(one nat, V), S, D)
+    rule select(resource(one nat, N), resource(one nat, V), S, D)
          =>
-         flow(resource(one nat, V -Int N), S) ~> flow(resource(one nat, N), D)
+         put(resource(one nat, V -Int N), S) ~> flow(resource(one nat, N), D)
         requires V >=Int N
 
-    rule select(Val, resource(one R, Val), S, D)
+    rule select(resource(one R, Val), resource(one R, Val), S, D)
          =>
-         flow(resource(empty R, emptySingleton), S) ~> flow(resource(one R, Val), D)
+         put(resource(empty R, emptySingleton), S) ~> flow(resource(one R, Val), D)
         requires R =/=K nat
 
-    rule select(Val, resource(set R, SetItem(Val) Rest), S, D)
+    rule select(resource(one R, Val), resource(set R, SetItem(Val) Rest), S, D)
          =>
-         flow(resource(set R, Rest), S) ~> flow(resource(one R, Val), D)
+         put(resource(set R, Rest), S) ~> flow(resource(one R, Val), D)
 
-    rule select(Val, resource(option R, some(Val)), S, D)
+    rule select(resource(one R, Val), resource(option R, some(Val)), S, D)
          =>
-         flow(resource(option R, none), S) ~> flow(resource(one R, some(Val)), D)
+         put(resource(option R, none), S) ~> flow(resource(one R, some(Val)), D)
 
     // Convert resources: Takes a resource value and converts it to be compatible with the specified type
     //  - e.g., an option => set conversion makes `none` into the empty set and `some(A)` into a singleton containing A
@@ -202,13 +204,6 @@ module FLOW
         <lookup> ... S |-> Loc ... </lookup>
         <storage> ... (Loc |-> resource(R2, Cur)) => .Map ... </storage>
 
-    // Reduce this case to the case we already handled above
-    rule <k> flow(_, S:QualifiedId) ... </k>
-        <lookup> ... S |-> Loc ... </lookup>
-        <storage> Store => Store (Loc |-> defaultValue(T)) </storage>
-        <localTypeEnv> ... S |-> T ... </localTypeEnv>
-        requires notBool(Loc in keys(Store))
-
     rule <k> flow(resource(R, V), consume) => checkConsumable(R) ... </k>
 
     syntax K ::= put(ResourceVal, Storage)
@@ -246,13 +241,13 @@ module FLOW
         <localTypeEnv> Env => removeAll(Env, ToRemove) </localTypeEnv>
         <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
 
-    rule <k> call X.T(ActualArgs) asserting E => setupArgs(ActualArgs, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(ContractStorage, Fields) ~> S ~> pack(Old, Lookup, Env) ~> assert(E) ... </k>
+    rule <k> call X.T(ActualArgs) asserting E => setupArgs(ActualArgs, FormalArgs) ~> cleanEnv(keys(Env)) ~> doUnpack(Fs) ~> S ~> pack(Old, (X |-> XLoc) Lookup, Env) ~> assert(E) ... </k>
+        <lookup> ((X |-> XLoc) Lookup) </lookup>
+        <storage> ... XLoc |-> resource(one C, Fs) ... </storage>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
-        <localTypeEnv> Env </localTypeEnv>
-        <lookup> Lookup </lookup>
-        <storage> ... Lookup[X] |-> resource(one C, contract(C, ContractStorage)) ... </storage>
-        <currentContract> Old => contract(C, ContractStorage) </currentContract>
         <fields> ... C |-> Fields </fields>
+        <localTypeEnv> Env </localTypeEnv>
+        <currentContract> Old => C </currentContract>
 
     syntax K ::= assert(Expr)
                | assertTrue(Expr) [strict]
@@ -271,30 +266,42 @@ module FLOW
     // ============================
     // New contract
     // ============================
-    syntax K ::= initFields(Storage, Set)
+    syntax K ::= initFields(StorageLoc, Set)
 
     rule <k> new C(Args) --[ Sel ]-> D
              =>
-             initFields(!New:QualifiedId, Fields) ~> setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(!New, Fields) ~> S ~> pack(Old, Lookup, Env) ~> contract(C, !New) --[ Sel ]-> D
+             initFields(!Loc:StorageLoc, Fields) ~> setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(!Loc) ~> S ~> pack(Old, Lookup (!Fresh:QualifiedId |-> !Loc), Env) ~> !Fresh --[ Sel ]-> D
              ...
          </k>
+        <storage> ... .Map => !Loc |-> resource(one C, .Map) ... </storage>
+        <localTypeEnv> Env </localTypeEnv>
+        <lookup> Lookup </lookup>
+        <currentContract> Old => C </currentContract>
         <fields> ... C |-> Fields ... </fields>
         <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
-        <localTypeEnv> Env </localTypeEnv>
-        <currentContract> Old => contract(C, !New) </currentContract>
-        <lookup> Lookup </lookup>
 
-    rule initFields(S, .Set) => .
-    rule <k> initFields(S, SetItem(X : T) Rest) => initFields(S, Rest) ... </k>
-        <storage> ... .Map => S.X |-> defaultValue(T) ... </storage>
+    rule initFields(Loc, .Set) => .
+    rule <k> initFields(Loc, SetItem(X : T) Rest) => initFields(Loc, Rest) ... </k>
+        <storage>
+            ...
+            (Loc |-> resource(one C, Fs))
+            =>
+            (Loc |-> resource(one C, (X |-> !XLoc:StorageLoc) Fs))
+            (!XLoc |-> defaultValue(T))
+            ...
+        </storage>
 
     // Pack/unpack
-    syntax K ::= pack(ContractVal, Map, Map)
-               | unpack(Storage, Set)
+    syntax K ::= pack(QualifiedId, Map, Map)
+               | unpack(StorageLoc)
+               | doUnpack(Map)
 
-    rule unpack(S, .Set) => .
-    rule <k> unpack(S, SetItem(X : T) Rest) => unpack(S, Rest) ... </k>
-        <lookup> ... .Map => this.X |-> S.X ... </lookup>
+    rule <k> unpack(Loc) => doUnpack(Fs) ... </k>
+        <storage> ... Loc |-> resource(one C, Fs) ... </storage>
+
+    rule doUnpack(.Map) => .
+    rule <k> doUnpack((X |-> Loc) Rest) => doUnpack(Rest) ... </k>
+        <lookup> ... .Map => this.X |-> Loc ... </lookup>
 
     // NOTE: This would be unsafe if used to destroy assets, but the typechecker will ensure that it's safe, so we don't need to check.
     // NOTE: We don't **HAVE** to clean up the storage.
