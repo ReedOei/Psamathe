@@ -6,7 +6,6 @@ module FLOW-CORE-SYNTAX
                  | Bool
                  | String
                  | "\\" Id ":" Type "." Expr [binder]
-    syntax Vals ::= List{Val, ","} [klabel(exprs)]
 
     syntax QualifiedId ::= Id
                          | Storage "[" Expr "]" [strict(2)]
@@ -34,7 +33,9 @@ module FLOW-CORE-SYNTAX
                   > Selector "in" Storage [seqstrict]
                   > "not" Expr [strict]
                   > "if" Expr "then" Expr "else" Expr [strict(1)]
+    syntax Vals ::= List{Val, ","} [klabel(exprs)]
     syntax Exprs ::= List{Expr, ","} [seqstrict, klabel(exprs)]
+                   | Vals
 
     syntax SpecialSelect ::= "everything" [token]
                            | "nothing" [token]
@@ -80,7 +81,6 @@ module FLOW-CORE-SYNTAX
     syntax FieldDef ::= VarDef
                       | VarDef ":=" Expr
     syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" "returns" Type ":" Stmt
-                            | "transaction" Id "(" VarDefs ")" ":" Stmt
     syntax Decl ::= TypeDef
                   | TransactionDef
                   | FieldDef
@@ -118,9 +118,10 @@ module FLOW-SYNTAX
     imports FLOW-CORE-SYNTAX
 
     // All the new syntax here gets desugared at some point.
-    syntax Expr ::= Expr ">=" Expr [seqstrict]
-                  | Expr ">" Expr [seqstrict]
-                  | Selector "not" "in" Storage [seqstrict]
+    syntax Expr ::= Expr ">=" Expr
+                  | Expr ">" Expr
+                  | Selector "not" "in" Storage
+                  | Expr "!=" Expr
 
     // Quantifiers "speaking names"
     syntax Quant ::= "exactly" "one"
@@ -132,12 +133,11 @@ module FLOW-SYNTAX
 
     syntax Action ::= "call" Storage "(" Exprs ")"
 
-    // TODO: Allow this, return bool by default (i.e., true iff success)
-    /* syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt */
+    syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt
 
     syntax QualifiedId ::= freshStorage(Int) [freshGenerator, function, functional]
 
-    // Basic desugaring
+    // Desugaring
     rule S --> D => S --[ everything ]-> D [macro]
 
     rule S --[ Sel1 ]-> T:QualifiedId --[ Sel2 ]-> D
@@ -152,6 +152,7 @@ module FLOW-SYNTAX
 
     rule A > B => B < A [macro]
     rule A >= B => B <= A [macro]
+    rule A != B => not (A = B) [macro]
 
     rule F:Selector not in S => not (F in S) [macro]
 
@@ -160,5 +161,17 @@ module FLOW-SYNTAX
     rule at least one => + [macro]
 
     rule call S(Es) => call S(Es) asserting true [macro]
+
+    rule transaction T(Args): S
+         =>
+         transaction T(Args) returns bool: S (return true)
+         [macro]
+
+    // TODO: Need to know the type of T to do this.
+    //       Might need to expand this in the typechecker.
+    /* rule S --[ Sel1 ]-> T --[ Sel2 ]-> D */
+    /*      => */
+    /*      var !Fresh : */
+    /*      S --[ Sel1 ]-> !Fresh */
 endmodule
 

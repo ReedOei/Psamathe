@@ -9,6 +9,9 @@ module FLOW
     imports SUBSTITUTION
 
     syntax ErrorVal ::= revert(String)
+    syntax Resource ::= resource(Type, Val)
+    syntax ResourceVal ::= Resource
+                         | ErrorVal
     syntax ContractVal ::= contract(QualifiedId, Storage)
     syntax Val ::= Set
                  | List
@@ -17,10 +20,9 @@ module FLOW
                  // This can be stored in the middle of a transaction, but not at the end, unless the reference is temporary.
                  | "emptySingleton" [token]
                  | ContractVal
+    syntax Expr ::= ResourceVal
     syntax StorageLoc ::= loc(Int) [freshGenerator, function, functional]
-    syntax KResult ::= Val
-                     | ErrorVal
-                     | Vals
+    syntax KResult ::= ResourceVal
                      | SpecialSelect
                      | StorageLoc
 
@@ -38,10 +40,6 @@ module FLOW
         <activations> .Set </activations>
         <returnValueStack> .List </returnValueStack>
 
-    syntax Resource ::= resource(Type, Val)
-    syntax ResourceVal ::= Resource
-                         | ErrorVal
-
     syntax K ::= select(Selector, Resource, Storage, Storage)
                | flow(ResourceVal, Storage)
 
@@ -57,25 +55,42 @@ module FLOW
         <localTypeEnv> ... .Map => X |-> canonicalize(T) </localTypeEnv>
         <lookup> ... .Map => X |-> !Loc:StorageLoc </lookup>
 
+    rule I:Int => resource(one nat, I)
+        requires I >=Int 0
+
+    rule B:Bool => resource(one bool, B)
+
+    rule S:String => resource(one string, S)
+
     // Simple arithmetic and boolean expressions
-    rule I1 + I2 => I1 +Int I2
-    rule I1 - I2 => I1 -Int I2
+    // TODO: I would like to remove all this resource stuff at some point
+    //       The typechecker can also compile this stuff into the correct instructions to permit erasing all these runtime types.
+    rule resource(one nat, I1) + resource(one nat, I2) => resource(one nat, I1 +Int I2)
+    rule resource(one nat, I1) - resource(one nat, I2) => resource(one nat, I1 -Int I2)
 
-    rule I1:Int = I2:Int => I1 ==Int I2
-    rule S1:String = S2:String => S1 ==String S2
+    rule resource(R, A) = resource(R, B) => A ==K B
 
-    rule I1 < I2 => I1 <Int I2
-    rule I1 <= I2 => I1 <=Int I2
+    rule resource(one nat, I1) < resource(one nat, I2) => resource(one bool, I1 <Int I2)
+    rule resource(one nat, I1) <= resource(one nat, I2) => resource(one bool, I1 <=Int I2)
 
-    rule true and B => B
-    rule false and B => false
-    rule true or B => true
-    rule false or B => B
-    rule not true => false
-    rule not false => true
+    rule resource(one bool, true) and B => B
+    rule resource(one bool, false) and B => resource(one bool, false)
+    rule resource(one bool, true) or B => resource(one bool, true)
+    rule resource(one bool, false) or B => B
+    rule not resource(one bool, B) => notBool B
 
-    rule if true then A else B => A
-    rule if false then A else B => B
+    rule if resource(one bool, true) then A else B => A
+    rule if resource(one bool, false) then A else B => B
+
+    // Variable lookup
+    rule <k> X => demote(V) ... </k>
+        <lookup> ... X |-> Loc ... </lookup>
+        <storage> ... Loc |-> V ... </storage>
+
+    // TODO: Finish this
+    syntax K ::= demote(Resource)
+
+    rule demote(resource(one nat, V)) => resource(one nat, V)
 
     // =================================
     // Flows:
@@ -237,16 +252,15 @@ module FLOW
                | assertTrue(Expr) [strict]
 
     // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
-    rule <k> return V:Val ~> _ ~> pack(Old, Lookup, Env) ~> assert(E) => pack(Old, Lookup, Env) ~> assert(E) ... </k>
-        <returnValueStack> .List => ListItem(V) ... </returnValueStack>
+    rule <k> return resource(R, V) ~> _ ~> pack(Old, Lookup, Env) ~> assert(E) => pack(Old, Lookup, Env) ~> assert(E) ... </k>
+        <returnValueStack> .List => ListItem(resource(R, V)) ... </returnValueStack>
 
     rule <k> assert(E) => assertTrue(E[result |-> V]) ... </k>
         <returnValueStack> ListItem(V) => .List ... </returnValueStack>
 
     // TODO: Handle the case that they're not equal by reverting
-    rule assertTrue(true) => .
-    rule assertTrue(V:Val) => revert("Assertion not true")
-        requires V =/=K true
+    rule assertTrue(resource(one bool, true)) => .
+    rule assertTrue(resource(one bool, false)) => revert("Assertion not true")
 
     // ============================
     // New contract
