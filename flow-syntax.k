@@ -39,8 +39,6 @@ module FLOW-CORE-SYNTAX
 
     syntax SpecialSelect ::= "everything" [token]
                            | "nothing" [token]
-                           // Not sure about this word choice, but it will pick an arbitrary element of
-                           | "arbitrary" [token]
     // Quantifiers and their symbol synonyms
     syntax Quant ::= "!"
                    | "*"
@@ -50,7 +48,7 @@ module FLOW-CORE-SYNTAX
                       | Quant Id ":" Type "such" "that" Expr [binder]
 
     syntax Flow ::= Storage
-                  | Storage "--[" Selector "]->" Flow
+                  | Storage "--[" Selector "]->" Flow [strict(2)]
 
     // TODO: Maybe get rid of nonfungible or fungible and have be the default
     // TODO: Warn if people put consumable on non-asset types, because that's redundant.
@@ -166,12 +164,5 @@ module FLOW-SYNTAX
          =>
          transaction T(Args) returns bool: S (return true)
          [macro]
-
-    // TODO: Need to know the type of T to do this.
-    //       Might need to expand this in the typechecker.
-    /* rule S --[ Sel1 ]-> T --[ Sel2 ]-> D */
-    /*      => */
-    /*      var !Fresh : */
-    /*      S --[ Sel1 ]-> !Fresh */
 endmodule
 

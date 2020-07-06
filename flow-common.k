@@ -31,6 +31,7 @@ module FLOW-COMMON
     syntax K ::= processDecls(Id, Decls)
 
     syntax TypeMod ::= modified(Set, Type)
+    syntax KItem ::= TypeMod
 
     syntax KItem ::= constructor(VarDefs, Stmt)
 
@@ -156,5 +157,13 @@ module FLOW-COMMON
     /* rule <k> nonAsset(T:QualifiedId) => nonAsset(Base) </k> */
     /*     <types> ... T |-> modified(Ms, Base) ... </types> */
     /*     requires notBool(asset in Ms) */
+
+    // Not sure why this isn't included in the standard library, but whatever.
+    syntax List ::= remove(List, KItem) [function]
+
+    rule remove(.List, _) => .List
+    rule remove(ListItem(X) Rest, X) => Rest
+    rule remove(ListItem(Y) Rest, X) => remove(Rest, X)
+        requires X =/=K Y
 endmodule
 

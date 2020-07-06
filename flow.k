@@ -24,6 +24,8 @@ module FLOW
     syntax ResourceVal ::= Resource
                          | ErrorVal
     syntax Expr ::= ResourceVal
+    syntax SelectorVal ::= Resource
+                         | SpecialSelect
     syntax KResult ::= ResourceVal
                      | SpecialSelect
                      | StorageLoc
@@ -42,10 +44,7 @@ module FLOW
         <activations> .Set </activations>
         <returnValueStack> .List </returnValueStack>
 
-    syntax K ::= select(Selector, Resource, Storage, Storage) [strict(1)]
-               | flow(ResourceVal, Storage)
-
-    syntax K ::= TypeMod
+    syntax K ::= flow(ResourceVal, Storage)
 
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
@@ -105,33 +104,65 @@ module FLOW
 
     rule A --[ nothing ]-> B => .
 
-    rule <k> S --[ Sel ]-> D => select(Sel, SV, S, D) ... </k>
+    rule S:QualifiedId --[ Sel ]-> D => handleFlow(Sel, S, D)
+        requires Sel =/=K nothing
+
+    // NOTE: For some reason, K doesn't like the strict declaration in the
+    //  original flow construct, but here's another one that it does work for...
+    syntax K ::= handleFlow(Selector, Storage, Storage) [strict(1)]
+
+    // TODO: Can probably streamline this some more, but flow() handles several things, like consuming resources.
+    rule <k> handleFlow(Sel, S, D) => flow(select(Sel, SV), D) ... </k>
         <lookup> ... S |-> Loc ... </lookup>
-        <storage> ... Loc |-> SV => .Map ... </storage>
+        <storage> ... Loc |-> (SV => subtract(SV, select(Sel, SV))) ... </storage>
+        requires contains(select(Sel, SV), SV)
 
-    // Select
+    syntax Resource ::= select(Selector, Resource) [strict(1), function, functional]
+
+    // Selection (includes select, subtract, and contains)
     // TODO: Handle more selectors (i.e., quantified and set/list selectors)
-    rule select(everything, resource(R, V), S, D)
-         =>
-         select(resource(R, V), resource(R, V), S, D)
+    rule select(everything, R) => R
+    rule select(resource(one R, V), resource(one R, _)) => resource(one R, V)
+    rule select(resource(one R, V), resource(option R, _)) => resource(option R, some(V))
+    rule select(resource(one R, V), resource(set R, _)) => resource(set R, SetItem(V))
+    rule select(resource(one R, V), resource(list R, _)) => resource(set R, ListItem(V))
 
-    rule select(resource(one nat, N), resource(one nat, V), S, D)
-         =>
-         put(resource(one nat, V -Int N), S) ~> flow(resource(one nat, N), D)
-        requires V >=Int N
+    syntax Resource ::= subtract(Resource, Resource) [function]
 
-    rule select(resource(one R, Val), resource(one R, Val), S, D)
-         =>
-         put(resource(empty R, emptySingleton), S) ~> flow(resource(one R, Val), D)
+    rule subtract(resource(one nat, A), resource(one nat, B)) => resource(one nat, A -Int B)
+    rule subtract(resource(one R, A), resource(one R, A)) => resource(empty R, emptySingleton)
         requires R =/=K nat
 
-    rule select(resource(one R, Val), resource(set R, SetItem(Val) Rest), S, D)
-         =>
-         put(resource(set R, Rest), S) ~> flow(resource(one R, Val), D)
+    rule subtract(resource(option R, A), resource(option R, none)) => resource(option R, A)
+    rule subtract(resource(option R, some(A)), resource(option R, some(A))) => resource(option R, none)
 
-    rule select(resource(one R, Val), resource(option R, some(Val)), S, D)
-         =>
-         put(resource(option R, none), S) ~> flow(resource(one R, some(Val)), D)
+    rule subtract(resource(set R, A), resource(set R, B)) => resource(set R, A -Set B)
+
+    rule subtract(resource(list R, A), resource(list R, .List)) => resource(list R, A)
+    rule subtract(resource(list R, A), resource(list R, ListItem(B) Rest))
+         => subtract(resource(list R, remove(A, B)), resource(list R, Rest))
+
+    syntax Bool ::= contains(Resource, Resource) [function]
+
+    rule contains(resource(one nat, A), resource(one nat, B)) => A <=Int B
+    rule contains(resource(one R, A), resource(one R, B)) => A ==K B
+        requires R =/=K nat
+
+    rule contains(resource(option R, none), resource(option R, _)) => true
+    rule contains(resource(option R, some(A)), resource(option R, none)) => false
+    rule contains(resource(option R, some(A)), resource(option R, some(B)))
+         => contains(resource(one R, A), resource(one R, B))
+
+    rule contains(resource(set R, A), resource(set R, B)) => A <=Set B
+
+    // TODO: These are not efficiently written, but they are correctly written (I hope...)
+    rule contains(resource(list R, .List), resource(list R, _)) => true
+    rule contains(resource(list R, ListItem(_) _), resource(list R, .List)) => false
+    rule contains(resource(list R, ListItem(A) Rest), resource(list R, B))
+         => contains(resource(list R, Rest), resource(list R, remove(B, A)))
+         requires A in B
+    rule contains(resource(list R, ListItem(A) Rest), resource(list R, B:List)) => false
+        requires notBool(A in B)
 
     // Convert resources: Takes a resource value and converts it to be compatible with the specified type
     //  - e.g., an option => set conversion makes `none` into the empty set and `some(A)` into a singleton containing A
