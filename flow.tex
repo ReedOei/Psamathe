@@ -86,76 +86,46 @@ In the surface language, ``container types'' like $\setq$ and $\listq$ are by de
     This makes $(\textbf{Quant}, \leq)$ into a complete lattice.
 \end{definition}
 
-\framebox{$\Gamma \proves E : \tau$} \textbf{Typing}
+\framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
 \begin{mathpar}
-    \inferrule*[right=Lookup]{
-    }{ \Gamma, x : \tau \proves x : \demote(\tau) }
+    \inferrule*[right=Demote-Lookup]{
+    }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
+
+    \inferrule*[right=Lin-Lookup]{
+    }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma }
+
+    \inferrule*[right=Weaken]{
+        \Gamma \flowproves E : \sigma \flowprovesout \Delta
+        \and
+        \lnot (\tau ~ \asset)
+    }{ \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Delta }
 
     \inferrule*[right=Transformer]{
-        \Gamma, x : \tau \flowproves e : \sigma \flowprovesout \Gamma
-    }{ \Gamma \proves (\lambda x : \tau. e) : \emptyq~(\tau \transforms \sigma) }
+        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
+    }{ \Gamma \flowproves (\lambda x : \tau. E) : \bm{0}~(\tau \transforms \sigma) \flowprovesout \Gamma }
 
     \inferrule*[right=Forget]{
-        \Gamma \proves x : \tau
+        \Gamma \flowproves x : \tau \flowprovesout \Delta
         \and
         \tau \leq \sigma
-    }{ \Gamma \proves x : \sigma }
+    }{ \Gamma \flowproves x : \sigma \flowprovesout \Delta }
 
     \inferrule*[right=Call-View]{
         \contract~C~\{ \overline{\mathcal{D}} \}
         \and
-        \view~m(\overline{a : \tau})~\returns~\sigma := E
+        (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \overline{\mathcal{D}}
         \and
-        \Gamma \proves \overline{y : \tau}
-    }{ \Gamma, x : C \proves x.m(\overline{y}) : \sigma }
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+    }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
 
     \inferrule*[right=If-Expr]{
-        \Gamma \proves x : \boolt
+        \Gamma \flowproves x : \boolt \flowprovesout \Gamma
         \and
-        \Gamma \proves y : \tau
+        \Gamma \flowproves y : \tau \flowprovesout \Delta
         \and
-        \Gamma \proves z : \tau
-    }{ \Gamma \proves (\ifS~x~\thenS~y~\elseS~z) : \tau }
+        \Gamma \flowproves z : \tau \flowprovesout \Delta
+    }{ \Gamma \flowproves (\ifS~x~\thenS~y~\elseS~z) : \tau \flowprovesout \Delta }
 \end{mathpar}
-
-\framebox{$\Gamma \flowproves e : \tau \flowprovesout \Delta$} \textbf{Linear Expression Typing}
-\begin{mathpar}
-    \inferrule*[right=Lin-Lookup]{
-    }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma }
-
-    \inferrule*[right=Lin-View]{
-        \Gamma \proves x : \tau
-        \and
-        \lnot (\tau ~ \asset)
-    }{ \Gamma \flowproves x : \tau \flowprovesout \Gamma }
-
-    % \inferrule*[right=Lin-Weaken]{
-    %     \Gamma \flowproves e : \sigma \flowprovesout \Delta
-    %     \and
-    %     \lnot (\tau ~ \asset)
-    % }{ \Gamma, x : \tau \flowproves e : \sigma \flowprovesout \Delta }
-\end{mathpar}
-
-% \begin{definition}
-%     A base type $T$ is a \emph{container type} if it is of the form $\setq~T'$, $\listq~T'$, or $T_1 \transforms T_2$.
-% \end{definition}
-
-\begin{definition}
-    For a type $\mathcal{Q}~T$, define $|\mathcal{Q}~T| = \mathcal{Q}$.
-    % \begin{align*}
-    %     |\emptyq~T| &= \bm{0} \\
-    %     |\nonempty~T| &=
-    %     \begin{cases}
-    %         + & \tif T \text{is a container type} \\
-    %         ! & \owise
-    %     \end{cases} \\
-    %     |\unknown~T| &=
-    %     \begin{cases}
-    %         * & \tif T \text{is a container type} \\
-    %         ? & \owise \\
-    %     \end{cases}
-    % \end{align*}
-\end{definition}
 
 \framebox{$\Gamma \proves \mathcal{S} :: T_1 \flowsto_{\mathcal{Q}} T_2$} \textbf{Storage Typing}
 The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathfrak{q}$ of them.
@@ -177,7 +147,7 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
     \inferrule*[right=Store-New]{
         \contract~C~\{ \overline{\mathcal{F}} ~ (\oncreate(\overline{x : \tau})~S) ~  \overline{T} \}
         \and
-        \Gamma \proves \overline{y : \tau}
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
     }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{!} C }
 \end{mathpar}
 
@@ -186,14 +156,14 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
 \framebox{$\Gamma \proves f ~\selects_\mathcal{Q}~ T$} \textbf{Selectors}
 \begin{mathpar}
     \inferrule*[right=Select-Expr]{
-        \Gamma \proves E : \mathcal{Q}~T
+        \Gamma \flowproves E : \mathcal{Q}~T \flowprovesout \Gamma
     }{ \Gamma \proves E~\selects_{\mathcal{Q}}~T }
 
     \inferrule*[right=Select-Everything]{
     }{ \Gamma \proves \everything~\selects_\infty~T }
 
     \inferrule*[right=Select-Quant]{
-        \Gamma, x : \tau \proves p : \boolt
+        \Gamma, x : \tau \flowproves p : \boolt \flowprovesout \Gamma, x : \tau
     }{ \Gamma \proves (\mathfrak{q}~x : \tau~\suchthat~p)~\selects_\mathfrak{q}~\tau }
 \end{mathpar}
 
@@ -201,7 +171,7 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
 
 \begin{definition}
     Let $\mathcal{Q}$ and $\mathcal{R}$ be selector quantifiers.
-    Define the commutative operator \emph{combine}, written $\oplus$, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ satisfying
+    Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ satisfying
     \begin{align*}
         \infty \oplus \mathcal{R} &= \infty \\
         \bm{0} \oplus \mathcal{R} &= \mathcal{R} \\
@@ -211,7 +181,7 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
         * \oplus * &= *
     \end{align*}
 
-    Similarly, define the operator \emph{split}, written $\ominus$, as the unique function $\textbf{Quant}^2 \partialfunc \textbf{Quant}$ such that
+    Similarly, define the operator $\ominus$, called \emph{split}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ such that
     \begin{align*}
         \mathcal{Q} \ominus \bm{0} & = \mathcal{Q} \\
         \bm{0} \ominus \mathcal{R} & = \bm{0} \\
@@ -227,9 +197,9 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
     \end{align*}
 \end{definition}
 
+Note that we abuse notation slightly and write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \oplus \mathcal{R})~T$ and similarly $(\mathcal{Q}~T) \ominus \mathcal{R}$ to mean $(\mathcal{Q} \ominus \mathcal{R})~T$.
 $\mathcal{Q} \oplus \mathcal{R}$ is represents the quantity present when flowing $\mathcal{R}$ of something to a storage already containing $\mathcal{Q}$.
 $\mathcal{Q} \ominus \mathcal{R}$ is represents the quantity left over after flowing $\mathcal{R}$ from a storage containing $\mathcal{Q}$.
-Note that we abuse notation slightly and write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \oplus \mathcal{R})~T$ and similarly $(\mathcal{Q}~T) \ominus \mathcal{R}$ to mean $(\mathcal{Q} \ominus \mathcal{R})~T$.
 
 \framebox{$\update(\Gamma, \mathcal{S}, \tau)$} \textbf{Type environment modification}
 % These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
@@ -257,12 +227,12 @@ Note that we abuse notation slightly and write $(\mathcal{Q}~T) \oplus \mathcal{
     Define the following orderings, which make \typeQuantities, types, and type environments into join-semilattices.
     For \typeQuantities,
     \[
-        \mathcal{Q} < \mathcal{R} \iff \mathcal{Q} \in \curlys{\nonempty, \emptyq} \tand \mathcal{R} = \unknown
+        \mathcal{Q} \sqsubset \mathcal{R} \iff \mathcal{Q} \neq * \tand \mathcal{R} = *
     \]
 
     For types,
     \[
-        \mathcal{Q}~T_\mathcal{Q} \leq \mathcal{R}~T_\mathcal{R} \iff T_\mathcal{Q} = T_\mathcal{R} \tand \mathcal{Q} \leq \mathcal{R}
+        \mathcal{Q}~T_\mathcal{Q} \leq \mathcal{R}~T_\mathcal{R} \iff T_\mathcal{Q} = T_\mathcal{R} \tand \mathcal{Q} \sqsubseteq \mathcal{R}
     \]
 
     For type environments,
@@ -287,7 +257,7 @@ Note that we abuse notation slightly and write $(\mathcal{Q}~T) \oplus \mathcal{
     }{ \Gamma \flowproves (\var~x : \tau)~\wf \flowprovesout \Gamma, x : \emptyq~\tau }
 
     \inferrule*[right=Wf-If]{
-        \Gamma \proves x : \boolt
+        \Gamma \proves x : \boolt \flowprovesout \Gamma
         \and
         \Gamma \flowproves S~\wf \flowprovesout \Delta
     }{ \Gamma \flowproves (\ifS~x~\thenS~S)~\wf \flowprovesout \Gamma \vee \Delta }
@@ -305,7 +275,7 @@ Note that we abuse notation slightly and write $(\mathcal{Q}~T) \oplus \mathcal{
     % }{ \Gamma \flowproves \pack(C)~\wf \flowprovesout \emptyset }
 \end{mathpar}
 
-\reed{TODO: Define $\tau~\consumable$}
+\reed{TODO: Define $\tau~\consumable$, $\tau~\asset$, etc.}
 % \framebox{$\tau~\consumable$} \textbf{Type Consumability}
 % \begin{definition}
 %     A type $\tau$ is \emph{consumable}, written \emph{$\tau~\consumable$}, if $\tau = \mathcal{Q}~\sigma$ where $\mathcal{Q} \neq \one$ or $\sigma$ is a base type.
@@ -337,8 +307,6 @@ Demote definition
 \reed{Selecting from or with a list should yield a list, probably}
 \reed{Asset retention theorem?}
 \reed{Resource accessiblity?}
-\reed{NOTE: Local transformers \textbf{must} be consumed, because they might be holding resources if partially applied.
-This is just like any asset local variable.}
 
 \reed{What guarantees should we provide (no errors except for flowing a resource that doesn't exist in the source/already exists in the destination)?}
 
