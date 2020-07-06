@@ -37,7 +37,7 @@
 \begin{tabular}{l r l l}
     % $\mathcal{Q}$ & \bnfdef & $\unknown$ \bnfalt $\emptyq$ \bnfalt $\nonempty$ & (\typeQuantities \reed{Not sure what to call these}) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
-    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\bm{0}$ \bnfalt $?$ \bnfalt $\infty$ & (\typeQuantities \reed{Not sure what to call these}) \\
+    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $?$ \bnfalt $\infty$ & (\typeQuantities \reed{Not sure what to call these}) \\
     $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\optionq~\tau$ \bnfalt $\listq~\tau$ \bnfalt $\setq~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $T \transforms T$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\lambda x : \tau. E$ & (values) \\
@@ -80,8 +80,8 @@ In the surface language, ``container types'' like $\setq$ and $\listq$ are by de
 \end{figure}
 
 \begin{definition}
-    Define $\textbf{Quant} = \curlys{\bm{0}, ?, !, *, +, \infty}$, and call any $\mathcal{Q} \in \textbf{Quant}$ a \emph{type quantity}.
-    Define $\bm{0} \leq * \leq \,\, ? \leq \,\, ! \leq + \leq \infty$, based on the amount of resources that every selector quantifier is \textbf{guaranteed} to select.
+    Define $\textbf{Quant} = \curlys{\emptyq, ?, !, *, +, \infty}$, and call any $\mathcal{Q} \in \textbf{Quant}$ a \emph{type quantity}.
+    Define $\emptyq \leq * \leq \,\, ? \leq \,\, ! \leq + \leq \infty$, based on the amount of resources that every selector quantifier is \textbf{guaranteed} to select.
     The elements are called \emph{none}, \emph{any}, \emph{at most one}, \emph{exactly one}, \emph{at least one}, and \emph{everything}, respectively.
     This makes $(\textbf{Quant}, \leq)$ into a complete lattice.
 \end{definition}
@@ -102,7 +102,7 @@ In the surface language, ``container types'' like $\setq$ and $\listq$ are by de
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\lambda x : \tau. E) : \bm{0}~(\tau \transforms \sigma) \flowprovesout \Gamma }
+    }{ \Gamma \flowproves (\lambda x : \tau. E) : \emptyq~(\tau \transforms \sigma) \flowprovesout \Gamma }
 
     \inferrule*[right=Forget]{
         \Gamma \flowproves x : \tau \flowprovesout \Delta
@@ -142,7 +142,7 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
 
     \inferrule*[right=Store-Consume]{
         T~\consumable
-    }{ \Gamma \proves \consume :: T \flowsto_{\bm{0}} \voidt }
+    }{ \Gamma \proves \consume :: T \flowsto_{\emptyq} \voidt }
 
     \inferrule*[right=Store-New]{
         \contract~C~\{ \overline{\mathcal{F}} ~ (\oncreate(\overline{x : \tau})~S) ~  \overline{T} \}
@@ -174,25 +174,25 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
     Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ satisfying
     \begin{align*}
         \infty \oplus \mathcal{R} &= \infty \\
-        \bm{0} \oplus \mathcal{R} &= \mathcal{R} \\
+        \emptyq \oplus \mathcal{R} &= \mathcal{R} \\
         + \oplus \mathcal{R} &= + \\
-        ! \oplus \mathcal{R} &= + \qquad \tif \mathcal{R} \neq \bm{0} \\
+        ! \oplus \mathcal{R} &= + \qquad \tif \mathcal{R} \neq \emptyq \\
         ? \oplus ? &= * \\
         * \oplus * &= *
     \end{align*}
 
     Similarly, define the operator $\ominus$, called \emph{split}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ such that
     \begin{align*}
-        \mathcal{Q} \ominus \bm{0} & = \mathcal{Q} \\
-        \bm{0} \ominus \mathcal{R} & = \bm{0} \\
+        \mathcal{Q} \ominus \emptyq & = \mathcal{Q} \\
+        \emptyq \ominus \mathcal{R} & = \emptyq \\
         ! \ominus \mathcal{R} &=
         \begin{cases}
-            \bm{0} & \tif \mathcal{R} \geq ! \\
+            \emptyq & \tif \mathcal{R} \geq ! \\
             ? & \owise
         \end{cases} \\
-        + \ominus \mathcal{R} &= * \qquad \tif \mathcal{R} \neq \bm{0} \\
+        + \ominus \mathcal{R} &= * \qquad \tif \mathcal{R} \neq \emptyq \\
         \mathcal{Q} \ominus * &= * \\
-        \mathcal{Q} \ominus \infty & = \bm{0} \\
+        \mathcal{Q} \ominus \infty & = \emptyq \\
         \infty \ominus \mathcal{Q} &= \infty
     \end{align*}
 \end{definition}
