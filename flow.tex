@@ -130,7 +130,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     }{ \Gamma, S : \tau \proves S :: \tau \flowsto_{!} \tau }
 
     \inferrule*[right=Store-Col]{
-        c \in \curlys{\setq, \listq}
+        c \in \curlys{\optionq, \setq, \listq}
     }{ \Gamma, S : \mathcal{Q}~c~\tau \proves S :: \tau \flowsto_{\mathcal{Q}} \tau }
 
     \inferrule*[right=Store-Transformer]{
@@ -275,6 +275,19 @@ $\mathcal{Q} \ominus \mathcal{R}$ is represents the quantity left over after flo
     %     \contract~C~\{ \overline{\mathcal{D}} \}
     % }{ \Gamma \flowproves \pack(C)~\wf \flowprovesout \emptyset }
 \end{mathpar}
+
+\framebox{$\Gamma \flowproves \mathcal{D}~\wf \flowprovesout \Delta$} \textbf{Declaration Well-formedness}
+% \begin{mathpar}
+%     \inferrule*[right=Wf-View]{
+%         \Gamma \flowproves S :: \tau \flowsto_\mathcal{Q} \sigma
+%         \and
+%         \Gamma \flowproves f~\selects_\mathcal{R}~\demote(\sigma)
+%         \\
+%         \Delta = \update(\Gamma, S, \Gamma(S) \ominus \mathcal{R})
+%         \and
+%         \Delta \proves D :: \sigma \flowsto_\mathcal{S} \pi
+%     }{ \Gamma \flowproves (S \sends{f} D)~\wf \flowprovesout \update(\Delta, D, (\mathcal{Q} \wedge \mathcal{R}) \oplus \Delta(D)) }
+% \end{mathpar}
 
 \reed{TODO: Define $\tau~\consumable$, $\tau~\asset$, etc.}
 % \framebox{$\tau~\consumable$} \textbf{Type Consumability}
