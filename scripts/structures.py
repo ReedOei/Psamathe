@@ -61,7 +61,7 @@ class StructGraph:
 
 def main(args):
     if len(args) < 2:
-        print("Usage: python get-conditions.py FILENAME")
+        print("Usage: python structures.py FILENAME")
         exit(1)
 
     slither = Slither(args[1])
