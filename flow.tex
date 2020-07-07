@@ -81,7 +81,7 @@ In the surface language, ``container types'' like $\setq$ and $\listq$ are by de
 
 \begin{definition}
     Define $\textbf{Quant} = \curlys{\emptyq, !, \any, \nonempty, \infty}$, and call any $\mathcal{Q} \in \textbf{Quant}$ a \emph{type quantity}.
-    Define $\emptyq \leq \any \leq \,\, ! \leq \nonempty \leq \infty$, based on the amount of resources that every selector quantifier is \textbf{guaranteed} to select.
+    Define $\emptyq \leq \any \leq \,\, ! \leq \nonempty \leq \infty$.
     This makes $(\textbf{Quant}, \leq)$ into a complete lattice.
 \end{definition}
 
@@ -163,7 +163,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \inferrule*[right=Select-Col]{
         \Gamma \flowproves E : \mathcal{Q}~c~\tau \flowprovesout \Gamma
         \and
-        c \in \curlys{\setq, \listq}
+        c \in \curlys{\optionq, \setq, \listq}
     }{ \Gamma \proves E~\selects_{\mathcal{Q}}~\tau }
 
     \inferrule*[right=Select-Everything]{
@@ -175,7 +175,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 \end{mathpar}
 
 \begin{definition}
-    Let $\mathcal{Q}$ and $\mathcal{R}$ be selector quantifiers.
+    Let $\mathcal{Q}, \mathcal{R} \in \textbf{Quant}$.
     Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ satisfying
     \begin{align*}
         \infty \oplus \mathcal{R} &= \infty \\
