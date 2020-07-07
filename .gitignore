@@ -5,3 +5,4 @@ dynamic/*
 static/*
 texput.log
 .sage_cache
+*.sagetex.*
