@@ -1,6 +1,8 @@
 import sys
 from slither.slither import Slither
 
+from collections import Counter
+
 def main(args):
     if len(args) < 2:
         print("Usage: python3 external-calls.py FILENAME")
@@ -9,7 +11,10 @@ def main(args):
     fname = args[1]
     slither = Slither(fname)
 
-    calls_external = False
+    res = {
+        'fname': fname,
+        'call_counter': Counter()
+    }
 
     for c in slither.contracts:
         # print('Contract: {}'.format(c.name))
@@ -17,17 +22,18 @@ def main(args):
         for function in c.functions:
             # print('Function: {}'.format(function.name))
 
-            # From: https://github.com/crytic/slither/blob/master/slither/core/declarations/function.py
-            external_calls = [x.external_calls_as_expressions for x in function.nodes]
-            external_calls = [x for x in external_calls if x]
-            external_calls = [item for sublist in external_calls for item in sublist]
-            external_calls = list(set(external_calls))
+            all_high_level_calls = set((str(con), str(func)) for con, func in function.all_high_level_calls() if str(con) != "SafeMath")
+            all_library_calls = set((str(con), str(func)) for con, func in function.all_library_calls())
 
-            calls_external |= len(external_calls) > 0
+            external_calls = all_high_level_calls - all_library_calls
+
+            for con, func in external_calls:
+                res['call_counter'][func] += 1
 
             # print('External calls: {}'.format(external_calls))
 
-    print('{},{}'.format(fname, calls_external))
+    res['call_counter'] = dict(res['call_counter'])
+    print(res)
 
 if __name__ == '__main__':
     main(sys.argv)
