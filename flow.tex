@@ -93,11 +93,11 @@ In the surface language, ``container types'' like $\setq$ and $\listq$ are by de
     \inferrule*[right=Lin-Lookup]{
     }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma }
 
-    \inferrule*[right=Weaken]{
-        \Gamma \flowproves E : \sigma \flowprovesout \Delta
-        \and
-        \lnot (\tau ~ \asset)
-    }{ \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Delta }
+    % \inferrule*[right=Weaken]{
+    %     \Gamma \flowproves E : \sigma \flowprovesout \Delta
+    %     \and
+    %     \lnot (\tau ~ \asset)
+    % }{ \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Delta }
 
     \inferrule*[right=Forget]{
         \Gamma \flowproves x : \tau \flowprovesout \Delta
@@ -140,7 +140,9 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     }{ \Gamma \proves \consume :: \tau \flowsto_{\emptyq} \voidt }
 
     \inferrule*[right=Store-New]{
-        \contract~C~\{ \overline{\mathcal{F}} ~ (\oncreate(\overline{x : \tau})~S) ~  \overline{T} \}
+        \contract~C~\{ \overline{\mathcal{D}} \}
+        \and
+        (\oncreate(\overline{x : \tau})~S) \in \overline{\mathcal{D}}
         \and
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
     }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{!} ~ !C }
@@ -187,13 +189,9 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \begin{align*}
         \mathcal{Q} \ominus \emptyq & = \mathcal{Q} \\
         \emptyq \ominus \mathcal{R} & = \emptyq \\
-        ! \ominus \mathcal{R} &=
-        \begin{cases}
-            \emptyq & \tif \mathcal{R} \geq ! \\
-            \any & \owise
-        \end{cases} \\
+        ! \ominus \mathcal{R} &= \emptyq \qquad \tif \mathcal{R} \geq ! \\
         \nonempty \ominus \mathcal{R} &= \any \qquad \tif \mathcal{R} \neq \emptyq \\
-        \mathcal{Q} \ominus * &= \any \\
+        \mathcal{Q} \ominus \any &= \any \\
         \mathcal{Q} \ominus \infty & = \emptyq \\
         \infty \ominus \mathcal{Q} &= \infty
     \end{align*}
@@ -256,7 +254,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ is represents the quantity left over after flo
     }{ \Gamma \flowproves (S \sends{f} D)~\wf \flowprovesout \update(\Delta, D, (\mathcal{Q} \wedge \mathcal{R}) \oplus \Delta(D)) }
 
     \inferrule*[right=Wf-Var-Def]{
-    }{ \Gamma \flowproves (\var~x : \tau)~\wf \flowprovesout \Gamma, x : \emptyq~\tau }
+    }{ \Gamma \flowproves (\var~x : \mathcal{Q}~T)~\wf \flowprovesout \Gamma, x : \emptyq~T }
 
     \inferrule*[right=Wf-If]{
         \Gamma \proves x : \boolt \flowprovesout \Gamma

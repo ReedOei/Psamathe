@@ -1,4 +1,7 @@
 *.aux
+*.log
 .*.swp
 dynamic/*
 static/*
+texput.log
+.sage_cache
