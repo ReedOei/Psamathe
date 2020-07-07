@@ -10,7 +10,8 @@ fi
 
 analyzer="$1"
 contract_csv="$2"
-job_num=4
+job_num=1
+running_jobs=0
 
 if [[ -n "$3" ]]; then
     job_num="$3"
@@ -23,10 +24,16 @@ cat "$contract_csv" | while read -r line; do
     sol_ver="$(echo "$line" | cut -f2 -d,)"
 
     if [[ "$old_ver" != "$sol_ver" ]]; then
+        wait
         solc use "$sol_ver" > /dev/null
         old_ver="$sol_ver"
     fi
 
-    python3 "$analyzer" "$fname"
+    running_jobs="$(jobs -r | wc -l)"
+    if [[ "$running_jobs" -ge "$job_num" ]]; then
+        wait -n
+    fi
+    python3 "$analyzer" "$fname" &
+    running_jobs="$(jobs -r | wc -l)"
 done
 
