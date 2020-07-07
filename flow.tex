@@ -55,6 +55,7 @@
                   & \bnfalt & $\type~t~\is~\overline{M}~\tau$ & (type declaration) \\
                   & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~\tau~\doC~S$ & (transactions) \\
                   & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
+                  & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~S$ & (constructor) \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\mathcal{D}}~\}$ & (contracts) \\
     $\Prog$ & \bnfdef & $\overline{\Con}~;~S$ & (programs)
 
@@ -142,7 +143,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \inferrule*[right=Store-New]{
         \contract~C~\{ \overline{\mathcal{D}} \}
         \and
-        (\oncreate(\overline{x : \tau})~S) \in \overline{\mathcal{D}}
+        (\oncreate(\overline{x : \tau})~\doC~S) \in \overline{\mathcal{D}}
         \and
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
     }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{!} ~ !C }
