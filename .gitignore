@@ -6,3 +6,4 @@ static/*
 texput.log
 .sage_cache
 *.sagetex.*
+contract-vers.csv
