@@ -36,8 +36,8 @@
 \end{align*}
 \begin{tabular}{l r l l}
     % $\mathcal{Q}$ & \bnfdef & $\unknown$ \bnfalt $\emptyq$ \bnfalt $\nonempty$ & (\typeQuantities \reed{Not sure what to call these}) \\
-    $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $*$ \bnfalt $+$ & (selector quantifiers) \\
-    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $?$ \bnfalt $\infty$ & (\typeQuantities) \\
+    $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
+    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\infty$ & (\typeQuantities) \\
     $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\listq~\tau$ \bnfalt $\setq~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false & (values) \\
@@ -64,10 +64,10 @@
 \label{lang-syntax}
 \end{figure}
 
-In the surface language, ``container types'' like $\setq$ and $\listq$ are by default $*$, but types like $\natt$ or $\natt \times \natt$ are $!$.
+In the surface language, ``container types'' like $\setq$ and $\listq$ are by default $\any$, but types like $\natt$ or $\natt \times \natt$ are $!$.
 
 \reed{Could get rid of selecting by locations and only allowed selecting with quantifiers, and just optimize things like $!~x:\tau~\suchthat~x = y$ into a lookup.}
-\reed{We could also get rid of ``if'' and instead do something like $*~x:\tau~\suchthat~\ifS~b~\thenS~x = y~\elseS~false$}
+\reed{We could also get rid of ``if'' and instead do something like $\any~x:\tau~\suchthat~\ifS~b~\thenS~x = y~\elseS~false$}
 
 \reed{Contract types should be (consumable?) assets by default, transformers are always assets, because they could be partially applied and holding assets.}
 
@@ -80,9 +80,8 @@ In the surface language, ``container types'' like $\setq$ and $\listq$ are by de
 \end{figure}
 
 \begin{definition}
-    Define $\textbf{Quant} = \curlys{\emptyq, ?, !, *, +, \infty}$, and call any $\mathcal{Q} \in \textbf{Quant}$ a \emph{type quantity}.
-    Define $\emptyq \leq * \leq \,\, ? \leq \,\, ! \leq + \leq \infty$, based on the amount of resources that every selector quantifier is \textbf{guaranteed} to select.
-    The elements are called \emph{none}, \emph{any}, \emph{at most one}, \emph{exactly one}, \emph{at least one}, and \emph{everything}, respectively.
+    Define $\textbf{Quant} = \curlys{\emptyq, !, \any, \nonempty, \infty}$, and call any $\mathcal{Q} \in \textbf{Quant}$ a \emph{type quantity}.
+    Define $\emptyq \leq \any \leq \,\, ! \leq \nonempty \leq \infty$, based on the amount of resources that every selector quantifier is \textbf{guaranteed} to select.
     This makes $(\textbf{Quant}, \leq)$ into a complete lattice.
 \end{definition}
 
@@ -124,7 +123,7 @@ In the surface language, ``container types'' like $\setq$ and $\listq$ are by de
 \end{mathpar}
 
 \framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto_{\mathcal{Q}} \sigma$} \textbf{Storage Typing}
-The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathfrak{q}$ of them.
+The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
 \begin{mathpar}
     \inferrule*[right=Store-One]{
     }{ \Gamma, S : \tau \proves S :: \tau \flowsto_{!} \tau }
@@ -179,10 +178,9 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
     \begin{align*}
         \infty \oplus \mathcal{R} &= \infty \\
         \emptyq \oplus \mathcal{R} &= \mathcal{R} \\
-        + \oplus \mathcal{R} &= + \\
-        ! \oplus \mathcal{R} &= + \qquad \tif \mathcal{R} \neq \emptyq \\
-        ? \oplus ? &= * \\
-        * \oplus * &= *
+        \nonempty \oplus \mathcal{R} &= \nonempty \\
+        ! \oplus \mathcal{R} &= \nonempty \qquad \tif \mathcal{R} \neq \emptyq \\
+        \any \oplus \any &= \any
     \end{align*}
 
     Similarly, define the operator $\ominus$, called \emph{split}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ such that
@@ -192,10 +190,10 @@ The syntax $\tau \flowsto_{\mathfrak{q}} \sigma$ means that the storage accepts 
         ! \ominus \mathcal{R} &=
         \begin{cases}
             \emptyq & \tif \mathcal{R} \geq ! \\
-            ? & \owise
+            \any & \owise
         \end{cases} \\
-        + \ominus \mathcal{R} &= * \qquad \tif \mathcal{R} \neq \emptyq \\
-        \mathcal{Q} \ominus * &= * \\
+        \nonempty \ominus \mathcal{R} &= \any \qquad \tif \mathcal{R} \neq \emptyq \\
+        \mathcal{Q} \ominus * &= \any \\
         \mathcal{Q} \ominus \infty & = \emptyq \\
         \infty \ominus \mathcal{Q} &= \infty
     \end{align*}
@@ -231,7 +229,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ is represents the quantity left over after flo
     Define the following orderings, which make \typeQuantities, types, and type environments into join-semilattices.
     For \typeQuantities,
     \[
-        \mathcal{Q} \sqsubset \mathcal{R} \iff \mathcal{Q} \neq * \tand \mathcal{R} = *
+        \mathcal{Q} \sqsubset \mathcal{R} \iff \mathcal{Q} \neq \any \tand \mathcal{R} = \any
     \]
 
     For types,
