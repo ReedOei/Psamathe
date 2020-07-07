@@ -48,7 +48,7 @@
     $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ \bnfalt $\lambda x : \tau. E$ & (storages) \\
     $F$ & \bnfdef & $\ell: \mathcal{S} \sends{f} \mathcal{S}$ & (flows) \\
     $S$ & \bnfdef & $F$ \bnfalt $\ifS~E~\thenS~S$ \bnfalt $S ; S$ \bnfalt $\var~x:\tau$ & (statements) \\
-    $A$ & \bnfdef & $\error(E)$ \bnfalt $\call~T(x_1, \ldots, x_n)~\asserting~E$ \bnfalt $\emit~E(\overline{x})$ & (actions) \\
+    $A$ & \bnfdef & $\error(E)$ \bnfalt $\call~m(x_1, \ldots, x_n)~\asserting~E$ \bnfalt $\emit~E(\overline{x})$ & (actions) \\
     $H$ & \bnfdef & $\onfail{\overline{\ell}}~\doC~\overline{A}$ \bnfalt $\onsuccess{\overline{\ell}}~\doC~\overline{A}$ & (handlers) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $\mathcal{D}$ & \bnfdef & $x : \tau$ & (field) \\
