@@ -12,25 +12,26 @@ def record_call_set(res, call_set_name, it):
             res[call_set_name + '_call'][(con, func)] += 1
 
 def explore_call_usage(calls, f, found_call, explored, node):
-    if node is None:
-        return False
+    to_explore = [node]
 
-    if node in explored:
-        return False
+    while len(to_explore) > 0:
+        node = to_explore.pop(0)
 
-    if found_call and len(f(node)) > 0:
-        return True
+        if node is None:
+            continue
 
-    if not found_call and len(calls(node)) > 0:
-        found_call = True
-        # Reset the explored list because we now know that everything after could be after a call
-        explored = [node]
-    else:
-        explored = explored + [node]
+        if node in explored:
+            continue
 
-    for next_node in node.sons:
-        if explore_call_usage(calls, f, found_call, explored, next_node):
+        if found_call and len(f(node)) > 0:
             return True
+
+        if not found_call and len(calls(node)) > 0:
+            # Reset the explored list because we now know that everything after could be after a call
+            return explore_call_usage(calls, f, True, [], node)
+
+        explored.append(node)
+        to_explore.extend(node.sons)
 
     return False
 
@@ -82,8 +83,6 @@ def analyze(fname):
             state_changing_func_names = set(func.name for func in c.functions if len(func.all_state_variables_written()) > 0)
 
             for function in c.functions:
-                # print('Function: {}'.format(function.name))
-
                 record_call_set(res, 'external', function.all_high_level_calls())
                 record_call_set(res, 'internal', [(c, f) for f in function.all_internal_calls()])
                 record_call_set(res, 'internal_state_change', [(c, f) for f in function.all_internal_calls() if f.name in state_changing_func_names])
@@ -102,6 +101,7 @@ def analyze(fname):
                 # print('External calls: {}'.format(external_calls))
         res['success'] = True
     except SlitherError as e:
+        # raise e
         pass
 
     for k in res:

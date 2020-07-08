@@ -40,7 +40,8 @@ def main(args):
     }
 
     results = {
-        'counts': counts
+        'counts': counts,
+        'internal_state_change_or_non_library_uses': 0
     }
 
     uses_external_calls = 0
@@ -50,7 +51,8 @@ def main(args):
     unique_func_counter = Counter()
 
     with open(fname, 'r') as f:
-        for line in tqdm(f):
+        # for line in tqdm(f):
+        for line in f:
             res = eval(line)
 
             total += 1
@@ -72,6 +74,7 @@ def main(args):
 
             non_library_calls = res['external_call'] - res['library_call']
             aggregate_counter(results, 'non_library_call', non_library_calls)
+            results['internal_state_change_or_non_library_uses'] += 1 if len(res['internal_state_change_call']) > 0 or len(non_library_calls) > 0 else 0
 
     # print(results)
     print('Counts ({} total): {}'.format(total, counts))
@@ -80,10 +83,11 @@ def main(args):
     print('Uses non-SafeMath calls: {}'.format(results['non_safe_math_call_uses']))
     print('Uses internal calls: {}'.format(results['internal_call_uses']))
     print('Uses internal state change calls: {}'.format(results['internal_state_change_call_uses']))
+    print('Uses internal state change calls or non-library external calls: {}'.format(results['internal_state_change_or_non_library_uses']))
 
-    for k in results:
-        if isinstance(results[k], Counter):
-            print(k, ':', results[k].most_common(10))
+    # for k in results:
+    #     if isinstance(results[k], Counter):
+    #         print(k, ':', results[k].most_common(10))
 
 if __name__ == '__main__':
     main(sys.argv)
