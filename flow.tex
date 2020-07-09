@@ -35,7 +35,6 @@
     n &\in \Z & \ell &\in \textsc{FlowLabels} \\
 \end{align*}
 \begin{tabular}{l r l l}
-    % $\mathcal{Q}$ & \bnfdef & $\unknown$ \bnfalt $\emptyq$ \bnfalt $\nonempty$ & (\typeQuantities \reed{Not sure what to call these}) \\
     $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
     $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\infty$ & (\typeQuantities) \\
     $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\listq~\tau$ \bnfalt $\setq~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
@@ -44,10 +43,10 @@
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $f \varin~x$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
-    $f$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
-    $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (storages) \\
-    $F$ & \bnfdef & $\ell: \mathcal{S} \sends{f} \mathcal{S}$ & (flows) \\
-    $\Stmt$ & \bnfdef & $E$ \bnfalt $\revert(E)$ \bnfalt $F$ \bnfalt $\ifS~E~\thenS~S$ \bnfalt $\var~x:\tau$ \bnfalt $\var~x:\tau := E$ \bnfalt $S;S$ & (statements) \\
+    $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
+    $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
+    $F$ & \bnfdef & $\ell: \mathcal{N} \sends{s} \mathcal{N}$ & (flows) \\
+    $\Stmt$ & \bnfdef & $x.m(\overline{x})$ \bnfalt $\revert(E)$ \bnfalt $F$ \bnfalt $\tryS~S~\catchS(x : \tau)~S$ \bnfalt $\ifS~E~\thenS~S$ \bnfalt $\var~x:\tau$ \bnfalt $\var~x:\tau := E$ \bnfalt $S;S$ & (statements) \\
     % $A$ & \bnfdef & $\error(E)$ \bnfalt $\call~x.m(\overline{x})~\asserting~E$ \bnfalt $\emit~E(\overline{x})$ & (actions) \\
     % $H$ & \bnfdef & $\onfail{\overline{\ell}}~\doC~\overline{A}$ \bnfalt $\onsuccess{\overline{\ell}}~\doC~\overline{A}$ & (handlers) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
@@ -67,10 +66,11 @@
 
 In the surface language, ``container types'' like $\setq$ and $\listq$ are by default $\any$, but types like $\natt$ or $\natt \times \natt$ are $!$.
 
-\reed{Could get rid of selecting by locations and only allowed selecting with quantifiers, and just optimize things like $!~x:\tau~\suchthat~x = y$ into a lookup.}
+\reed{Could get rid of selecting by locations and only allowed selecting with quantifiers, and just optimize things like $!~x:\tau~\suchthat~x = y$ into a lookup.
+Also, allowing \textbf{any} type quantity in a selector lets us do away with everything.}
 \reed{We could also get rid of ``if'' and instead do something like $\any~x:\tau~\suchthat~\ifS~b~\thenS~x = y~\elseS~false$}
 
-\reed{Contract types should be (consumable?) assets by default, transformers are always assets, because they could be partially applied and holding assets.}
+\reed{Contract types should be consumable assets by default (consuming a contract is a self-destruct?), transformers are always assets, because they could be partially applied and holding assets.}
 
 \subsection{Statics}
 \begin{figure}[ht]
@@ -252,7 +252,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ is represents the quantity left over after flo
         \Delta = \update(\Gamma, S, \Gamma(S) \ominus \mathcal{R})
         \and
         \Delta \proves D :: \sigma \flowsto_\mathcal{S} \pi
-    }{ \Gamma \flowproves \ell : (S \sends{f} D)~\wf \flowprovesout \update(\Delta, D, (\mathcal{Q} \wedge \mathcal{R}) \oplus \Delta(D)) }
+    }{ \Gamma \flowproves (\ell : S \sends{s} D)~\wf \flowprovesout \update(\Delta, D, (\mathcal{Q} \wedge \mathcal{R}) \oplus \Delta(D)) }
 
     \inferrule*[right=Wf-Var-Def]{
     }{ \Gamma \flowproves (\var~x : \mathcal{Q}~T)~\wf \flowprovesout \Gamma, x : \emptyq~T }
