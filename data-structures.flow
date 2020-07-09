@@ -38,5 +38,5 @@ type User is asset {
     items : set Item
 }
 
-items : collection User identified by name
+items : collection Item identified by User or id
 

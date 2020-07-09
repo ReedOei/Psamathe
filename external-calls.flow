@@ -39,8 +39,8 @@ contract lockEtherPay {
               and tokenBalance() > 0
 
         initial --[ this.address ]-> locked
-  	    start_time := now
-  	    end_time := start_time + 52 weeks
+        start_time := now
+        end_time := start_time + 52 weeks
 
     view lockOver() returns bool := now > end_time
 
