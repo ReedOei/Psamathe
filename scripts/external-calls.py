@@ -1,6 +1,7 @@
 import sys
 from slither.slither import Slither
 from slither.exceptions import SlitherError
+from slither.core.declarations import Function
 
 from collections import Counter
 
@@ -52,6 +53,19 @@ def internal_state_change_calls(state_changing_func_names):
 def non_library_calls(node):
     return list(set(node.high_level_calls) - set(node.library_calls))
 
+def declarer(default, func):
+    if isinstance(func, Function):
+        return func.contract_declarer
+    else:
+        return default
+
+def signature(func):
+    name, args, ret = func.signature
+    # This can happen when we access some public field using accessor notation (e.g., c.field())
+    if not isinstance(ret, list):
+        ret = [ret]
+    return (name, tuple(map(str, args)), tuple(map(str, ret)))
+
 def analyze(fname):
     res = {
         'fname': fname,
@@ -71,6 +85,9 @@ def analyze(fname):
         'reads_after_internal_state_change_call': False,
         'reads_after_external_call': False,
         'reads_after_non_library_call': False,
+        'external_call_num': 0,
+        'external_call_checked_num': 0,
+        'call_graph': {},
         'success': False
     }
 
@@ -84,9 +101,21 @@ def analyze(fname):
 
             for function in c.functions:
                 record_call_set(res, 'external', function.all_high_level_calls())
-                record_call_set(res, 'internal', [(c, f) for f in function.all_internal_calls()])
-                record_call_set(res, 'internal_state_change', [(c, f) for f in function.all_internal_calls() if f.name in state_changing_func_names])
+                record_call_set(res, 'internal', [(declarer(c, f), f) for f in function.all_internal_calls()])
+                record_call_set(res, 'internal_state_change', [(declarer(c, f), f) for f in function.all_internal_calls() if f.name in state_changing_func_names])
                 record_call_set(res, 'library', function.all_library_calls())
+
+                this_func = (c.name, signature(function))
+
+                res['call_graph'][this_func] = set()
+
+                for con, func in function.all_high_level_calls():
+                    if func is not None:
+                        res['call_graph'][this_func].add((str(con), signature(func)))
+
+                for func in function.all_internal_calls():
+                    if func is not None and isinstance(func, Function):
+                        res['call_graph'][this_func].add((str(func.contract_declarer), signature(func)))
 
                 res['writes_after_internal_call'] |= do_explore(internal_calls, lambda n: n.state_variables_written, function.entry_point)
                 res['writes_after_internal_state_change_call'] |= do_explore(internal_state_change_calls(state_changing_func_names), lambda n: n.state_variables_written, function.entry_point)
@@ -98,7 +127,15 @@ def analyze(fname):
                 res['reads_after_external_call'] |= do_explore(external_calls, lambda n: n.state_variables_read, function.entry_point)
                 res['reads_after_non_library_call'] |= do_explore(non_library_calls, lambda n: n.state_variables_read, function.entry_point)
 
+                for node in function.nodes:
+                    num = len(node.high_level_calls)
+                    if num > 0:
+                        res['external_call_num'] += num
+                        if node.is_conditional():
+                            res['external_call_checked_num'] += num
+
                 # print('External calls: {}'.format(external_calls))
+
         res['success'] = True
     except SlitherError as e:
         # raise e
