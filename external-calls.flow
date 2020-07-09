@@ -1,5 +1,5 @@
 // Based on contract at: 0x04b227b5f44409fd48d768124925deaf2f75192e
-// A common use for external calls:
+// A common use for external calls is using a Token contract to manage transactions.
 
 contract Token {
     view balanceOf(_owner : address) returns uint256
@@ -7,35 +7,7 @@ contract Token {
     transaction transfer(_to : address, _value : uint256) returns bool
 }
 
-contract Ownable {
-  address public owner;
-  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-  /**
-   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-   * account.
-   */
-  constructor() public{
-    owner = msg.sender;
-  }
-  /**
-   * @dev Throws if called by any account other than the owner.
-   */
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
-  /**
-   * @dev Allows the current owner to transfer control of the contract to a newOwner.
-   * @param newOwner The address to transfer ownership to.
-   */
-  function transferOwnership(address newOwner) onlyOwner public {
-    require(newOwner != address(0));
-    emit OwnershipTransferred(owner, newOwner);
-    owner = newOwner;
-  }
-}
-
-contract lockEtherPay is Ownable {
+contract lockEtherPay {
     token_reward : Token
 
     beneficiary : address
@@ -46,11 +18,14 @@ contract lockEtherPay is Ownable {
     locked : option address
     released : option address
 
+    owner : address
+
     event TokenReleased(beneficiary : address, token_amount : uint256)
 
     on create():
         token_reward := Token(0xAa1ae5e57dc05981D83eC7FcA0b3c7ee2565B7D6)
         beneficiary := 0xD0e05482D3E24929ffFdA2cb9A7c958d380B17aF
+        owner := msg.sender
         this.address --> initial
 
     // NOTE: Normally, I would make this transaction into a view. However, we can't be sure that the external call really is a view
