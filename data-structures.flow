@@ -1,0 +1,42 @@
+// Want to be able to lookup Items by id OR by the name of the user who owns them
+
+// Standard Solidity:
+struct Item {
+    uint256 id;
+    uint256 price;
+}
+
+struct User {
+    string name;
+    Item[] items:
+}
+
+mapping (nat => Item) items;
+mapping (string => User) users;
+// Might even have more fields here, to allow for iteration over users/items
+
+// Flow language version:
+type Item is asset {
+    id : nat,
+    price : nat
+}
+
+type User is asset {
+    name : string
+}
+
+items : linking User <=> set Item
+
+// Alternate proposal
+type Item is asset {
+    id : nat,
+    price : nat
+}
+
+type User is asset {
+    name : string,
+    items : set Item
+}
+
+items : collection User identified by name
+
