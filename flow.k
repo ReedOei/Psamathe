@@ -24,6 +24,9 @@ module FLOW
     syntax Storage ::= Resource
     syntax ResourceVal ::= Resource
                          | ErrorVal
+    syntax SelectorVal ::= Resource
+                         | SpecialSelect
+    syntax Selector ::= SelectorVal
     syntax KResult ::= ResourceVal
                      | SpecialSelect
 
@@ -86,23 +89,22 @@ module FLOW
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... (XLoc |-> resource(_, (F |-> Loc) _)) (Loc |-> Val) ... </storage>
 
-    syntax K ::= resolveStorage(Storage)
-               | resolved(SpecialStorage)
+    syntax Storage ::= resolveStorage(Storage)
 
     // NOTE: Some unfortunate duplication here...
     rule resolveStorage(I:Int) => resolveStorage(resource(nat, I))
         requires I >=Int 0
     rule resolveStorage(S:String) => resolveStorage(resource(string, S))
     rule resolveStorage(B:Bool) => resolveStorage(resource(bool, B))
-    rule resolveStorage(consume) => resolved(consume)
-    rule resolveStorage(new C(Args)) => resolved(new C(Args))
-    rule resolveStorage(Loc:StorageLoc) => resolved(Loc)
-    rule <k> resolveStorage(X) => resolved(Loc) ... </k>
+    rule resolveStorage(consume) => consume
+    rule resolveStorage(new C(Args)) => new C(Args)
+    rule resolveStorage(Loc:StorageLoc) => Loc
+    rule <k> resolveStorage(X) => Loc ... </k>
         <lookup> ... X |-> Loc ... </lookup>
-    rule <k> resolveStorage(X . F) => resolved(Loc) ... </k>
+    rule <k> resolveStorage(X . F) => Loc ... </k>
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... XLoc |-> resource(R, (F |-> Loc) _) ... </storage>
-    rule <k> resolveStorage(resource(R, V)) => resolved(!Loc) ... </k>
+    rule <k> resolveStorage(resource(R, V)) => !Loc ... </k>
         <storage> ... .Map => !Loc:StorageLoc |-> resource(R, V) ... </storage>
 
     // TODO: Finish this
@@ -117,16 +119,9 @@ module FLOW
     // =================================
     // Flows:
     // =================================
-    rule S --[ Sel ]-> D => resolveStorage(S) ~> resolveStorage(D) ~> selector(Sel)
+    rule S --[ Sel:SelectorVal ]-> D => handleFlow(Sel, resolveStorage(S), resolveStorage(D))
 
-    // NOTE: For some reason, K doesn't like the strict declaration in the
-    //  original flow construct, but here's another one that it does work for...
-    syntax K ::= selector(Selector) [strict(1)]
-               | selectorSource(Selector, SpecialStorage) [strict(1)]
-               | handleFlow(Selector, SpecialStorage, SpecialStorage) [strict(1)]
-
-    rule resolved(Source) ~> K ~> selector(Sel) => K ~> selectorSource(Sel, Source)
-    rule resolved(Dest) ~> selectorSource(Sel, Source) => handleFlow(Sel, Source, Dest)
+    syntax Stmt ::= handleFlow(SelectorVal, Storage, Storage) [strict(2,3), result(SpecialStorage)]
 
     rule <k> handleFlow(Sel, SourceLoc, consume) => . ... </k>
         <storage> ... (SourceLoc |-> (SV => subtract(SV, select(Sel, SV)))) ... </storage>
@@ -155,7 +150,7 @@ module FLOW
         </storage>
         requires select(Sel, SV) contained_in SV
 
-    syntax Resource ::= select(Selector, Resource) [function, functional]
+    syntax Resource ::= select(SelectorVal, Resource) [function, functional]
 
     // Selection (includes select, subtract, and contains)
     // TODO: Handle selectors that need to be converted (or maybe just convert by default), such as selecting from a set with a list.
@@ -199,10 +194,8 @@ module FLOW
     rule resource(list R, .List) contained_in resource(list R, _) => true
     rule resource(list R, ListItem(_) _) contained_in resource(list R, .List) => false
     rule resource(list R, ListItem(A) Rest) contained_in resource(list R, B)
-         => resource(list R, Rest) contained_in resource(list R, remove(B, A))
-         requires A in B
-    rule resource(list R, ListItem(A) Rest) contained_in resource(list R, B:List) => false
-        requires notBool(A in B)
+         =>
+         (A in B) andBool (resource(list R, Rest) contained_in resource(list R, remove(B, A)))
 
     // Convert resources: Takes a resource value and converts it to be compatible with the specified type
     //  - e.g., an option => set conversion makes `none` into the empty set and `some(A)` into a singleton containing A
@@ -309,7 +302,7 @@ module FLOW
         <transformerStack> .List => ListItem(TxLoc) ... </transformerStack>
 
     // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
-    rule <k> return Ret ~> _ ~> pack(Old, Lookup, Env) => resolveStorage(Ret) ~> resolveStorage(Loc) ~> selector(everything) ~> pack(Old, Lookup, Env) ... </k>
+    rule <k> return Ret ~> _ ~> pack(Old, Lookup, Env) => handleFlow(everything, resolveStorage(Ret), resolveStorage(Loc)) ~> pack(Old, Lookup, Env) ... </k>
         <transformerStack> ListItem(Loc) => .List ... </transformerStack>
 
     // ============================
