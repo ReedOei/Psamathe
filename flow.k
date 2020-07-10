@@ -84,6 +84,10 @@ module FLOW
     rule <k> X => Loc ... </k>
         <lookup> ... X |-> Loc ... </lookup>
 
+    rule <k> X . F => Loc ... </k>
+        <lookup> ... X |-> XLoc ... </lookup>
+        <storage> ... XLoc |-> resource(R, (F |-> Loc) _) ... </storage>
+
     // TODO: Finish this
     syntax K ::= demote(Resource)
 
@@ -276,9 +280,8 @@ module FLOW
         <transformerStack> .List => ListItem(TxLoc) ... </transformerStack>
 
     // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
-    rule <k> return resource(R, V) ~> _ ~> pack(Old, Lookup, Env) => pack(Old, Lookup, Env) ... </k>
+    rule <k> return Ret ~> _ ~> pack(Old, Lookup, Env) => handleFlow(everything, Ret, Loc) ~> pack(Old, Lookup, Env) ... </k>
         <transformerStack> ListItem(Loc) => .List ... </transformerStack>
-        <storage> ... Loc |-> (resource(R2, Cur) => combine(convert(resource(R, V), R2), resource(R2, Cur))) ... </storage>
 
     // ============================
     // New contract
@@ -287,7 +290,7 @@ module FLOW
 
     rule <k> new C(Args) --[ Sel ]-> D
              =>
-             initFields(!Loc:StorageLoc, Fields) ~> setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(!Loc) ~> S ~> pack(Old, Lookup (!Fresh:QualifiedId |-> !Loc), Env) ~> !Fresh --[ Sel ]-> D
+             initFields(!Loc:StorageLoc, Fields) ~> setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(!Loc) ~> S ~> pack(Old, Lookup, Env) ~> handleFlow(Sel, !Loc, D)
              ...
          </k>
         <storage> ... .Map => !Loc |-> resource(one C, .Map) ... </storage>

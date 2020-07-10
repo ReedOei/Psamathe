@@ -98,9 +98,9 @@ module FLOW-CORE-SYNTAX
                 | "bool"       [token]
                 | "string"     [token]
                 | "address"    [token]
+                | "unit"       [token]
     // Special reserved Ids
     syntax Id ::= "this" [token]
-                | "result" [token]
 
     syntax Contract ::= "contract" Id "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
@@ -129,8 +129,6 @@ module FLOW-SYNTAX
     syntax Action ::= "call" Storage "(" Exprs ")"
 
     syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt
-
-    syntax QualifiedId ::= freshStorage(Int) [freshGenerator, function, functional]
 
     // Desugaring
     rule S --> D => S --[ everything ]-> D [macro]

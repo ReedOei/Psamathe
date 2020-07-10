@@ -65,6 +65,8 @@ module FLOW-COMMON
 
     syntax Type ::= varDefsToProdType(VarDefs) [function]
 
+    rule varDefsToProdType(.VarDefs) => unit
+    rule varDefsToProdType(X : T1) => T1
     rule varDefsToProdType((X : T1, Y : T2)) => T1 * T2
     rule varDefsToProdType((X : T1, Y : T2, Z : T3, Rest)) => T1 * varDefsToProdType((Y : T2, Z : T3, Rest))
 
@@ -81,6 +83,7 @@ module FLOW-COMMON
     syntax Selector ::= resolveTypes(Id, Selector) [function]
 
     // Resolve types
+    // TODO: Do this better...it's very repetitive and also just assumes all types are child types of the current contract, which may not be true.
     rule resolveType(_, nat) => nat
     rule resolveType(_, bool) => bool
     rule resolveType(_, string) => string
@@ -102,12 +105,13 @@ module FLOW-COMMON
     rule resolveTypes(C, S1:Stmt S2:Stmt) => resolveTypes(C, S1) resolveTypes(C, S2)
     rule resolveTypes(C, return E) => return resolveTypes(C, E)
 
-    rule S --[ Sel1 ]-> V:Val --[ Sel2 ]-> D
-         =>
-         (V:Val --> !Fresh)
-         (S --[ Sel1 ]-> !Fresh)
-         (!Fresh --[ Sel2 ]-> D)
-         [strucural]
+    // TODO: Implement something like this
+    /* rule S --[ Sel1 ]-> V:Val --[ Sel2 ]-> D */
+    /*      => */
+    /*      (V:Val --> !Fresh) */
+    /*      (S --[ Sel1 ]-> !Fresh) */
+    /*      (!Fresh --[ Sel2 ]-> D) */
+    /*      [strucural] */
 
     // Resolve selector types
     rule resolveTypes(_, S:SpecialSelect) => S

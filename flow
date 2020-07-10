@@ -5,7 +5,7 @@ FLAGS=()
 if [[ "$1" == "--debug" ]]; then
     FLAGS+=("--log")
     FLAGS+=("--log-cells")
-    FLAGS+=("(k),(#pc),#result,(storage),(lookup),(localTypeEnv),(returnValueStack)")
+    FLAGS+=("(k),(#pc),#result,(storage),(lookup),(localTypeEnv)")
     shift # Clear out the debug argument
 fi
 
