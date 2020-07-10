@@ -76,6 +76,8 @@ def main(args):
     has_recursive_loop = 0
     external_call_num = 0
     external_call_checked_num = 0
+    uses_require = 0
+    uses_assert = 0
 
     with open(fname, 'r') as f:
         for line in tqdm(read_file(f)):
@@ -105,6 +107,9 @@ def main(args):
 
             external_call_num += res['external_call_num']
             external_call_checked_num += res['external_call_checked_num']
+
+            uses_require += 1 if res['internal_func'].get('require(bool)', 0) > 0 else 0
+            uses_assert += 1 if res['internal_func'].get('assert(bool)', 0) > 0 else 0
 
             for k in counts:
                 if res[k]:
@@ -139,6 +144,10 @@ def main(args):
     print('Uses recursive loops: {}'.format(has_recursive_loop))
     print('External calls: {}'.format(external_call_num))
     print('Checked external calls: {}'.format(external_call_checked_num))
+    print('Uses assert: {}'.format(uses_assert))
+    print('Uses require: {}'.format(uses_require))
+    print('Assert calls: {}'.format(results['internal_func']['assert(bool)']))
+    print('Require calls: {}'.format(results['internal_func']['require(bool)']))
 
     # for k in results:
     #     if isinstance(results[k], Counter):

@@ -7,10 +7,8 @@ from collections import Counter
 
 def record_call_set(res, call_set_name, it):
     for con, func in [(str(con), str(func)) for con, func in it]:
-        # require(E) doesn't really count as an internal call...
-        if not 'require(bool)' in func:
-            res[call_set_name + '_func'][func] += 1
-            res[call_set_name + '_call'][(con, func)] += 1
+        res[call_set_name + '_func'][func] += 1
+        res[call_set_name + '_call'][(con, func)] += 1
 
 def explore_call_usage(calls, f, found_call, explored, node):
     to_explore = [node]
