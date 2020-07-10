@@ -199,7 +199,7 @@ module FLOW
 
     // Convert resources: Takes a resource value and converts it to be compatible with the specified type
     //  - e.g., an option => set conversion makes `none` into the empty set and `some(A)` into a singleton containing A
-    syntax ResourceVal ::= convert(Resource, BaseType) [function]
+    syntax ResourceVal ::= convert(Resource, BaseType) [function, functional]
 
     // TODO: How to avoid tedious case analysis?
 
@@ -241,7 +241,7 @@ module FLOW
     rule convert(resource(list R, A), set R) => resource(set R, List2Set(A))
 
     // Combine resources: takes two collections of values and makes a single collection.
-    syntax ResourceVal ::= combine(ResourceVal, ResourceVal) [function]
+    syntax ResourceVal ::= combine(ResourceVal, ResourceVal) [function, functional]
 
     // Error propagation
     rule combine(revert(E), _) => revert(E)
