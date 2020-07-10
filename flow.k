@@ -93,6 +93,9 @@ module FLOW
     syntax K ::= demote(Resource)
 
     rule demote(resource(one nat, V)) => resource(one nat, V)
+    rule demote(resource(one bool, V)) => resource(one bool, V)
+    rule demote(resource(one string, V)) => resource(one string, V)
+    rule demote(resource(one address, V)) => resource(one address, V)
 
     // =================================
     // Flows:
@@ -253,14 +256,8 @@ module FLOW
     rule defaultValue(list R) => resource(set R, .List)
 
     // =================================
-    // Actions:
-    // =================================
-
-    // Action sequencing
-    rule .Actions => . [structural]
-    rule A1:Action As:Actions => A1 ~> As [structural]
-
     // Externals calls:
+    // =================================
     syntax K ::= setupArgs(Exprs, VarDefs) [function]
 
     rule setupArgs(.Exprs, .VarDefs) => .
@@ -272,7 +269,7 @@ module FLOW
         <localTypeEnv> Env => removeAll(Env, ToRemove) </localTypeEnv>
         <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
 
-    rule <k> call X.T(ActualArgs) asserting E => setupArgs(ActualArgs, FormalArgs) ~> cleanEnv(keys(Env)) ~> doUnpack(Fs) ~> S ~> pack(Old, (X |-> XLoc) Lookup, Env) ~> assert(E) ... </k>
+    rule <k> X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> cleanEnv(keys(Env)) ~> doUnpack(Fs) ~> S ~> pack(Old, (X |-> XLoc) Lookup, Env) ... </k>
         <lookup> ((X |-> XLoc) Lookup) </lookup>
         <storage> ... XLoc |-> resource(one C, Fs) ... </storage>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
@@ -280,19 +277,9 @@ module FLOW
         <localTypeEnv> Env </localTypeEnv>
         <currentContract> Old => C </currentContract>
 
-    syntax K ::= assert(Expr)
-               | assertTrue(Expr) [strict]
-
     // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
-    rule <k> return resource(R, V) ~> _ ~> pack(Old, Lookup, Env) ~> assert(E) => pack(Old, Lookup, Env) ~> assert(E) ... </k>
+    rule <k> return resource(R, V) ~> _ ~> pack(Old, Lookup, Env) => pack(Old, Lookup, Env) ... </k>
         <returnValueStack> .List => ListItem(resource(R, V)) ... </returnValueStack>
-
-    rule <k> assert(E) => assertTrue(E[result |-> V]) ... </k>
-        <returnValueStack> ListItem(V) => .List ... </returnValueStack>
-
-    // TODO: Handle the case that they're not equal by reverting
-    rule assertTrue(resource(one bool, true)) => .
-    rule assertTrue(resource(one bool, false)) => revert("Assertion not true")
 
     // ============================
     // New contract

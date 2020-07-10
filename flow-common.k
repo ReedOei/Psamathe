@@ -35,12 +35,12 @@ module FLOW-COMMON
 
     syntax KItem ::= constructor(VarDefs, Stmt)
 
-    rule <k> contract C { Ds } Cs ; S A => processDecls(C, Ds) ~> Cs ; S A ... </k>
+    rule <k> contract C { Ds } Cs ; S => processDecls(C, Ds) ~> Cs ; S ... </k>
         <contracts> ... .Map => C |-> contract C { Ds } ... </contracts>
         <fields> ... .Map => C |-> .Set ... </fields>
         <constructors> ... .Map => C |-> constructor(.VarDefs, pass) ... </constructors>
         [structural]
-    rule .Contracts ; S A => S ~> A [structural]
+    rule .Contracts ; S => S [structural]
 
     syntax Set ::= modToSet(Modifiers) [function]
     rule modToSet(.Modifiers) => .Set

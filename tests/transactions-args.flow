@@ -22,5 +22,6 @@ new Main() --> x
 781 --> a
 611 --> b
 
-call x.add(a, b) asserting result = 1392
+var res : nat
+x.add(a, b) --> res
 

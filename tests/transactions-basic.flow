@@ -11,5 +11,5 @@ contract Main {
 var x : Main
 new Main() --> x
 
-call x.addOne()
+x.addOne()
 

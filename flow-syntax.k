@@ -89,6 +89,7 @@ module FLOW-CORE-SYNTAX
                   | "var" VarDef ":=" Expr
                   | "pass" [token]
                   | "return" Expr [strict]
+                  | Expr
                   | Stmt Stmt [right]
 
     // Add the built-in types to the Id sort so we can reference them in the rules
@@ -103,12 +104,7 @@ module FLOW-CORE-SYNTAX
     syntax Contract ::= "contract" Id "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
 
-    syntax Action ::= "emit" Id "(" Exprs ")"
-                    | "error" "(" Expr ")"
-                    | "call" Storage "(" Exprs ")" "asserting" Expr
-    syntax Actions ::= List{Action, " "}
-
-    syntax Program ::= Contracts ";" Stmt Actions
+    syntax Program ::= Contracts ";" Stmt
 endmodule
 
 module FLOW-SYNTAX
@@ -157,8 +153,6 @@ module FLOW-SYNTAX
     rule exactly one => ! [macro]
     rule any => * [macro]
     rule at least one => + [macro]
-
-    rule call S(Es) => call S(Es) asserting true [macro]
 
     rule transaction T(Args): S
          =>
