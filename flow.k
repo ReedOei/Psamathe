@@ -19,15 +19,13 @@ module FLOW
                       // This can be stored in the middle of a transaction, but not at the end, unless the reference is temporary.
                       | "emptySingleton" [token]
                       | StorageLoc
-
     syntax ErrorVal ::= revert(String)
     syntax Resource ::= resource(Type, BasicVal)
+    syntax Storage ::= Resource
     syntax ResourceVal ::= Resource
                          | ErrorVal
-    syntax SpecialStorage ::= ResourceVal
     syntax KResult ::= ResourceVal
                      | SpecialSelect
-                     | SpecialStorage
 
     syntax Id ::= "NoContract" [token]
                 // A special Id to be used as the "location" of the current contract in the global scope.
@@ -45,6 +43,7 @@ module FLOW
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
 
+    // Pass
     rule pass => .
 
     // Temporary variable declaration
@@ -55,9 +54,7 @@ module FLOW
 
     rule I:Int => resource(one nat, I)
         requires I >=Int 0
-
     rule B:Bool => resource(one bool, B)
-
     rule S:String => resource(one string, S)
 
     // Simple arithmetic and boolean expressions
@@ -75,21 +72,41 @@ module FLOW
     rule resource(one bool, false) and _ => resource(one bool, false)
     rule resource(one bool, true) or _ => resource(one bool, true)
     rule resource(one bool, false) or B => B
-    rule not resource(one bool, B) => notBool B
+    rule not resource(one bool, B) => resource(one bool, notBool B)
 
     rule if resource(one bool, true) then A else _ => A
     rule if resource(one bool, false) then _ else B => B
 
     // Variable lookup
-    rule <k> X => Loc ... </k>
+    rule <k> X => demote(Val) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
+        <storage> ... Loc |-> Val ... </storage>
 
-    rule <k> X . F => Loc ... </k>
+    rule <k> X . F => demote(Val) ... </k>
+        <lookup> ... X |-> XLoc ... </lookup>
+        <storage> ... (XLoc |-> resource(_, (F |-> Loc) _)) (Loc |-> Val) ... </storage>
+
+    syntax K ::= resolveStorage(Storage)
+               | resolved(SpecialStorage)
+
+    // NOTE: Some unfortunate duplication here...
+    rule resolveStorage(I:Int) => resolveStorage(resource(one nat, I))
+        requires I >=Int 0
+    rule resolveStorage(S:String) => resolveStorage(resource(one string, S))
+    rule resolveStorage(B:Bool) => resolveStorage(resource(one bool, B))
+    rule resolveStorage(consume) => resolved(consume)
+    rule resolveStorage(new C(Args)) => resolved(new C(Args))
+    rule resolveStorage(Loc:StorageLoc) => resolved(Loc)
+    rule <k> resolveStorage(X) => resolved(Loc) ... </k>
+        <lookup> ... X |-> Loc ... </lookup>
+    rule <k> resolveStorage(X . F) => resolved(Loc) ... </k>
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... XLoc |-> resource(R, (F |-> Loc) _) ... </storage>
+    rule <k> resolveStorage(resource(R, V)) => resolved(!Loc) ... </k>
+        <storage> ... .Map => !Loc:StorageLoc |-> resource(R, V) ... </storage>
 
     // TODO: Finish this
-    syntax K ::= demote(Resource)
+    syntax Resource ::= demote(Resource)
 
     rule demote(resource(one nat, V)) => resource(one nat, V)
     rule demote(resource(one bool, V)) => resource(one bool, V)
@@ -99,27 +116,36 @@ module FLOW
     // =================================
     // Flows:
     // =================================
-
-    // Primitive flows
-    rule <k> Val:Resource --[ Sel ]-> D => handleFlow(Sel, !Loc, D) ... </k>
-        <storage> ... .Map => !Loc:StorageLoc |-> Val ... </storage>
-
-    rule A --[ nothing ]-> B => .
-
-    rule S:StorageLoc --[ Sel ]-> D => handleFlow(Sel, S, D)
-        requires Sel =/=K nothing
+    rule S --[ Sel ]-> D => resolveStorage(S) ~> resolveStorage(D) ~> selector(Sel)
 
     // NOTE: For some reason, K doesn't like the strict declaration in the
     //  original flow construct, but here's another one that it does work for...
-    syntax K ::= handleFlow(Selector, SpecialStorage, SpecialStorage) [strict]
+    syntax K ::= selector(Selector) [strict(1)]
+               | selectorSource(Selector, SpecialStorage) [strict(1)]
+               | handleFlow(Selector, SpecialStorage, SpecialStorage) [strict(1)]
+
+    rule resolved(Source) ~> K ~> selector(Sel) => K ~> selectorSource(Sel, Source)
+    rule resolved(Dest) ~> selectorSource(Sel, Source) => handleFlow(Sel, Source, Dest)
 
     rule <k> handleFlow(Sel, SourceLoc, consume) => . ... </k>
         <storage> ... (SourceLoc |-> (SV => subtract(SV, select(Sel, SV)))) ... </storage>
         requires select(Sel, SV) contained_in SV
+
+    rule <k> handleFlow(Sel, new C(Args), D)
+             =>
+             initFields(!Loc:StorageLoc, Fields) ~> setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(!Loc) ~> S ~> pack(Old, Lookup, Env) ~> handleFlow(Sel, !Loc, D)
+             ...
+         </k>
+        <storage> ... .Map => !Loc |-> resource(one C, .Map) ... </storage>
+        <localTypeEnv> Env </localTypeEnv>
+        <lookup> Lookup </lookup>
+        <currentContract> Old => C </currentContract>
+        <fields> ... C |-> Fields ... </fields>
+        <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
+
     rule <k> handleFlow(Sel, SourceLoc, DestLoc) => put(combine(convert(select(Sel, SV), DestR), resource(DestR, Cur)), DestLoc) ... </k>
         <storage>
             ...
-
             (SourceLoc |-> SV)
             (DestLoc |-> resource(DestR, Cur))
             =>
@@ -246,7 +272,7 @@ module FLOW
     rule <k> put(R:Resource, Loc) => . ... </k>
         <storage> ... .Map => Loc |-> R ... </storage>
 
-    syntax Resource ::= defaultValue(Type) [function]
+    syntax Resource ::= defaultValue(Type) [function, functional]
 
     rule defaultValue(one nat) => resource(one nat, 0)
     rule defaultValue(one R) => resource(empty R, emptySingleton)
@@ -257,7 +283,7 @@ module FLOW
     rule defaultValue(T1 ~~> T2) => resource(list T2, .List)
 
     // =================================
-    // Externals calls:
+    // Transaction calls:
     // =================================
     syntax K ::= setupArgs(Exprs, VarDefs) [function]
 
@@ -280,25 +306,13 @@ module FLOW
         <transformerStack> .List => ListItem(TxLoc) ... </transformerStack>
 
     // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
-    rule <k> return Ret ~> _ ~> pack(Old, Lookup, Env) => handleFlow(everything, Ret, Loc) ~> pack(Old, Lookup, Env) ... </k>
+    rule <k> return Ret ~> _ ~> pack(Old, Lookup, Env) => resolveStorage(Ret) ~> resolveStorage(Loc) ~> selector(everything) ~> pack(Old, Lookup, Env) ... </k>
         <transformerStack> ListItem(Loc) => .List ... </transformerStack>
 
     // ============================
     // New contract
     // ============================
     syntax K ::= initFields(StorageLoc, Set)
-
-    rule <k> new C(Args) --[ Sel ]-> D
-             =>
-             initFields(!Loc:StorageLoc, Fields) ~> setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(!Loc) ~> S ~> pack(Old, Lookup, Env) ~> handleFlow(Sel, !Loc, D)
-             ...
-         </k>
-        <storage> ... .Map => !Loc |-> resource(one C, .Map) ... </storage>
-        <localTypeEnv> Env </localTypeEnv>
-        <lookup> Lookup </lookup>
-        <currentContract> Old => C </currentContract>
-        <fields> ... C |-> Fields ... </fields>
-        <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
 
     rule initFields(Loc, .Set) => .
     rule <k> initFields(Loc, SetItem(X : T) Rest) => initFields(Loc, Rest) ... </k>
@@ -332,7 +346,7 @@ module FLOW
         <lookup> _ => Lookup </lookup>
         <currentContract> _ => Cls </currentContract>
 
-    rule <k> pack(Cls, Lookup, Env) ... </k>
+    rule <k> pack(_, _, _) ... </k>
         <localTypeEnv> ... X |-> _ => .Map ... </localTypeEnv>
         <lookup> ... X |-> Loc:StorageLoc ... </lookup>
         <storage> Store => removeAll(Store, SetItem(Loc)) </storage>

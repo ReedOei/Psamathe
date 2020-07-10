@@ -16,7 +16,7 @@ var x : Main
 
 new Main() --> x
 
-call x.add(25)
-call x.add(75)
-call x.remove(60) asserting result = 60
+x.add(25)
+x.add(75)
+x.remove(60)
 

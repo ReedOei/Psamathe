@@ -51,8 +51,6 @@ module FLOW-COMMON
         <types> ... .Map => C.T |-> modified(modToSet(Mods), BaseType) ... </types>
         [structural]
 
-    syntax Expr ::= defaultExpr(Type) [function]
-
     rule <k> processDecls(C, (X : T) Ds) => processDecls(C, Ds) ... </k>
         <fields> ... C |-> (Fields => Fields SetItem(X : canonicalize(resolveType(C, T)))) ... </fields>
         [structural]
@@ -66,9 +64,9 @@ module FLOW-COMMON
     syntax Type ::= varDefsToProdType(VarDefs) [function]
 
     rule varDefsToProdType(.VarDefs) => unit
-    rule varDefsToProdType(X : T1) => T1
-    rule varDefsToProdType((X : T1, Y : T2)) => T1 * T2
-    rule varDefsToProdType((X : T1, Y : T2, Z : T3, Rest)) => T1 * varDefsToProdType((Y : T2, Z : T3, Rest))
+    rule varDefsToProdType(_ : T1) => T1
+    rule varDefsToProdType((_ : T1, _ : T2)) => T1 * T2
+    rule varDefsToProdType((_ : T1, Y : T2, Z : T3, Rest)) => T1 * varDefsToProdType((Y : T2, Z : T3, Rest))
 
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
         <fields> ... C |-> (Fields => Fields SetItem(T : varDefsToProdType(resolveTypes(C, Args)) ~~> resolveType(C, RetType))) ... </fields>

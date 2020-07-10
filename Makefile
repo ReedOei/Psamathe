@@ -3,7 +3,7 @@ FLAGS :=
 
 all: $(wildcard tests/*.flow)
 
-common:
+common: flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --backend java flow-common.k
 
 kompile: dynamic/flow-kompiled/timestamp static/flow-typecheck-kompiled/timestamp

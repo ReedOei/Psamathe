@@ -19,11 +19,12 @@ module FLOW-CORE-SYNTAX
 
     /* syntax TupleExpr ::= "(" Exprs ")" // Tuples */
 
+    syntax FunctionCall ::= Storage "(" Exprs ")"
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]
                   | "{" Exprs "}" // Set literals
                   /* | TupleExpr */
-                  | Storage "(" Exprs ")" // Function call
+                  | FunctionCall
                   > Expr "or" Expr [strict(1)]
                   | Expr "and" Expr [strict(1)]
                   > Expr "+" Expr [left, seqstrict]
@@ -39,7 +40,6 @@ module FLOW-CORE-SYNTAX
                    | Vals
 
     syntax SpecialSelect ::= "everything" [token]
-                           | "nothing" [token]
     // Quantifiers and their symbol synonyms
     syntax Quant ::= "!"
                    | "*"
@@ -49,7 +49,7 @@ module FLOW-CORE-SYNTAX
                       | Quant Id ":" Type "such" "that" Expr [binder]
 
     syntax Flow ::= Storage
-                  | Storage "--[" Selector "]->" Flow [strict]
+                  | Storage "--[" Selector "]->" Flow [strict(2)]
 
     // TODO: Maybe get rid of nonfungible or fungible and have be the default
     // TODO: Warn if people put consumable on non-asset types, because that's redundant.
@@ -90,7 +90,7 @@ module FLOW-CORE-SYNTAX
                   | "var" VarDef ":=" Expr
                   | "pass" [token]
                   | "return" Expr [strict]
-                  | Expr
+                  | FunctionCall
                   | Stmt Stmt [right]
 
     // Add the built-in types to the Id sort so we can reference them in the rules
@@ -125,8 +125,6 @@ module FLOW-SYNTAX
 
     syntax Flow ::= Storage "-->" Flow
                   | Storage ":=" Expr // Assignment only allowed for consumable types
-
-    syntax Action ::= "call" Storage "(" Exprs ")"
 
     syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt
 

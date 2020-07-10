@@ -9,5 +9,5 @@ contract Main {
 
 var x : Main
 new Main() --> x
-call x.foo() asserting result = 0
+x.foo()
 
