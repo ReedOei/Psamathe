@@ -1,12 +1,12 @@
 contract Main {
-    transaction foo(n : nat) returns nat:
-        var t : nat
+    transaction foo(n : ! nat) returns ! nat:
+        var t : ! nat
         n --> t
         12 --> t
         return t
 
-    transaction add(n : nat, m : nat) returns nat:
-        var t : nat
+    transaction add(n : ! nat, m : ! nat) returns ! nat:
+        var t : ! nat
         n --> t
         m --> t
         return t
@@ -14,15 +14,15 @@ contract Main {
 
 ;
 
-var x : Main
-var a : nat
-var b : nat
+var x : ! Main
+var a : ! nat
+var b : ! nat
 
 new Main() --> x
 781 --> a
 611 --> b
 
-var res : nat
+var res : ! nat
 x.add(a,b)
 x.add --> res
 

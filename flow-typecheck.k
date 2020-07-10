@@ -26,17 +26,18 @@ module FLOW-TYPECHECK
 
     rule <k> S:Stmt => S wf </k>
 
-    /* // Sequence */
-    rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf
+    // Sequence
+    /* rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf */
 
-    /* // Variable definition */
-    /* rule Gamma |- (var X : T in S) wf => Gamma (X |-> T) |- S wf */
+    // Variable definition
+    /* rule <k> (var X : Q T) wf => . ... </k> */
+    /*     <typeEnv> ... .Map => X |-> empty T ... </typeEnv> */
 
-    syntax Type ::= demote(Type) [function]
-    rule demote(nat) => nat
-    rule demote(bool) => bool
-    rule demote(string) => string
-    rule demote(address) => address
+    /* syntax Type ::= demote(Type) [function] */
+    /* rule demote(nat) => nat */
+    /* rule demote(bool) => bool */
+    /* rule demote(string) => string */
+    /* rule demote(address) => address */
 
     /* // Flow typing */
     /* rule Gamma |- (S --[ Sel ]-> D) wf => Gamma |- (S --[ Sel ]-> D) : ?T1 ~~> ?T2 */

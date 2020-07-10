@@ -41,9 +41,9 @@ module FLOW-CORE-SYNTAX
 
     syntax SpecialSelect ::= "everything" [token]
     // Quantifiers and their symbol synonyms
-    syntax Quant ::= "!"
-                   | "*"
-                   | "+"
+    syntax Quant ::= "!" [token]
+                   | "any" [token]
+                   | "nonempty" [token]
     syntax Selector ::= Expr
                       | SpecialSelect
                       | Quant Id ":" Type "such" "that" Expr [binder]
@@ -60,19 +60,19 @@ module FLOW-CORE-SYNTAX
                       | "copyable"    [token]
     syntax Modifiers ::= List{Modifier, " "}
 
-    syntax TypeQuant ::= "set" [token]
-                       | "one" [token]
-                       | "option" [token]
-                       | "list" [token]
+    syntax TypeQuant ::= Quant
                        | "empty" [token]
+                       | "every" [token]
 
-    syntax QuantifiedType ::= TypeQuant Type
     syntax BaseType ::= QualifiedId
                       | Type "*" Type
                       | Type "~~>" Type
+                      | "set" Type
+                      | "list" Type
+                      | "option" Type
                       | "(" Type ")" [bracket]
-    syntax Type ::= BaseType
-                  | QuantifiedType
+    // TODO: Add syntactic sugar that allows users to not always write the type quantity.
+    syntax Type ::= TypeQuant BaseType
 
     syntax VarDef ::= Id ":" Type
     syntax VarDefs ::= List{VarDef, ","}
@@ -120,8 +120,6 @@ module FLOW-SYNTAX
 
     // Quantifiers "speaking names"
     syntax Quant ::= "exactly" "one"
-                   | "any"
-                   | "at" "least" "one"
 
     syntax Flow ::= Storage "-->" Flow
                   | Storage ":=" Expr // Assignment only allowed for consumable types
@@ -148,12 +146,10 @@ module FLOW-SYNTAX
     rule F:Selector not in S => not (F in S) [macro]
 
     rule exactly one => ! [macro]
-    rule any => * [macro]
-    rule at least one => + [macro]
 
     rule transaction T(Args): S
          =>
-         transaction T(Args) returns bool: S (return true)
+         transaction T(Args) returns ! bool: S (return true)
          [macro]
 endmodule
 

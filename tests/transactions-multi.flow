@@ -1,18 +1,18 @@
 contract Main {
-    balance : nat
+    balance : ! nat
 
-    transaction add(n : nat):
+    transaction add(n : ! nat):
         n --> this.balance
 
-    transaction remove(m : nat) returns nat:
-        var t : nat
+    transaction remove(m : ! nat) returns ! nat:
+        var t : ! nat
         this.balance --[ m ]-> t
         return t
 }
 
 ;
 
-var x : Main
+var x : ! Main
 
 new Main() --> x
 

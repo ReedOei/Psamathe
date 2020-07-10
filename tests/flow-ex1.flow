@@ -2,11 +2,11 @@ contract Main {}
 
 ;
 
-var A : nat
-var B : nat
-var C : nat
-var D : set string
-var E : set string
+var A : ! nat
+var B : ! nat
+var C : ! nat
+var D : any set ! string
+var E : any set ! string
 
 2 --> A
 A --[ 1 ]-> B

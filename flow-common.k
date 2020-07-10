@@ -19,10 +19,10 @@ module FLOW-COMMON
             <constructors> .Map </constructors>
             <transactions> .Map </transactions>
             <types>
-                nat |-> modified(SetItem(consumable) SetItem(fungible), nat)
-                string |-> modified(SetItem(consumable) SetItem(nonfungible), string)
-                bool |-> modified(SetItem(consumable) SetItem(nonfungible), bool)
-                address |-> modified(SetItem(consumable) SetItem(nonfungible), address)
+                nat |-> modified(SetItem(consumable) SetItem(fungible), ! nat)
+                string |-> modified(SetItem(consumable) SetItem(nonfungible), ! string)
+                bool |-> modified(SetItem(consumable) SetItem(nonfungible), ! bool)
+                address |-> modified(SetItem(consumable) SetItem(nonfungible), ! address)
             </types>
             <log stream="stdout"> .List </log>
         </common>
@@ -52,10 +52,10 @@ module FLOW-COMMON
         [structural]
 
     rule <k> processDecls(C, (X : T) Ds) => processDecls(C, Ds) ... </k>
-        <fields> ... C |-> (Fields => Fields SetItem(X : canonicalize(resolveType(C, T)))) ... </fields>
+        <fields> ... C |-> (Fields => Fields SetItem(X : resolveType(C, T))) ... </fields>
         [structural]
     rule <k> processDecls(C, (X : T := E) Ds) => processDecls(C, Ds) ... </k>
-        <fields> ... C |-> (Fields => Fields SetItem(X : canonicalize(resolveType(C, T)))) ... </fields>
+        <fields> ... C |-> (Fields => Fields SetItem(X : resolveType(C, T))) ... </fields>
         <constructors> ... C |-> constructor(_, S => S (E --> X)) ... </constructors>
         [structural]
 
@@ -63,17 +63,18 @@ module FLOW-COMMON
 
     syntax Type ::= varDefsToProdType(VarDefs) [function]
 
-    rule varDefsToProdType(.VarDefs) => unit
+    rule varDefsToProdType(.VarDefs) => ! unit
     rule varDefsToProdType(_ : T1) => T1
-    rule varDefsToProdType((_ : T1, _ : T2)) => T1 * T2
-    rule varDefsToProdType((_ : T1, Y : T2, Z : T3, Rest)) => T1 * varDefsToProdType((Y : T2, Z : T3, Rest))
+    rule varDefsToProdType((_ : T1, _ : T2)) => ! (T1 * T2)
+    rule varDefsToProdType((_ : T1, Y : T2, Z : T3, Rest)) => ! (T1 * varDefsToProdType((Y : T2, Z : T3, Rest)))
 
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
-        <fields> ... C |-> (Fields => Fields SetItem(T : varDefsToProdType(resolveTypes(C, Args)) ~~> resolveType(C, RetType))) ... </fields>
+        <fields> ... C |-> (Fields => Fields SetItem(T : any (varDefsToProdType(resolveTypes(C, Args)) ~~> resolveType(C, RetType)))) ... </fields>
         <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, S)) ... </transactions>
         [structural]
 
     syntax Type ::= resolveType(Id, Type) [function]
+    syntax BaseType ::= resolveType(Id, BaseType) [function]
     syntax VarDefs ::= resolveTypes(Id, VarDefs) [function]
     syntax Stmt ::= resolveTypes(Id, Stmt) [function]
     syntax Flow ::= resolveTypes(Id, Flow) [function]
@@ -86,6 +87,7 @@ module FLOW-COMMON
     rule resolveType(_, bool) => bool
     rule resolveType(_, string) => string
     rule resolveType(_, address) => address
+    rule resolveType(_, unit) => unit
     rule resolveType(C, T:Id) => C.T
         requires T =/=K nat andBool T =/=K bool andBool T =/=K address andBool T =/=K string
     rule resolveType(_, X.T) => X.T
@@ -125,27 +127,17 @@ module FLOW-COMMON
     rule resolveTypes(C, X[E]) => resolveTypes(C, X) [ resolveTypes(C, E) ]
     // TODO: Finish all cases of resolveTypes
 
-    syntax Type ::= canonicalize(Type) [function]
+    /* syntax K ::= checkConsumable(Type) */
 
-    // TODO: Finish this
-    rule canonicalize(X:Id) => one X
-    rule canonicalize(one Q:TypeQuant T) => canonicalize(Q T)
-    rule canonicalize(Q:TypeQuant one T) => canonicalize(Q T)
-    rule canonicalize(set T) => set T
-    rule canonicalize(option T) => option T
-    rule canonicalize(list T) => list T
+    /* rule checkConsumable(Q:TypeQuant T) => checkConsumable(T) */
 
-    syntax K ::= checkConsumable(Type)
+    /* rule <k> checkConsumable(T) => . ... </k> */
+    /*     <types> ... T |-> modified(SetItem(consumable) _, _) ... </types> */
 
-    rule checkConsumable(Q:TypeQuant T) => checkConsumable(T)
-
-    rule <k> checkConsumable(T) => . ... </k>
-        <types> ... T |-> modified(SetItem(consumable) _, _) ... </types>
-
-    rule checkConsumable(T1 * T2) => checkConsumable(T1) ~> checkConsumable(T2)
+    /* rule checkConsumable(T1 * T2) => checkConsumable(T1) ~> checkConsumable(T2) */
     // TODO: Finish the consumable rules
 
-    syntax K ::= nonAsset(Type)
+    /* syntax K ::= nonAsset(Type) */
     /* rule nonAsset(nat) => . */
     /* rule nonAsset(bool) => . */
     /* rule nonAsset(string) => . */

@@ -1,14 +1,14 @@
 contract Main {
-    balance : nat
+    balance : ! nat
 
-    transaction addOne() returns bool:
+    transaction addOne() returns ! bool:
         1 --> this.balance
         return true
 }
 
 ;
 
-var x : Main
+var x : ! Main
 new Main() --> x
 
 x.addOne()
