@@ -35,8 +35,8 @@
     n &\in \Z & \ell &\in \textsc{FlowLabels} \\
 \end{align*}
 \begin{tabular}{l r l l}
-    $\mathfrak{q}$ & \bnfdef & $!$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
-    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\infty$ & (\typeQuantities) \\
+    $\mathfrak{q}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
+    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\every$ & (\typeQuantities) \\
     $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\listq~\tau$ \bnfalt $\setq~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\curlys{}$ \bnfalt $[]$ \bnfalt $\lambda x : \tau. E$ & (values) \\
@@ -46,7 +46,7 @@
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
     $F$ & \bnfdef & $\ell: \mathcal{N} \sends{s} \mathcal{N}$ & (flows) \\
-    $\Stmt$ & \bnfdef & $x.m(\overline{x})$ \bnfalt $\revert(E)$ \bnfalt $F$ \bnfalt $\tryS~S~\catchS(x : \tau)~S$ \bnfalt $\ifS~E~\thenS~S$ \bnfalt $\var~x:\tau$ \bnfalt $\var~x:\tau := E$ \bnfalt $S;S$ & (statements) \\
+    $\Stmt$ & \bnfdef & $x.m(\overline{x})$ \bnfalt $\revert(E)$ \bnfalt $F$ \bnfalt $\tryS~S~\catchS(x : \tau)~S$ \bnfalt $\ifS~x~\thenS~S$ \bnfalt $\var~x:\tau$ \bnfalt $\var~x:\tau := E$ \bnfalt $S;S$ & (statements) \\
     % $A$ & \bnfdef & $\error(E)$ \bnfalt $\call~x.m(\overline{x})~\asserting~E$ \bnfalt $\emit~E(\overline{x})$ & (actions) \\
     % $H$ & \bnfdef & $\onfail{\overline{\ell}}~\doC~\overline{A}$ \bnfalt $\onsuccess{\overline{\ell}}~\doC~\overline{A}$ & (handlers) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
@@ -64,10 +64,11 @@
 \label{lang-syntax}
 \end{figure}
 
-In the surface language, ``container types'' like $\setq$ and $\listq$ are by default $\any$, but types like $\natt$ or $\natt \times \natt$ are $!$.
+In the surface language, ``container types'' like $\setq$ and $\listq$ are by default $\any$, but types like $\natt$ or $\natt \times \natt$ are $\exactlyone$.
 
-\reed{Could get rid of selecting by locations and only allowed selecting with quantifiers, and just optimize things like $!~x:\tau~\suchthat~x = y$ into a lookup.
-Also, allowing \textbf{any} type quantity in a selector lets us do away with everything.}
+\reed{Could get rid of selecting by locations and only allowed selecting with quantifiers, and just optimize things like $\exactlyone~x:\tau~\suchthat~x = y$ into a lookup.
+Also, allowing \textbf{any} type quantity in a selector lets us do away with everything.
+Would actually be even nicer if we allowed any type quantity to appear in the quantifier, because then we wouldn't even need a special rule for everything.}
 \reed{We could also get rid of ``if'' and instead do something like $\any~x:\tau~\suchthat~\ifS~b~\thenS~x = y~\elseS~false$}
 
 \reed{Contract types should be consumable assets by default (consuming a contract is a self-destruct?), transformers are always assets, because they could be partially applied and holding assets.}
@@ -81,8 +82,8 @@ Also, allowing \textbf{any} type quantity in a selector lets us do away with eve
 \end{figure}
 
 \begin{definition}
-    Define $\textbf{Quant} = \curlys{\emptyq, \any, !, \nonempty, \infty}$, and call any $\mathcal{Q} \in \textbf{Quant}$ a \emph{type quantity}.
-    Define $\emptyq \leq \any \leq \,\, ! \leq \nonempty \leq \infty$.
+    Define $\textbf{Quant} = \curlys{\emptyq, \any, \exactlyone, \nonempty, \every}$, and call any $\mathcal{Q} \in \textbf{Quant}$ a \emph{type quantity}.
+    Define $\emptyq \leq \any \leq \,\, \exactlyone \leq \nonempty \leq \every$.
     This makes $(\textbf{Quant}, \leq)$ into a complete lattice.
 \end{definition}
 
@@ -100,11 +101,11 @@ Also, allowing \textbf{any} type quantity in a selector lets us do away with eve
     %     \lnot (\tau ~ \asset)
     % }{ \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Delta }
 
-    \inferrule*[right=Forget]{
-        \Gamma \flowproves x : \tau \flowprovesout \Delta
-        \and
-        \tau \leq \sigma
-    }{ \Gamma \flowproves x : \sigma \flowprovesout \Delta }
+    % \inferrule*[right=Forget]{
+    %     \Gamma \flowproves x : \tau \flowprovesout \Delta
+    %     \and
+    %     \tau \leq \sigma
+    % }{ \Gamma \flowproves x : \sigma \flowprovesout \Delta }
 
     \inferrule*[right=Call-View]{
         \contract~C~\{ \overline{\mathcal{D}} \}
@@ -131,7 +132,7 @@ Also, allowing \textbf{any} type quantity in a selector lets us do away with eve
 The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
 \begin{mathpar}
     \inferrule*[right=Store-One]{
-    }{ \Gamma, S : \tau \proves S :: \tau \flowsto_{!} \tau }
+    }{ \Gamma, S : \tau \proves S :: \tau \flowsto_{\exactlyone} \tau }
 
     \inferrule*[right=Store-Col]{
         c \in \curlys{\optionq, \setq, \listq}
@@ -150,7 +151,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         (\oncreate(\overline{x : \tau})~\doC~S) \in \overline{\mathcal{D}}
         \and
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
-    }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{!} ~ !C }
+    }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{\exactlyone} ~ \exactlyone C }
 \end{mathpar}
 
 % \reed{Resource functors}
@@ -159,7 +160,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 \begin{mathpar}
     \inferrule*[right=Select-One]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
-    }{ \Gamma \proves E~\selects_{!}~\tau }
+    }{ \Gamma \proves E~\selects_{\exactlyone}~\tau }
 
     \inferrule*[right=Select-Col]{
         \Gamma \flowproves E : \mathcal{Q}~c~\tau \flowprovesout \Gamma
@@ -168,7 +169,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     }{ \Gamma \proves E~\selects_{\mathcal{Q}}~\tau }
 
     \inferrule*[right=Select-Everything]{
-    }{ \Gamma \proves \everything~\selects_\infty~\tau }
+    }{ \Gamma \proves \everything~\selects_\every~\tau }
 
     \inferrule*[right=Select-Quant]{
         \Gamma, x : \tau \flowproves p : \boolt \flowprovesout \Gamma, x : \tau
@@ -179,10 +180,10 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     Let $\mathcal{Q}, \mathcal{R} \in \textbf{Quant}$.
     Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ satisfying
     \begin{align*}
-        \infty \oplus \mathcal{R} &= \infty \\
+        \every \oplus \mathcal{R} &= \every \\
         \emptyq \oplus \mathcal{R} &= \mathcal{R} \\
         \nonempty \oplus \mathcal{R} &= \nonempty \\
-        ! \oplus \mathcal{R} &= \nonempty \qquad \tif \mathcal{R} \neq \emptyq \\
+        \exactlyone \oplus \mathcal{R} &= \nonempty \qquad \tif \mathcal{R} \neq \emptyq \\
         \any \oplus \any &= \any
     \end{align*}
 
@@ -190,17 +191,17 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \begin{align*}
         \mathcal{Q} \ominus \emptyq & = \mathcal{Q} \\
         \emptyq \ominus \mathcal{R} & = \emptyq \\
-        ! \ominus \mathcal{R} &= \emptyq \qquad \tif \mathcal{R} \geq ! \\
+        \exactlyone \ominus \mathcal{R} &= \emptyq \qquad \tif \mathcal{R} \geq \exactlyone \\
         \nonempty \ominus \mathcal{R} &= \any \qquad \tif \mathcal{R} \neq \emptyq \\
         \mathcal{Q} \ominus \any &= \any \\
-        \mathcal{Q} \ominus \infty & = \emptyq \\
-        \infty \ominus \mathcal{Q} &= \infty
+        \mathcal{Q} \ominus \every & = \emptyq \\
+        \every \ominus \mathcal{Q} &= \every
     \end{align*}
 \end{definition}
 
-Note that we abuse notation slightly and write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \oplus \mathcal{R})~T$ and similarly $(\mathcal{Q}~T) \ominus \mathcal{R}$ to mean $(\mathcal{Q} \ominus \mathcal{R})~T$.
-$\mathcal{Q} \oplus \mathcal{R}$ is represents the quantity present when flowing $\mathcal{R}$ of something to a storage already containing $\mathcal{Q}$.
-$\mathcal{Q} \ominus \mathcal{R}$ is represents the quantity left over after flowing $\mathcal{R}$ from a storage containing $\mathcal{Q}$.
+Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \oplus \mathcal{R})~T$ and similarly $(\mathcal{Q}~T) \ominus \mathcal{R}$ to mean $(\mathcal{Q} \ominus \mathcal{R})~T$.
+$\mathcal{Q} \oplus \mathcal{R}$ represents the quantity present when flowing $\mathcal{R}$ of something to a storage already containing $\mathcal{Q}$.
+$\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowing $\mathcal{R}$ from a storage containing $\mathcal{Q}$.
 
 \framebox{$\update(\Gamma, \mathcal{S}, \tau)$} \textbf{Type environment modification}
 % These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
@@ -225,15 +226,10 @@ $\mathcal{Q} \ominus \mathcal{R}$ is represents the quantity left over after flo
 
 \begin{definition}
     Let $\mathcal{Q}$ and $\mathcal{R}$ be \typeQuantities, $T_\mathcal{Q}$ and $T_\mathcal{R}$ base types, and $\Gamma$ and $\Delta$ type environments.
-    Define the following orderings, which make \typeQuantities, types, and type environments into join-semilattices.
-    For \typeQuantities,
-    \[
-        \mathcal{Q} \sqsubset \mathcal{R} \iff \mathcal{Q} \neq \any \tand \mathcal{R} = \any
-    \]
-
+    Define the following orderings, which make types and type environments into join-semilattices.
     For types,
     \[
-        \mathcal{Q}~T_\mathcal{Q} \leq \mathcal{R}~T_\mathcal{R} \iff T_\mathcal{Q} = T_\mathcal{R} \tand \mathcal{Q} \sqsubseteq \mathcal{R}
+        \mathcal{Q}~T_\mathcal{Q} < \mathcal{R}~T_\mathcal{R} \iff T_\mathcal{Q} = T_\mathcal{R} \tand \mathcal{Q} \neq \any \tand \mathcal{R} = \any
     \]
 
     For type environments,
@@ -252,32 +248,37 @@ $\mathcal{Q} \ominus \mathcal{R}$ is represents the quantity left over after flo
         \Delta = \update(\Gamma, S, \Gamma(S) \ominus \mathcal{R})
         \and
         \Delta \proves D :: \sigma \flowsto_\mathcal{S} \pi
-    }{ \Gamma \flowproves (\ell : S \sends{s} D)~\wf \flowprovesout \update(\Delta, D, (\mathcal{Q} \wedge \mathcal{R}) \oplus \Delta(D)) }
+    }{ \Gamma \flowproves (\ell : S \sends{s} D)~\wf \flowprovesout \update(\Delta, D, \Delta(D) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Wf-Var-Def]{
     }{ \Gamma \flowproves (\var~x : \mathcal{Q}~T)~\wf \flowprovesout \Gamma, x : \emptyq~T }
 
     \inferrule*[right=Wf-Var-Def-Init]{
-        \Gamma \flowproves E : \tau \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\var~x : \tau := E)~\wf \flowprovesout \Gamma, x : \tau }
+        \Gamma \flowproves E : \mathcal{R}~T \flowprovesout \Gamma
+    }{ \Gamma \flowproves (\var~x : \mathcal{Q}~T := E)~\wf \flowprovesout \Gamma, x : \mathcal{R}~T }
 
     \inferrule*[right=Wf-If]{
-        \Gamma \proves x : \boolt \flowprovesout \Gamma
+        \Gamma \flowproves x : \boolt \flowprovesout \Gamma
         \and
         \Gamma \flowproves S~\wf \flowprovesout \Delta
     }{ \Gamma \flowproves (\ifS~x~\thenS~S)~\wf \flowprovesout \Gamma \vee \Delta }
+
+    \inferrule*[right=Wf-Try]{
+        \Gamma \flowproves S_1~\wf \flowprovesout \Delta
+        \and
+        \Gamma, x: \tau \flowproves S_2~\wf \flowprovesout \Xi
+    }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\wf \flowprovesout \Delta \vee \Xi }
+
+    \inferrule*[right=Wf-Revert]{
+        \Gamma \flowproves E : \tau \flowprovesout \Gamma
+    }{ \Gamma \flowproves \revert(E)~\wf \flowprovesout \Gamma }
+
 
     \inferrule*[right=Wf-Seq]{
         \Gamma \flowproves S_1~\wf \flowprovesout \Delta
         \and
         \Delta \flowproves S_2~\wf \flowprovesout \Xi
     }{ \Gamma \flowproves (S_1 ; S_2)~\wf \flowprovesout \Xi }
-
-    % \inferrule*[right=Wf-Pack]{
-    %     \text{\reed{Finish}}
-    %     \and
-    %     \contract~C~\{ \overline{\mathcal{D}} \}
-    % }{ \Gamma \flowproves \pack(C)~\wf \flowprovesout \emptyset }
 \end{mathpar}
 
 \framebox{$\Gamma \flowproves \mathcal{D}~\wf \flowprovesout \Delta$} \textbf{Declaration Well-formedness}
