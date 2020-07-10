@@ -25,6 +25,7 @@ type User is asset {
     name : string
 }
 
+// This is good if it just needs to be owned in one place, but we have to change our data structures to accomodate
 items : linking User <=> set Item
 
 // Alternate proposal
@@ -38,5 +39,5 @@ type User is asset {
     items : set Item
 }
 
-items : collection Item identified by User or id
+items : collection Item held by User.items identified by User.name or by id
 

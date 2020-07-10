@@ -107,13 +107,29 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     %     \tau \leq \sigma
     % }{ \Gamma \flowproves x : \sigma \flowprovesout \Delta }
 
-    \inferrule*[right=Call-View]{
+    \inferrule*[right=View-Call]{
         \contract~C~\{ \overline{\mathcal{D}} \}
         \and
         (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \overline{\mathcal{D}}
         \and
-        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+        \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
     }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
+
+    % \inferrule*[right=Interface-Tx-Call]{
+    %     \interface~I~\{ \overline{\mathcal{D_I}} \}
+    %     \and
+    %     (\transaction~m(\overline{a : \tau})~\returns~\sigma) \in \overline{\mathcal{D}_I}
+    %     \and
+    %     \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+    % }{ \Gamma, x : I \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
+
+    \inferrule*[right=Internal-Tx-Call]{
+        \contract~C~\{ \overline{\mathcal{D}} \}
+        \and
+        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \overline{\mathcal{D}}
+        \and
+        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
+    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Delta }
 
     \inferrule*[right=If-Expr]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
@@ -151,7 +167,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         (\oncreate(\overline{x : \tau})~\doC~S) \in \overline{\mathcal{D}}
         \and
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
-    }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{\exactlyone} ~ \exactlyone C }
+    }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{\exactlyone} ~ C }
 \end{mathpar}
 
 % \reed{Resource functors}
@@ -273,6 +289,9 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
     }{ \Gamma \flowproves \revert(E)~\wf \flowprovesout \Gamma }
 
+    \inferrule*[right=Wf-Expr]{
+        \Gamma \flowproves E : \tau \flowprovesout \Delta
+    }{ \Gamma \flowproves E~\wf \flowprovesout \Delta }
 
     \inferrule*[right=Wf-Seq]{
         \Gamma \flowproves S_1~\wf \flowprovesout \Delta
