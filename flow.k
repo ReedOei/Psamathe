@@ -42,7 +42,7 @@ module FLOW
         <localTypeEnv> .Map </localTypeEnv>
         <currentContract> NoContract </currentContract>
         <activations> .Set </activations>
-        <returnValueStack> .List </returnValueStack>
+        <transformerStack> .List </transformerStack>
 
     syntax K ::= flow(ResourceVal, Storage)
 
@@ -76,13 +76,13 @@ module FLOW
     rule resource(one nat, I1) <= resource(one nat, I2) => resource(one bool, I1 <=Int I2)
 
     rule resource(one bool, true) and B => B
-    rule resource(one bool, false) and B => resource(one bool, false)
-    rule resource(one bool, true) or B => resource(one bool, true)
+    rule resource(one bool, false) and _ => resource(one bool, false)
+    rule resource(one bool, true) or _ => resource(one bool, true)
     rule resource(one bool, false) or B => B
     rule not resource(one bool, B) => notBool B
 
-    rule if resource(one bool, true) then A else B => A
-    rule if resource(one bool, false) then A else B => B
+    rule if resource(one bool, true) then A else _ => A
+    rule if resource(one bool, false) then _ else B => B
 
     // Variable lookup
     rule <k> X => demote(V) ... </k>
@@ -123,7 +123,7 @@ module FLOW
     syntax Resource ::= select(Selector, Resource) [strict(1), function, functional]
 
     // Selection (includes select, subtract, and contains)
-    // TODO: Handle more selectors (i.e., quantified and set/list selectors)
+    // TODO: Handle more selectors (i.e., quantified and set/list/option/etc. selectors)
     rule select(everything, R) => R
     rule select(resource(one R, V), resource(one R, _)) => resource(one R, V)
     rule select(resource(one R, V), resource(option R, _)) => resource(option R, some(V))
@@ -181,7 +181,7 @@ module FLOW
 
     rule convert(resource(one R, V), option R) => resource(option R, some(V))
     rule convert(resource(one R, V), set R) => resource(set R, SetItem(V))
-    rule convert(resource(one R, V), list R) => resource(option R, some(V))
+    rule convert(resource(one R, V), list R) => resource(list R, ListItem(V))
 
     rule convert(resource(option R, none), one R) => revert("No value!")
     rule convert(resource(option R, some(A)), one R) => resource(one R, A)
@@ -189,8 +189,8 @@ module FLOW
     rule convert(resource(option R, none), set R) => resource(set R, .Set)
     rule convert(resource(option R, some(A)), set R) => resource(set R, SetItem(A))
 
-    rule convert(resource(option R, none), list R) => resource(set R, .List)
-    rule convert(resource(option R, some(A)), list R) => resource(set R, ListItem(A))
+    rule convert(resource(option R, none), list R) => resource(list R, .List)
+    rule convert(resource(option R, some(A)), list R) => resource(list R, ListItem(A))
 
     rule convert(resource(set R, .Set), one R) => revert("No value!")
     rule convert(resource(set R, SetItem(A)), one R) => resource(one R, A)
@@ -254,6 +254,7 @@ module FLOW
     rule defaultValue(option R) => resource(set R, none)
     rule defaultValue(set R) => resource(set R, .Set)
     rule defaultValue(list R) => resource(set R, .List)
+    rule defaultValue(T1 ~~> T2) => resource(list T2, .List)
 
     // =================================
     // Externals calls:
@@ -261,7 +262,7 @@ module FLOW
     syntax K ::= setupArgs(Exprs, VarDefs) [function]
 
     rule setupArgs(.Exprs, .VarDefs) => .
-    rule setupArgs((E:Storage, Es), (Y : T, Defs2)) => (var Y : T) ~> (E --> Y) ~> setupArgs(Es, Defs2)
+    rule setupArgs((E:Storage, Es):Exprs, (Y : T, Defs2)) => (var Y : T) ~> (E --> Y) ~> setupArgs(Es, Defs2)
 
     syntax K ::= cleanEnv(Set)
 
@@ -269,17 +270,19 @@ module FLOW
         <localTypeEnv> Env => removeAll(Env, ToRemove) </localTypeEnv>
         <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
 
-    rule <k> X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> cleanEnv(keys(Env)) ~> doUnpack(Fs) ~> S ~> pack(Old, (X |-> XLoc) Lookup, Env) ... </k>
+    rule <k> X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> cleanEnv(keys(Env)) ~> doUnpack((T |-> TxLoc) Fs) ~> S ~> pack(Old, (X |-> XLoc) Lookup, Env) ... </k>
         <lookup> ((X |-> XLoc) Lookup) </lookup>
-        <storage> ... XLoc |-> resource(one C, Fs) ... </storage>
+        <storage> ... XLoc |-> resource(one C, (T |-> TxLoc) Fs) ... </storage>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
         <fields> ... C |-> Fields </fields>
         <localTypeEnv> Env </localTypeEnv>
         <currentContract> Old => C </currentContract>
+        <transformerStack> .List => ListItem(TxLoc) ... </transformerStack>
 
     // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
     rule <k> return resource(R, V) ~> _ ~> pack(Old, Lookup, Env) => pack(Old, Lookup, Env) ... </k>
-        <returnValueStack> .List => ListItem(resource(R, V)) ... </returnValueStack>
+        <transformerStack> ListItem(Loc) => .List ... </transformerStack>
+        <storage> ... Loc |-> (resource(R2, Cur) => combine(convert(resource(R, V), R2), resource(R2, Cur))) ... </storage>
 
     // ============================
     // New contract
@@ -331,7 +334,7 @@ module FLOW
         <currentContract> _ => Cls </currentContract>
 
     rule <k> pack(Cls, Lookup, Env) ... </k>
-        <localTypeEnv> ... X |-> T => .Map ... </localTypeEnv>
+        <localTypeEnv> ... X |-> _ => .Map ... </localTypeEnv>
         <lookup> ... X |-> Loc:StorageLoc ... </lookup>
         <storage> Store => removeAll(Store, SetItem(Loc)) </storage>
 endmodule

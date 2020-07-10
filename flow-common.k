@@ -63,7 +63,13 @@ module FLOW-COMMON
 
     syntax TxData ::= transaction(Type, VarDefs, Stmt)
 
+    syntax Type ::= varDefsToProdType(VarDefs) [function]
+
+    rule varDefsToProdType((X : T1, Y : T2)) => T1 * T2
+    rule varDefsToProdType((X : T1, Y : T2, Z : T3, Rest)) => T1 * varDefsToProdType((Y : T2, Z : T3, Rest))
+
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
+        <fields> ... C |-> (Fields => Fields SetItem(T : varDefsToProdType(resolveTypes(C, Args)) ~~> resolveType(C, RetType))) ... </fields>
         <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, S)) ... </transactions>
         [structural]
 
