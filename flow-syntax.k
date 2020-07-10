@@ -11,10 +11,11 @@ module FLOW-CORE-SYNTAX
                          | Storage "[" Expr "]" [strict(2)]
                          | Storage "." Storage [left]
 
+    syntax SpecialStorage ::= "consume" [token]
+                            | "new" QualifiedId "(" Exprs ")"
     syntax Storage ::= Val
                      | QualifiedId
-                     | "consume" [token]
-                     | "new" QualifiedId "(" Exprs ")"
+                     | SpecialStorage
 
     /* syntax TupleExpr ::= "(" Exprs ")" // Tuples */
 
@@ -48,7 +49,7 @@ module FLOW-CORE-SYNTAX
                       | Quant Id ":" Type "such" "that" Expr [binder]
 
     syntax Flow ::= Storage
-                  | Storage "--[" Selector "]->" Flow [strict(2)]
+                  | Storage "--[" Selector "]->" Flow [strict]
 
     // TODO: Maybe get rid of nonfungible or fungible and have be the default
     // TODO: Warn if people put consumable on non-asset types, because that's redundant.

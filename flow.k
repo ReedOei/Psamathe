@@ -9,6 +9,7 @@ module FLOW
     imports SUBSTITUTION
 
     syntax StorageLoc ::= loc(Int) [freshGenerator, function, functional]
+    syntax SpecialStorage ::= StorageLoc
     syntax BasicVal ::= Val
                       | Set
                       | List
@@ -23,12 +24,10 @@ module FLOW
     syntax Resource ::= resource(Type, BasicVal)
     syntax ResourceVal ::= Resource
                          | ErrorVal
-    syntax Expr ::= ResourceVal
-    syntax SelectorVal ::= Resource
-                         | SpecialSelect
+    syntax SpecialStorage ::= ResourceVal
     syntax KResult ::= ResourceVal
                      | SpecialSelect
-                     | StorageLoc
+                     | SpecialStorage
 
     syntax Id ::= "NoContract" [token]
                 // A special Id to be used as the "location" of the current contract in the global scope.
@@ -41,10 +40,7 @@ module FLOW
         <lookup> .Map </lookup>
         <localTypeEnv> .Map </localTypeEnv>
         <currentContract> NoContract </currentContract>
-        <activations> .Set </activations>
         <transformerStack> .List </transformerStack>
-
-    syntax K ::= flow(ResourceVal, Storage)
 
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
@@ -85,9 +81,8 @@ module FLOW
     rule if resource(one bool, false) then _ else B => B
 
     // Variable lookup
-    rule <k> X => demote(V) ... </k>
+    rule <k> X => Loc ... </k>
         <lookup> ... X |-> Loc ... </lookup>
-        <storage> ... Loc |-> V ... </storage>
 
     // TODO: Finish this
     syntax K ::= demote(Resource)
@@ -102,25 +97,34 @@ module FLOW
     // =================================
 
     // Primitive flows
-    rule I:Int --[ everything ]-> D => flow(resource(one nat, I), D)
-    rule Str:String --[ everything ]-> D => flow(resource(one string, Str), D)
+    rule <k> Val:Resource --[ Sel ]-> D => handleFlow(Sel, !Loc, D) ... </k>
+        <storage> ... .Map => !Loc:StorageLoc |-> Val ... </storage>
 
     rule A --[ nothing ]-> B => .
 
-    rule S:QualifiedId --[ Sel ]-> D => handleFlow(Sel, S, D)
+    rule S:StorageLoc --[ Sel ]-> D => handleFlow(Sel, S, D)
         requires Sel =/=K nothing
 
     // NOTE: For some reason, K doesn't like the strict declaration in the
     //  original flow construct, but here's another one that it does work for...
-    syntax K ::= handleFlow(Selector, Storage, Storage) [strict(1)]
+    syntax K ::= handleFlow(Selector, SpecialStorage, SpecialStorage) [strict]
 
-    // TODO: Can probably streamline this some more, but flow() handles several things, like consuming resources.
-    rule <k> handleFlow(Sel, S, D) => flow(select(Sel, SV), D) ... </k>
-        <lookup> ... S |-> Loc ... </lookup>
-        <storage> ... Loc |-> (SV => subtract(SV, select(Sel, SV))) ... </storage>
-        requires contains(select(Sel, SV), SV)
+    rule <k> handleFlow(Sel, SourceLoc, consume) => . ... </k>
+        <storage> ... (SourceLoc |-> (SV => subtract(SV, select(Sel, SV)))) ... </storage>
+        requires select(Sel, SV) contained_in SV
+    rule <k> handleFlow(Sel, SourceLoc, DestLoc) => put(combine(convert(select(Sel, SV), DestR), resource(DestR, Cur)), DestLoc) ... </k>
+        <storage>
+            ...
 
-    syntax Resource ::= select(Selector, Resource) [strict(1), function, functional]
+            (SourceLoc |-> SV)
+            (DestLoc |-> resource(DestR, Cur))
+            =>
+            (SourceLoc |-> subtract(SV, select(Sel, SV)))
+            ...
+        </storage>
+        requires select(Sel, SV) contained_in SV
+
+    syntax Resource ::= select(Selector, Resource) [function, functional]
 
     // Selection (includes select, subtract, and contains)
     // TODO: Handle more selectors (i.e., quantified and set/list/option/etc. selectors)
@@ -130,7 +134,7 @@ module FLOW
     rule select(resource(one R, V), resource(set R, _)) => resource(set R, SetItem(V))
     rule select(resource(one R, V), resource(list R, _)) => resource(set R, ListItem(V))
 
-    syntax Resource ::= subtract(Resource, Resource) [function]
+    syntax Resource ::= subtract(Resource, Resource) [function, functional]
 
     rule subtract(resource(one nat, A), resource(one nat, B)) => resource(one nat, A -Int B)
     rule subtract(resource(one R, A), resource(one R, A)) => resource(empty R, emptySingleton)
@@ -145,26 +149,26 @@ module FLOW
     rule subtract(resource(list R, A), resource(list R, ListItem(B) Rest))
          => subtract(resource(list R, remove(A, B)), resource(list R, Rest))
 
-    syntax Bool ::= contains(Resource, Resource) [function]
+    syntax Bool ::= Resource "contained_in" Resource [function, functional]
 
-    rule contains(resource(one nat, A), resource(one nat, B)) => A <=Int B
-    rule contains(resource(one R, A), resource(one R, B)) => A ==K B
+    rule resource(one nat, A) contained_in resource(one nat, B) => A <=Int B
+    rule resource(one R, A) contained_in resource(one R, B) => A ==K B
         requires R =/=K nat
 
-    rule contains(resource(option R, none), resource(option R, _)) => true
-    rule contains(resource(option R, some(A)), resource(option R, none)) => false
-    rule contains(resource(option R, some(A)), resource(option R, some(B)))
-         => contains(resource(one R, A), resource(one R, B))
+    rule resource(option R, none) contained_in resource(option R, _) => true
+    rule resource(option R, some(A)) contained_in resource(option R, none) => false
+    rule resource(option R, some(A)) contained_in resource(option R, some(B))
+         => resource(one R, A) contained_in resource(one R, B)
 
-    rule contains(resource(set R, A), resource(set R, B)) => A <=Set B
+    rule resource(set R, A) contained_in resource(set R, B) => A <=Set B
 
     // TODO: These are not efficiently written, but they are correctly written (I hope...)
-    rule contains(resource(list R, .List), resource(list R, _)) => true
-    rule contains(resource(list R, ListItem(_) _), resource(list R, .List)) => false
-    rule contains(resource(list R, ListItem(A) Rest), resource(list R, B))
-         => contains(resource(list R, Rest), resource(list R, remove(B, A)))
+    rule resource(list R, .List) contained_in resource(list R, _) => true
+    rule resource(list R, ListItem(_) _) contained_in resource(list R, .List) => false
+    rule resource(list R, ListItem(A) Rest) contained_in resource(list R, B)
+         => resource(list R, Rest) contained_in resource(list R, remove(B, A))
          requires A in B
-    rule contains(resource(list R, ListItem(A) Rest), resource(list R, B:List)) => false
+    rule resource(list R, ListItem(A) Rest) contained_in resource(list R, B:List) => false
         requires notBool(A in B)
 
     // Convert resources: Takes a resource value and converts it to be compatible with the specified type
@@ -233,17 +237,9 @@ module FLOW
     // Combine as `B A` instead of `A B`, because the new values should be **appended**, not prepended.
     rule combine(resource(list R, A:List), resource(list R, B:List)) => resource(list R, B A)
 
-    // Flow resolution
-    rule <k> flow(resource(R1, V), S) => put(combine(convert(resource(R1, V), R2), resource(R2, Cur)), S) ... </k>
-        <lookup> ... S |-> Loc ... </lookup>
-        <storage> ... (Loc |-> resource(R2, Cur)) => .Map ... </storage>
+    syntax K ::= put(ResourceVal, StorageLoc)
 
-    rule <k> flow(resource(R, V), consume) => checkConsumable(R) ... </k>
-
-    syntax K ::= put(ResourceVal, Storage)
-
-    rule <k> put(R:Resource, S) => . ... </k>
-        <lookup> ... S |-> Loc ... </lookup>
+    rule <k> put(R:Resource, Loc) => . ... </k>
         <storage> ... .Map => Loc |-> R ... </storage>
 
     syntax Resource ::= defaultValue(Type) [function]

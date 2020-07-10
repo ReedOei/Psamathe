@@ -23,5 +23,6 @@ new Main() --> x
 611 --> b
 
 var res : nat
-x.add(a, b) --> res
+x.add(a,b)
+x.add --> res
 

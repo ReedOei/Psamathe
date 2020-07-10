@@ -46,7 +46,7 @@ module FLOW-COMMON
     rule modToSet(.Modifiers) => .Set
     rule modToSet(M:Modifier Ms) => SetItem(M) modToSet(Ms)
 
-    rule processDecls(C, .Decls) => .
+    rule processDecls(_, .Decls) => .
     rule <k> processDecls(C, (type T is Mods BaseType) Ds) => processDecls(C, Ds) ... </k>
         <types> ... .Map => C.T |-> modified(modToSet(Mods), BaseType) ... </types>
         [structural]

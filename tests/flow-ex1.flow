@@ -1,6 +1,3 @@
-contract Main {
-    type Name is nonfungible consumable asset string
-}
 
 ;
 
