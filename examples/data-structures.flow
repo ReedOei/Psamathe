@@ -39,5 +39,25 @@ type User is asset {
     items : set Item
 }
 
-items : collection Item held by User.items identified by User.name or by id
+users : set User
+        identified by User.name
+
+// Basically, the idea is that "held by" means that the values aren't actually "stored" here, but in some other field.
+items : set Item
+        held by users.items
+        identified by User.name or Item.id
+
+// Now we can do:
+
+// User lookup
+users[name]
+
+// Item lookup by user name
+items[name] : set Item
+
+// Item lookup by item id
+items[id] : Item
+
+// User name lookup by item id
+var name : string := holder of id in items
 
