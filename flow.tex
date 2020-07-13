@@ -54,7 +54,7 @@
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $\mathcal{D}$ & \bnfdef & $x : \tau$ & (field) \\
                   & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
-                  & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~\tau~\doC~S$ & (transactions) \\
+                  & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
                   & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
                   % & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~S$ & (constructor) \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\mathcal{D}}~\}$ & (contracts) \\
@@ -322,7 +322,9 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     \inferrule*[right=Wf-Pack]{
         % \forall x \in \dom(\Gamma). \fields(C)(x) \leq \Gamma(x)
         \fields(C) \leq \Gamma
-    }{ \Gamma, \this : C \flowproves \pack~\wf \flowprovesout \Gamma \setminus \dom(\fields(C)) }
+        \and
+        \Delta = \setbuild{x : \tau \in \Gamma}{x \not\in \dom(\fields(C))}
+    }{ \Gamma, \this : C \flowproves \pack~\wf \flowprovesout \Delta, \this : C }
 \end{mathpar}
 
 \framebox{$\proves_C \mathcal{D}~\wf$} \textbf{Declaration Well-formedness}
@@ -334,10 +336,12 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\wf }
 
     \inferrule*[right=Wf-Tx]{
-        \Gamma = \this : C, \fields(C), \overline{x : \tau}
+        \this : C, \fields(C), \overline{x : \tau} \flowproves S~\wf \flowprovesout \Delta, \this : C
+        \\
+        \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
-        \Gamma \flowproves S~\wf \flowprovesout \Gamma
-    }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~\sigma~\doC~S)~\wf }
+        \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+    }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \sigma~\doC~S)~\wf }
 \end{mathpar}
 
 \framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
