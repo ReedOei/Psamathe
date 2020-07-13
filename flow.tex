@@ -44,7 +44,7 @@
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyq$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $f \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & (expressions) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $f \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
@@ -186,16 +186,24 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
         \\
         (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(C)
         \and
-        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, \this : C
-    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C }
+        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
+    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C }
 
-    % \inferrule*[right=If-Expr]{
-    %     \Gamma \flowproves x : \boolt \flowprovesout \Gamma
-    %     \and
-    %     \Gamma \flowproves y : \tau \flowprovesout \Delta
-    %     \and
-    %     \Gamma \flowproves z : \tau \flowprovesout \Delta
-    % }{ \Gamma \flowproves (\ifS~x~\thenS~y~\elseS~z) : \tau \flowprovesout \Delta }
+    \inferrule*[right=If-Expr]{
+        \Gamma \flowproves x : \boolt \flowprovesout \Gamma
+        \and
+        \Gamma \flowproves y : \tau \flowprovesout \Delta
+        \and
+        \Gamma \flowproves z : \tau \flowprovesout \Delta
+    }{ \Gamma \flowproves (\ifS~x~\thenS~y~\elseS~z) : \tau \flowprovesout \Delta }
+
+    \inferrule*[right=Let]{
+        \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
+        \and
+        \Delta, x : \tau \flowproves E_2 : \sigma \flowprovesout \Xi
+        \and
+        x \not\in \dom(\Xi)
+    }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \sigma \flowprovesout \Xi }
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
@@ -388,8 +396,8 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
-        \and
-        \lnot(\mathcal{Q}~T~\asset)
+        % \and
+        % \lnot(\mathcal{Q}~T~\asset)
     }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\wf }
 
     \inferrule*[right=Wf-Field]{
@@ -411,9 +419,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     \inferrule*[right=Wf-Con]{
         \forall C \in \overline{\Con}. C~\wf
         \and
-        \emptyset \flowproves S \flowprovesout \Delta
-        \and
-        \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+        \emptyset \flowproves S \flowprovesout \emptyset
     }{ (\overline{\Con} ; S)~\wf }
 \end{mathpar}
 
@@ -624,6 +630,9 @@ transaction approveAndCall(_spender : address, _value : uint256, _extraData : by
 \section{Random Thoughts}
 \reed{Ignore this for now, just some stuff for fun that may or may not end up being useful.}
 \reed{At some point, maybe for antoher language, would like to figure out the more general type quantity thing where you can freely combine $\setq$ and $\listq$ and $\nonempty$ and $\one$, etc.}
+\reed{We could also add sum types and ``sum type quantities'' so you can say \lstinline{x : Left (a + b)}.
+Something like $\curlys{\ell, r}$ where $\ell$ and $r$ are state specifiers.
+Probably would work best with labeled sum types.}
 \reed{Add at ``at most one'' quantity, which makes the \typeQuantities into a group?}
 \reed{Free group of quantities list set and option makes teh type quantities we care about?
 What are the inverses?}

@@ -2,9 +2,11 @@
 module FLOW-CORE-SYNTAX
     imports DOMAINS-SYNTAX
 
+    syntax EmptyVal ::= "emptyval" [token]
     syntax Val ::= Int
                  | Bool
                  | String
+                 | EmptyVal
                  | "\\" Id ":" Type "." Expr [binder]
 
     syntax QualifiedId ::= Id
@@ -64,12 +66,13 @@ module FLOW-CORE-SYNTAX
                        | "empty" [token]
                        | "every" [token]
 
+    syntax Collection ::= "set" [token]
+                        | "list" [token]
+                        | "option" [token]
     syntax BaseType ::= QualifiedId
                       | Type "*" Type
                       | Type "~~>" Type
-                      | "set" Type
-                      | "list" Type
-                      | "option" Type
+                      | Collection Type
                       | "(" Type ")" [bracket]
     // TODO: Add syntactic sugar that allows users to not always write the type quantity.
     syntax Type ::= TypeQuant BaseType
@@ -86,8 +89,7 @@ module FLOW-CORE-SYNTAX
     syntax Decls ::= List{Decl, " "}
 
     syntax Stmt ::= Flow
-                  | "var" VarDef
-                  | "var" VarDef ":=" Expr
+                  | "var" VarDef ":=" Expr [strict(2)]
                   | "pass" [token]
                   | "return" Expr [strict]
                   | FunctionCall
@@ -126,6 +128,10 @@ module FLOW-SYNTAX
 
     syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt
 
+    syntax Stmt ::= "var" VarDef
+
+    rule var X : T => var X : T := emptyval [macro]
+
     // Desugaring
     rule S --> D => S --[ everything ]-> D [macro]
 
@@ -134,8 +140,6 @@ module FLOW-SYNTAX
          (S --[ Sel1 ]-> T)
          (T --[ Sel2 ]-> D)
          [macro]
-
-    rule var X : T := E => (var X : T) (E --> X) [macro]
 
     rule S := E => (S --> consume) (E --> S) [macro]
 

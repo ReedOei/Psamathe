@@ -21,31 +21,53 @@ module FLOW-TYPECHECK
     syntax Judgement ::= Stmt "wf"
                        | Expr "selects" Type
                        | Expr ":" Type
-                       | Flow "::" Type "==>" Type
+                       | Storage "::" Type "==>" "{" TypeQuant "}" Type
     syntax K ::= Judgement
 
     rule <k> S:Stmt => S wf </k>
 
     // Sequence
-    /* rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf */
+    rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf
+
+    syntax K ::= insert(Map)
+               | drop(Set)
+
+    rule <k> insert(M) => . </k>
+        <typeEnv> Env => Env M </typeEnv>
+
+    // TODO: Need to check that we actually can drop this stuff
+    rule <k> drop(Vars) => . </k>
+        <typeEnv> Env => removeAll(Env, Vars) </typeEnv>
 
     // Variable definition
-    /* rule <k> (var X : Q T) wf => . ... </k> */
-    /*     <typeEnv> ... .Map => X |-> empty T ... </typeEnv> */
+    rule <k> (var X : (Q T)) wf => . ... </k>
+        <typeEnv> ... .Map => X |-> empty T ... </typeEnv>
 
-    /* syntax Type ::= demote(Type) [function] */
-    /* rule demote(nat) => nat */
-    /* rule demote(bool) => bool */
-    /* rule demote(string) => string */
-    /* rule demote(address) => address */
+    // Primitive types
+    rule I:Int : ! nat => .
+        requires I >=Int 0
+    rule B:Bool : ! bool => .
+    rule S:String : ! string => .
 
-    /* // Flow typing */
-    /* rule Gamma |- (S --[ Sel ]-> D) wf => Gamma |- (S --[ Sel ]-> D) : ?T1 ~~> ?T2 */
-    /* rule Gamma |- (S --[ Sel ]-> D) : T1 ~~> T3 => */
-    /*     Gamma |- S : T1 ~~> ?T2 */
-    /*     ~> */
-    /*     Gamma |- Sel selects demote(T1) */
-    /*     ~> */
-    /*     Gamma |- D : ?T2 ~~> T3 */
+    // Storage typing
+    rule <k> X :: T ==> {Q} T => . ... </k>
+        <typeEnv> ... X |-> Q C:Collection T ... </typeEnv>
+
+    // Flow typing
+    // TODO: need to update storage information
+    rule (S --[ Sel ]-> D) wf =>
+        S :: ?T1 ==> {?Q} ?T2 ~>
+        Sel selects demote(?T2) ~>
+        D :: ?T2 ==> {?R} ?T3
+
+    // Helpers
+    syntax Type ::= demote(Type) [function, functional]
+    rule demote(Q T:BaseType) => Q demote(T)
+
+    syntax BaseType ::= demote(BaseType) [function, functional]
+    rule demote(nat) => nat
+    rule demote(bool) => bool
+    rule demote(string) => string
+    rule demote(address) => address
 endmodule
 

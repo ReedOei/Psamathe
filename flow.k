@@ -21,7 +21,9 @@ module FLOW
                       | StorageLoc
     syntax ErrorVal ::= revert(String)
     syntax Resource ::= resource(BaseType, BasicVal)
-    syntax Storage ::= Resource
+    syntax Initializer ::= Resource
+                         | EmptyVal
+    syntax Storage ::= Initializer
     syntax ResourceVal ::= Resource
                          | ErrorVal
     syntax SelectorVal ::= Resource
@@ -29,6 +31,7 @@ module FLOW
     syntax Selector ::= SelectorVal
     syntax KResult ::= ResourceVal
                      | SpecialSelect
+                     | EmptyVal
 
     syntax Id ::= "NoContract" [token]
                 // A special Id to be used as the "location" of the current contract in the global scope.
@@ -50,10 +53,10 @@ module FLOW
     rule pass => .
 
     // Temporary variable declaration
-    rule <k> var X : T => . ... </k>
+    rule <k> var X : T := V => . ... </k>
         <localTypeEnv> ... .Map => X |-> T </localTypeEnv>
         <lookup> ... .Map => X |-> !Loc:StorageLoc </lookup>
-        <storage> ... .Map => !Loc |-> defaultValue(T) ... </storage>
+        <storage> ... .Map => !Loc |-> coerce(V, T) ... </storage>
 
     rule I:Int => resource(nat, I)
         requires I >=Int 0
@@ -266,6 +269,13 @@ module FLOW
 
     rule <k> put(R:Resource, Loc) => . ... </k>
         <storage> ... .Map => Loc |-> R ... </storage>
+
+    syntax Resource ::= coerce(Initializer, Type) [function, functional]
+    rule coerce(resource(R, V), _) => resource(R, V)
+    rule coerce(emptyval, ! nat) => resource(nat, 0)
+    rule coerce(emptyval, Q option R) => resource(option R, none)
+    rule coerce(emptyval, Q set R) => resource(set R, .Set)
+    rule coerce(emptyval, Q list R) => resource(list R, .List)
 
     syntax Resource ::= defaultValue(Type) [function, functional]
 
