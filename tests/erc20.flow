@@ -1,0 +1,11 @@
+contract ERC20Bank {
+    type Token is fungible asset ! nat
+
+    balance : ! Token
+}
+
+;
+
+var Bank : ! ERC20Bank
+new ERC20Bank() --> Bank
+

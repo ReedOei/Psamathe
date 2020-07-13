@@ -101,6 +101,7 @@ module FLOW-CORE-SYNTAX
                 | "string"     [token]
                 | "address"    [token]
                 | "unit"       [token]
+                | "void"       [token]
     // Special reserved Ids
     syntax Id ::= "this" [token]
 

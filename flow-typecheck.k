@@ -58,6 +58,17 @@ module FLOW-TYPECHECK
     rule <k> X :: T ==> {Q} T => . ... </k>
         <typeEnv> ... X |-> Q C:Collection T ... </typeEnv>
 
+    syntax K ::= checkEach(Exprs, VarDefs)
+
+    rule <k> new C(Args) :: _ void ==> {!} ! C
+             =>
+             checkEach(Args, ArgDefs)
+             ...  </k>
+        <constructors> ... C |-> constructor(ArgDefs, _) ... </constructors>
+
+    rule checkEach(.Exprs, .VarDefs) => .
+    rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
+
     // Selector typing
     rule everything selects {every} T => .
 
