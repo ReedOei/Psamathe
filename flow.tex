@@ -42,9 +42,9 @@
     % $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
-    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\curlys{}$ \bnfalt $[]$ \bnfalt $\lambda x : \tau. E$ & (values) \\
+    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyq$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $f \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & (expressions) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $f \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
@@ -90,17 +90,57 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     % This makes $(\textbf{Quant}, \leq)$ into a complete lattice.
 \end{definition}
 
-\reed{Eliminate all the locations except for $x$ and then use flows to extract and put stuff back.}
+\reed{Eliminate all the locations except for $x$ and then use flows to extract and put stuff back?}
+\framebox{$\modifiers(T) = \overline{M}$} \textbf{Type Modifiers}
+\begin{align*}
+    \modifiers(T) =
+    \begin{cases}
+        \overline{M} & \tif (\type~T~\is~\overline{M}~T) \\
+        \emptyset & \owise
+    \end{cases}
+\end{align*}
+
+\framebox{$\tau~\asset$} \textbf{Asset Types}
+
+\reed{The syntax for record ``fields'' and type environments is the same...could just use it}
+\begin{align*}
+    (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
+                                                                & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
+                                                                & (T = \mathcal{C}~\tau \tand \tau~\asset) \tor \\
+                                                                & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. (\tau~\asset)))
+\end{align*}
+\reed{It should be the case that a transformer can have an output of an asset type if and only if it has an input asset type (and it the case of curried transformers, that \textbf{some} input type is an asset).}
+
+\framebox{$\tau~\consumable$} \textbf{Consumable Types}
+\begin{align*}
+    (\mathcal{Q}~T)~\consumable &\iff \consumable \in \modifiers(T) \tor \lnot((\mathcal{Q}~T)~\asset)
+\end{align*}
+
+\framebox{$\demote(\tau) = \sigma$}
+\framebox{$\demote_*(T_1) = T_2$} \textbf{Type Demotion}
+\begin{align*}
+    \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
+    \demote_*(\voidt) &= \voidt \\
+    \demote_*(\natt) &= \natt \\
+    \demote_*(\boolt) &= \boolt \\
+    \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \tand \asset \in \overline{M} \\
+    \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
+    \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
+    \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
+\end{align*}
 
 \framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
 \begin{mathpar}
+    \inferrule*[right=Empty-Val]{
+    }{ \Gamma \flowproves \emptyq : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }
+
     \inferrule*[right=Demote-Lookup]{
     }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Lin-Lookup]{
     }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma }
 
-    \inferrule*[right=Field-Lookup-Rec]{
+    \inferrule*[right=Field-Lookup]{
         \Gamma \proves x : \curlys{\overline{y : \tau}} \flowproves \Gamma
         \and
         f : \sigma \in \overline{y : \tau}
@@ -161,6 +201,11 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     }{ \Gamma \flowproves (\lambda x : \tau. E) :: \emptyq~(\tau \transforms \sigma) }
 \end{mathpar}
 
+\framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
+\begin{align*}
+    \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \overline{\mathcal{D}}} \twhere (\contract~C~\{ \overline{\mathcal{D}} \})
+\end{align*}
+
 \framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto_{\mathcal{Q}} \sigma$} \textbf{Storage Typing}
 The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
 \begin{mathpar}
@@ -183,8 +228,6 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
     }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{\exactlyone} ~ C }
 \end{mathpar}
-
-\reed{Define \fields}
 
 \framebox{$\Gamma \proves f ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
 \begin{mathpar}
@@ -348,54 +391,19 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\wf }
 
     \inferrule*[right=Wf-Field]{
-    }{ \proves_C x : \tau }
+    }{ \proves_C (x : \tau)~\wf }
 
     \inferrule*[right=Wf-Type]{
-    }{ \proves_C \type~t~\is~\overline{M}~T }
+    }{ \proves_C (\type~t~\is~\overline{M}~T)~\wf }
 \end{mathpar}
 
-\framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
-\begin{align*}
-    \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \overline{\mathcal{D}}} \twhere (\contract~C~\{ \overline{\mathcal{D}} \})
-\end{align*}
+\framebox{$\contract~C~\{\overline{\mathcal{D}}\}~\wf$} \textbf{Contract Well-formedness}
+\begin{mathpar}
+    \inferrule*[right=Wf-Con]{
+        \forall d \in \overline{\mathcal{D}}. (\proves_C d~\wf)
+    }{ (\contract~C~\{ \overline{\mathcal{D}} \})~\wf }
+\end{mathpar}
 
-\framebox{$\modifiers(T) = \overline{M}$} \textbf{Type Modifiers}
-\begin{align*}
-    \modifiers(T) =
-    \begin{cases}
-        \overline{M} & \tif (\type~T~\is~\overline{M}~T) \\
-        \emptyset & \owise
-    \end{cases}
-\end{align*}
-
-\framebox{$\tau~\asset$} \textbf{Asset Types}
-
-\reed{The syntax for record ``fields'' and type environments is the same...could just use it}
-\begin{align*}
-    (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
-                                                                & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
-                                                                & (T = \mathcal{C}~\tau \tand \tau~\asset) \\
-                                                                & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. \tau~\asset))
-\end{align*}
-\reed{It should be the case that a transformer can have an output of an asset type if and only if it has an input asset type (and it the case of curried transformers, that \textbf{some} input type is an asset).}
-
-\framebox{$\tau~\consumable$} \textbf{Consumable Types}
-\begin{align*}
-    (\mathcal{Q}~T)~\consumable &\iff \consumable \in \modifiers(T) \tor \lnot((\mathcal{Q}~T)~\asset)
-\end{align*}
-
-\framebox{$\demote(\tau) = \sigma$}
-\framebox{$\demote_*(T_1) = T_2$} \textbf{Type Demotion}
-\begin{align*}
-    \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
-    \demote_*(\voidt) &= \voidt \\
-    \demote_*(\natt) &= \natt \\
-    \demote_*(\boolt) &= \boolt \\
-    \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \tand \asset \in \overline{M} \\
-    \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
-    \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
-    \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
-\end{align*}
 
 \reed{Selecting from or with a list should yield a list, probably}
 \reed{Asset retention theorem?}
