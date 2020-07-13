@@ -50,7 +50,7 @@
     $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
     $F$ & \bnfdef & $\mathcal{N} \sends{s} \mathcal{N}$ & (flows) \\
     $\Stmt$ & \bnfdef & $F$ \bnfalt $E$ \bnfalt $\revert(E)$ \bnfalt $\tryS~S~\catchS(x : \tau)~S$ \bnfalt $\ifS~x~\thenS~S~\elseS~S$ \\
-            & \bnfalt & $\var~x:\tau$ \bnfalt $\var~x:\tau := E$ \bnfalt $S;S$ \bnfalt \pack \bnfalt $\unpack(x)$ & (statements) \\
+            & \bnfalt & $\var~x:\tau := E$ \bnfalt $S;S$ \bnfalt \pack \bnfalt $\unpack(x)$ & (statements) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $\mathcal{D}$ & \bnfdef & $x : \tau$ & (field) \\
                   & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
@@ -258,7 +258,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     Define the following orderings, which make types and type environments into join-semilattices.
     For type quantities, define the partial order $\sqsubset$ by
     \[
-        \mathcal{Q} \sqsubseteq \any; \qquad \exactlyone \sqsubseteq \nonempty; \qquad \every \sqsubseteq \,\, \exactlyone
+        \mathcal{Q} \sqsubseteq \any; \quad \every \sqsubseteq \nonempty; \quad \exactlyone \sqsubseteq \nonempty
     \]
     For types, define the partial order $\leq$ by
     \[
@@ -281,14 +281,6 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \and
         \Delta \proves D :: \sigma \flowsto_\mathcal{S} \pi
     }{ \Gamma \flowproves (S \sends{s} D)~\wf \flowprovesout \update(\Delta, D, \Delta(D) \oplus \min(\mathcal{Q}, \mathcal{R})) }
-
-    \inferrule*[right=Wf-Var-Def]{
-        T \neq \tau \transforms \sigma
-        \and
-        \Gamma, x : \emptyq~T \flowprovesout S~\wf \flowprovesout \Delta, x : \pi
-        \and
-        \lnot(\sigma~\pi)
-    }{ \Gamma \flowproves (\var~x : \emptyq~T~\varin~S)~\wf \flowprovesout \Delta }
 
     \inferrule*[right=Wf-Var-Def-Init]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
@@ -328,8 +320,6 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 
     \inferrule*[right=Wf-Unpack]{
         \this.f : \tau \in \fields(C)
-        \and
-        \this.f \not\in \dom(\Gamma)
     }{ \Gamma, \this : C \flowproves \unpack(f)~\wf \flowprovesout \Gamma, \this : C, \this.f : \tau }
 
     \inferrule*[right=Wf-Pack]{
@@ -348,14 +338,20 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\wf }
 
     \inferrule*[right=Wf-Tx]{
-        \this : C, \fields(C), \overline{x : \tau} \flowproves S~\wf \flowprovesout \Delta, \this : C
-        \and
-        \Delta, \this : C \proves y : \sigma \flowprovesout \Delta, \this : C
+        \this : C, \fields(C), \overline{x : \tau}, y : \emptyq~T \flowproves S~\wf \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
-    }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \sigma~\doC~S)~\wf }
+        \and
+        \lnot(\mathcal{Q}~T~\asset)
+    }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\wf }
+
+    \inferrule*[right=Wf-Field]{
+    }{ \proves_C x : \tau }
+
+    \inferrule*[right=Wf-Type]{
+    }{ \proves_C \type~t~\is~\overline{M}~T }
 \end{mathpar}
 
 \framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
