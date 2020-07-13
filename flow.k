@@ -296,7 +296,7 @@ module FLOW
     syntax K ::= setupArgs(Exprs, VarDefs) [function]
 
     rule setupArgs(.Exprs, .VarDefs) => .
-    rule setupArgs((E:Storage, Es):Exprs, (Y : T, Defs2)) => (var Y : T) ~> (E --> Y) ~> setupArgs(Es, Defs2)
+    rule setupArgs((E:Storage, Es):Exprs, (Y : T, Defs2)) => (var Y : T := E) ~> setupArgs(Es, Defs2)
 
     syntax K ::= cleanEnv(Set)
 

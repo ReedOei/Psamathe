@@ -6,6 +6,6 @@ contract ERC20Bank {
 
 ;
 
-var Bank : ! ERC20Bank
+var Bank : empty ERC20Bank
 new ERC20Bank() --> Bank
 

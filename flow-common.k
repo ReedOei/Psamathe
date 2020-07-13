@@ -73,6 +73,10 @@ module FLOW-COMMON
         <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, S)) ... </transactions>
         [structural]
 
+    // TODO: Write this function, which is intended to perform more thorough desugaring (such as generating fresh variables for non-variable storages, etc.)
+    syntax K ::= normalize(Stmt) [function, functional]
+    rule normalize(S) => S
+
     syntax Type ::= resolveType(Id, Type) [function]
     syntax BaseType ::= resolveType(Id, BaseType) [function]
     syntax VarDefs ::= resolveTypes(Id, VarDefs) [function]
@@ -100,7 +104,7 @@ module FLOW-COMMON
     rule resolveTypes(C, (X : T, Defs:VarDefs)) => X : resolveType(C, T), resolveTypes(C, Defs)
 
     // Resolve statement types
-    rule resolveTypes(C, var X : T) => var X : resolveType(C, T)
+    rule resolveTypes(C, var X : T := E) => var X : resolveType(C, T) := resolveTypes(C, E)
     rule resolveTypes(C, S --[ Sel ]-> D) => resolveTypes(C, S) --[ resolveTypes(C, Sel) ]-> resolveTypes(C, D)
     rule resolveTypes(C, S1:Stmt S2:Stmt) => resolveTypes(C, S1) resolveTypes(C, S2)
     rule resolveTypes(C, return E) => return resolveTypes(C, E)
@@ -121,6 +125,7 @@ module FLOW-COMMON
     rule resolveTypes(_, I:Int) => I
     rule resolveTypes(_, S:String) => S
     rule resolveTypes(_, B:Bool) => B
+    rule resolveTypes(_, emptyval) => emptyval
     rule resolveTypes(C, \ X : T . E) => \ X : resolveType(C, T) . resolveTypes(C, E)
     rule resolveTypes(_, X:Id) => X
     rule resolveTypes(C, X:Storage.E) => resolveTypes(C, X) . resolveTypes(C, E)

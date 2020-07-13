@@ -29,18 +29,17 @@ module FLOW-TYPECHECK
     // Sequence
     rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf
 
-    syntax K ::= insert(Map)
-               | drop(Set)
+    syntax K ::= insert(QualifiedId, Type)
+               | drop(QualifiedId)
 
-    rule <k> insert(M) => . ... </k>
-        <typeEnv> Env => Env M </typeEnv>
+    rule <k> insert(X, T) => . ... </k>
+        <typeEnv> ... .Map => X |-> T ... </typeEnv>
 
-    // TODO: Need to check that we actually can drop this stuff
-    rule <k> drop(Vars) => . ... </k>
-        <typeEnv> Env => removeAll(Env, Vars) </typeEnv>
+    rule <k> drop(X) => nonAsset(T) ... </k>
+        <typeEnv> ... X |-> T => .Map ... </typeEnv>
 
     // Variable definition
-    rule (var X : T := E) wf => E : T ~> insert(X |-> T)
+    rule (var X : T := E) wf => E : T ~> insert(X, T)
 
     // Primitive types
     rule I:Int : ! nat => .
