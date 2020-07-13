@@ -150,18 +150,6 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
     }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
 
-    % \inferrule*[right=Weaken]{
-    %     \Gamma \flowproves E : \sigma \flowprovesout \Delta
-    %     \and
-    %     \lnot (\tau ~ \asset)
-    % }{ \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Delta }
-
-    % \inferrule*[right=Forget]{
-    %     \Gamma \flowproves x : \tau \flowprovesout \Delta
-    %     \and
-    %     \tau \leq \sigma
-    % }{ \Gamma \flowproves x : \sigma \flowprovesout \Delta }
-
     \inferrule*[right=View-Call]{
         \contract~C~\{ \overline{\mathcal{D}} \}
         \and
@@ -397,15 +385,24 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     }{ \proves_C (\type~t~\is~\overline{M}~T)~\wf }
 \end{mathpar}
 
-\framebox{$\contract~C~\{\overline{\mathcal{D}}\}~\wf$} \textbf{Contract Well-formedness}
+\framebox{$\Con~\wf$} \textbf{Contract Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-Con]{
         \forall d \in \overline{\mathcal{D}}. (\proves_C d~\wf)
     }{ (\contract~C~\{ \overline{\mathcal{D}} \})~\wf }
 \end{mathpar}
 
+\framebox{$\Prog~\wf$} \textbf{Program Well-formedness}
+\begin{mathpar}
+    \inferrule*[right=Wf-Con]{
+        \forall C \in \overline{\Con}. C~\wf
+        \and
+        \emptyset \flowproves S \flowprovesout \Delta
+        \and
+        \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+    }{ (\overline{\Con} ; S)~\wf }
+\end{mathpar}
 
-\reed{Selecting from or with a list should yield a list, probably}
 \reed{Asset retention theorem?}
 \reed{Resource accessiblity?}
 
