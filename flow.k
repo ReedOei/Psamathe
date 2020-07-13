@@ -17,7 +17,6 @@ module FLOW
                       | some(Val)
                       | "none" [token]
                       // This can be stored in the middle of a transaction, but not at the end, unless the reference is temporary.
-                      | "emptySingleton" [token]
                       | StorageLoc
     syntax ErrorVal ::= revert(String)
     syntax Resource ::= resource(BaseType, BasicVal)
@@ -166,9 +165,9 @@ module FLOW
     syntax Resource ::= subtract(Resource, Resource) [function, functional]
 
     rule subtract(resource(nat, A), resource(nat, B)) => resource(nat, A -Int B)
-    rule subtract(resource(X:Id, A), resource(X, A)) => resource(X, emptySingleton)
+    rule subtract(resource(X:Id, A), resource(X, A)) => resource(X, emptyval)
         requires X =/=K nat
-    rule subtract(resource(X.T, A), resource(X.T, A)) => resource(X.T, emptySingleton)
+    rule subtract(resource(X.T, A), resource(X.T, A)) => resource(X.T, emptyval)
 
     rule subtract(resource(option R, A), resource(option R, none)) => resource(option R, A)
     rule subtract(resource(option R, some(A)), resource(option R, some(A))) => resource(option R, none)
@@ -250,12 +249,12 @@ module FLOW
     rule combine(revert(E), _) => revert(E)
     rule combine(_, revert(E)) => revert(E)
 
-    rule combine(resource(R, A), resource(R, emptySingleton)) => resource(R, A)
+    rule combine(resource(R, A), resource(R, emptyval)) => resource(R, A)
     rule combine(resource(nat, A), resource(nat, B)) => resource(nat, A +Int B)
     rule combine(resource(R:Id, A), resource(R, B)) => revert("Destination already full!")
-        requires R =/=K nat andBool B =/=K emptySingleton
+        requires R =/=K nat andBool B =/=K emptyval
     rule combine(resource(X.T, A), resource(X.T, B)) => revert("Destination already full!")
-        requires B =/=K emptySingleton
+        requires B =/=K emptyval
 
     rule combine(resource(option R, A), resource(option R, none)) => resource(option R, A)
     rule combine(resource(option R, none), resource(option R, some(B))) => resource(option R, some(B))
@@ -273,6 +272,8 @@ module FLOW
     syntax Resource ::= coerce(Initializer, Type) [function, functional]
     rule coerce(resource(R, V), _) => resource(R, V)
     rule coerce(emptyval, ! nat) => resource(nat, 0)
+    rule coerce(emptyval, ! X:Id) => resource(X, emptyval)
+    rule coerce(emptyval, ! X.T) => resource(X.T, emptyval)
     rule coerce(emptyval, Q option R) => resource(option R, none)
     rule coerce(emptyval, Q set R) => resource(set R, .Set)
     rule coerce(emptyval, Q list R) => resource(list R, .List)
@@ -280,9 +281,9 @@ module FLOW
     syntax Resource ::= defaultValue(Type) [function, functional]
 
     rule defaultValue(Q nat) => resource(nat, 0)
-    rule defaultValue(Q X:Id) => resource(X, emptySingleton)
+    rule defaultValue(Q X:Id) => resource(X, emptyval)
         requires X =/=K nat
-    rule defaultValue(Q X.T) => resource(X.T, emptySingleton)
+    rule defaultValue(Q X.T) => resource(X.T, emptyval)
     rule defaultValue(Q option R) => resource(option R, none)
     rule defaultValue(Q set R) => resource(set R, .Set)
     rule defaultValue(Q list R) => resource(list R, .List)
