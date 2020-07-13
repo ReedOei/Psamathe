@@ -44,7 +44,7 @@
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyq$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $f \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & (expressions) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $f \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
@@ -161,10 +161,14 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
     }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
 
-    \inferrule*[right=View-Call]{
-        \contract~C~\{ \overline{\mathcal{D}} \}
+    \inferrule*[right=Check-In]{
+        \Gamma \proves f~\selects~\demote(\sigma)
         \and
-        (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \overline{\mathcal{D}}
+        \Gamma \proves x :: \tau \flowsto_\mathcal{Q} \sigma
+    }{ \Gamma \proves (f~\varin~x) : \boolt \flowprovesout \Gamma }
+
+    \inferrule*[right=View-Call]{
+        (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \decls(C)
         \and
         \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
     }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
@@ -178,22 +182,20 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     % }{ \Gamma, x : I \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
 
     \inferrule*[right=Internal-Tx-Call]{
-        \contract~C~\{ \overline{\mathcal{D}} \}
-        \and
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
         \\
-        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \overline{\mathcal{D}}
+        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(C)
         \and
         \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, \this : C
     }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C }
 
-    \inferrule*[right=If-Expr]{
-        \Gamma \flowproves x : \boolt \flowprovesout \Gamma
-        \and
-        \Gamma \flowproves y : \tau \flowprovesout \Delta
-        \and
-        \Gamma \flowproves z : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves (\ifS~x~\thenS~y~\elseS~z) : \tau \flowprovesout \Delta }
+    % \inferrule*[right=If-Expr]{
+    %     \Gamma \flowproves x : \boolt \flowprovesout \Gamma
+    %     \and
+    %     \Gamma \flowproves y : \tau \flowprovesout \Delta
+    %     \and
+    %     \Gamma \flowproves z : \tau \flowprovesout \Delta
+    % }{ \Gamma \flowproves (\ifS~x~\thenS~y~\elseS~z) : \tau \flowprovesout \Delta }
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
@@ -232,12 +234,12 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 \framebox{$\Gamma \proves f ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
 \begin{mathpar}
     \inferrule*[right=Select-One]{
-        \Gamma \flowproves E : \tau \flowprovesout \Gamma
-    }{ \Gamma \proves E~\selects_{\exactlyone}~\tau }
+        \Gamma \flowproves x : \tau \flowprovesout \Gamma
+    }{ \Gamma \proves x~\selects_{\exactlyone}~\tau }
 
     \inferrule*[right=Select-Col]{
-        \Gamma \flowproves E : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
-    }{ \Gamma \proves E~\selects_{\mathcal{Q}}~\tau }
+        \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
+    }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\tau }
 
     \inferrule*[right=Select-Everything]{
     }{ \Gamma \proves \everything~\selects_\every~\tau }
@@ -325,13 +327,13 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \Delta \proves D :: \sigma \flowsto_\mathcal{S} \pi
     }{ \Gamma \flowproves (S \sends{s} D)~\wf \flowprovesout \update(\Delta, D, \Delta(D) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
-    \inferrule*[right=Wf-Var-Def-Init]{
-        \Gamma \flowproves E : \tau \flowprovesout \Gamma
+    \inferrule*[right=Wf-Var-Def]{
+        \Gamma \flowproves E : \tau \flowprovesout \Delta
         \and
-        \Gamma, x : \tau \flowproves S~\wf \flowprovesout \Delta, x : \sigma
+        \Delta, x : \tau \flowproves S~\wf \flowprovesout \Xi, x : \sigma
         \and
         \lnot(\sigma~\asset)
-    }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\wf \flowprovesout \Delta }
+    }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\wf \flowprovesout \Xi }
 
     \inferrule*[right=Wf-If]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
