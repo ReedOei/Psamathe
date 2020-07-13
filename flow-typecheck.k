@@ -60,11 +60,15 @@ module FLOW-TYPECHECK
 
     syntax K ::= checkEach(Exprs, VarDefs)
 
-    rule <k> new C(Args) :: _ void ==> {!} ! C
+    rule <k> new C(Args) :: empty void ==> {!} ! C
              =>
              checkEach(Args, ArgDefs)
              ...  </k>
         <constructors> ... C |-> constructor(ArgDefs, _) ... </constructors>
+
+    rule consume :: T ==> {empty} empty void
+         =>
+         checkConsumable(T)
 
     rule checkEach(.Exprs, .VarDefs) => .
     rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
@@ -88,5 +92,14 @@ module FLOW-TYPECHECK
     rule demote(bool) => bool
     rule demote(string) => string
     rule demote(address) => address
+
+    // Type modifier checking
+    syntax K ::= checkConsumable(Type)
+               | checkConsumable(BaseType)
+               | nonAsset(Type)
+
+    /* rule checkConsumable(Q:TypeQuant T) => nonAsset(Q T) or checkConsumable(T) */
+    /*     <types> ... T |-> modified(Ms, _) ... </types> */
+    /*     requires consumable in Ms */
 endmodule
 
