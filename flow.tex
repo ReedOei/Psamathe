@@ -31,7 +31,7 @@
 \begin{figure}[ht]
 \begin{align*}
     C &\in \textsc{ContractNames} & m &\in \textsc{TransactionNames} \\
-    t &\in \textsc{TypeNames} & x &\in \textsc{IdentifierNames} \\
+    t &\in \textsc{TypeNames} & x &\in \textsc{Identifiers} \\
     n &\in \Z \\
 \end{align*}
 \begin{tabular}{l r l l}
@@ -242,7 +242,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 \]
 
 \begin{definition}
-    For a type environment $\Gamma$ and an identifier $x$, define
+    We can consider a type environment $\Gamma$ as a function $\textsc{Identifiers}\xspace \to \textsc{Types}\xspace \cup \curlys{\bot}$ as follows:
     \[
         \Gamma(x) =
         \begin{cases}
@@ -250,17 +250,21 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
             \bot & \owise
         \end{cases}
     \]
+    We write $\dom(\Gamma)$ to mean $\setbuild{x \in \textsc{Identifiers}}{\Gamma(x) \neq \bot}$.
 \end{definition}
 
 \begin{definition}
     Let $\mathcal{Q}$ and $\mathcal{R}$ be \typeQuantities, $T_\mathcal{Q}$ and $T_\mathcal{R}$ base types, and $\Gamma$ and $\Delta$ type environments.
     Define the following orderings, which make types and type environments into join-semilattices.
-    For types,
+    For type quantities, define the partial order $\sqsubset$ by
     \[
-        \mathcal{Q}~T_\mathcal{Q} < \mathcal{R}~T_\mathcal{R} \iff T_\mathcal{Q} = T_\mathcal{R} \tand \mathcal{Q} \neq \any \tand \mathcal{R} = \any
+        \mathcal{Q} \sqsubseteq \any; \qquad \exactlyone \sqsubseteq \nonempty; \qquad \every \sqsubseteq \,\, \exactlyone
     \]
-
-    For type environments,
+    For types, define the partial order $\leq$ by
+    \[
+        \mathcal{Q}~T_\mathcal{Q} \leq \mathcal{R}~T_\mathcal{R} \iff T_\mathcal{Q} = T_\mathcal{R} \tand \mathcal{Q} \sqsubseteq \mathcal{R}
+    \]
+    For type environments, define the partial order $\leq$ by
     \[
         \Gamma \leq \Delta \iff \forall x. \Gamma(x) \leq \Delta(x)
     \]
@@ -279,11 +283,20 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     }{ \Gamma \flowproves (S \sends{s} D)~\wf \flowprovesout \update(\Delta, D, \Delta(D) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Wf-Var-Def]{
-    }{ \Gamma \flowproves (\var~x : \emptyq~T)~\wf \flowprovesout \Gamma, x : \emptyq~T }
+        T \neq \tau \transforms \sigma
+        \and
+        \Gamma, x : \emptyq~T \flowprovesout S~\wf \flowprovesout \Delta, x : \pi
+        \and
+        \lnot(\sigma~\pi)
+    }{ \Gamma \flowproves (\var~x : \emptyq~T~\varin~S)~\wf \flowprovesout \Delta }
 
     \inferrule*[right=Wf-Var-Def-Init]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\var~x : \tau := E)~\wf \flowprovesout \Gamma, x : \tau }
+        \and
+        \Gamma, x : \tau \flowproves S~\wf \flowprovesout \Delta, x : \sigma
+        \and
+        \lnot(\sigma~\asset)
+    }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\wf \flowprovesout \Delta }
 
     \inferrule*[right=Wf-If]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
@@ -320,8 +333,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     }{ \Gamma, \this : C \flowproves \unpack(f)~\wf \flowprovesout \Gamma, \this : C, \this.f : \tau }
 
     \inferrule*[right=Wf-Pack]{
-        % \forall x \in \dom(\Gamma). \fields(C)(x) \leq \Gamma(x)
-        \fields(C) \leq \Gamma
+        (\Gamma|_{\dom(\fields(C))}) \leq \fields(C)
         \and
         \Delta = \setbuild{x : \tau \in \Gamma}{x \not\in \dom(\fields(C))}
     }{ \Gamma, \this : C \flowproves \pack~\wf \flowprovesout \Delta, \this : C }
@@ -337,6 +349,8 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 
     \inferrule*[right=Wf-Tx]{
         \this : C, \fields(C), \overline{x : \tau} \flowproves S~\wf \flowprovesout \Delta, \this : C
+        \and
+        \Delta, \this : C \proves y : \sigma \flowprovesout \Delta, \this : C
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
