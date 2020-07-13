@@ -2,9 +2,9 @@ contract Main {}
 
 ;
 
-var A : ! nat
-var B : ! nat
-var C : ! nat
+var A : ! nat := 0
+var B : ! nat := 0
+var C : ! nat := 0
 var D : any set ! string
 var E : any set ! string
 

@@ -2,4 +2,7 @@ contract Main {}
 ;
 
 var x : ! nat := 6
+var y : empty nat
+
+x --> y
 

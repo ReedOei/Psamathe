@@ -19,7 +19,7 @@ module FLOW-TYPECHECK
         <typeEnv> .Map </typeEnv>
 
     syntax Judgement ::= Stmt "wf"
-                       | Expr "selects" Type
+                       | Selector "selects" "{" TypeQuant "}" Type
                        | Expr ":" Type
                        | Storage "::" Type "==>" "{" TypeQuant "}" Type
     syntax K ::= Judgement
@@ -32,11 +32,11 @@ module FLOW-TYPECHECK
     syntax K ::= insert(Map)
                | drop(Set)
 
-    rule <k> insert(M) => . </k>
+    rule <k> insert(M) => . ... </k>
         <typeEnv> Env => Env M </typeEnv>
 
     // TODO: Need to check that we actually can drop this stuff
-    rule <k> drop(Vars) => . </k>
+    rule <k> drop(Vars) => . ... </k>
         <typeEnv> Env => removeAll(Env, Vars) </typeEnv>
 
     // Variable definition
@@ -48,16 +48,25 @@ module FLOW-TYPECHECK
     rule B:Bool : ! bool => .
     rule S:String : ! string => .
 
+    rule emptyval : empty _ => .
+    rule emptyval : any _ => .
+
     // Storage typing
+    rule <k> X :: R T ==> {!} Q T => . ... </k>
+        <typeEnv> ... X |-> Q T ... </typeEnv>
+
     rule <k> X :: T ==> {Q} T => . ... </k>
         <typeEnv> ... X |-> Q C:Collection T ... </typeEnv>
+
+    // Selector typing
+    rule everything selects {every} T => .
 
     // Flow typing
     // TODO: need to update storage information
     rule (S --[ Sel ]-> D) wf =>
         S :: ?T1 ==> {?Q} ?T2 ~>
-        Sel selects demote(?T2) ~>
-        D :: ?T2 ==> {?R} ?T3
+        Sel selects {?R} demote(?T2) ~>
+        D :: ?T2 ==> {?_} ?T3
 
     // Helpers
     syntax Type ::= demote(Type) [function, functional]

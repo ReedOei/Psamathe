@@ -8,7 +8,7 @@ contract Main {
 
 ;
 
-var x : ! Main
+var x : empty Main
 new Main() --> x
 
 x.addOne()

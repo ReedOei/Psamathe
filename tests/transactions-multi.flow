@@ -5,14 +5,14 @@ contract Main {
         n --> this.balance
 
     transaction remove(m : ! nat) returns ! nat:
-        var t : ! nat
+        var t : ! nat := 0
         this.balance --[ m ]-> t
         return t
 }
 
 ;
 
-var x : ! Main
+var x : empty Main
 
 new Main() --> x
 

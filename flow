@@ -2,13 +2,20 @@
 
 FLAGS=()
 
-if [[ "$1" == "--typecheck" ]]; then
+if [[ "$1" == "typecheck" ]]; then
     shift
+
+    if [[ "$1" == "debug" ]]; then
+        FLAGS+=("--log")
+        FLAGS+=("--log-cells")
+        FLAGS+=("(k),(#pc),#result,(typeEnv)")
+        shift # Clear out the debug argument
+    fi
 
     set -ex
     krun -d static/ "${FLAGS[@]}" "$@"
 else
-    if [[ "$1" == "--debug" ]]; then
+    if [[ "$1" == "debug" ]]; then
         FLAGS+=("--log")
         FLAGS+=("--log-cells")
         FLAGS+=("(k),(#pc),#result,(storage),(lookup),(localTypeEnv)")

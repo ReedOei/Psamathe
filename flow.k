@@ -271,9 +271,10 @@ module FLOW
 
     syntax Resource ::= coerce(Initializer, Type) [function, functional]
     rule coerce(resource(R, V), _) => resource(R, V)
-    rule coerce(emptyval, ! nat) => resource(nat, 0)
-    rule coerce(emptyval, ! X:Id) => resource(X, emptyval)
-    rule coerce(emptyval, ! X.T) => resource(X.T, emptyval)
+    rule coerce(emptyval, empty X:Id) => resource(X, emptyval)
+    rule coerce(emptyval, empty X.T) => resource(X.T, emptyval)
+    rule coerce(emptyval, any X:Id) => resource(X, emptyval)
+    rule coerce(emptyval, any X.T) => resource(X.T, emptyval)
     rule coerce(emptyval, Q option R) => resource(option R, none)
     rule coerce(emptyval, Q set R) => resource(set R, .Set)
     rule coerce(emptyval, Q list R) => resource(list R, .List)
