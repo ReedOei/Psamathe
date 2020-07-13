@@ -129,6 +129,17 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
 \end{align*}
 
+\framebox{$\decls(C) = \overline{\mathcal{D}}$} \textbf{Contract Declarations}
+\begin{align*}
+    \decls(C) = \overline{\mathcal{D}} \twhere (\contract~C~\{ \overline{\mathcal{D}} \})
+\end{align*}
+
+\framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
+\begin{align*}
+    \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \decls(C)}
+\end{align*}
+
+
 \framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
 \begin{mathpar}
     \inferrule*[right=Empty-Val]{
@@ -189,11 +200,6 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     }{ \Gamma \flowproves (\lambda x : \tau. E) :: \emptyq~(\tau \transforms \sigma) }
 \end{mathpar}
 
-\framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
-\begin{align*}
-    \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \overline{\mathcal{D}}} \twhere (\contract~C~\{ \overline{\mathcal{D}} \})
-\end{align*}
-
 \framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto_{\mathcal{Q}} \sigma$} \textbf{Storage Typing}
 The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
 \begin{mathpar}
@@ -213,8 +219,14 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \inferrule*[right=Store-New]{
         \fields(C) = \overline{\this.f : \tau}
         \and
-        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
-    }{ \Gamma \proves \newc~C(\overline{y}) :: \voidt \flowsto_{\exactlyone} ~ C }
+        \Gamma \flowproves x : \curlys{\overline{\this.f : \tau}} \flowprovesout \Gamma
+    }{ \Gamma \proves \newc~C(x) :: \voidt \flowsto_{\exactlyone} ~ C }
+
+    \inferrule*[right=Store-New-Ty]{
+        (\type~t~\is~\overline{M}~T) \in \decls(C)
+        \and
+        \Gamma \flowproves x : \demote(T) \flowprovesout \Gamma
+    }{ \Gamma, \this : C \proves \newc~t(x) :: \voidt \flowsto_{\exactlyone} ~ t }
 \end{mathpar}
 
 \framebox{$\Gamma \proves f ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
