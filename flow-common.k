@@ -122,7 +122,7 @@ module FLOW-COMMON
     rule resolveTypes(_, S:String) => S
     rule resolveTypes(_, B:Bool) => B
     rule resolveTypes(C, \ X : T . E) => \ X : resolveType(C, T) . resolveTypes(C, E)
-    rule resolveTypes(C, X:Id) => X
+    rule resolveTypes(_, X:Id) => X
     rule resolveTypes(C, X:Storage.E) => resolveTypes(C, X) . resolveTypes(C, E)
     rule resolveTypes(C, X[E]) => resolveTypes(C, X) [ resolveTypes(C, E) ]
     // TODO: Finish all cases of resolveTypes

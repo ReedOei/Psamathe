@@ -40,8 +40,7 @@ module FLOW-TYPECHECK
         <typeEnv> Env => removeAll(Env, Vars) </typeEnv>
 
     // Variable definition
-    rule <k> (var X : (Q T)) wf => . ... </k>
-        <typeEnv> ... .Map => X |-> empty T ... </typeEnv>
+    rule (var X : T := E) wf => E : T ~> insert(X |-> T)
 
     // Primitive types
     rule I:Int : ! nat => .
