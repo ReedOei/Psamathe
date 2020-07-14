@@ -148,7 +148,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 \begin{definition}
     Let $\mathcal{Q}$ and $\mathcal{R}$ be \typeQuantities, $T_\mathcal{Q}$ and $T_\mathcal{R}$ base types, and $\Gamma$ and $\Delta$ type environments.
     Define the following orderings, which make types and type environments into join-semilattices.
-    For type quantities, define the partial order $\sqsubset$ by
+    For type quantities, define the partial order $\sqsubseteq$ by
     \[
         \mathcal{Q} \sqsubseteq \any; \quad \exactlyone \sqsubseteq \nonempty; \quad \every \sqsubseteq \nonempty
     \]
@@ -165,8 +165,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 \framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
 \begin{mathpar}
     \inferrule*[right=Empty-Val]{
-        \emptyq \sqsubseteq \mathcal{Q}
-    }{ \Gamma \flowproves \emptyq : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma }
+    }{ \Gamma \flowproves \emptyq : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
