@@ -1,6 +1,6 @@
 contract Main {
     transaction foo() returns ! nat:
-        var x : ! nat
+        var x : ! nat := 0
         47 --> x
         return 0
 }
