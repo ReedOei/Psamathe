@@ -44,7 +44,7 @@
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyq$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
@@ -108,7 +108,7 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
 
 \begin{definition}
     Let $\mathcal{Q}, \mathcal{R} \in \textbf{Quant}$.
-    Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ satisfying
+    Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ \reed{Check uniqueness, but I'm somewhat sure} satisfying
     \begin{align*}
         \every \oplus \mathcal{R} &= \every \\
         \emptyq \oplus \mathcal{R} &= \mathcal{R} \\
@@ -167,6 +167,14 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     \inferrule*[right=Empty-Val]{
         \emptyq \sqsubseteq \mathcal{Q}
     }{ \Gamma \flowproves \emptyq : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma }
+
+    \inferrule*[right=Transformer]{
+        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
+    }{ \Gamma \flowproves (\lambda x : \tau. E) :: \emptyq~(\tau \transforms \sigma) }
+
+    \inferrule*[right=Some]{
+        \Gamma \flowproves x : \tau \flowprovesout \Delta
+    }{ \Gamma \flowproves \some(x) : \,\,!~\optionq~\tau \flowprovesout \Delta }
 
     \inferrule*[right=Demote-Lookup]{
     }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
@@ -227,10 +235,6 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \and
         \lnot(\sigma~\asset)
     }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \pi \flowprovesout \Xi }
-
-    \inferrule*[right=Transformer]{
-        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\lambda x : \tau. E) :: \emptyq~(\tau \transforms \sigma) }
 \end{mathpar}
 
 \framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto_{\mathcal{Q}} \sigma$} \textbf{Storage Typing}
