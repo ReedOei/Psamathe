@@ -139,124 +139,6 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \decls(C)}
 \end{align*}
 
-
-\framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
-\begin{mathpar}
-    \inferrule*[right=Empty-Val]{
-    }{ \Gamma \flowproves \emptyq : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }
-
-    \inferrule*[right=Demote-Lookup]{
-    }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
-
-    \inferrule*[right=Lin-Lookup]{
-    }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma }
-
-    \inferrule*[right=Field-Lookup]{
-        \Gamma \proves x : \curlys{\overline{y : \tau}} \flowproves \Gamma
-        \and
-        f : \sigma \in \overline{y : \tau}
-    }{ \Gamma \flowproves x.f : \sigma \flowproves \Gamma }
-
-    \inferrule*[right=Build-Rec]{
-        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
-    }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
-
-    \inferrule*[right=Check-In]{
-        \Gamma \proves f~\selects~\demote(\sigma)
-        \and
-        \Gamma \proves x :: \tau \flowsto_\mathcal{Q} \sigma
-    }{ \Gamma \proves (f~\varin~x) : \boolt \flowprovesout \Gamma }
-
-    \inferrule*[right=View-Call]{
-        (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \decls(C)
-        \and
-        \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
-    }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
-
-    % \inferrule*[right=Interface-Tx-Call]{
-    %     \interface~I~\{ \overline{\mathcal{D_I}} \}
-    %     \and
-    %     (\transaction~m(\overline{a : \tau})~\returns~\sigma) \in \overline{\mathcal{D}_I}
-    %     \and
-    %     \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
-    % }{ \Gamma, x : I \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
-
-    \inferrule*[right=Internal-Tx-Call]{
-        \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
-        \\
-        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(C)
-        \and
-        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
-    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C }
-
-    \inferrule*[right=If-Expr]{
-        \Gamma \flowproves x : \boolt \flowprovesout \Gamma
-        \and
-        \Gamma \flowproves y : \tau \flowprovesout \Delta
-        \and
-        \Gamma \flowproves z : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves (\ifS~x~\thenS~y~\elseS~z) : \tau \flowprovesout \Delta }
-
-    \inferrule*[right=Let]{
-        \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
-        \and
-        \Delta, x : \tau \flowproves E_2 : \sigma \flowprovesout \Xi
-        \and
-        x \not\in \dom(\Xi)
-    }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \sigma \flowprovesout \Xi }
-
-    \inferrule*[right=Transformer]{
-        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\lambda x : \tau. E) :: \emptyq~(\tau \transforms \sigma) }
-\end{mathpar}
-
-\framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto_{\mathcal{Q}} \sigma$} \textbf{Storage Typing}
-The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
-\begin{mathpar}
-    \inferrule*[right=Store-One]{
-    }{ \Gamma, S : \tau \proves S :: \tau \flowsto_{\exactlyone} \tau }
-
-    \inferrule*[right=Store-Col]{
-    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S :: \tau \flowsto_{\mathcal{Q}} \tau }
-
-    \inferrule*[right=Store-Transformer]{
-    }{ \Gamma, x : \mathcal{Q}~(\tau \transforms \sigma) \proves x :: \tau \flowsto_{\mathcal{Q}} \sigma }
-
-    \inferrule*[right=Store-Consume]{
-        \tau~\consumable
-    }{ \Gamma \proves \consume :: \tau \flowsto_{\emptyq} \voidt }
-
-    \inferrule*[right=Store-New]{
-        \fields(C) = \overline{\this.f : \tau}
-        \and
-        \Gamma \flowproves x : \curlys{\overline{\this.f : \tau}} \flowprovesout \Gamma
-    }{ \Gamma \proves \newc~C(x) :: \voidt \flowsto_{\exactlyone} ~ C }
-
-    \inferrule*[right=Store-New-Ty]{
-        (\type~t~\is~\overline{M}~T) \in \decls(C)
-        \and
-        \Gamma \flowproves x : \demote(T) \flowprovesout \Gamma
-    }{ \Gamma, \this : C \proves \newc~t(x) :: \voidt \flowsto_{\exactlyone} ~ t }
-\end{mathpar}
-
-\framebox{$\Gamma \proves f ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
-\begin{mathpar}
-    \inferrule*[right=Select-One]{
-        \Gamma \flowproves x : \tau \flowprovesout \Gamma
-    }{ \Gamma \proves x~\selects_{\exactlyone}~\tau }
-
-    \inferrule*[right=Select-Col]{
-        \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
-    }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\tau }
-
-    \inferrule*[right=Select-Everything]{
-    }{ \Gamma \proves \everything~\selects_\every~\tau }
-
-    \inferrule*[right=Select-Quant]{
-        \Gamma, x : \tau \flowproves p : \boolt \flowprovesout \Gamma, x : \tau
-    }{ \Gamma \proves (\mathfrak{q}~x : \tau~\suchthat~p)~\selects_\mathfrak{q}~\tau }
-\end{mathpar}
-
 \begin{definition}
     Let $\mathcal{Q}, \mathcal{R} \in \textbf{Quant}$.
     Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\textbf{Quant}^2 \to \textbf{Quant}$ satisfying
@@ -322,6 +204,124 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \Gamma \leq \Delta \iff \forall x. \Gamma(x) \leq \Delta(x)
     \]
 \end{definition}
+
+
+\framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
+\begin{mathpar}
+    \inferrule*[right=Empty-Val]{
+    }{ \Gamma \flowproves \emptyq : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }
+
+    \inferrule*[right=Demote-Lookup]{
+    }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
+
+    \inferrule*[right=Lin-Lookup]{
+    }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
+
+    \inferrule*[right=Field-Lookup]{
+        \Gamma \proves x : \curlys{\overline{y : \tau}} \flowproves \Gamma
+        \and
+        f : \sigma \in \overline{y : \tau}
+    }{ \Gamma \flowproves x.f : \sigma \flowproves \Gamma }
+
+    \inferrule*[right=Build-Rec]{
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
+    }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
+
+    \inferrule*[right=Check-In]{
+        \Gamma \proves f~\selects~\demote(\sigma)
+        \and
+        \Gamma \proves x :: \tau \flowsto_\mathcal{Q} \sigma
+    }{ \Gamma \proves (f~\varin~x) : \boolt \flowprovesout \Gamma }
+
+    \inferrule*[right=View-Call]{
+        (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \decls(C)
+        \and
+        \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
+    }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
+
+    % \inferrule*[right=Interface-Tx-Call]{
+    %     \interface~I~\{ \overline{\mathcal{D_I}} \}
+    %     \and
+    %     (\transaction~m(\overline{a : \tau})~\returns~\sigma) \in \overline{\mathcal{D}_I}
+    %     \and
+    %     \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+    % }{ \Gamma, x : I \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
+
+    \inferrule*[right=Internal-Tx-Call]{
+        \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
+        \\
+        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(C)
+        \and
+        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
+    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C }
+
+    \inferrule*[right=If-Expr]{
+        \Gamma \flowproves x : \boolt \flowprovesout \Gamma
+        \and
+        \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
+        \and
+        \Gamma \flowproves E_2 : \tau \flowprovesout \Xi
+    }{ \Gamma \flowproves (\ifS~x~\thenS~E_1~\elseS~E_2) : \tau \flowprovesout \Delta \vee \Xi }
+
+    \inferrule*[right=Let]{
+        \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
+        \and
+        \Delta, x : \tau \flowproves E_2 : \sigma \flowprovesout \Xi
+        \and
+        x \not\in \dom(\Xi)
+    }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \sigma \flowprovesout \Xi }
+
+    \inferrule*[right=Transformer]{
+        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
+    }{ \Gamma \flowproves (\lambda x : \tau. E) :: \emptyq~(\tau \transforms \sigma) }
+\end{mathpar}
+
+\framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto_{\mathcal{Q}} \sigma$} \textbf{Storage Typing}
+The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
+\begin{mathpar}
+    \inferrule*[right=Store-One]{
+    }{ \Gamma, S : \mathcal{Q}~T \proves S :: \mathcal{R}~T \flowsto_{\exactlyone} \mathcal{Q}~T }
+
+    \inferrule*[right=Store-Col]{
+    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S :: \tau \flowsto_{\mathcal{Q}} \tau }
+
+    \inferrule*[right=Store-Transformer]{
+    }{ \Gamma, x : \mathcal{Q}~(\tau \transforms \sigma) \proves x :: \tau \flowsto_{\mathcal{Q}} \sigma }
+
+    \inferrule*[right=Store-Consume]{
+        \tau~\consumable
+    }{ \Gamma \proves \consume :: \tau \flowsto_{\emptyq} \voidt }
+
+    \inferrule*[right=Store-New]{
+        \fields(C) = \overline{\this.f : \tau}
+        \and
+        \Gamma \flowproves x : \curlys{\overline{\this.f : \tau}} \flowprovesout \Gamma
+    }{ \Gamma \proves \newc~C(x) :: \voidt \flowsto_{\exactlyone} ~ C }
+
+    \inferrule*[right=Store-New-Ty]{
+        (\type~t~\is~\overline{M}~T) \in \decls(C)
+        \and
+        \Gamma \flowproves x : \demote(T) \flowprovesout \Gamma
+    }{ \Gamma, \this : C \proves \newc~t(x) :: \voidt \flowsto_{\exactlyone} ~ t }
+\end{mathpar}
+
+\framebox{$\Gamma \proves f ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
+\begin{mathpar}
+    \inferrule*[right=Select-One]{
+        \Gamma \flowproves x : \tau \flowprovesout \Gamma
+    }{ \Gamma \proves x~\selects_{\exactlyone}~\tau }
+
+    \inferrule*[right=Select-Col]{
+        \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
+    }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\tau }
+
+    \inferrule*[right=Select-Everything]{
+    }{ \Gamma \proves \everything~\selects_\every~\tau }
+
+    \inferrule*[right=Select-Quant]{
+        \Gamma, x : \tau \flowproves p : \boolt \flowprovesout \Gamma, x : \tau
+    }{ \Gamma \proves (\mathfrak{q}~x : \tau~\suchthat~p)~\selects_\mathfrak{q}~\tau }
+\end{mathpar}
 
 \framebox{$\Gamma \flowproves S~\wf \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
@@ -404,6 +404,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     }{ \proves_C (x : \tau)~\wf }
 
     \inferrule*[right=Wf-Type]{
+        T~\asset \implies \asset \in \overline{M}
     }{ \proves_C (\type~t~\is~\overline{M}~T)~\wf }
 \end{mathpar}
 
@@ -574,19 +575,7 @@ I don't think this will greatly impact usability, and in fact is probably easier
 For example, say you want to do the third flow only when there isn't enough money in \lstinline{A} and \lstinline{C} for first two flows to occur.
 But the above implementation would also cause the money to be taken from C in the case that there's, for example, and overflow when you transfer to B, or if A has enough money, but not C, which may is desirable.
 
-\section{Examples}
-\paragraph{Transfer with fees}
-This is fairly common: for example, the contract with the most transactions does this, as do many gambling/auction contracts.
-\eq{
-    \texttt{transfer}(\texttt{from}, \texttt{to}, \texttt{amount}):
-}
-\begin{tikzcd}
-    & & \mathcal{A}[\texttt{owner}] \\
-    \mathcal{A}[\texttt{from}] \arrow{r}{\texttt{amount}} & \arrow{ur}{\texttt{fee} \%} \arrow[rightsquigarrow]{dr}{} & \\
-    & & \mathcal{A}[\texttt{to}] \\
-\end{tikzcd}
-
-\subsection{The DAO attack}
+\paragraph{The DAO attack}
 We can prevent the DAO attack (the below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}):
 \begin{lstlisting}
 function withdrawBalance() public {
@@ -605,27 +594,6 @@ transaction withdrawBalance():
 \end{lstlisting}
 
 Not only is this simpler, but the compiler can automatically place the actual call that does the transfer last, meaning that the mistake could simply never be made.
-
-\subsection{approveAndCall}
-
-Many token contracts include the concept of \lstinline{approveAndCall}, typically similarly to the following (taken from: \lstinline{0x174bfa6600bf90c885c7c01c7031389ed1461ab9}, one of the most popular contracts on the blockchain by transaction count):
-\begin{lstlisting}
-function approveAndCall(address _spender, uint256 _value, bytes memory _extraData) public returns (bool success) {
-    tokenRecipient spender = tokenRecipient(_spender);
-    if (approve(_spender, _value)) {
-        spender.receiveApproval(msg.sender, _value, address(this), _extraData);
-        return true;
-    }
-}
-\end{lstlisting}
-
-In \langName, we can do the same thing by associating a call with a flow.
-\begin{lstlisting}
-transaction approveAndCall(_spender : address, _value : uint256, _extraData : bytes):
-    consume everything from allowance[msg.sender, _spender]
-    approvalSource --[ _value ]-> allowance[msg.sender, _spender],
-    on success: call receiveApproval(msg.sender, _value, address(this), _extraData)
-\end{lstlisting}
 
 \section{Random Thoughts}
 \reed{Ignore this for now, just some stuff for fun that may or may not end up being useful.}
