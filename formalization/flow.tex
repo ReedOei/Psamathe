@@ -380,13 +380,11 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\ok }
 
     \inferrule*[right=Wf-Tx]{
-        \this : C, \fields(C), \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
+        \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
-        % \and
-        % \lnot(\mathcal{Q}~T~\asset)
     }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
 
     \inferrule*[right=Wf-Field]{
@@ -396,6 +394,10 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         T~\asset \implies \asset \in \overline{M}
     }{ \proves_C (\type~t~\is~\overline{M}~T)~\ok }
 \end{mathpar}
+
+\reed{Public transaction shouldn't be able to return an asset?
+Actually, everything would be a lot nicer if you just couldn't move assets around with transactions.
+Probably wouldn't be that limiting, because of the demotion system.}
 
 Note that we need to have constructors, because only the contract that defines a named type is allowed to create values of that type, and so it is not always possible to externally initialize all contract fields.
 \begin{mathpar}
