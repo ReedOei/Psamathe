@@ -1,0 +1,34 @@
+fmod QUANTITIES is
+    sorts Every Some Quantity .
+    subsort Every < Quantity .
+    subsort Some < Quantity .
+
+    op every : -> Every [ctor] .
+    ops empty any ! nonempty : -> Some [ctor] .
+
+    vars E : Every .
+    vars Q R S : Quantity .
+    vars T : Some .
+
+    op _-_ : Quantity Quantity -> Quantity .
+    eq Q - empty = Q .
+    eq Q - every = empty .
+    eq empty - R = empty .
+
+    eq every - nonempty = every .
+    eq every - ! = every .
+    eq every - any = every .
+
+    eq nonempty - nonempty = any .
+    eq nonempty - ! = any .
+    eq nonempty - any = any .
+
+    eq ! - nonempty = empty .
+    eq ! - ! = empty .
+    eq ! - any = any .
+
+    eq any - nonempty = any .
+    eq any - ! = any .
+    eq any - any = any .
+endfm
+

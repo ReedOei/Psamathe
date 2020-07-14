@@ -114,15 +114,20 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     \end{align*}
 
     Define the operator $\ominus$, called \emph{split}, as the unique function $\Quant^2 \to \Quant$ such that
-    \begin{align*}
-        \mathcal{Q} \ominus \emptyq & = \mathcal{Q} \\
-        \emptyq \ominus \mathcal{R} & = \emptyq \\
-        \exactlyone \ominus \mathcal{R} &= \emptyq \qquad \tif \exactlyone \leq \mathcal{R} \\
-        \nonempty \ominus \mathcal{R} &= \any \qquad \tif \mathcal{R} \neq \emptyq \\
-        \mathcal{Q} \ominus \any &= \any \\
-        \mathcal{Q} \ominus \every & = \emptyq \\
-        \every \ominus \mathcal{Q} &= \every
-    \end{align*}
+    \[
+        % \setlength\arraycolsep{1pt}
+        \renewcommand\arraystretch{1.2}
+        \begin{array}{r c l l l}
+            \mathcal{Q} \ominus \emptyq & = & \mathcal{Q} & \\
+            \emptyq \ominus \mathcal{R} & = & \emptyq & \\
+            \mathcal{Q} \ominus \every &= & \emptyq & \\
+            \every \ominus \mathcal{R} &= & \every & \tif \mathcal{R} < \every \\
+            \nonempty - \mathcal{R} &= & \any & \tif \empty < \mathcal{R} < \every \\
+            \exactlyone - \mathcal{R} &= & \emptyq & \tif \exactlyone \leq \mathcal{R} \\
+            \exactlyone - \any &= & \any & \\
+            \any - \mathcal{R} &= & \any & \tif \empty < \mathcal{R} < \every \\
+        \end{array}
+    \]
 \end{definition}
 
 Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \oplus \mathcal{R})~T$ and similarly $(\mathcal{Q}~T) \ominus \mathcal{R}$ to mean $(\mathcal{Q} \ominus \mathcal{R})~T$.
