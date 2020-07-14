@@ -285,7 +285,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
     }{ \Gamma \flowproves \newc~C(\overline{y}) :: \voidt \flowsto_{!} C }
 
-    \inferrule*[right=Store-New-Ty]{
+    \inferrule*[right=Store-Source]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
     }{ \Gamma, \this : C \proves \newc~t :: \voidt \flowsto_{\every} ~ t }
 \end{mathpar}
