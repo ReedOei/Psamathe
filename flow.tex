@@ -79,7 +79,7 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
 \subsection{Statics}
 \begin{figure}[ht]
 \begin{tabular}{l r l l}
-    $\Gamma$ & \bnfdef & $\emptyset$ \bnfalt $\Gamma, x : \tau$ & (type environments)
+    $\Gamma,\Delta,\Xi$ & \bnfdef & $\emptyset$ \bnfalt $\Gamma, x : \tau$ & (type environments)
 \end{tabular}
 \label{type-env}
 \end{figure}
@@ -121,7 +121,7 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     \begin{align*}
         \mathcal{Q} \ominus \emptyq & = \mathcal{Q} \\
         \emptyq \ominus \mathcal{R} & = \emptyq \\
-        \exactlyone \ominus \mathcal{R} &= \emptyq \qquad \tif \mathcal{R} \geq \exactlyone \\
+        \exactlyone \ominus \mathcal{R} &= \emptyq \qquad \tif \exactlyone \leq \mathcal{R} \\
         \nonempty \ominus \mathcal{R} &= \any \qquad \tif \mathcal{R} \neq \emptyq \\
         \mathcal{Q} \ominus \any &= \any \\
         \mathcal{Q} \ominus \every & = \emptyq \\
@@ -169,7 +169,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\lambda x : \tau. E) :: \emptyq~(\tau \transforms \sigma) }
+    }{ \Gamma \flowproves (\lambda x : \tau. E) : \emptyq~(\tau \transforms \sigma) }
 
     \inferrule*[right=Some]{
         \Gamma \flowproves x : \tau \flowprovesout \Delta
@@ -285,7 +285,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     }{ \Gamma \proves (\mathfrak{q}~x : \tau~\suchthat~p)~\selects_\mathfrak{q}~\tau }
 \end{mathpar}
 
-\framebox{$\Gamma \flowproves S~\wf \flowprovesout \Delta$} \textbf{Statement Well-formedness}
+\framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
         \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
@@ -295,97 +295,97 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
         \and
         \Delta \proves B :: \sigma \flowsto_\mathcal{S} \pi
-    }{ \Gamma \flowproves (A \sends{s} B)~\wf \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+    }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Wf-Var-Def]{
         \Gamma \flowproves E : \tau \flowprovesout \Delta
         \and
-        \Delta, x : \tau \flowproves S~\wf \flowprovesout \Xi, x : \sigma
+        \Delta, x : \tau \flowproves S~\ok \flowprovesout \Xi, x : \sigma
         \and
         \lnot(\sigma~\asset)
-    }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\wf \flowprovesout \Xi }
+    }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\ok \flowprovesout \Xi }
 
     \inferrule*[right=Wf-If]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
         \and
-        \Gamma \flowproves S_1~\wf \flowprovesout \Delta
+        \Gamma \flowproves S_1~\ok \flowprovesout \Delta
         \and
-        \Gamma \flowproves S_2~\wf \flowprovesout \Xi
-    }{ \Gamma \flowproves (\ifS~x~\thenS~S_1~\elseS~S_2)~\wf \flowprovesout \Delta \vee \Xi }
+        \Gamma \flowproves S_2~\ok \flowprovesout \Xi
+    }{ \Gamma \flowproves (\ifS~x~\thenS~S_1~\elseS~S_2)~\ok \flowprovesout \Delta \vee \Xi }
 
     \inferrule*[right=Wf-Try]{
-        \Gamma \flowproves S_1~\wf \flowprovesout \Delta
+        \Gamma \flowproves S_1~\ok \flowprovesout \Delta
         \and
-        \Gamma, x : \tau \flowproves S_2~\wf \flowprovesout \Xi, x : \tau
-    }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\wf \flowprovesout \Delta \vee \Xi }
+        \Gamma, x : \tau \flowproves S_2~\ok \flowprovesout \Xi, x : \tau
+    }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\ok \flowprovesout \Delta \vee \Xi }
 
     \inferrule*[right=Wf-Revert]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
-    }{ \Gamma \flowproves \revert(E)~\wf \flowprovesout \Gamma }
+    }{ \Gamma \flowproves \revert(E)~\ok \flowprovesout \Gamma }
 
     \inferrule*[right=Wf-Expr]{
-        \Gamma \flowproves E : \tau \flowprovesout \Gamma
+        \Gamma \flowproves E : \tau \flowprovesout \Delta
         \and
         \lnot(\tau~\asset)
-    }{ \Gamma \flowproves E~\wf \flowprovesout \Gamma }
+    }{ \Gamma \flowproves E~\ok \flowprovesout \Delta }
 
     \inferrule*[right=Wf-Seq]{
-        \Gamma \flowproves S_1~\wf \flowprovesout \Delta
+        \Gamma \flowproves S_1~\ok \flowprovesout \Delta
         \and
-        \Delta \flowproves S_2~\wf \flowprovesout \Xi
-    }{ \Gamma \flowproves (S_1 ; S_2)~\wf \flowprovesout \Xi }
+        \Delta \flowproves S_2~\ok \flowprovesout \Xi
+    }{ \Gamma \flowproves (S_1 ; S_2)~\ok \flowprovesout \Xi }
 
     \inferrule*[right=Wf-Unpack]{
         \this.f : \tau \in \fields(C)
-    }{ \Gamma, \this : C \flowproves \unpack(f)~\wf \flowprovesout \Gamma, \this : C, \this.f : \tau }
+    }{ \Gamma, \this : C \flowproves \unpack(f)~\ok \flowprovesout \Gamma, \this : C, \this.f : \tau }
 
     \inferrule*[right=Wf-Pack]{
         (\Gamma|_{\dom(\fields(C))}) \leq \fields(C)
         \and
         \Delta = \setbuild{x : \tau \in \Gamma}{x \not\in \dom(\fields(C))}
-    }{ \Gamma, \this : C \flowproves \pack~\wf \flowprovesout \Delta, \this : C }
+    }{ \Gamma, \this : C \flowproves \pack~\ok \flowprovesout \Delta, \this : C }
 \end{mathpar}
 
-\framebox{$\proves_C \mathcal{D}~\wf$} \textbf{Declaration Well-formedness}
+\framebox{$\proves_C \mathcal{D}~\ok$} \textbf{Declaration Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-View]{
         \Gamma = \this : C, \fields(C), \overline{x : \tau}
         \and
         \Gamma \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\wf }
+    }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\ok }
 
     \inferrule*[right=Wf-Tx]{
-        \this : C, \fields(C), \overline{x : \tau}, y : \emptyq~T \flowproves S~\wf \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
+        \this : C, \fields(C), \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
         % \and
         % \lnot(\mathcal{Q}~T~\asset)
-    }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\wf }
+    }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
 
     \inferrule*[right=Wf-Field]{
-    }{ \proves_C (x : \tau)~\wf }
+    }{ \proves_C (x : \tau)~\ok }
 
     \inferrule*[right=Wf-Type]{
         T~\asset \implies \asset \in \overline{M}
-    }{ \proves_C (\type~t~\is~\overline{M}~T)~\wf }
+    }{ \proves_C (\type~t~\is~\overline{M}~T)~\ok }
 \end{mathpar}
 
-\framebox{$\Con~\wf$} \textbf{Contract Well-formedness}
+\framebox{$\Con~\ok$} \textbf{Contract Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-Con]{
-        \forall d \in \overline{\mathcal{D}}. (\proves_C d~\wf)
-    }{ (\contract~C~\{ \overline{\mathcal{D}} \})~\wf }
+        \forall d \in \overline{\mathcal{D}}. (\proves_C d~\ok)
+    }{ (\contract~C~\{ \overline{\mathcal{D}} \})~\ok }
 \end{mathpar}
 
-\framebox{$\Prog~\wf$} \textbf{Program Well-formedness}
+\framebox{$\Prog~\ok$} \textbf{Program Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-Con]{
-        \forall C \in \overline{\Con}. C~\wf
+        \forall C \in \overline{\Con}. C~\ok
         \and
         \emptyset \flowproves S \flowprovesout \emptyset
-    }{ (\overline{\Con} ; S)~\wf }
+    }{ (\overline{\Con} ; S)~\ok }
 \end{mathpar}
 
 \paragraph{Other Auxiliary Definitions}
@@ -406,7 +406,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \demote_*(\voidt) &= \voidt \\
     \demote_*(\natt) &= \natt \\
     \demote_*(\boolt) &= \boolt \\
-    \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \tand \asset \in \overline{M} \\
+    \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \\
     \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
     \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
     \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
