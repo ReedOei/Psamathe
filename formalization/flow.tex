@@ -149,9 +149,9 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 \begin{definition}
     Let $\mathcal{Q}$ and $\mathcal{R}$ be \typeQuantities, $T_\mathcal{Q}$ and $T_\mathcal{R}$ base types, and $\Gamma$ and $\Delta$ type environments.
     Define the following orderings, which make types and type environments into join-semilattices.
-    For type quantities, define the partial order $\sqsubseteq$ by
+    For type quantities, define the partial order $\sqsubseteq$ as the reflexive closure of the strict partial order $\sqsubset$ given by
     \[
-        \mathcal{Q} \sqsubseteq \any; \quad \exactlyone \sqsubseteq \nonempty; \quad \every \sqsubseteq \nonempty
+        \mathcal{Q} \sqsubset \mathcal{R} \iff \mathcal{R} = \any \tor (\mathcal{Q} \in \curlys{\exactlyone, \every} \tand \mathcal{R} = \nonempty)
     \]
     For types, define the partial order $\leq$ by
     \[
@@ -161,6 +161,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     \[
         \Gamma \leq \Delta \iff \forall x. \Gamma(x) \leq \Delta(x)
     \]
+    Denote the join of $\Gamma$ and $\Delta$ by $\Gamma \sqcup \Delta$.
 \end{definition}
 
 \framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
@@ -226,7 +227,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
         \and
         \Gamma \flowproves E_2 : \tau \flowprovesout \Xi
-    }{ \Gamma \flowproves (\ifS~x~\thenS~E_1~\elseS~E_2) : \tau \flowprovesout \Delta \vee \Xi }
+    }{ \Gamma \flowproves (\ifS~x~\thenS~E_1~\elseS~E_2) : \tau \flowprovesout \Delta \sqcup \Xi }
 
     \inferrule*[right=Let]{
         \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
@@ -309,13 +310,13 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
         \and
         \Gamma \flowproves S_2~\ok \flowprovesout \Xi
-    }{ \Gamma \flowproves (\ifS~x~\thenS~S_1~\elseS~S_2)~\ok \flowprovesout \Delta \vee \Xi }
+    }{ \Gamma \flowproves (\ifS~x~\thenS~S_1~\elseS~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
 
     \inferrule*[right=Wf-Try]{
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
         \and
         \Gamma, x : \tau \flowproves S_2~\ok \flowprovesout \Xi, x : \tau
-    }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\ok \flowprovesout \Delta \vee \Xi }
+    }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
 
     \inferrule*[right=Wf-Revert]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
