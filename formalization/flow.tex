@@ -215,8 +215,10 @@ A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true an
     }{ \Gamma \proves (s~\varin~x) : \boolt \flowprovesout \Gamma }
 \end{mathpar}
 
-We distinguish between two kinds of calls: views and transactions.
-A view call is guaranteed to not change any state in the receiver, while a transaction may change the state.
+We distinguish between three kinds of calls: view, internal, and external.
+A view call is guaranteed to not change any state in the receiver, while both internal and external calls may do so.
+The difference between internal and external calls is that we may transfer assets to an internal call, but \textbf{not} to an external call, because we cannot be sure any external contract will properly manage the asset of our contract.
+Similarly, we cannot be sure that a view of an external contract \textbf{really} is a view, and so we can only call views of the current contract.
 \begin{mathpar}
     \inferrule*[right=View-Call]{
         (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \decls(C)
@@ -224,13 +226,21 @@ A view call is guaranteed to not change any state in the receiver, while a trans
         \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
     }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C }
 
-    \inferrule*[right=Tx-Call]{
+    \inferrule*[right=Internal-Tx-Call]{
+        \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
+        \\
+        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(C)
+        \and
+        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
+    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C }
+
+    \inferrule*[right=External-Tx-Call]{
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
         \\
         (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(D)
         \and
-        \Gamma, \this : C, x : D \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C, x : D
-    }{ \Gamma, \this : C, x : D \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C, x : D }
+        \Gamma, \this : C, x : D \flowproves \overline{y : \tau} \flowprovesout \Gamma, \this : C, x : D
+    }{ \Gamma, \this : C, x : D \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C, x : D }
 \end{mathpar}
 
 Finally, the rules for If and Let expressions.
@@ -267,11 +277,11 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 
     \inferrule*[right=Store-Consume]{
         \tau~\consumable
-    }{ \Gamma \proves \consume :: \tau \flowsto_{\emptyq} \voidt }
+    }{ \Gamma \flowproves \consume :: \tau \flowsto_{\emptyq} \voidt }
 
     \inferrule*[right=Store-New]{
-        \fields(C) = \overline{\this.f : \tau}
-    }{ \Gamma \proves \newc~C :: \curlys{\fields(C)} \flowsto_{\every} ~ C }
+        (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
+    }{ \Gamma \flowproves \newc~C :: \curlys{\fields(C)} \flowsto_{\every} ~ C }
 
     \inferrule*[right=Store-New-Ty]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
@@ -395,6 +405,8 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 \begin{mathpar}
     \inferrule*[right=Wf-Con]{
         \forall d \in \overline{\mathcal{D}}. (\proves_C d~\ok)
+        \and
+        \exists! d \in \overline{\mathcal{D}}. \exists \overline{x : \tau}, S. d = \oncreate(\overline{x : \tau})~\doC~S
     }{ (\contract~C~\{ \overline{\mathcal{D}} \})~\ok }
 \end{mathpar}
 
