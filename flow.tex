@@ -90,16 +90,6 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
     % This makes $(\textbf{Quant}, \leq)$ into a complete lattice.
 \end{definition}
 
-\reed{Eliminate all the locations except for $x$ and then use flows to extract and put stuff back?}
-\framebox{$\modifiers(T) = \overline{M}$} \textbf{Type Modifiers}
-\begin{align*}
-    \modifiers(T) =
-    \begin{cases}
-        \overline{M} & \tif (\type~T~\is~\overline{M}~T) \\
-        \emptyset & \owise
-    \end{cases}
-\end{align*}
-
 \framebox{$\tau~\asset$} \textbf{Asset Types}
 
 \reed{The syntax for record ``fields'' and type environments is the same...could just use it}
@@ -114,29 +104,6 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
 \framebox{$\tau~\consumable$} \textbf{Consumable Types}
 \begin{align*}
     (\mathcal{Q}~T)~\consumable &\iff \consumable \in \modifiers(T) \tor \lnot((\mathcal{Q}~T)~\asset)
-\end{align*}
-
-\framebox{$\demote(\tau) = \sigma$}
-\framebox{$\demote_*(T_1) = T_2$} \textbf{Type Demotion}
-\begin{align*}
-    \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
-    \demote_*(\voidt) &= \voidt \\
-    \demote_*(\natt) &= \natt \\
-    \demote_*(\boolt) &= \boolt \\
-    \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \tand \asset \in \overline{M} \\
-    \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
-    \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
-    \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
-\end{align*}
-
-\framebox{$\decls(C) = \overline{\mathcal{D}}$} \textbf{Contract Declarations}
-\begin{align*}
-    \decls(C) = \overline{\mathcal{D}} \twhere (\contract~C~\{ \overline{\mathcal{D}} \})
-\end{align*}
-
-\framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
-\begin{align*}
-    \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \decls(C)}
 \end{align*}
 
 \begin{definition}
@@ -166,16 +133,6 @@ Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \o
 $\mathcal{Q} \oplus \mathcal{R}$ represents the quantity present when flowing $\mathcal{R}$ of something to a storage already containing $\mathcal{Q}$.
 $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowing $\mathcal{R}$ from a storage containing $\mathcal{Q}$.
 
-\framebox{$\update(\Gamma, \mathcal{S}, \tau)$} \textbf{Type environment modification}
-% These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
-\[
-    \update(\Gamma, S, \tau) =
-    \begin{cases}
-        \Delta, S : \tau & \tif \Gamma = \Delta, S : \sigma \\
-        \Gamma & \owise
-    \end{cases}
-\]
-
 \begin{definition}
     We can consider a type environment $\Gamma$ as a function $\textsc{Identifiers}\xspace \to \textsc{Types}\xspace \cup \curlys{\bot}$ as follows:
     \[
@@ -185,7 +142,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
             \bot & \owise
         \end{cases}
     \]
-    We write $\dom(\Gamma)$ to mean $\setbuild{x \in \textsc{Identifiers}}{\Gamma(x) \neq \bot}$.
+    We write $\dom(\Gamma)$ to mean $\setbuild{x \in \textsc{Identifiers}}{\Gamma(x) \neq \bot}$, and $\Gamma|_X$ to mean the environment $\setbuild{x : \tau \in \Gamma}{x \in X}$ (restricting the domain of $\Gamma$).
 \end{definition}
 
 \begin{definition}
@@ -193,7 +150,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     Define the following orderings, which make types and type environments into join-semilattices.
     For type quantities, define the partial order $\sqsubset$ by
     \[
-        \mathcal{Q} \sqsubseteq \any; \quad \every \sqsubseteq \nonempty; \quad \exactlyone \sqsubseteq \nonempty
+        \mathcal{Q} \sqsubseteq \any; \quad \exactlyone \sqsubseteq \nonempty; \quad \every \sqsubseteq \nonempty
     \]
     For types, define the partial order $\leq$ by
     \[
@@ -205,11 +162,11 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     \]
 \end{definition}
 
-
 \framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
 \begin{mathpar}
     \inferrule*[right=Empty-Val]{
-    }{ \Gamma \flowproves \emptyq : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }
+        \emptyq \sqsubseteq \mathcal{Q}
+    }{ \Gamma \flowproves \emptyq : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma }
 
     \inferrule*[right=Demote-Lookup]{
     }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
@@ -326,14 +283,14 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 \framebox{$\Gamma \flowproves S~\wf \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
-        \Gamma \flowproves S :: \tau \flowsto_\mathcal{Q} \sigma
+        \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
         \and
-        \Gamma \flowproves f~\selects_\mathcal{R}~\demote(\sigma)
+        \Gamma \flowproves s~\selects_\mathcal{R}~\demote(\sigma)
         \\
-        \Delta = \update(\Gamma, S, \Gamma(S) \ominus \mathcal{R})
+        \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
         \and
-        \Delta \proves D :: \sigma \flowsto_\mathcal{S} \pi
-    }{ \Gamma \flowproves (S \sends{s} D)~\wf \flowprovesout \update(\Delta, D, \Delta(D) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+        \Delta \proves B :: \sigma \flowsto_\mathcal{S} \pi
+    }{ \Gamma \flowproves (A \sends{s} B)~\wf \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Wf-Var-Def]{
         \Gamma \flowproves E : \tau \flowprovesout \Delta
@@ -423,6 +380,50 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         \emptyset \flowproves S \flowprovesout \emptyset
     }{ (\overline{\Con} ; S)~\wf }
 \end{mathpar}
+
+\paragraph{Other Auxiliary Definitions}
+\reed{Eliminate all the locations except for $x$ and then use flows to extract and put stuff back?}
+\framebox{$\modifiers(T) = \overline{M}$} \textbf{Type Modifiers}
+\begin{align*}
+    \modifiers(T) =
+    \begin{cases}
+        \overline{M} & \tif (\type~T~\is~\overline{M}~T) \\
+        \emptyset & \owise
+    \end{cases}
+\end{align*}
+
+\framebox{$\demote(\tau) = \sigma$}
+\framebox{$\demote_*(T_1) = T_2$} \textbf{Type Demotion}
+\begin{align*}
+    \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
+    \demote_*(\voidt) &= \voidt \\
+    \demote_*(\natt) &= \natt \\
+    \demote_*(\boolt) &= \boolt \\
+    \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \tand \asset \in \overline{M} \\
+    \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
+    \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
+    \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
+\end{align*}
+
+\framebox{$\decls(C) = \overline{\mathcal{D}}$} \textbf{Contract Declarations}
+\begin{align*}
+    \decls(C) = \overline{\mathcal{D}} \twhere (\contract~C~\{ \overline{\mathcal{D}} \})
+\end{align*}
+
+\framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
+\begin{align*}
+    \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \decls(C)}
+\end{align*}
+
+\framebox{$\update(\Gamma, \mathcal{S}, \tau)$} \textbf{Type environment modification}
+% These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
+\[
+    \update(\Gamma, S, \tau) =
+    \begin{cases}
+        \Delta, S : \tau & \tif \Gamma = \Delta, S : \sigma \\
+        \Gamma & \owise
+    \end{cases}
+\]
 
 \reed{Asset retention theorem?}
 \reed{Resource accessiblity?}
