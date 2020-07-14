@@ -44,7 +44,8 @@
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyq$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
+        & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
@@ -56,7 +57,7 @@
                   & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
                   & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
                   & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
-                  % & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~S$ & (constructor) \\
+                  & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~S$ & (constructor) \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\mathcal{D}}~\}$ & (contracts) \\
     $\Prog$ & \bnfdef & $\overline{\Con}~;~S$ & (programs)
 
@@ -165,6 +166,10 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 \end{definition}
 
 \framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
+
+These rules are for ensuring that expressions are well-typed, and keeping track of which variables are used throughout the expression.
+Most rules do \textbf{not} change the context, with the notable exceptions of internal calls and record-building operations.
+We begin with the rules for typing the various literal forms of values.
 \begin{mathpar}
     \inferrule*[right=Empty-Val]{
     }{ \Gamma \flowproves \emptyq : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }
@@ -177,50 +182,60 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \Gamma \flowproves x : \tau \flowprovesout \Delta
     }{ \Gamma \flowproves \some(x) : \,\,!~\optionq~\tau \flowprovesout \Delta }
 
+    \inferrule*[right=Build-Rec]{
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
+    }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
+\end{mathpar}
+
+Next, the lookup rules.
+Notably, the \textsc{Demote-Lookup} rule allows the use of variables of an asset type in an expression without consuming the variable as \textsc{Lin-Lookup} does.
+However, it is still safe, because it is treated as its demoted type, which is always guaranteed to be a non-asset.
+
+\begin{mathpar}
     \inferrule*[right=Demote-Lookup]{
     }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Lin-Lookup]{
     }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
 
-    \inferrule*[right=Field-Lookup]{
+    \inferrule*[right=Record-Field-Lookup]{
         \Gamma \proves x : \curlys{\overline{y : \tau}} \flowproves \Gamma
         \and
         f : \sigma \in \overline{y : \tau}
     }{ \Gamma \flowproves x.f : \sigma \flowproves \Gamma }
+\end{mathpar}
 
-    \inferrule*[right=Build-Rec]{
-        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
-    }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
-
+The expression $s~\varin~x$ allows checking whether a flow will succeed without the EAFP-style (``Easier to ask for forgiveness than permission''; e.g., Python).
+A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true and ``$s~\varin~B$'' is false.
+\begin{mathpar}
     \inferrule*[right=Check-In]{
         \Gamma \proves s~\selects~\demote(\sigma)
         \and
         \Gamma \proves x :: \tau \flowsto_\mathcal{Q} \sigma
     }{ \Gamma \proves (s~\varin~x) : \boolt \flowprovesout \Gamma }
+\end{mathpar}
 
+We distinguish between two kinds of calls: views and transactions.
+A view call is guaranteed to not change any state in the receiver, while a transaction may change the state.
+\begin{mathpar}
     \inferrule*[right=View-Call]{
         (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \decls(C)
         \and
-        \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
-    }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
+        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
+    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C }
 
-    % \inferrule*[right=Interface-Tx-Call]{
-    %     \interface~I~\{ \overline{\mathcal{D_I}} \}
-    %     \and
-    %     (\transaction~m(\overline{a : \tau})~\returns~\sigma) \in \overline{\mathcal{D}_I}
-    %     \and
-    %     \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
-    % }{ \Gamma, x : I \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
-
-    \inferrule*[right=Internal-Tx-Call]{
+    \inferrule*[right=Tx-Call]{
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
         \\
-        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(C)
+        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(D)
         \and
-        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
-    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C }
+        \Gamma, \this : C, x : D \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C, x : D
+    }{ \Gamma, \this : C, x : D \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C, x : D }
+\end{mathpar}
 
+Finally, the rules for If and Let expressions.
+In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed or is not an asset in the body.
+\begin{mathpar}
     \inferrule*[right=If-Expr]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
         \and
@@ -229,7 +244,7 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
         \Gamma \flowproves E_2 : \tau \flowprovesout \Xi
     }{ \Gamma \flowproves (\ifS~x~\thenS~E_1~\elseS~E_2) : \tau \flowprovesout \Delta \sqcup \Xi }
 
-    \inferrule*[right=Let]{
+    \inferrule*[right=Let-Expr]{
         \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
         \and
         \Delta, x : \tau \flowproves E_2 : \pi \flowprovesout \Xi, x : \sigma
@@ -256,14 +271,12 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 
     \inferrule*[right=Store-New]{
         \fields(C) = \overline{\this.f : \tau}
-    }{ \Gamma \proves \newc~C :: \curlys{\overline{\this.f : \tau}} \flowsto_{\every} ~ C }
+    }{ \Gamma \proves \newc~C :: \curlys{\fields(C)} \flowsto_{\every} ~ C }
 
     \inferrule*[right=Store-New-Ty]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
     }{ \Gamma, \this : C \proves \newc~t :: \demote(T) \flowsto_{\every} ~ t }
 \end{mathpar}
-
-\reed{Maybe $\newc$ should just be an expression...}
 
 \framebox{$\Gamma \proves s ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
 \begin{mathpar}
@@ -284,7 +297,6 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 \end{mathpar}
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
-\reed{Use another word instead of well-formedness?}
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
         \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
@@ -294,6 +306,8 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
         \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
         \and
         \Delta \proves B :: \sigma \flowsto_\mathcal{S} \pi
+        \and
+        \min(\mathcal{Q}, \mathcal{R}) < \every
     }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Wf-Var-Def]{
@@ -369,6 +383,12 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \inferrule*[right=Wf-Type]{
         T~\asset \implies \asset \in \overline{M}
     }{ \proves_C (\type~t~\is~\overline{M}~T)~\ok }
+
+    \inferrule*[right=Wf-Constructor]{
+        \this : C, \overline{x : \tau} \flowproves S~\ok \flowprovesout \Delta
+        \and
+        \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+    }{ \proves_C (\oncreate(\overline{x : \tau})~\doC~S)~\ok }
 \end{mathpar}
 
 \framebox{$\Con~\ok$} \textbf{Contract Well-formedness}
