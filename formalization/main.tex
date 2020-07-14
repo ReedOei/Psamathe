@@ -1,0 +1,349 @@
+\documentclass[10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{sagetex}
+\usepackage{hyperref}
+\usepackage{tikz-cd}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{bm}
+\usepackage{listings}
+\usepackage{bbm}
+\usepackage{multicol}
+\usepackage{mathtools}
+\usepackage{mathpartir}
+\usepackage{float}
+\usepackage[inline]{enumitem}
+\usepackage[margin=1.25in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{kpfonts}
+
+\usetikzlibrary{decorations.pathmorphing}
+
+\input{../../Reed/School/LaTeX/macros.tex}
+\input{../../Reed/School/LaTeX/lemmas.tex}
+
+\lstset{
+  frame=none,
+  xleftmargin=2pt,
+  stepnumber=1,
+  numbers=left,
+  numbersep=5pt,
+  numberstyle=\ttfamily\tiny\color[gray]{0.3},
+  belowcaptionskip=\bigskipamount,
+  captionpos=b,
+  escapeinside={*'}{'*},
+  tabsize=2,
+  emphstyle={\bf},
+  commentstyle=\it,
+  stringstyle=\mdseries\rmfamily,
+  showspaces=false,
+  keywordstyle=\bfseries\rmfamily,
+  columns=flexible,
+  basicstyle=\small\sffamily,
+  showstringspaces=false,
+}
+
+\newcommand{\guard}{\bigg|\bigg|}
+\newcommand{\newc}{\textbf{\texttt{new}}}
+\newcommand{\everything}{\textbf{\texttt{everything}}}
+\newcommand{\then}{\textbf{\texttt{then}}}
+\newcommand{\this}{\textbf{\texttt{this}}}
+\newcommand{\langName}{ResourceFlow\xspace}
+\newcommand{\consumesarr}{\mathrel{\rotatebox[origin=c]{270}{${\looparrowright}$}}}
+\newcommand{\consumes}[1]{\stackrel{#1}{\consumesarr}}
+\newcommand{\sends}[1]{\stackrel{#1}{\to}}
+\newcommand{\emitsarr}{\mathrel{\rotatebox[origin=c]{270}{${\looparrowleft}$}}}
+\newcommand{\emits}[1]{\emitsarr #1}
+\newcommand{\addresst}{\textbf{\texttt{address}}\xspace}
+\newcommand{\stringt}{\textbf{\texttt{string}}\xspace}
+\newcommand{\manyt}{\textbf{\texttt{many}}\xspace}
+\newcommand{\natt}{\textbf{\texttt{nat}}\xspace}
+\newcommand{\byt}{\textbf{\texttt{by}}\xspace}
+\newcommand{\stores}{\textbf{\texttt{stores}}\xspace}
+\newcommand{\suchthat}{\textbf{s.t.}\xspace}
+\newcommand{\returns}{\textbf{\texttt{returns}}\xspace}
+\newcommand{\TRN}{\textbf{\texttt{TRN}}\xspace}
+\newcommand{\merge}{\rightsquigarrow}
+\newcommand{\heldby}{\rightarrowtail}
+\newcommand{\one}{\textbf{\texttt{one}}\xspace}
+\newcommand{\some}{\textbf{\texttt{some}}\xspace}
+\newcommand{\any}{\textbf{\texttt{any}}\xspace}
+
+\begin{document}
+
+\section{Formalization}
+
+\subsection{Syntax}
+\begin{figure}[ht]
+\begin{align*}
+    C &\in \textsc{ContractNames} & T &\in \textsc{TransactionNames} \\
+    I &\in \textsc{InterfaceNames} & S &\in \textsc{StateNames}\\
+    D &\in \textsc{ContractNames} \cup \textsc{InterfaceNames} & p &\in \Q \\
+    E &\in \textsc{EventNames} & f &\in \textsc{FieldNames} \\
+    x &\in \textsc{IdentifierNames} & \mathcal{R} &\in \textsc{ResourceNames} \\
+\end{align*}
+
+\begin{tabular}{l r l l}
+    $\tau$ & \bnfdef & $\natt$ \bnfalt \stringt \bnfalt \addresst \bnfalt $\tau \times \tau$ \bnfalt $\manyt~\tau$ \bnfalt $\tau~\byt~\tau$ \bnfalt $\curlys{x_i~\stores~\tau_i, \alpha}_{i<n}$ \bnfalt $\mathcal{R}$ & (types) \\
+    $\alpha$ & \bnfdef & & (row type variables) \\
+    $Q$ & \bnfdef & \one \bnfalt \some \bnfalt \any & (flow quantities) \\
+    $\delta$ & \bnfdef & $p$ \bnfalt $x$ \bnfalt $x \%$ \bnfalt $\everything$ \bnfalt $p \delta$ \bnfalt $\delta + \delta$ \bnfalt $\delta - \delta$ \bnfalt $\min(\delta, \delta)$ \bnfalt $\max(\delta, \delta)$ \bnfalt $Q~x~\suchthat~\varphi(x)$ & (prim. dist. specifier) \\
+    $A$ & \bnfdef & $T(x_1, \ldots, x_n)$ \bnfalt $\emits{E(x_1, \ldots, x_n)}$ & (actions) \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\newc~x~\stores~\tau$ & (storage identifiers) \\
+    $F$ & \bnfdef & $\mathcal{S} \to_\times \mathcal{S} ~\then~\curlys{A_i}_{i<n}$ & (flows) \\
+    $\TRN$ & \bnfdef & $T(x_1 : \tau, \ldots, x_n : x_n) ~\returns~ \tau : \curlys{F_i}_{i < n}$ & (transactions) \\
+
+% $T$ & \bnfdef & $T_C$@$T_{ST}$ & (types of contract references)\\[\nonterminaldefskip]
+% &   \bnfalt \unit{}\\
+
+% $T_{C}$ & \bnfdef & \generics{D}{T} & (types of contracts/interfaces)\\
+% &   \bnfalt & X & (declaration variables) \\[\nonterminaldefskip]
+
+% $T_{ST}$ & \bnfdef & \textoverline{S}  & (state disjunction)\\
+% & 	\bnfalt & p & (permission/state variables)\\
+% &  	\bnfalt & P & (concrete permission) \\[\nonterminaldefskip]
+
+% $P$ &	\bnfdef & \Owned\xspace \bnfalt \Unowned\xspace \bnfalt \Shared & \\[\nonterminaldefskip]
+
+% $T_G$ & \bnfdef & \genericParamOpt{X}{p}{\generics{I}{T}@$T_{ST}$} & (generic type parameter) \\[\nonterminaldefskip]
+
+% $\mathit{CON}$ & \bnfdef & \contract \ \generics{C}{T_G}\ \implements\ \generics{I}{T} \{$\overline{ST}$ \textoverline{M}\} \\[\nonterminaldefskip]
+
+% $\mathit{IFACE}$ & \bnfdef & \interface\ \generics{I}{T_G} \{ \textoverline{ST}  \textoverline{$M_{\mathit{SIG}}$} \} & \\[\nonterminaldefskip]
+
+% $\mathit{ST}$ & \bnfdef & [\asset] $S$  $\overline{F}$ \\[\nonterminaldefskip]
+
+% $F$ & \bnfdef & $T$ $f$ \\[\nonterminaldefskip]
+
+% $M_{\mathit{SIG}}$ & \bnfdef & $T \: \generics{m}{T_G}$ (\textoverline{$T \trans T_{ST} \: x$}) $T_{ST} \trans T_{ST}$ & (transaction specifying types for  \\
+% &			 &	& return, arguments, and receiver) \\[\nonterminaldefskip]
+% &	\bnfalt  & \private\xspace \textoverline{$T_{ST} \trans T_{ST} \ f$} T \generics{m}{T_G}(\textoverline{$T \trans T_{ST} \ x$}) & (private transactions also\\
+% & 			 & 	T\textsubscript{ST} \trans \ T\textsubscript{ST} & specify field types) \\[\nonterminaldefskip]
+
+% $M$ & \bnfdef & M\textsubscript{SIG} \{ \returnExpr{e} \} \\
+
+% $e$ & \bnfdef & s \\
+% &		\bnfalt & s.f & (field access) \\
+% &		\bnfalt & s.\generics{m}{T}(\textoverline{x}) \\
+% &		\bnfalt & \letExpr{x}{T}{e}{e} \\
+% &		\bnfalt & \new{C}{T}{S}{\textoverline{s}} &(contract fields, then state fields)\\
+% &		\bnfalt & s $\transition_{\Owned \bnfalt \Shared}$ S(\textoverline{s}) & (State transition initializing fields) \\
+% &		\bnfalt & s.f := s & (field update, with 1-based indexing)\\
+% &		\bnfalt & \assertExpr{s}{T\textsubscript{ST}} & {(static assert)} \\
+% &		\bnfalt & \ifInState{s}{P}{T\textsubscript{ST}}{e}{e} & (state test, owned or shared s) \\
+% &		\bnfalt & \disown s & (drop ownership of owned ref.) \\
+% &		\bnfalt & \pack \\
+
+% $s$ & \bnfdef 	& x & (simple expressions)\\
+\end{tabular}
+\caption{Abstract syntax of \langName.}
+\label{lang-syntax}
+\end{figure}
+
+Fig. \ref{lang-syntax} shows the syntax of \langName.
+
+\subsection{Definitions}
+\reed{I think that the distribution specifiers could be further generalized over any field $F$ instead of just $\Q$, but I'm not sure if that is actually useful; we could even do any ring if we drop the requirement of having the $/100$ thing for percents.}
+\begin{definition}
+    A \emph{type} is a member of the set $\mathfrak{T}$, given in Figure~\ref{lang-syntax} by the nonterminal $\tau$.
+\end{definition}
+\begin{definition}
+    A \emph{primitive distribution specifier} is a member of the set $\mathfrak{D}_p$, given in Figure~\ref{lang-syntax} by the nonterminal $\delta$.
+\end{definition}
+
+\begin{definition}
+    The \emph{interpetation of $\delta$}, $\llbracket \delta \rrbracket$, is a function $\mathcal{V} \to \Q[\mathcal{V}]$ defined below, where $\delta$ is a primitive distribution specifier.
+    Let $p \in \Q$, $y \in \mathcal{V}$, and $\delta, \epsilon \in \mathfrak{D}_p$.
+    Then
+    \begin{align*}
+        \llbracket p \rrbracket(x) &:= p \\
+        \llbracket y \rrbracket(x) &:= y \\
+        \llbracket y\% \rrbracket (x) &:= xy / 100 \\
+        \llbracket \everything \rrbracket (x) &:= x \\
+        \llbracket p \delta \rrbracket (x) &:= p \cdot \parens{ \llbracket \delta \rrbracket (x) }  \\
+        \llbracket \delta + \epsilon \rrbracket(x) &:= \parens{\llbracket \delta \rrbracket (x)} + \parens{\llbracket \epsilon \rrbracket(x)} \\
+        \llbracket \delta - \epsilon \rrbracket(x) &:= \parens{\llbracket \delta \rrbracket (x)} - \parens{\llbracket \epsilon \rrbracket(x)} \\
+        \llbracket \min(\delta, \epsilon) \rrbracket(x) &:= \min\parens{\llbracket \delta \rrbracket (x), \llbracket \epsilon \rrbracket (x)} \\
+        \llbracket \max(\delta, \epsilon) \rrbracket(x) &:= \max\parens{\llbracket \delta \rrbracket (x), \llbracket \epsilon \rrbracket (x)}
+    \end{align*}
+\end{definition}
+\reed{This is kind of like a module-homomorphism, where the set of distribution specifiers is like a $\Q$-modules}
+
+Note that $\llbracket \delta \rrbracket (x) \in \Q[\mathcal{V}(\delta) \cup \{x\}]$, that is, it is a polynomial with rational coefficients in the variables $\mathcal{V}(\delta) \cup \{x\}$.
+\reed{I don't know if this actually matters, but it's somewhat interesting}
+
+We consider distribution specifiers modulo their interpetation, that is, a distribution specifier is an equivalence class of primitive distribution specifiers.
+\begin{definition}
+    A \emph{distribution specifier} $\delta$ is a member of the set $\mathfrak{D} := \setbuild{\llbracket \delta_p \rrbracket}{\delta_p \in \mathfrak{D}_p}$.
+\end{definition}
+
+This makes $(\mathfrak{D}, +, \llbracket 0 \rrbracket)$ into an abelian group; in fact, we can make it into a $\Q$-module by defining
+\[
+    q \cdot \llbracket \delta \rrbracket := \llbracket q \delta \rrbracket
+\]
+for all $q \in \Q$.
+\reed{I'm pretty sure this is true. Does it matter though? We could probably even make it into a ring if we wanted (but not a field, because there won't be an inverse for \everything), but nto sure if that's desirable.}
+Note that, from now on, we use the elements of $\mathfrak{D}_p$ interchangably with their equivalence class in $\mathfrak{D}$ (e.g., $0$ instead of $\llbracket 0 \rrbracket$), to make the notation less noisy.
+
+\begin{definition}
+    Let $\delta$ be a distribution specifier.
+    An \emph{arrow} $\to_\times$ is either
+    \begin{enumerate*}[label=(\roman*)]
+        \item a \emph{send} arrow $\sends{\delta}$;
+        \item a \emph{merge} arrow $\merge$;
+        \item a \emph{hold} arrow $\heldby$;
+        \item or a \emph{consume} arrow $\consumes{\delta}$.
+    \end{enumerate*}
+\end{definition}
+
+\framebox{$\Gamma \proves F~\mathfrak{wf}$} \textbf{Well-formed flows}
+
+\begin{mathpar}
+    \inferrule*[right=Flow-Send]{
+        \Gamma \proves s~\stores~\tau
+        \and
+        \Gamma \proves d~\stores~\tau
+        \and
+        \Gamma \proves \llbracket \delta \rrbracket : \mathcal{V} \to R[\mathcal{V}]
+    }{ \Gamma \proves s \sends{\delta} d~\mathfrak{wf} }
+
+    \inferrule*[right=Flow-Merge]{
+        \Gamma \proves s~\stores~\tau
+        \and
+        \Gamma \proves d~\stores~\tau
+    }{ \Gamma \proves s \merge d~\mathfrak{wf} }
+
+    \inferrule*[right=Flow-Hold]{
+        \Gamma \proves s~\stores~\tau
+        \and
+        \Gamma \proves d~\stores~\tau
+    }{ \Gamma \proves s \heldby d~\mathfrak{wf} }
+
+    \inferrule*[right=Flow-Consume]{
+        \Gamma \proves s~\stores~\tau
+        \and
+        \Gamma \proves \llbracket \delta \rrbracket_\tau
+    }{ \Gamma \proves s \consumes{\delta}~\mathfrak{wf} }
+\end{mathpar}
+
+\begin{definition}
+    Let $F$ be a flow and let $\Gamma$ be a type environment such that $\Gamma \proves F~\mathfrak{wf}$.
+    The \emph{storage set of $F$}, $\mathcal{S}(F)$, is
+    \begin{align*}
+        \mathcal{S}(s \sends{\delta} d) & := \curlys{s~\stores~\Gamma(s),d} \\
+        \mathcal{S}(s \merge d) & := \curlys{s,d} \\
+        \mathcal{S}(s \heldby d) & := \curlys{s,d} \\
+        \mathcal{S}(s \consumes{\delta}) & := \curlys{s}
+    \end{align*}
+\end{definition}
+
+We write the set of flows on a set of storage identifiers $V$ as $\mathcal{F}_\ell(V)$.
+
+\begin{definition}
+    A \emph{transaction graph} is a pair $(V, E)$ where $V$ is a set of storage identifiers and $E \subseteq \mathcal{F}_\ell(V)$.
+\end{definition}
+
+\begin{definition}
+    Let $T$ be a transaction and $\Gamma$ a type environment such that $\Gamma \proves T~\mathfrak{wf}$.
+    The \emph{transaction graph of $T$ (in $\Gamma$)} is $G_{\Gamma}(T) := (\bigcup_{F \in T_F} \mathcal{S}_{\Gamma}(F), \mathcal{E}_{\Gamma}(T_F))$.
+\end{definition}
+
+\begin{definition}
+    A \emph{resource} $\mathcal{R}$ is a tuple $(R, +, 0, \leq, -)$ where
+    \begin{enumerate}[label=(\roman*)]
+        \item $(R, +, 0)$ is a commutative monoid.
+        \item $(R, \leq)$ is a partial order that is compatible with $(R, +, 0)$.
+            That is, for any $x, y \in R$ such that $x \leq y$, and for any $z \in R$, we have $x + z \leq y + z$.
+        \item $- : R \times R \to R$ is a function so that for any $x,y \in R$ such that $y \leq x$, we have $(x - y) + y = x$.
+    \end{enumerate}
+    The elements of a resource are called \emph{resource values}.
+\end{definition}
+
+\paragraph{Examples}
+
+\begin{enumerate}
+    \item The natural numbers with the standard operations is a resource $(\N, +, 0, \leq, -)$, where $-$ is \emph{saturating subtraction}: $n - m = 0$ if $m > n$.
+    \item For any set $A$, we can build the resource $(\powerset{A}, \cup, \emptyset, \subseteq, \setminus)$, where $X \setminus Y$ is the set difference operation.
+    \item Similarly, given any set $A$, we can build the resource $(\powersetfin{A}, \cup, \emptyset, \subseteq, \setminus)$; this resource is called the \emph{nonfungible resource on $A$}, written $\text{nf}(A)$.
+\end{enumerate}
+
+\begin{definition}
+    We say that a resource $\mathcal{R}$ is \emph{nonfungible} if it is the nonfungible resource on $A$ for some set $A$, and otherwise we say that $\mathcal{R}$ is \emph{fungible}.
+\end{definition}
+
+\begin{definition}
+    Let $\mathcal{R}$ and $\mathcal{}$ be resources.
+    A function $f : \mathcal{R} \to \mathcal{S}$ is a \emph{resource homomorphism} (or simply a \emph{homomorphism}) if it is a monoid homomorphism, monotone and for all $r_1,r_2,r_3 \in \mathcal{R}$, satisfies
+    \begin{enumerate}[label=(\roman*)]
+        \item if $r_1 \leq r_2$, then $f(r_1) - f(r_2) = f(r_1 - r_2)$.
+    \end{enumerate}
+    \reed{Anything else}
+\end{definition}
+
+\reed{Maybe this is obvious, but it took me a minute to be sure of.}
+\begin{proposition}
+    There are fungible resources; in particular, $\N$ is a fungible resource.
+\end{proposition}
+\begin{proof}
+    Suppose that $\N \iso \text{nf}(A)$ for some set $A$, and let $f : \N \to \text{nf}(A)$ be the isomorphism witnessing this.
+    Then let $n > 0$, so $f(n) = f(1 + \cdots + 1) = f(1) + \cdots + f(1) = \bigcup_{i < n} f(1) = f(1)$, so $f$ is not a bijection, which is a contradiction.
+\end{proof}
+
+\begin{definition}
+    For any two resources $\mathcal{R}$ and $\mathcal{S}$, their \emph{direct product}, $\mathcal{R} \oplus \mathcal{S}$ is $(R \times S, +_{RS}, (0_R, 0_S), \leq_{RS}, -_{RS})$, where
+    \begin{align*}
+        (r_1, s_1) +_{RS} (r_2, s_2) &:= (r_1 +_R r_2, s_1 +_S s_2) \\
+        (r_1, s_1) -_{RS} (r_2, s_2) &:= (r_1 -_R r_2, s_1 -_S s_2) \\
+        (r_1, s_1) \leq_{RS} (r_2, s_2) &:\iff r_1 \leq_R r_2 \land s_1 \leq_S s_2
+    \end{align*}
+\end{definition}
+
+\begin{remark}
+    The direct product of two resources is a resource.
+\end{remark}
+
+\begin{proposition}
+    \reed{I think, and probably the same for nonfungible}
+    The direct product of twice fungible resources is fungible.
+\end{proposition}
+
+\begin{definition}
+    Let $\mathcal{R}$ be a resource.
+    A \emph{selector for $\mathcal{R}$} is a function $\mathcal{R} \to \mathcal{R}$.
+\end{definition}
+
+\begin{definition}
+    An \emph{environment} $\Delta$ is triple $(\mathfrak{R}, \mathcal{S}, \curlys{\#_\mathcal{R}}_{\mathcal{R} \in \mathfrak{R}})$ where $\mathfrak{R}$ is a set of resources, $\mathcal{S}$ is a set of storages and $\#_R : \mathcal{V} \to R$ is a family of functions mapping storages to resource value held by the storage.
+\end{definition}
+
+\reed{How to handle transactions which dynamically fail?}
+
+\begin{definition}
+    Let $\Delta = (\mathcal{R}, \mathcal{V}, \curlys{\#_R}_{R \in \mathcal{R}})$ be an environment.
+    Then $\sum_\Delta : \mathcal{R} \to \mathcal{R}$ is a function such that
+    \[
+        \sum_{\Delta} R := \sum_{v \in \mathcal{V}} \#_R(v)
+    \]
+    That is, $\sum_\Delta$ maps every resource to the total amount of the resource currently held by variables.
+\end{definition}
+\reed{Not sure this is the best notation, but we can always change that}
+
+\subsection{Safety Theorems}
+
+\begin{theorem}[Asset Retention]
+    \reed{It would be nice if we could prove this general version for any transaction graph, ignoring even where it came from.
+    Could be a good start to making a more general resource flow framework}
+    Let $(V, E)$ be a well-formed transaction graph.
+    Let $\Delta$ be an environment containing some resource $R$.
+    Let $f : \powerset{\Delta} \to \powerset{\Delta}$ be the associated resource transformation for $(V, E)$.
+    Let $\mathcal{C}$ be the consumption set of $(V, E)$ and let $\mathcal{N}$ be the creation set of $(V, E)$.
+    Then we have
+    \[
+        \sum_\mathcal{N} + \sum_\Delta = \sum_\mathcal{C} + \sum_{f(\Delta)}
+    \]
+    In particular, if $\mathcal{N} = \mathcal{C} = \emptyset$, then the amount of every resources stays constant.
+\end{theorem}
+
+\end{document}
+
