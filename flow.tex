@@ -325,6 +325,8 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 
     \inferrule*[right=Wf-Expr]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
+        \and
+        \lnot(\tau~\asset)
     }{ \Gamma \flowproves E~\wf \flowprovesout \Gamma }
 
     \inferrule*[right=Wf-Seq]{
