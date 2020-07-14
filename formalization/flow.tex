@@ -254,15 +254,11 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 
     \inferrule*[right=Store-New]{
         \fields(C) = \overline{\this.f : \tau}
-        \and
-        \Gamma \flowproves x : \curlys{\overline{\this.f : \tau}} \flowprovesout \Gamma
-    }{ \Gamma \proves \newc~C(x) :: \voidt \flowsto_{\exactlyone} ~ C }
+    }{ \Gamma \proves \newc~C :: \curlys{\overline{\this.f : \tau}} \flowsto_{\every} ~ C }
 
     \inferrule*[right=Store-New-Ty]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
-        \and
-        \Gamma \flowproves x : \demote(T) \flowprovesout \Gamma
-    }{ \Gamma, \this : C \proves \newc~t(x) :: \voidt \flowsto_{\exactlyone} ~ t }
+    }{ \Gamma, \this : C \proves \newc~t :: \demote(T) \flowsto_{\every} ~ t }
 \end{mathpar}
 
 \reed{Maybe $\newc$ should just be an expression...}
@@ -286,6 +282,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 \end{mathpar}
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
+\reed{Use another word instead of well-formedness?}
 \begin{mathpar}
     \inferrule*[right=Wf-Flow]{
         \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
