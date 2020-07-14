@@ -32,5 +32,7 @@ contract C {
         only when msg.sender in {userA, userB} and canClaim()
 
         trades --> bank.transfer
+        // Desugars into
+        trades --[ everything ]-> bank.transfer --> consume
 }
 

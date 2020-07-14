@@ -48,17 +48,20 @@
         & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
-    $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ \bnfalt $\consume$ & (nodes) \\
-    $F$ & \bnfdef & $\mathcal{N} \sends{s} \mathcal{N}$ & (flows) \\
+    % $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ \bnfalt $\consume$ & (nodes) \\
+    % $F$ & \bnfdef & $\mathcal{N} \sends{s} \mathcal{N}$ & (flows) \\
+    $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ & (sources) \\
+    $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
+    $F$ & \bnfdef & $\mathcal{S} \sends{s} x \to \mathcal{D}$ & (flows) \\
     $\Stmt$ & \bnfdef & $F$ \bnfalt $E$ \bnfalt $\revert(E)$ \bnfalt $\tryS~S~\catchS(x : \tau)~S$ \bnfalt $\ifS~x~\thenS~S~\elseS~S$ \\
             & \bnfalt & $\var~x:\tau := E$ \bnfalt $S;S$ \bnfalt \pack \bnfalt $\unpack(x)$ & (statements) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-    $\mathcal{D}$ & \bnfdef & $x : \tau$ & (field) \\
-                  & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
-                  & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
-                  & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
-                  & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~S$ & (constructor) \\
-    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\mathcal{D}}~\}$ & (contracts) \\
+    $\Decl$ & \bnfdef & $x : \tau$ & (field) \\
+            & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
+            & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
+            & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
+            & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~S$ & (constructor) \\
+    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
     $\Prog$ & \bnfdef & $\overline{\Con}~;~S$ & (programs)
 
     % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
@@ -176,11 +179,11 @@ We begin with the rules for typing the various literal forms of values.
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\lambda x : \tau. E) : \emptyq~(\tau \transforms \sigma) }
+    }{ \Gamma \flowproves (\lambda x : \tau. E) : \,\,\exactlyone~(\tau \transforms \sigma) }
 
     \inferrule*[right=Some]{
         \Gamma \flowproves x : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves \some(x) : \,\,!~\optionq~\tau \flowprovesout \Delta }
+    }{ \Gamma \flowproves \some(x) : \exactlyone~\optionq~\tau \flowprovesout \Delta }
 
     \inferrule*[right=Build-Rec]{
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
@@ -263,31 +266,62 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
     }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \pi \flowprovesout \Xi }
 \end{mathpar}
 
-\framebox{$\Gamma \proves \mathcal{S} :: \tau \flowsto_{\mathcal{Q}} \sigma$} \textbf{Storage Typing}
-The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
+\framebox{$\Gamma \proves \mathcal{S}~\provides_{\mathcal{Q}}~\tau$} \textbf{Source Typing}
+% The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
+% \begin{mathpar}
+%     \inferrule*[right=Store-One]{
+%     }{ \Gamma, S : \mathcal{Q}~T \proves S :: \mathcal{R}~T \flowsto_{\exactlyone} \mathcal{Q}~T }
+
+%     \inferrule*[right=Store-Col]{
+%     }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S :: \tau \flowsto_{\mathcal{Q}} \tau }
+
+%     \inferrule*[right=Store-Transformer]{
+%     }{ \Gamma, x : \mathcal{Q}~(\tau \transforms \sigma) \proves x :: \tau \flowsto_{\mathcal{Q}} \sigma }
+
+%     \inferrule*[right=Store-Consume]{
+%         \tau~\consumable
+%     }{ \Gamma \flowproves \consume :: \tau \flowsto_{\emptyq} \voidt }
+
+%     \inferrule*[right=Store-New]{
+%         (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
+%         \and
+%         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+%     }{ \Gamma \flowproves \newc~C(\overline{y}) :: \voidt \flowsto_{\exactlyone} C }
+
+%     \inferrule*[right=Store-Source]{
+%         (\type~t~\is~\overline{M}~T) \in \decls(C)
+%     }{ \Gamma, \this : C \proves \newc~t :: \voidt \flowsto_{\every} ~ t }
+% \end{mathpar}
 \begin{mathpar}
-    \inferrule*[right=Store-One]{
-    }{ \Gamma, S : \mathcal{Q}~T \proves S :: \mathcal{R}~T \flowsto_{\exactlyone} \mathcal{Q}~T }
+    \inferrule*[right=Provide-One]{
+    }{ \Gamma, S : \mathcal{Q}~T \proves S~\provides_{\mathcal{Q}}~\mathcal{R}~T }
 
-    \inferrule*[right=Store-Col]{
-    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S :: \tau \flowsto_{\mathcal{Q}} \tau }
+    \inferrule*[right=Provide-Col]{
+    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\provides_{\mathcal{Q}}~\tau }
 
-    \inferrule*[right=Store-Transformer]{
-    }{ \Gamma, x : \mathcal{Q}~(\tau \transforms \sigma) \proves x :: \tau \flowsto_{\mathcal{Q}} \sigma }
-
-    \inferrule*[right=Store-Consume]{
-        \tau~\consumable
-    }{ \Gamma \flowproves \consume :: \tau \flowsto_{\emptyq} \voidt }
-
-    \inferrule*[right=Store-New]{
+    \inferrule*[right=Provide-New]{
         (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
         \and
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
-    }{ \Gamma \flowproves \newc~C(\overline{y}) :: \voidt \flowsto_{!} C }
+    }{ \Gamma \flowproves \newc~C(\overline{y})~\provides_{\exactlyone}~C }
 
-    \inferrule*[right=Store-Source]{
+    \inferrule*[right=Provide-Source]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
-    }{ \Gamma, \this : C \proves \newc~t :: \voidt \flowsto_{\every} ~ t }
+    }{ \Gamma, \this : C \proves \newc~t~\provides_{\every} t }
+\end{mathpar}
+
+\framebox{$\Gamma \proves \mathcal{D}~\accepts~\tau$} \textbf{Destination Typing}
+\reed{Prevent variables that are supposed to store exactly one of something from receiving another?}
+\begin{mathpar}
+    \inferrule*[right=Accept-One]{
+    }{ \Gamma, S : \mathcal{Q}~T \proves S~\accepts~\mathcal{R}~T }
+
+    \inferrule*[right=Accept-Col]{
+    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\accepts~\tau }
+
+    \inferrule*[right=Accept-Consume]{
+        \tau~\consumable
+    }{ \Gamma \flowproves \consume~\accepts~\tau }
 \end{mathpar}
 
 \framebox{$\Gamma \proves s ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
@@ -309,19 +343,39 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 \end{mathpar}
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
+
+\reed{In the new flow rule, we \textbf{always} use a transformer.
+However, that just means we desugar something like $A \sends{s} B$ into $A \sends{s} (\lambda x : \tau. x) \to B$.
+In the real compiler, this can be optimized.}
 \begin{mathpar}
+    % \inferrule*[right=Wf-Flow]{
+    %     \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
+    %     \and
+    %     \Gamma \flowproves s~\selects_\mathcal{R}~\demote(\sigma)
+    %     \\
+    %     \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
+    %     \and
+    %     \Delta \proves B :: \sigma \flowsto_\mathcal{S} \pi
+    %     \and
+    %     \min(\mathcal{Q}, \mathcal{R}) < \every
+    % }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+
     \inferrule*[right=Wf-Flow]{
-        \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
+        \Gamma \proves A~\provides_\mathcal{Q}~\tau
         \and
-        \Gamma \flowproves s~\selects_\mathcal{R}~\demote(\sigma)
+        \Gamma \proves s~\selects_\mathcal{R}~\demote(\tau)
+        \and
+        \min(\mathcal{Q}, \mathcal{R}) < \every
         \\
         \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
         \and
-        \Delta \proves B :: \sigma \flowsto_\mathcal{S} \pi
+        \Delta \proves f : \tau \transforms \sigma
         \and
-        \min(\mathcal{Q}, \mathcal{R}) < \every
-    }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+        \Delta \proves B~\accepts~\sigma
+    }{ \Gamma \flowproves (A \sends{s} f \to B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+\end{mathpar}
 
+\begin{mathpar}
     \inferrule*[right=Wf-Var-Def]{
         \Gamma \flowproves E : \tau \flowprovesout \Delta
         \and
@@ -371,7 +425,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     }{ \Gamma, \this : C \flowproves \pack~\ok \flowprovesout \Delta, \this : C }
 \end{mathpar}
 
-\framebox{$\proves_C \mathcal{D}~\ok$} \textbf{Declaration Well-formedness}
+\framebox{$\proves_C \Decl~\ok$} \textbf{Declaration Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-View]{
         \Gamma = \this : C, \fields(C), \overline{x : \tau}
@@ -413,10 +467,10 @@ Note that we need to have constructors, because only the contract that defines a
 \framebox{$\Con~\ok$} \textbf{Contract Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Wf-Con]{
-        \forall d \in \overline{\mathcal{D}}. (\proves_C d~\ok)
+        \forall d \in \overline{\Decl}. (\proves_C d~\ok)
         \and
-        \exists! d \in \overline{\mathcal{D}}. \exists \overline{x : \tau}, S. d = \oncreate(\overline{x : \tau})~\doC~S
-    }{ (\contract~C~\{ \overline{\mathcal{D}} \})~\ok }
+        \exists! d \in \overline{\Decl}. \exists \overline{x : \tau}, S. d = \oncreate(\overline{x : \tau})~\doC~S
+    }{ (\contract~C~\{ \overline{\Decl} \})~\ok }
 \end{mathpar}
 
 \framebox{$\Prog~\ok$} \textbf{Program Well-formedness}
@@ -441,6 +495,11 @@ Note that we need to have constructors, because only the contract that defines a
 
 \framebox{$\demote(\tau) = \sigma$}
 \framebox{$\demote_*(T_1) = T_2$} \textbf{Type Demotion}
+$\demote$ and $\demote_*$ take a type and ``strip'' all the asset modifiers from it, as well as unfolding named type definitions.
+This process is useful, because it allows selecting asset types without actually having a value of the desired asset type.
+Note that demoting a transformer type changes nothing.
+This is because a transformer is \textbf{never} an asset, regardless of the types that it operators on, because it has no storage.
+
 \begin{align*}
     \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
     \demote_*(\voidt) &= \voidt \\
@@ -450,12 +509,13 @@ Note that we need to have constructors, because only the contract that defines a
     \demote_*(C) &= \demote_*(\curlys{\overline{x : \tau}}) & \twhere \fields(C) = \curlys{\overline{x : \tau}} \\
     \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
     \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
-    \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
+    % \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
+    \demote_*(\tau \transforms \sigma) &= \tau \transforms \sigma
 \end{align*}
 
-\framebox{$\decls(C) = \overline{\mathcal{D}}$} \textbf{Contract Declarations}
+\framebox{$\decls(C) = \overline{\Decl}$} \textbf{Contract Declarations}
 \begin{align*}
-    \decls(C) = \overline{\mathcal{D}} \twhere (\contract~C~\{ \overline{\mathcal{D}} \})
+    \decls(C) = \overline{\Decl} \twhere (\contract~C~\{ \overline{\Decl} \})
 \end{align*}
 
 \framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
@@ -463,12 +523,12 @@ Note that we need to have constructors, because only the contract that defines a
     \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \decls(C)}
 \end{align*}
 
-\framebox{$\update(\Gamma, \mathcal{S}, \tau)$} \textbf{Type environment modification}
+\framebox{$\update(\Gamma, x, \tau)$} \textbf{Type environment modification}
 % These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
 \[
-    \update(\Gamma, S, \tau) =
+    \update(\Gamma, x, \tau) =
     \begin{cases}
-        \Delta, S : \tau & \tif \Gamma = \Delta, S : \sigma \\
+        \Delta, x : \tau & \tif \Gamma = \Delta, x : \sigma \\
         \Gamma & \owise
     \end{cases}
 \]
