@@ -31,24 +31,24 @@
 \begin{figure}[ht]
 \begin{align*}
     C &\in \textsc{ContractNames} & m &\in \textsc{TransactionNames} \\
-    t &\in \textsc{TypeNames} & x &\in \textsc{Identifiers} \\
+    t &\in \textsc{TypeNames} & x,y,z &\in \textsc{Identifiers} \\
     n &\in \Z \\
 \end{align*}
 \begin{tabular}{l r l l}
     $\mathfrak{q}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
-    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\every$ & (\typeQuantities) \\
+    $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\every$ & (\typeQuantities) \\
     $\mathcal{C}$ & \bnfdef & $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (collection type constructors) \\
     % Removed product types for the moment because you don't really need them if you have records.
     % $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
-    $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
+    $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyq$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
         & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
-    $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
+    $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ \bnfalt $\consume$ & (nodes) \\
     $F$ & \bnfdef & $\mathcal{N} \sends{s} \mathcal{N}$ & (flows) \\
     $\Stmt$ & \bnfdef & $F$ \bnfalt $E$ \bnfalt $\revert(E)$ \bnfalt $\tryS~S~\catchS(x : \tau)~S$ \bnfalt $\ifS~x~\thenS~S~\elseS~S$ \\
             & \bnfalt & $\var~x:\tau := E$ \bnfalt $S;S$ \bnfalt \pack \bnfalt $\unpack(x)$ & (statements) \\
@@ -281,11 +281,13 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
 
     \inferrule*[right=Store-New]{
         (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
-    }{ \Gamma \flowproves \newc~C :: \curlys{\fields(C)} \flowsto_{\every} ~ C }
+        \and
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+    }{ \Gamma \flowproves \newc~C(\overline{y}) :: \voidt \flowsto_{!} C }
 
     \inferrule*[right=Store-New-Ty]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
-    }{ \Gamma, \this : C \proves \newc~t :: \demote(T) \flowsto_{\every} ~ t }
+    }{ \Gamma, \this : C \proves \newc~t :: \voidt \flowsto_{\every} ~ t }
 \end{mathpar}
 
 \framebox{$\Gamma \proves s ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
@@ -393,11 +395,16 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \inferrule*[right=Wf-Type]{
         T~\asset \implies \asset \in \overline{M}
     }{ \proves_C (\type~t~\is~\overline{M}~T)~\ok }
+\end{mathpar}
 
+Note that we need to have constructors, because only the contract that defines a named type is allowed to create values of that type, and so it is not always possible to externally initialize all contract fields.
+\begin{mathpar}
     \inferrule*[right=Wf-Constructor]{
-        \this : C, \overline{x : \tau} \flowproves S~\ok \flowprovesout \Delta
+        \fields(C) = \overline{\this.f : \mathcal{Q}~T}
         \and
-        \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+        \this : C, \overline{x : \tau}, \overline{\this.f : \emptyq~T} \flowproves S~\ok \flowprovesout \Delta
+        \and
+        \forall y : \sigma \in \Delta. \lnot(\sigma~\asset)
     }{ \proves_C (\oncreate(\overline{x : \tau})~\doC~S)~\ok }
 \end{mathpar}
 
@@ -438,6 +445,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     \demote_*(\natt) &= \natt \\
     \demote_*(\boolt) &= \boolt \\
     \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \\
+    \demote_*(C) &= \demote_*(\curlys{\overline{x : \tau}}) & \twhere \fields(C) = \curlys{\overline{x : \tau}} \\
     \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
     \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
     \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
