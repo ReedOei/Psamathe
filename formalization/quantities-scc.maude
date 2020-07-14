@@ -1,8 +1,0 @@
-load scc.maude
-loop init-cc .
-
-load quantities.maude
-
-select CC-LOOP .
-(scc QUANTITIES .)
-
