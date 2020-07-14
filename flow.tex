@@ -44,7 +44,7 @@
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyq$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $f \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s \varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ \bnfalt $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\consume$ & (nodes) \\
@@ -185,10 +185,10 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
 
     \inferrule*[right=Check-In]{
-        \Gamma \proves f~\selects~\demote(\sigma)
+        \Gamma \proves s~\selects~\demote(\sigma)
         \and
         \Gamma \proves x :: \tau \flowsto_\mathcal{Q} \sigma
-    }{ \Gamma \proves (f~\varin~x) : \boolt \flowprovesout \Gamma }
+    }{ \Gamma \proves (s~\varin~x) : \boolt \flowprovesout \Gamma }
 
     \inferrule*[right=View-Call]{
         (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \decls(C)
@@ -223,10 +223,10 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
     \inferrule*[right=Let]{
         \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
         \and
-        \Delta, x : \tau \flowproves E_2 : \sigma \flowprovesout \Xi
+        \Delta, x : \tau \flowproves E_2 : \pi \flowprovesout \Xi, x : \sigma
         \and
-        x \not\in \dom(\Xi)
-    }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \sigma \flowprovesout \Xi }
+        \lnot(\sigma~\asset)
+    }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \pi \flowprovesout \Xi }
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
@@ -262,7 +262,7 @@ The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $
     }{ \Gamma, \this : C \proves \newc~t(x) :: \voidt \flowsto_{\exactlyone} ~ t }
 \end{mathpar}
 
-\framebox{$\Gamma \proves f ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
+\framebox{$\Gamma \proves s ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
 \begin{mathpar}
     \inferrule*[right=Select-One]{
         \Gamma \flowproves x : \tau \flowprovesout \Gamma
