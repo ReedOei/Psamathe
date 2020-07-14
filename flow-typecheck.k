@@ -39,6 +39,7 @@ module FLOW-TYPECHECK
         <typeEnv> ... X |-> T => .Map ... </typeEnv>
 
     // Variable definition
+    // TODO: Need to change to use the (var X : T := E in S) construct to match the current typing rules
     rule (var X : T := E) wf => E : T ~> insert(X, T)
 
     // Primitive types
@@ -48,7 +49,6 @@ module FLOW-TYPECHECK
     rule S:String : ! string => .
 
     rule emptyval : empty _ => .
-    rule emptyval : any _ => .
 
     // Storage typing
     rule <k> X :: R T ==> {!} Q T => . ... </k>

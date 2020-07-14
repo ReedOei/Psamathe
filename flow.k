@@ -10,12 +10,14 @@ module FLOW
 
     syntax StorageLoc ::= loc(Int) [freshGenerator, function, functional]
     syntax SpecialStorage ::= StorageLoc
+                            | literal(Resource)
+                            | contract(Resource, Exprs) [strict(2), result(Resource)]
     syntax BasicVal ::= Val
                       | Set
                       | List
                       | Map
                       | some(Val)
-                      | "none" [token]
+                      | "none"
                       // This can be stored in the middle of a transaction, but not at the end, unless the reference is temporary.
                       | StorageLoc
     syntax ErrorVal ::= revert(String)
@@ -33,8 +35,6 @@ module FLOW
                      | EmptyVal
 
     syntax Id ::= "NoContract" [token]
-                // A special Id to be used as the "location" of the current contract in the global scope.
-                | "#null" [token]
     syntax KVar ::= Id
 
     configuration
@@ -98,16 +98,16 @@ module FLOW
         requires I >=Int 0
     rule resolveStorage(S:String) => resolveStorage(resource(string, S))
     rule resolveStorage(B:Bool) => resolveStorage(resource(bool, B))
+    rule resolveStorage(resource(R, V)) => literal(resource(R, V))
     rule resolveStorage(consume) => consume
-    rule resolveStorage(new C(Args)) => new C(Args)
+    rule <k> resolveStorage(new C(Args)) => initFields(resource(C, .Map), Fields, Args) ... </k>
+        <fields> ... C |-> Fields ... </fields>
     rule resolveStorage(Loc:StorageLoc) => Loc
     rule <k> resolveStorage(X) => Loc ... </k>
         <lookup> ... X |-> Loc ... </lookup>
     rule <k> resolveStorage(X . F) => Loc ... </k>
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... XLoc |-> resource(R, (F |-> Loc) _) ... </storage>
-    rule <k> resolveStorage(resource(R, V)) => !Loc ... </k>
-        <storage> ... .Map => !Loc:StorageLoc |-> resource(R, V) ... </storage>
 
     // TODO: Finish this
     syntax Resource ::= demote(Resource) [function, functional]
@@ -129,16 +129,21 @@ module FLOW
         <storage> ... (SourceLoc |-> (SV => subtract(SV, select(Sel, SV)))) ... </storage>
         requires select(Sel, SV) contained_in SV
 
-    rule <k> handleFlow(Sel, new C(Args), D)
+    // TODO: Do we really need literal()?
+    rule <k> handleFlow(Sel, literal(R), D) => put(combine(convert(R, DR), resource(DR, Cur)), D) ...  </k>
+        <storage> ... D |-> resource(DR, Cur) => .Map ... </storage>
+
+    rule <k> handleFlow(Sel, contract(resource(C, Fs), Args), D)
              =>
-             initFields(!Loc:StorageLoc, Fields) ~> setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(!Loc) ~> S ~> pack(Old, Lookup, Env) ~> handleFlow(Sel, !Loc, D)
+             put(combine(resource(C, Fs), DV), D)
+             ~>
+             setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(D) ~> S ~> pack(Old, Lookup, Env)
              ...
          </k>
-        <storage> ... .Map => !Loc |-> resource(C, .Map) ... </storage>
         <localTypeEnv> Env </localTypeEnv>
+        <storage> ... D |-> DV => .Map ... </storage>
         <lookup> Lookup </lookup>
         <currentContract> Old => C </currentContract>
-        <fields> ... C |-> Fields ... </fields>
         <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
 
     rule <k> handleFlow(Sel, SourceLoc, DestLoc) => put(combine(convert(select(Sel, SV), DestR), resource(DestR, Cur)), DestLoc) ... </k>
@@ -212,8 +217,8 @@ module FLOW
     rule convert(resource(R, V), set Q R) => resource(set Q R, SetItem(V))
     rule convert(resource(R, V), list Q R) => resource(list Q R, ListItem(V))
 
-    rule convert(resource(option Q R, none), R) => revert("No value!")
-    rule convert(resource(option Q R, some(A)), R) => resource(R, A)
+    rule convert(resource(option _ R, none), R) => revert("No value!")
+    rule convert(resource(option _ R, some(A)), R) => resource(R, A)
 
     rule convert(resource(option R, none), set R) => resource(set R, .Set)
     rule convert(resource(option R, some(A)), set R) => resource(set R, SetItem(A))
@@ -221,9 +226,9 @@ module FLOW
     rule convert(resource(option R, none), list R) => resource(list R, .List)
     rule convert(resource(option R, some(A)), list R) => resource(list R, ListItem(A))
 
-    rule convert(resource(set Q R, .Set), R) => revert("No value!")
-    rule convert(resource(set Q R, SetItem(A)), R) => resource(R, A)
-    rule convert(resource(set Q R, SetItem(A) SetItem(B) _), R) => revert("Too many values!")
+    rule convert(resource(set _ R, .Set), R) => revert("No value!")
+    rule convert(resource(set _ R, SetItem(A)), R) => resource(R, A)
+    rule convert(resource(set _ R, SetItem(A) SetItem(B) _), R) => revert("Too many values!")
 
     rule convert(resource(set R, .Set), option R) => resource(option R, none)
     rule convert(resource(set R, SetItem(A)), option R) => resource(option R, some(A))
@@ -232,9 +237,9 @@ module FLOW
     // Nondeterministic, but that's the most reasonable behavior for this conversion.
     rule convert(resource(set R, A), list R) => resource(list R, Set2List(A))
 
-    rule convert(resource(list Q R, .List), R) => revert("No value!")
-    rule convert(resource(list Q R, ListItem(A)), R) => resource(R, A)
-    rule convert(resource(list Q R, ListItem(A) ListItem(B) _), R) => revert("Too many values!")
+    rule convert(resource(list _ R, .List), R) => revert("No value!")
+    rule convert(resource(list _ R, ListItem(A)), R) => resource(R, A)
+    rule convert(resource(list _ R, ListItem(A) ListItem(B) _), R) => revert("Too many values!")
 
     rule convert(resource(list R, .List), option R) => resource(option R, none)
     rule convert(resource(list R, ListItem(A)), option R) => resource(option R, some(A))
@@ -251,14 +256,14 @@ module FLOW
 
     rule combine(resource(R, A), resource(R, emptyval)) => resource(R, A)
     rule combine(resource(nat, A), resource(nat, B)) => resource(nat, A +Int B)
-    rule combine(resource(R:Id, A), resource(R, B)) => revert("Destination already full!")
-        requires R =/=K nat andBool B =/=K emptyval
-    rule combine(resource(X.T, A), resource(X.T, B)) => revert("Destination already full!")
+    rule combine(resource(X:Id, _), resource(R, B)) => revert("Destination already full!")
+        requires X =/=K nat andBool B =/=K emptyval
+    rule combine(resource(X.T, _), resource(X.T, B)) => revert("Destination already full!")
         requires B =/=K emptyval
 
     rule combine(resource(option R, A), resource(option R, none)) => resource(option R, A)
     rule combine(resource(option R, none), resource(option R, some(B))) => resource(option R, some(B))
-    rule combine(resource(option R, some(A)), resource(option R, some(B))) => revert("Destination already full!")
+    rule combine(resource(option R, some(_)), resource(option R, some(B))) => revert("Destination already full!")
 
     rule combine(resource(set R, A:Set), resource(set R, B:Set)) => resource(set R, A B)
     // Combine as `B A` instead of `A B`, because the new values should be **appended**, not prepended.
@@ -281,14 +286,14 @@ module FLOW
 
     syntax Resource ::= defaultValue(Type) [function, functional]
 
-    rule defaultValue(Q nat) => resource(nat, 0)
-    rule defaultValue(Q X:Id) => resource(X, emptyval)
+    rule defaultValue(_ nat) => resource(nat, 0)
+    rule defaultValue(_ X:Id) => resource(X, emptyval)
         requires X =/=K nat
-    rule defaultValue(Q X.T) => resource(X.T, emptyval)
-    rule defaultValue(Q option R) => resource(option R, none)
-    rule defaultValue(Q set R) => resource(set R, .Set)
-    rule defaultValue(Q list R) => resource(list R, .List)
-    rule defaultValue(Q:TypeQuant (T1 ~~> T2)) => resource(list T2, .List)
+    rule defaultValue(_ X.T) => resource(X.T, emptyval)
+    rule defaultValue(_ option R) => resource(option R, none)
+    rule defaultValue(_ set R) => resource(set R, .Set)
+    rule defaultValue(_ list R) => resource(list R, .List)
+    rule defaultValue(_:TypeQuant (T1 ~~> T2)) => resource(list T2, .List)
 
     // =================================
     // Transaction calls:
@@ -314,24 +319,18 @@ module FLOW
         <transformerStack> .List => ListItem(TxLoc) ... </transformerStack>
 
     // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
+    // TODO: Convert all returns to a flow to the return variable and add if statements and such so that we immediately jump to the end.
     rule <k> return Ret ~> _ ~> pack(Old, Lookup, Env) => handleFlow(everything, resolveStorage(Ret), resolveStorage(Loc)) ~> pack(Old, Lookup, Env) ... </k>
         <transformerStack> ListItem(Loc) => .List ... </transformerStack>
 
     // ============================
     // New contract
     // ============================
-    syntax Stmt ::= initFields(StorageLoc, Set)
+    syntax Storage ::= initFields(Resource, Set, Exprs)
 
-    rule initFields(Loc, .Set) => .
-    rule <k> initFields(Loc, SetItem(X : T) Rest) => initFields(Loc, Rest) ... </k>
-        <storage>
-            ...
-            (Loc |-> resource(C, Fs))
-            =>
-            (Loc |-> resource(C, (X |-> !XLoc:StorageLoc) Fs))
-            (!XLoc |-> defaultValue(T))
-            ...
-        </storage>
+    rule initFields(R, .Set, Args) => contract(R, Args)
+    rule <k> initFields(resource(C, Fs), SetItem(X : T) Rest, Args) => initFields(resource(C, (X |-> !XLoc:StorageLoc) Fs), Rest, Args) ... </k>
+        <storage> ... .Map => !XLoc |-> defaultValue(T) ... </storage>
 
     // Pack/unpack
     syntax Stmt ::= pack(QualifiedId, Map, Map)

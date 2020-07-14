@@ -13,18 +13,18 @@ module FLOW-CORE-SYNTAX
                          | Storage "[" Expr "]" [strict(2)]
                          | Storage "." Storage [left]
 
-    syntax SpecialStorage ::= "consume" [token]
-                            | "new" QualifiedId "(" Exprs ")"
+    syntax SpecialStorage ::= "consume"
     syntax Storage ::= Val
                      | QualifiedId
                      | SpecialStorage
+                     | "new" QualifiedId "(" Exprs ")"
 
     /* syntax TupleExpr ::= "(" Exprs ")" // Tuples */
 
     syntax FunctionCall ::= Storage "(" Exprs ")"
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]
-                  | "{" Exprs "}" // Set literals
+                  /* | "{" Exprs "}" // Set literals */
                   /* | TupleExpr */
                   | FunctionCall
                   > Expr "or" Expr [strict(1)]
@@ -90,7 +90,7 @@ module FLOW-CORE-SYNTAX
 
     syntax Stmt ::= Flow
                   | "var" VarDef ":=" Expr [strict(2)]
-                  | "pass" [token]
+                  | "pass"
                   | "return" Expr [strict]
                   | FunctionCall
                   | Stmt Stmt [right]
