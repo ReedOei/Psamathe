@@ -19,18 +19,18 @@ module FLOW-COMMON
             <constructors> .Map </constructors>
             <transactions> .Map </transactions>
             <types>
-                nat |-> modified(SetItem(consumable) SetItem(fungible), ! nat)
-                string |-> modified(SetItem(consumable) SetItem(nonfungible), ! string)
-                bool |-> modified(SetItem(consumable) SetItem(nonfungible), ! bool)
-                address |-> modified(SetItem(consumable) SetItem(nonfungible), ! address)
+                nat |-> modified(SetItem(consumable) SetItem(fungible), nat)
+                string |-> modified(SetItem(consumable) SetItem(nonfungible), string)
+                bool |-> modified(SetItem(consumable) SetItem(nonfungible), bool)
+                address |-> modified(SetItem(consumable) SetItem(nonfungible), address)
             </types>
             <log stream="stdout"> .List </log>
         </common>
 
     // Helper terms
-    syntax K ::= processDecls(Id, Decls)
+    syntax Stmt ::= processDecls(Id, Decls)
 
-    syntax TypeMod ::= modified(Set, Type)
+    syntax TypeMod ::= modified(Set, BaseType)
     syntax KItem ::= TypeMod
 
     syntax KItem ::= constructor(VarDefs, Stmt)
@@ -74,7 +74,7 @@ module FLOW-COMMON
         [structural]
 
     // TODO: Write this function, which is intended to perform more thorough desugaring (such as generating fresh variables for non-variable storages, etc.)
-    syntax K ::= normalize(Stmt) [function, functional]
+    syntax Stmt ::= normalize(Stmt) [function, functional]
     rule normalize(S) => S
 
     syntax Type ::= resolveType(Id, Type) [function]

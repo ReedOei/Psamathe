@@ -79,7 +79,7 @@ module FLOW-CORE-SYNTAX
 
     syntax VarDef ::= Id ":" Type
     syntax VarDefs ::= List{VarDef, ","}
-    syntax TypeDef ::= "type" Id "is" Modifiers Type
+    syntax TypeDef ::= "type" Id "is" Modifiers BaseType
     syntax FieldDef ::= VarDef
                       | VarDef ":=" Expr
     syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" "returns" Type ":" Stmt

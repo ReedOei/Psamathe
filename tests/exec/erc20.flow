@@ -1,5 +1,5 @@
 contract ERC20Bank {
-    type Token is fungible asset ! nat
+    type Token is fungible asset nat
 
     balance : ! Token
 }

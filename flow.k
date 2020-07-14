@@ -264,7 +264,7 @@ module FLOW
     // Combine as `B A` instead of `A B`, because the new values should be **appended**, not prepended.
     rule combine(resource(list R, A:List), resource(list R, B:List)) => resource(list R, B A)
 
-    syntax K ::= put(ResourceVal, StorageLoc)
+    syntax Stmt ::= put(ResourceVal, StorageLoc)
 
     rule <k> put(R:Resource, Loc) => . ... </k>
         <storage> ... .Map => Loc |-> R ... </storage>
@@ -293,12 +293,12 @@ module FLOW
     // =================================
     // Transaction calls:
     // =================================
-    syntax K ::= setupArgs(Exprs, VarDefs) [function]
+    syntax Stmt ::= setupArgs(Exprs, VarDefs)
 
     rule setupArgs(.Exprs, .VarDefs) => .
     rule setupArgs((E:Storage, Es):Exprs, (Y : T, Defs2)) => (var Y : T := E) ~> setupArgs(Es, Defs2)
 
-    syntax K ::= cleanEnv(Set)
+    syntax Stmt ::= cleanEnv(Set)
 
     rule <k> cleanEnv(ToRemove) => . ... </k>
         <localTypeEnv> Env => removeAll(Env, ToRemove) </localTypeEnv>
@@ -320,7 +320,7 @@ module FLOW
     // ============================
     // New contract
     // ============================
-    syntax K ::= initFields(StorageLoc, Set)
+    syntax Stmt ::= initFields(StorageLoc, Set)
 
     rule initFields(Loc, .Set) => .
     rule <k> initFields(Loc, SetItem(X : T) Rest) => initFields(Loc, Rest) ... </k>
@@ -334,7 +334,7 @@ module FLOW
         </storage>
 
     // Pack/unpack
-    syntax K ::= pack(QualifiedId, Map, Map)
+    syntax Stmt ::= pack(QualifiedId, Map, Map)
                | unpack(StorageLoc)
                | doUnpack(Map)
 
