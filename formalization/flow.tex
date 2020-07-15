@@ -314,8 +314,12 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
 
     \inferrule*[right=Provide-Source]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
-    }{ \Gamma, \this : C \proves (\newc~t)~\provides~\every~\set~te~t }
+    }{ \Gamma, \this : C \proves (\newc~t)~\provides~(\every~\setq~t) }
 \end{mathpar}
+
+\reed{Note, it will be too difficult to implement to make every kind of selector work with the sources, because the quantified selector can contain arbitrary expressions.
+It needs to be restricted somehow; the current rules only ensure you don't flow everything from a source.
+Could write special \textsc{Flow-Source} rules.}
 
 \framebox{$\Gamma \proves \mathcal{D}~\accepts~\tau$} \textbf{Destination Typing}
 \reed{Prevent variables that are supposed to store exactly one of something from receiving another?}
@@ -373,19 +377,21 @@ These resources then get applied to the transformer, which is an applicative fun
     % }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Wf-Flow]{
-        \Gamma \proves A~\provides_\mathcal{Q}~\mathcal{C}~T
+        \Gamma \proves A~\provides~\mathcal{Q}~T
         \and
-        \Gamma \proves s~\selects_\mathcal{R}~\demote(\mathcal{C}~T)
-        \and
-        \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
-        \\
-        \Delta \flowproves f : \mathcal{S}~\mathcal{C}~\exactlyone~(\tau \transforms \sigma) \flowprovesout \Delta
+        \Gamma \proves s~\selects_\mathcal{R}~\demote(T)
         \and
         \min(\mathcal{Q}, \mathcal{R}) < \every
+        \\
+        \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
+        \and
+        \Delta \flowproves f : \tau \transforms \sigma \flowprovesout \Delta
         \and
         \Delta \proves B~\accepts~\sigma
     }{ \Gamma \flowproves (A \sends{s} f \to B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 \end{mathpar}
+
+\reed{TODO: Finish handling currying transformers.}
 
 \begin{mathpar}
     \inferrule*[right=Wf-Var-Def]{
@@ -407,7 +413,9 @@ These resources then get applied to the transformer, which is an applicative fun
     \inferrule*[right=Wf-Try]{
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
         \and
-        \Gamma, x : \tau \flowproves S_2~\ok \flowprovesout \Xi, x : \tau
+        \Gamma, x : \tau \flowproves S_2~\ok \flowprovesout \Xi, x : \sigma
+        \and
+        \lnot(\sigma~\asset)
     }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
 
     \inferrule*[right=Wf-Revert]{
