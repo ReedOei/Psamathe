@@ -58,7 +58,7 @@ instance Resource Set where
     (Set xs) `split` (Set ys) = Set $ nub $ (nub xs) \\ (nub ys)
     a `contains` b = empty == b `split` a
     a `canContain` b = b `split` a == b
-    convert (Set xs) = foldr (combine . pure) empty xs
+    convert (Set xs) = foldr (combine . pure) empty $ nub xs
 
 instance Resource Maybe where
     empty = Nothing
@@ -85,26 +85,14 @@ instance Resource Maybe where
     convert Nothing = empty
     convert (Just a) = pure a
 
--- transfomer is
--- r tau ~> s sigma
--- A curried transformer is therefore
--- r tau ~> (s sigma ~> t pi)
--- So an implementation has the type
--- r a -> (s b -> t c)
-
--- account --[ toks ]-> (\a. a --> \b. (a,b)) --> temp
--- other --[ otherToks ]-> temp --> trades
-
-data Transformer r out a = Transformer (a -> r out)
-
-instance (Eq out, Resource r) => Functor (Transformer r out) where
-    fmap f (Transformer g) = Transformer $ \b -> g $ f b
+compose :: (Eq a, Eq b, Eq c, Resource r, Resource s) => (b -> s c) -> (a -> r b) -> (a -> s c)
+compose g f = \a -> convert (f a) >>= g
 
 flow :: (Eq a, Eq b, Resource r, Resource s)
-     => r a -> (r a -> r a) -> (a -> s b) -> s b -> Either String (r a, s b)
+     => r a -> (r a -> r a) -> r (a -> b) -> s b -> Either String (r a, s b)
 flow source selector transformer dest =
     let selected = selector source
-        sent = (convert selected) >>= transformer
+        sent = convert (transformer <*> selected)
     in if source `contains` selected && dest `canContain` sent then
             Right (source `split` selected, dest `combine` sent)
         else
