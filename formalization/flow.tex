@@ -58,7 +58,7 @@
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $\Decl$ & \bnfdef & $x : \tau$ & (field) \\
             & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
-            & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
+            & \bnfalt & $[\private]~\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
             & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
             & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~S$ & (constructor) \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
@@ -218,36 +218,35 @@ The expression $s~\varin~x$ allows checking whether a flow will succeed without 
 A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true and ``$s~\varin~B$'' is false.
 \begin{mathpar}
     \inferrule*[right=Check-In]{
-        \Gamma \proves s~\selects~\demote(\sigma)
+        \Gamma \proves x~\stores_{\mathcal{Q}}~\tau
         \and
-        \Gamma \proves x :: \tau \flowsto_\mathcal{Q} \sigma
+        \Gamma \proves s~\selects~\demote(\tau)
     }{ \Gamma \proves (s~\varin~x) : \boolt \flowprovesout \Gamma }
 \end{mathpar}
 
 We distinguish between three kinds of calls: view, internal, and external.
 A view call is guaranteed to not change any state in the receiver, while both internal and external calls may do so.
 The difference between internal and external calls is that we may transfer assets to an internal call, but \textbf{not} to an external call, because we cannot be sure any external contract will properly manage the asset of our contract.
-Similarly, we cannot be sure that a view of an external contract \textbf{really} is a view, and so we can only call views of the current contract.
 \begin{mathpar}
     \inferrule*[right=View-Call]{
         (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \decls(C)
         \and
-        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
-    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C }
+        \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
+    }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
 
     \inferrule*[right=Internal-Tx-Call]{
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
-        \\
-        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(C)
         \and
+        \typeof(C, m) = \curlys{\overline{a : \tau}} \transforms \sigma
+        \\
         \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
     }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C }
 
     \inferrule*[right=External-Tx-Call]{
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
-        \\
-        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(D)
         \and
+        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(D)
+        \\
         \Gamma, \this : C, x : D \flowproves \overline{y : \tau} \flowprovesout \Gamma, \this : C, x : D
     }{ \Gamma, \this : C, x : D \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C, x : D }
 \end{mathpar}
@@ -527,6 +526,16 @@ This is because a transformer is \textbf{never} an asset, regardless of the type
 \framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
 \begin{align*}
     \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \decls(C)}
+\end{align*}
+
+\framebox{$\typeof(C, m) = \tau \transforms \sigma$} \textbf{Method Type Lookup}
+\begin{align*}
+    \typeof(C, m) =
+    \begin{cases}
+        \curlys{\overline{x : \tau}} \transforms \sigma & \tif (\private~\transaction~m(\overline{x : \tau})~\returns~y:\sigma~\doC~S) \in \decls(C) \\
+        \curlys{\overline{x : \tau}} \transforms \sigma & \tif (\transaction~m(\overline{x : \tau})~\returns~y:\sigma~\doC~S) \in \decls(C) \\
+        \curlys{\overline{x : \tau}} \transforms \sigma & \tif (\view~m(\overline{x : \tau})~\returns~\sigma := E) \in \decls(C)
+    \end{cases}
 \end{align*}
 
 \framebox{$\update(\Gamma, x, \tau)$} \textbf{Type environment modification}
