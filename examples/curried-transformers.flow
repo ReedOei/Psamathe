@@ -1,0 +1,38 @@
+interface TokenBank {
+    transaction transfer(from : address, to : address)
+}
+
+contract C {
+    type Token is nonfungible asset nat
+
+    trades : list (Token, Token)
+
+    userA : address
+    userB : address
+    unlockTime : nat
+
+    bank : TokenBank
+
+    on create(bank : TokenBank, userA : address, userB : address, tokensA : list nat, tokensB : list nat, unlockTime : nat):
+        var pairer : Token ~> Token ~> (Token, Token) := \a. \b. (a,b)
+        var temp : Token ~> (Token, Token)
+        new Token --[ tokensA ]-> pairer --> temp
+        new Token --[ tokensB ]-> temp --> trades
+
+        this.userA := userA
+        this.userB := userB
+
+        this.unlockTime := unlockTime
+
+        this.bank := bank
+
+    view canClaim() returns bool := now > unlockTime
+
+    transaction claim():
+        only when msg.sender in {userA, userB} and canClaim()
+
+        trades --> bank.transfer
+        // Desugars into
+        trades --[ everything ]-> bank.transfer --> consume
+}
+
