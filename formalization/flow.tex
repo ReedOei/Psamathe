@@ -98,11 +98,11 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
 \reed{The syntax for record ``fields'' and type environments is the same...could just use it}
 \begin{align*}
     (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
-                                                                & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
+                                                                % & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
                                                                 & (T = \mathcal{C}~\tau \tand \tau~\asset) \tor \\
                                                                 & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. (\tau~\asset)))
 \end{align*}
-\reed{It should be the case that a transformer can have an output of an asset type if and only if it has an input asset type (and it the case of curried transformers, that \textbf{some} input type is an asset).}
+% \reed{It should be the case that a transformer can have an output of an asset type if and only if it has an input asset type (and it the case of curried transformers, that \textbf{some} input type is an asset).}
 
 \framebox{$\tau~\consumable$} \textbf{Consumable Types}
 \begin{align*}
@@ -114,25 +114,30 @@ $\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowin
 
 \begin{definition}
     Let $\mathcal{Q}, \mathcal{R} \in \Quant$.
-    Define the commutative operator $\oplus$, called \emph{combine}, as the function:
-    \begin{align*}
-        \oplus : \textsc{Type} \times \Quant \to \textsc{Type} \\
-        (\mathcal{Q}~T, \mathcal{R}) \mapsto \max(\mathcal{Q}, \mathcal{R})~T
-    \end{align*}
+    Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\Quant^2 \to \Quant$ such that
+    \[
+        \renewcommand\arraystretch{1.2}
+        \begin{array}{r c l l l}
+            \mathcal{Q} \oplus \emptyq & = & \mathcal{Q} & \\
+            \mathcal{Q} \oplus \every & = & \every & \\
+            \nonempty \oplus \mathcal{R} & = & \nonempty & \tif \emptyq < \mathcal{R} < \every \\
+            \exactlyone \oplus \mathcal{R} & = & \nonempty & \tif \emptyq < \mathcal{R} < \every \\
+            \any \oplus \any & = & \any &
+        \end{array}
+    \]
 
     Define the operator $\ominus$, called \emph{split}, as the unique function $\Quant^2 \to \Quant$ such that
     \[
-        % \setlength\arraycolsep{1pt}
         \renewcommand\arraystretch{1.2}
         \begin{array}{r c l l l}
             \mathcal{Q} \ominus \emptyq & = & \mathcal{Q} & \\
             \emptyq \ominus \mathcal{R} & = & \emptyq & \\
             \mathcal{Q} \ominus \every &= & \emptyq & \\
             \every \ominus \mathcal{R} &= & \every & \tif \mathcal{R} < \every \\
-            \nonempty - \mathcal{R} &= & \any & \tif \empty < \mathcal{R} < \every \\
+            \nonempty - \mathcal{R} &= & \any & \tif \emptyq < \mathcal{R} < \every \\
             \exactlyone - \mathcal{R} &= & \emptyq & \tif \exactlyone \leq \mathcal{R} \\
             \exactlyone - \any &= & \any & \\
-            \any - \mathcal{R} &= & \any & \tif \empty < \mathcal{R} < \every \\
+            \any - \mathcal{R} &= & \any & \tif \emptyq < \mathcal{R} < \every \\
         \end{array}
     \]
 \end{definition}

@@ -10,6 +10,19 @@ fmod QUANTITIES is
     vars Q R S : Quantity .
     vars T : Some .
 
+    op _+_ : Quantity Quantity -> Quantity [comm] .
+    eq Q + empty = Q .
+    eq Q + every = every .
+
+    eq nonempty + nonempty = nonempty .
+    eq nonempty + ! = nonempty .
+    eq nonempty + any = nonempty .
+
+    eq ! + ! = nonempty .
+    eq ! + any = nonempty .
+
+    eq any + any = any .
+
     op _-_ : Quantity Quantity -> Quantity .
     eq Q - empty = Q .
     eq Q - every = empty .
