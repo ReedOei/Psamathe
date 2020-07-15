@@ -15,7 +15,7 @@ contract C {
 
     on create(bank : TokenBank, userA : address, userB : address, tokensA : list nat, tokensB : list nat, unlockTime : nat):
         var pairer : Token ~> Token ~> (Token, Token) := \a. \b. (a,b)
-        var temp : Token ~> (Token, Token)
+        var temp : list (Token ~> (Token, Token))
         new Token --[ tokensA ]-> pairer --> temp
         new Token --[ tokensB ]-> temp --> trades
 

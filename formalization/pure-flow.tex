@@ -46,8 +46,7 @@
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\newc~t$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $\consume$ \bnfalt $\var~x:\tau$ & (destinations) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{s} x \to \mathcal{D}$ & (flows) \\
-    $\Stmt$ & \bnfdef & $F$ \bnfalt $\revert(E)$ \bnfalt $\ifS~x~\thenS~S~\elseS~S$ \\
-            & \bnfalt & $S;S$ & (statements) \\
+    $\Stmt$ & \bnfdef & $F$ \bnfalt $\revert(E)$ \bnfalt $\ifS~x~\thenS~S~\elseS~S$ \bnfalt $S;S$ & (statements) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $\Decl$ & \bnfdef & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
             & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
@@ -59,8 +58,8 @@
 
 \subsection{Statics}
 \begin{definition}
-    A \emph{type environment} $\Gamma$ is a subset of $\textsc{Identifiers} \times \textsc{Types}$, where we write $x : \tau$ to mean $(x, \tau)$.
-    We can consider a type environment $\Gamma$ as a function $\textsc{Identifiers}\xspace \to \textsc{Types}\xspace \cup \curlys{\bot}$ as follows:
+    A \emph{type environment} $\Gamma$ is a partial function $\textsc{Identifiers} \partialfunc \textsc{Types}$, where we write $x : \tau$ to mean $(x, \tau)$.
+    We can consider a type environment $\Gamma$ as a (non-partial) function $\textsc{Identifiers}\xspace \to \textsc{Types}\xspace \cup \curlys{\bot}$ as follows:
     \[
         \Gamma(x) =
         \begin{cases}
@@ -78,14 +77,11 @@
 
 \framebox{$\tau~\asset$} \textbf{Asset Types}
 
-\reed{The syntax for record ``fields'' and type environments is the same...could just use it}
 \begin{align*}
     (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
-                                                                & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
                                                                 & (T = \mathcal{C}~\tau \tand \tau~\asset) \tor \\
-                                                                & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. (\tau~\asset)))
+                                                                & (T = \curlys{\Gamma} \tand \exists x : \tau \in \Gamma. (\tau~\asset)))
 \end{align*}
-\reed{It should be the case that a transformer can have an output of an asset type if and only if it has an input asset type (and it the case of curried transformers, that \textbf{some} input type is an asset).}
 
 \framebox{$\tau~\consumable$} \textbf{Consumable Types}
 \begin{align*}
@@ -270,14 +266,6 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
 \end{mathpar}
 
 \begin{mathpar}
-    \inferrule*[right=Wf-Var-Def]{
-        \Gamma \flowproves E : \tau \flowprovesout \Delta
-        \and
-        \Delta, x : \tau \flowproves S~\ok \flowprovesout \Xi, x : \sigma
-        \and
-        \lnot(\sigma~\asset)
-    }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\ok \flowprovesout \Xi }
-
     \inferrule*[right=Wf-If]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
         \and
