@@ -1,8 +1,8 @@
 interface TokenBank {
-    transaction transfer(from : address, to : address)
+    transaction transfer(from : address, to : address, _tokenToSend : nat)
 }
 
-contract C {
+contract TimeLockTrade {
     type Token is nonfungible asset nat
 
     trades : list (Token, Token)
@@ -19,6 +19,10 @@ contract C {
         new Token --[ tokensA ]-> pairer --> temp
         new Token --[ tokensB ]-> temp --> trades
 
+        // Some alternatives
+        // Zip:
+        zip(new Token, new Token) --[ zip(tokensA, tokensB) ]-> trades
+
         this.userA := userA
         this.userB := userB
 
@@ -31,8 +35,12 @@ contract C {
     transaction claim():
         only when msg.sender in {userA, userB} and canClaim()
 
-        trades --> bank.transfer
+        trades --> this.doTrade
         // Desugars into
-        trades --[ everything ]-> bank.transfer --> consume
+        trades --[ everything ]-> this.doTrade --> consume
+
+    private transaction doTrade(tokenA : Token, tokenB : Token):
+        bank.transfer(userA, userB, tokenA)
+        bank.transfer(userB, userA, tokenB)
 }
 

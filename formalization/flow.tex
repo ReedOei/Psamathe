@@ -70,6 +70,8 @@
 \label{lang-syntax}
 \end{figure}
 
+\reed{We have public and private transactons...we could also have a public/private type?}
+
 In the surface language, ``collection types'' (i.e., $\mathcal{Q}~\mathcal{C}~\tau$ or a transformer) are by default $\any$, but all other types, like $\natt$, are $\exactlyone$.
 
 \reed{Some simplification ideas}
@@ -98,7 +100,7 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
 \reed{The syntax for record ``fields'' and type environments is the same...could just use it}
 \begin{align*}
     (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
-                                                                % & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
+                                                                & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
                                                                 & (T = \mathcal{C}~\tau \tand \tau~\asset) \tor \\
                                                                 & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. (\tau~\asset)))
 \end{align*}
@@ -185,11 +187,11 @@ We begin with the rules for typing the various literal forms of values.
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\lambda x : \tau. E) : \,\,\exactlyone~(\tau \transforms \sigma) }
+    }{ \Gamma \flowproves (\lambda x : \tau. E) : \every~\listq~\exactlyone~(\tau \transforms \sigma) \flowprovesout \Gamma }
 
     \inferrule*[right=Some]{
         \Gamma \flowproves x : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves \some(x) : \exactlyone~\optionq~\tau \flowprovesout \Delta }
+    }{ \Gamma \flowproves \some(x) : \,\,\exactlyone~\optionq~\tau \flowprovesout \Delta }
 
     \inferrule*[right=Build-Rec]{
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
@@ -229,7 +231,7 @@ A view call is guaranteed to not change any state in the receiver, while both in
 The difference between internal and external calls is that we may transfer assets to an internal call, but \textbf{not} to an external call, because we cannot be sure any external contract will properly manage the asset of our contract.
 \begin{mathpar}
     \inferrule*[right=View-Call]{
-        (\view~m(\overline{a : \tau})~\returns~\sigma := E) \in \decls(C)
+        \typeof(C, m) = \curlys{\overline{a : \tau}} \transforms \sigma
         \and
         \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
     }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
@@ -249,6 +251,12 @@ The difference between internal and external calls is that we may transfer asset
         \\
         \Gamma, \this : C, x : D \flowproves \overline{y : \tau} \flowprovesout \Gamma, \this : C, x : D
     }{ \Gamma, \this : C, x : D \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C, x : D }
+
+    \inferrule*[right=New-Con]{
+        (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
+        \and
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+    }{ \Gamma \flowproves \newc~C(\overline{y}) : C }
 \end{mathpar}
 
 Finally, the rules for If and Let expressions.
@@ -271,7 +279,7 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
     }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \pi \flowprovesout \Xi }
 \end{mathpar}
 
-\framebox{$\Gamma \proves \mathcal{S}~\provides_{\mathcal{Q}}~\tau$} \textbf{Source Typing}
+\framebox{$\Gamma \proves \mathcal{S}~\provides~\tau$} \textbf{Source Typing}
 % The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
 % \begin{mathpar}
 %     \inferrule*[right=Store-One]{
@@ -298,21 +306,15 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
 %     }{ \Gamma, \this : C \proves \newc~t :: \voidt \flowsto_{\every} ~ t }
 % \end{mathpar}
 \begin{mathpar}
-    \inferrule*[right=Provide-One]{
-    }{ \Gamma, S : \mathcal{Q}~T \proves S~\provides_{\mathcal{Q}}~\mathcal{R}~T }
+    \inferrule*[right=Provide-Var]{
+    }{ \Gamma, S : \tau \proves S~\provides~\tau }
 
-    \inferrule*[right=Provide-Col]{
-    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\provides_{\mathcal{Q}}~\tau }
-
-    \inferrule*[right=Provide-New]{
-        (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
-        \and
-        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
-    }{ \Gamma \flowproves \newc~C(\overline{y})~\provides_{\exactlyone}~C }
+    % \inferrule*[right=Provide-Col]{
+    % }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\provides_{\mathcal{Q}}~\tau }
 
     \inferrule*[right=Provide-Source]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
-    }{ \Gamma, \this : C \proves \newc~t~\provides_{\every} t }
+    }{ \Gamma, \this : C \proves (\newc~t)~\provides~\every~\set~te~t }
 \end{mathpar}
 
 \framebox{$\Gamma \proves \mathcal{D}~\accepts~\tau$} \textbf{Destination Typing}
@@ -333,14 +335,14 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
 \begin{mathpar}
     \inferrule*[right=Select-One]{
         \Gamma \flowproves x : \tau \flowprovesout \Gamma
-    }{ \Gamma \proves x~\selects_{\exactlyone}~\tau }
+    }{ \Gamma \proves x~\selects_{\exactlyone}~\exactlyone~\mathcal{C}~\tau }
 
     \inferrule*[right=Select-Col]{
-        \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
-    }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\tau }
+        \Gamma \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma
+    }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\mathcal{Q}~T }
 
     \inferrule*[right=Select-Everything]{
-    }{ \Gamma \proves \everything~\selects_\every~\tau }
+    }{ \Gamma \proves \everything~\selects_{\every}~\tau }
 
     \inferrule*[right=Select-Quant]{
         \Gamma, x : \tau \flowproves p : \boolt \flowprovesout \Gamma, x : \tau
@@ -352,6 +354,11 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
 \reed{In the new flow rule, we \textbf{always} use a transformer.
 However, that just means we desugar something like $A \sends{s} B$ into $A \sends{s} (\lambda x : \tau. x) \to B$.
 In the real compiler, this can be optimized.}
+
+Flows are the main construct for transferring resources.
+A flow has four parts: a source, a selector, a transformer, and a destination.
+The selector acts as a function that ``chooses'' part of the source's resources to flow.
+These resources then get applied to the transformer, which is an applicative functor applied to a function type.
 \begin{mathpar}
     % \inferrule*[right=Wf-Flow]{
     %     \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
@@ -366,15 +373,15 @@ In the real compiler, this can be optimized.}
     % }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Wf-Flow]{
-        \Gamma \proves A~\provides_\mathcal{Q}~\tau
+        \Gamma \proves A~\provides_\mathcal{Q}~\mathcal{C}~T
         \and
-        \Gamma \proves s~\selects_\mathcal{R}~\demote(\tau)
+        \Gamma \proves s~\selects_\mathcal{R}~\demote(\mathcal{C}~T)
+        \and
+        \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
+        \\
+        \Delta \flowproves f : \mathcal{S}~\mathcal{C}~\exactlyone~(\tau \transforms \sigma) \flowprovesout \Delta
         \and
         \min(\mathcal{Q}, \mathcal{R}) < \every
-        \\
-        \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
-        \and
-        \Delta \proves f : \tau \transforms \sigma
         \and
         \Delta \proves B~\accepts~\sigma
     }{ \Gamma \flowproves (A \sends{s} f \to B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
@@ -438,13 +445,21 @@ In the real compiler, this can be optimized.}
         \Gamma \flowproves E : \sigma \flowprovesout \Gamma
     }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\ok }
 
-    \inferrule*[right=Wf-Tx]{
+    \inferrule*[right=Wf-Tx-Public]{
         \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
     }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
+
+    \inferrule*[right=Wf-Tx-Private]{
+        \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
+        \\
+        \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
+        \and
+        \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+    }{ \proves_C (\private~\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
 
     \inferrule*[right=Wf-Field]{
     }{ \proves_C (x : \tau)~\ok }
