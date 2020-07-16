@@ -45,7 +45,7 @@
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
-        & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ \bnfalt $x = x$ \bnfalt $x \neq x$ & (expressions) \\
+        & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ \bnfalt $x = x$ \bnfalt $x \neq x$ \bnfalt $\total~x$ \bnfalt $\total~t$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     % $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ \bnfalt $\consume$ & (nodes) \\
@@ -520,6 +520,7 @@ This isn't strictly necessary, because everything will still work, but you'll si
 
 A type declaration is okay as long as it has the $\asset$ modifier if its base type is an asset.
 Note that this restriction isn't necessary, but is intended to help users realize which types are assets without unfolding the entire type definition.
+\reed{Need to ensure that nonfungible types are immutable.}
 \begin{mathpar}
     \inferrule*[right=Ok-Type]{
         T~\asset \implies \asset \in \overline{M}

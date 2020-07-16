@@ -6,10 +6,10 @@ contract EIP20 {
     view totalSupply() returns uint256 := total Token
     transaction transfer(dst : address, amount : uint256):
         account[msg.sender] --[ amount ]-> account[dst]
-    transaction approve(dst : address, amount : uint256):
-        allowances[msg.sender][dst] --> consume
-        new Approval --[ amount ]-> allowances[msg.sender][dst]
     transaction transferFrom(src : address, dst : address, amount : uint256):
         allowances[src][dst] --[ amount ]-> consume
         account[src] --[ amount ]-> account[dst]
+    transaction approve(dst : address, amount : uint256):
+        allowances[msg.sender][dst] --> consume
+        new Approval --[ amount ]-> allowances[msg.sender][dst]
 }

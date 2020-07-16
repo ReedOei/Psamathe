@@ -127,13 +127,14 @@
 
 \subsection{Contributions}
 
-We make the following main contributions with \langName.
+We make the following contributions with \langName.
 \begin{itemize}
     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about a program into the code.
+        \reed{Is this a contribution or does it just enable the other contributions?}
 
     \item \textbf{Safety guarantees}: \langName ensures that resources are properly managed, eliminating double-spend and asset-loss bugs.
 
-    \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns automatically.
+    \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common pitfalls automatically.
 
     % \item \reed{Optimizations? Probably don't have time for this, unfortunately.}
     %     Some of the Solidity contracts are actually inefficient because:
@@ -167,6 +168,15 @@ If not present, all resources will be transferred.
 All flows fail if the selected resources are not present in the source, or if the selected resources cannot be added to the destination.
 For example, a flow of fungible resources fails if there is not enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
 
+There are two kinds of assets \reed{Should probably pick either ``asset'' or ``resource''...}: \emph{fungible} and \emph{nonfungible}.
+\reed{Not really sure about these definitions}
+Fungible assets are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
+A nonfungible asset is an asset that is unique, and can be held in at most one location.
+For example, ERC-721 \reed{cite} tokens are nonfungible---each token can be held by at most one account at a time.
+\langName will automatically ensure that all newly created nonfungible assets are unique.
+Furthermore, it supports data structures that make working with assets easier, such as \emph{linkings}, which provide a useful abstraction of an account of nonfungible assets.
+\reed{Is it worth discussing this?}
+
 \subsection{Syntax}
 \begin{figure}[t]
 \begin{tabular}{l r l l}
@@ -176,7 +186,7 @@ For example, a flow of fungible resources fails if there is not enough of the re
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\ldots$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x = x$ \bnfalt $x \neq x$ \bnfalt $\ldots$ & (expressions) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $\total~t$ \bnfalt $\ldots$ & (expressions) \\
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
@@ -201,9 +211,20 @@ These simplifications can be performed automatically by the compiler.
 \subsection{ERC-20}
 \reed{NOTE: I removed the MAX\_UINT thing that gives an unlimited approval from ERC20.sol, because that's not part of the standard and not particularly interesting.}
 \reed{Cite properly Solidity code properly}
-\reed{Currently omitting events entirely because we handle them exactly like Solidity does.}
 
 Figure~\ref{fig:erc20-impl} shows implementations of the ERC-20 \reed{cite} standard in both Solidity and \langName, one of the most commonly implemented standards on the Ethereum blockchain \reed{cite}.
+Only the core functions of \lstinline{transfer}, \lstinline{transferFrom}, and \lstinline{approve} are shown, with the exception of \lstinline{totalSupply} in the \langName implementation (included because to show the use of the \total operator).
+All event code has been omitted, because \langName handles events in the same way as Solidity.
+This code shows several advantages of the flow abstraction:
+\begin{itemize}
+    \item Precondition checking: For a flow to succeed, the source must have enough resources and the destination must be capable of receiving the resources flowed.
+        In this case, the balance of the sender must be greater than the amount sent, and the balance of the destination must not overflow when it receives the tokens.
+        Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
+    \item Error messages: When a flow fails, we provide \reed{TODO: **will provide**} automatic, descriptive error messages, such as ``\lstinline{Failed to flow '<amount>' Token from account[<src>] to account[<dst>]: account[<dst>] does not have enough Token.}''.
+        \reed{Not sure exactly what the error message should be.}
+        The default implementation provides no error message forcing developers to write their own.
+        Flows enable the generation of the messages by encoding the semantic information of a \textbf{transfer} into the program, instead of using low-level incrementing and decrementing.
+\end{itemize}
 
 \begin{figure*}[h]
     \centering
@@ -223,7 +244,8 @@ We can prevent the DAO attack (the below is from \url{https://consensys.github.i
 \begin{lstlisting}
 function withdrawBalance() public {
     uint amountToWithdraw = userBalances[msg.sender];
-    // At this point, the caller's code is executed, and can call withdrawBalance again
+    // At this point, the caller's code is executed, and
+    // can call withdrawBalance again
     require(msg.sender.call.value(amountToWithdraw)(""));
     userBalances[msg.sender] = 0;
 }
