@@ -22,6 +22,7 @@ module FLOW-CORE-SYNTAX
     /* syntax TupleExpr ::= "(" Exprs ")" // Tuples */
 
     syntax FunctionCall ::= Storage "(" Exprs ")"
+    syntax IfExpr ::= "if" Expr "{" Expr "}" "else" "{" Expr "}" [strict(1), klabek(if)]
     syntax Expr ::= Storage
                   | "(" Expr ")"        [bracket]
                   /* | "{" Exprs "}" // Set literals */
@@ -34,9 +35,9 @@ module FLOW-CORE-SYNTAX
                   > Expr "=" Expr [seqstrict]
                   | Expr "<=" Expr [seqstrict]
                   | Expr "<" Expr [seqstrict]
-                  > Selector "in" Storage [seqstrict]
+                  > Selector "in" Storage [strict(1)]
                   > "not" Expr [strict]
-                  > "if" Expr "then" Expr "else" Expr [strict(1)]
+                  > IfExpr
     syntax Vals ::= List{Val, ","} [klabel(exprs)]
     syntax Exprs ::= List{Expr, ","} [seqstrict, klabel(exprs)]
                    | Vals
@@ -88,13 +89,18 @@ module FLOW-CORE-SYNTAX
                   | FieldDef
     syntax Decls ::= List{Decl, " "}
 
+    syntax Revert ::= "revert" "(" Expr ")" [strict]
+    syntax IfStmt ::= "if" Expr "{" Stmt "}" "else" "{" Stmt "}" [strict(1), klabel(if)]
+                    | IfExpr
     syntax Stmt ::= Flow
                   | "var" VarDef ":=" Expr "in" Stmt [strict(2)]
                   | "pass"
                   | "pack"
-                  | unpack(Id)
+                  | "unpack" "(" Id ")"
                   | "return" Expr [strict]
+                  | Revert
                   | Expr
+                  | IfStmt
                   | Stmt Stmt [right]
 
     // Add the built-in types to the Id sort so we can reference them in the rules
@@ -133,7 +139,8 @@ module FLOW-SYNTAX
 
     syntax Stmt ::= "var" VarDef
                   // NOTE: The following is desugared by normalize(), because it's a little more complicated than the rest of the macros below
-                  | "var" VarDef ":=" Expr [strict(2)]
+                  | "var" VarDef ":=" Expr
+                  | "if" Expr "{" Stmt "}"
 
     rule var X : T => var X : T := emptyval [macro]
 
@@ -147,6 +154,8 @@ module FLOW-SYNTAX
          [macro]
 
     rule S := E => (S --> consume) (E --> S) [macro]
+
+    rule if E { S } => if E { S } else { pass } [macro]
 
     rule A > B => B < A [macro]
     rule A >= B => B <= A [macro]

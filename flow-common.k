@@ -80,6 +80,14 @@ module FLOW-COMMON
     syntax Stmt ::= normalize(Stmt) [function, functional]
 
     // TODO: Is this right? Probably need to split up pipelines and insert identity transformers.
+    // TODO: Implement something like this
+    /* rule S --[ Sel1 ]-> V:Val --[ Sel2 ]-> D */
+    /*      => */
+    /*      (V:Val --> !Fresh) */
+    /*      (S --[ Sel1 ]-> !Fresh) */
+    /*      (!Fresh --[ Sel2 ]-> D) */
+    /*      [strucural] */
+
     rule normalize(A --[ Sel ]-> B) => A --[ Sel ]-> B
     rule normalize(var X : T := E in S:Stmt) => var X : T := E in normalize(S)
     rule normalize((var X : T := E) S) => var X : T := E in normalize(S)
@@ -88,11 +96,57 @@ module FLOW-COMMON
     rule normalize(pack) => pack
     rule normalize(unpack(F)) => unpack(F) // TODO: Need to unpack all fields before some statement, so do something like "=> unpackAll(fieldsUsedBy(S))". Will also need to keep track of what's already unpacked.
     rule normalize(return E) => return E // TODO: Need to handle this properly.
+    rule normalize(revert(E)) => revert(E)
     rule normalize(F:FunctionCall) => pack F
     rule normalize(E:Expr) => E // TODO: Any other expressions we need to handle specially?
         requires (_):FunctionCall :/=K E // Ensure E is not a transaction call, or we need to apply a different rule
+    rule normalize( if E { S1 } else { S2 } ) => if E { normalize(S1) } else { normalize(S2) }
     rule normalize(S1:Stmt S2:Stmt) => normalize(S1) normalize(S2)
         requires (var _ : _ := _) :/=K S1
+
+    syntax Set ::= fields(Set) [function, functional]
+
+    rule fields(.Set) => .Set
+    rule fields(SetItem(this.X) Rest) => SetItem(this.X) fields(Rest)
+    rule fields(SetItem(A) Rest) => fields(Rest)
+        requires (this._) :/=K A
+
+    syntax Set ::= vars(Stmt) [function, functional]
+                 | vars(Expr) [function, functional]
+                 | vars(Exprs) [function, functional]
+
+    rule vars(A --[ Sel ]-> B) => vars(A) |Set vars(Sel) |Set vars(B)
+    rule vars(var X : T := E in S:Stmt) => vars(E) |Set vars(S)
+    rule vars((var X : T := E) S) => vars(E) |Set vars(S)
+    rule vars(pass) => .Set
+    rule vars(pack) => .Set
+    rule vars(unpack(F)) => .Set
+    rule vars(return E) => vars(E)
+    rule vars(S1:Stmt S2:Stmt) => vars(S1) |Set vars(S2)
+
+    rule vars(I:Int) => .Set
+    rule vars(S:String) => .Set
+    rule vars(B:Bool) => .Set
+    rule vars(X:Id) => SetItem(X)
+    rule vars(X.T) => SetItem(X.T)
+    rule vars(new C(Args)) => vars(Args)
+    rule vars(X[E]) => vars(X) |Set vars(E)
+
+    rule vars(.Exprs) => .Set
+    rule vars((E, Es):Exprs) => vars(E) |Set vars(Es)
+
+    rule vars((F(Args)):FunctionCall) => vars(F) |Set vars(Args)
+
+    rule vars(A or B) => vars(A) |Set vars(B)
+    rule vars(A and B) => vars(A) |Set vars(B)
+    rule vars(A + B) => vars(A) |Set vars(B)
+    rule vars(A - B) => vars(A) |Set vars(B)
+    rule vars(A = B) => vars(A) |Set vars(B)
+    rule vars(A <= B) => vars(A) |Set vars(B)
+    rule vars(A < B) => vars(A) |Set vars(B)
+    rule vars(S in X) => vars(S) |Set vars(X)
+    rule vars(not A) => vars(A)
+    rule vars(if B { E1 } else { E2 } ) => vars(B) |Set vars(E1) |Set vars(E2)
 
     syntax Type ::= resolveType(Id, Type) [function]
     syntax BaseType ::= resolveType(Id, BaseType) [function]
@@ -125,14 +179,10 @@ module FLOW-COMMON
     rule resolveTypes(C, S --[ Sel ]-> D) => resolveTypes(C, S) --[ resolveTypes(C, Sel) ]-> resolveTypes(C, D)
     rule resolveTypes(C, S1:Stmt S2:Stmt) => resolveTypes(C, S1) resolveTypes(C, S2)
     rule resolveTypes(C, return E) => return resolveTypes(C, E)
-
-    // TODO: Implement something like this
-    /* rule S --[ Sel1 ]-> V:Val --[ Sel2 ]-> D */
-    /*      => */
-    /*      (V:Val --> !Fresh) */
-    /*      (S --[ Sel1 ]-> !Fresh) */
-    /*      (!Fresh --[ Sel2 ]-> D) */
-    /*      [strucural] */
+    rule resolveTypes(C, revert(E)) => revert(resolveTypes(C, E))
+    rule resolveTypes(C, pass) => pass
+    rule resolveTypes(C, pack) => pack
+    rule resolveTypes(C, unpack(X)) => unpack(X) // TODO: Should this have a resolve types call inside of it?
 
     // Resolve selector types
     rule resolveTypes(_, S:SpecialSelect) => S
@@ -156,5 +206,15 @@ module FLOW-COMMON
     rule remove(ListItem(X) Rest, X) => Rest
     rule remove(ListItem(Y) Rest, X) => remove(Rest, X)
         requires X =/=K Y
+
+    syntax Type ::= demote(Type) [function, functional]
+    rule demote(Q:TypeQuant T) => Q demote(T)
+
+    syntax BaseType ::= demote(BaseType) [function, functional]
+    // TODO: Write the rest of these rules
+    rule demote(nat) => nat
+    rule demote(bool) => bool
+    rule demote(string) => string
+    rule demote(address) => address
 endmodule
 

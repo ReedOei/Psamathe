@@ -9,6 +9,8 @@ var D : any set ! string
 var E : any set ! string
 
 2 --> A
+if A != 2 { revert("Failure!") }
+
 A --[ 1 ]-> B
 B --> C
 
@@ -16,8 +18,13 @@ A --[ 1 ]-> C --> B
 
 "foo" --> D
 "bar" --> D
+if "bar" not in D { revert("Failure!") }
+
 D --[ "foo" ]-> E
+if "foo" in D { revert("Failure!") }
 
 A --> consume
+if A > 0 { revert("Failure!") }
+
 B --[ 1 ]-> consume
 

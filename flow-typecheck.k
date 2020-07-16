@@ -82,16 +82,6 @@ module FLOW-TYPECHECK
         Sel selects {?R} demote(?T2) ~>
         D :: ?T2 ==> {?_} ?T3
 
-    // Helpers
-    syntax Type ::= demote(Type) [function, functional]
-    rule demote(Q T:BaseType) => Q demote(T)
-
-    syntax BaseType ::= demote(BaseType) [function, functional]
-    rule demote(nat) => nat
-    rule demote(bool) => bool
-    rule demote(string) => string
-    rule demote(address) => address
-
     // Type modifier checking
     syntax K ::= checkConsumable(Type)
                | checkConsumable(BaseType)

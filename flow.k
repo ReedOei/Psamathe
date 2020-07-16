@@ -20,13 +20,12 @@ module FLOW
                       | "none"
                       // This can be stored in the middle of a transaction, but not at the end, unless the reference is temporary.
                       | StorageLoc
-    syntax ErrorVal ::= revert(String)
     syntax Resource ::= resource(BaseType, BasicVal)
     syntax Initializer ::= Resource
                          | EmptyVal
     syntax Storage ::= Initializer
     syntax ResourceVal ::= Resource
-                         | ErrorVal
+                         | Revert
     syntax SelectorVal ::= Resource
                          | SpecialSelect
     syntax Selector ::= SelectorVal
@@ -63,6 +62,15 @@ module FLOW
         <lookup> ... X |-> Loc => .Map ... </lookup>
         <storage> ... Loc |-> R => .Map ... </storage>
 
+    // Check-In
+    rule Sel in R => checkIn(Sel, resolveStorage(R))
+
+    syntax Expr ::= checkIn(SelectorVal, Storage) [strict(2), result(SpecialStorage)]
+
+    rule <k> checkIn(Sel, Loc) => resource(bool, select(Sel, SV) contained_in SV) ... </k>
+        <storage> ... Loc |-> SV ... </storage>
+
+    // Literals
     rule I:Int => resource(nat, I)
         requires I >=Int 0
     rule B:Bool => resource(bool, B)
@@ -85,15 +93,15 @@ module FLOW
     rule resource(bool, false) or B => B
     rule not resource(bool, B) => resource(bool, notBool B)
 
-    rule if resource(bool, true) then A else _ => A
-    rule if resource(bool, false) then _ else B => B
+    rule if resource(bool, true) { A } else { _ }  => A
+    rule if resource(bool, false) { _ } else { B } => B
 
     // Variable lookup
-    rule <k> X => demote(Val) ... </k>
+    rule <k> X => demoteVal(Val) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... Loc |-> Val ... </storage>
 
-    rule <k> X . F => demote(Val) ... </k>
+    rule <k> X . F => demoteVal(Val) ... </k>
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... (XLoc |-> resource(_, (F |-> Loc) _)) (Loc |-> Val) ... </storage>
 
@@ -116,13 +124,13 @@ module FLOW
         <storage> ... XLoc |-> resource(R, (F |-> Loc) _) ... </storage>
 
     // TODO: Finish this
-    syntax Resource ::= demote(Resource) [function, functional]
+    syntax Resource ::= demoteVal(Resource) [function, functional]
 
-    rule demote(resource(nat, V)) => resource(nat, V)
-    rule demote(resource(bool, V)) => resource(bool, V)
-    rule demote(resource(string, V)) => resource(string, V)
-    rule demote(resource(address, V)) => resource(address, V)
-    rule demote(resource(unit, V)) => resource(unit, V)
+    rule demoteVal(resource(nat, V)) => resource(nat, V)
+    rule demoteVal(resource(bool, V)) => resource(bool, V)
+    rule demoteVal(resource(string, V)) => resource(string, V)
+    rule demoteVal(resource(address, V)) => resource(address, V)
+    rule demoteVal(resource(unit, V)) => resource(unit, V)
 
     // =================================
     // Flows:
