@@ -215,6 +215,7 @@ However, it is still safe, because it is treated as its demoted type, which is a
         f : \sigma \in \overline{y : \tau}
     }{ \Gamma \flowproves x.f : \sigma \flowproves \Gamma }
 \end{mathpar}
+\reed{Record field lookup rule doesn't take into account that fields can store assets...}
 
 The expression $s~\varin~x$ allows checking whether a flow will succeed without the EAFP-style (``Easier to ask for forgiveness than permission''; e.g., Python).
 A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true and ``$s~\varin~B$'' is false.
@@ -279,6 +280,15 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
     }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \pi \flowprovesout \Xi }
 \end{mathpar}
 
+\framebox{$\elemtype(\tau) = \sigma$}
+\begin{align*}
+    \elemtype(\tau) =
+    \begin{cases}
+        \sigma & \tif \tau = \mathcal{Q}~\mathcal{C}~\sigma \\
+        \tau & \owise
+    \end{cases}
+\end{align*}
+
 \framebox{$\Gamma \proves \mathcal{S}~\provides_{\mathcal{Q}}~\tau$} \textbf{Source Typing}
 % The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
 % \begin{mathpar}
@@ -306,11 +316,11 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
 %     }{ \Gamma, \this : C \proves \newc~t :: \voidt \flowsto_{\every} ~ t }
 % \end{mathpar}
 \begin{mathpar}
-    \inferrule*[right=Provide-One]{
-    }{ \Gamma, S : \tau \proves S~\provides_{\exactlyone}~\tau }
+    \inferrule*[right=Provide-Var]{
+    }{ \Gamma, S : \mathcal{Q}~T \proves S~\provides_{\mathcal{Q}}~\elemtype(\mathcal{Q}~T) }
 
-    \inferrule*[right=Provide-Col]{
-    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\provides_{\mathcal{Q}}~\tau }
+    % \inferrule*[right=Provide-Col]{
+    % }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\provides_{\mathcal{Q}}~\tau }
 
     \inferrule*[right=Provide-Source]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
@@ -324,11 +334,11 @@ Could write special \textsc{Flow-Source} rules.}
 \framebox{$\Gamma \proves \mathcal{D}~\accepts~\tau$} \textbf{Destination Typing}
 \reed{Prevent variables that are supposed to store exactly one of something from receiving another?}
 \begin{mathpar}
-    \inferrule*[right=Accept-One]{
-    }{ \Gamma, S : \tau \proves S~\accepts~\tau }
+    \inferrule*[right=Accept-Var]{
+    }{ \Gamma, S : \tau \proves S~\accepts~\elemtype(\tau) }
 
-    \inferrule*[right=Accept-Col]{
-    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\accepts~\tau }
+    % \inferrule*[right=Accept-Col]{
+    % }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\accepts~\tau }
 
     \inferrule*[right=Accept-Consume]{
         \tau~\consumable
@@ -337,13 +347,13 @@ Could write special \textsc{Flow-Source} rules.}
 
 \framebox{$\Gamma \proves s ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
 \begin{mathpar}
-    \inferrule*[right=Select-One]{
-        \Gamma \flowproves x : \tau \flowprovesout \Gamma
-    }{ \Gamma \proves x~\selects_{\exactlyone}~\tau }
+    \inferrule*[right=Select-Loc]{
+        \Gamma \flowproves \mathcal{L} : \mathcal{Q}~T \flowprovesout \Gamma
+    }{ \Gamma \proves \mathcal{L}~\selects_{\mathcal{Q}}~\elemtype(\mathcal{Q}~T) }
 
-    \inferrule*[right=Select-Col]{
-        \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
-    }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\tau }
+    % \inferrule*[right=Select-Col]{
+    %     \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
+    % }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\tau }
 
     \inferrule*[right=Select-Everything]{
     }{ \Gamma \proves \everything~\selects_{\every}~\tau }
