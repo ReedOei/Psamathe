@@ -1,28 +1,26 @@
-// Code adapted from: https://github.com/ConsenSys/Tokens/blob/master/contracts/eip20/EIP20.sol,00e68e87cec0270616ff9964330325d0f1ade256
-contract EIP20 is EIP20Interface {
-    uint256 public totalSupply;
-    event Transfer(address _from, address _to, uint256 _value);
-    event Approval(address _owner, address _spender, uint256 _value);
-    mapping (address => uint256) public balances;
-    mapping (address => mapping (address => uint256)) public allowed;
-    function transfer(address _to, uint256 _value) public returns (bool success) {
-        require(balances[msg.sender] >= _value);
-        balances[msg.sender] -= _value;
-        balances[_to] += _value;
-        emit Transfer(msg.sender, _to, _value);
+contract EIP20 {
+    uint256 totalSupply;
+    mapping (address => uint256) balances;
+    mapping (address => mapping (address => uint256)) allowed;
+    function transfer(address to, uint256 value)
+        public returns (bool success) {
+        require(balances[msg.sender] >= value);
+        balances[msg.sender] -= value;
+        balances[to] += value;
         return true;
     }
-    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
-        uint256 allowance = allowed[_from][msg.sender];
-        require(balances[_from] >= _value && allowance >= _value);
-        balances[_to] += _value;
-        balances[_from] -= _value;
-        emit Transfer(_from, _to, _value);
+    function transferFrom(address from, address to, uint256 value)
+        public returns (bool success) {
+        require(balances[from] >= value &&
+                allowed[from][msg.sender] >= value);
+        balances[to] += value;
+        balances[from] -= value;
+        allowed[from][msg.sender] -= value;
         return true;
     }
-    function approve(address _spender, uint256 _value) public returns (bool success) {
-        allowed[msg.sender][_spender] = _value;
-        emit Approval(msg.sender, _spender, _value);
+    function approve(address spender, uint256 value)
+        public returns (bool success) {
+        allowed[msg.sender][spender] = value;
         return true;
     }
 }
