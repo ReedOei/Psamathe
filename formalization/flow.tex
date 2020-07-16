@@ -320,7 +320,7 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
     % \inferrule*[right=Provide-Var]{
     % }{ \Gamma, S : \mathcal{Q}~T \proves S~\provides_{\mathcal{Q}}~\elemtype(\mathcal{Q}~T) }
 
-    \inferrule*[right=Provide-Var]{
+    \inferrule*[right=Provide-One]{
     }{ \Gamma, S : \tau \proves S~\provides_{\exactlyone}~\tau }
 
     \inferrule*[right=Provide-Col]{
@@ -337,13 +337,13 @@ Could write special \textsc{Flow-Source} rules.}
 
 \framebox{$\Gamma \proves \mathcal{D}~\accepts~\tau$} \textbf{Destination Typing}
 \reed{Prevent variables that are supposed to store exactly one of something from receiving another?}
-Note that the \typeQuantities in \textsc{Accept-Var} are different on the left and right of the turnstile.
+Note that the \typeQuantities in \textsc{Accept-One} are different on the left and right of the turnstile.
 This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is reasonable to flow into it some $S : \any~\setq~\natt$.
 \begin{mathpar}
     % \inferrule*[right=Accept-Var]{
     % }{ \Gamma, S : \tau \proves S~\accepts~\elemtype(\tau) }
 
-    \inferrule*[right=Accept-Var]{
+    \inferrule*[right=Accept-One]{
     }{ \Gamma, D : \mathcal{Q}~T \proves S~\accepts~\mathcal{R}~T }
 
     \inferrule*[right=Accept-Col]{
@@ -361,8 +361,8 @@ This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is rea
     % }{ \Gamma \proves \mathcal{L}~\selects_{\mathcal{Q}}~\elemtype(\mathcal{Q}~T) }
 
     \inferrule*[right=Select-Loc]{
-        \Gamma \flowproves \mathcal{L} : \tau \flowprovesout \Gamma
-    }{ \Gamma \proves \mathcal{L}~\selects_{\exactlyone}~\tau }
+        \Gamma \flowproves \mathcal{L} : \mathcal{Q}~T \flowprovesout \Gamma
+    }{ \Gamma \proves \mathcal{L}~\selects_{\mathcal{Q}}~\mathcal{Q}~T }
 
     \inferrule*[right=Select-Col]{
         \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
@@ -387,6 +387,16 @@ A flow has four parts: a source, a selector, a transformer, and a destination.
 The selector acts as a function that ``chooses'' part of the source's resources to flow.
 These resources then get applied to the transformer, which is an applicative functor applied to a function type.
 \reed{Bringing back $\one$ would let us do all the collections the same way in all of these flow-related rules, which would be nice.}
+
+\paragraph{(Non)Ambiguity of Flow Rules}
+Consider the flow $A \sends{s} f \to B$.
+\reed{Actually, the type of $f$ will probably be enough to distinguish the cases, but if we want to desguar the flows into flows containing a transformer always then we would have to infer its type and run into the same issue again.}
+The only way that the choice of which Provide, Select, or Accept rules could be ambiguous \reed{I think...} is if $A$ and $B$ are both collections containing the same type, and either $s$ is a collection containing the same type or it is $\everything$.
+If $A$, $B$, and $s$ are all collections containing the same type, then we could use either version of the rules (the appropriate \textsc{One} rule or the appropriate \textsc{Col} rule).
+However, regardless of the rule we choose, the outcome will be the same.
+For example, if we use the \textsc{Select-Loc} rule, $A$ will now store the quantity $\any$ (unless $s$ is $\emptyq$), which is correct, because we don't know how many values will be transferred by $s$.
+Finally, if $s$ is $\everything$, the same argument applies---the outcome will be the same regardless of which rule we pick.
+
 \begin{mathpar}
     % \inferrule*[right=Ok-Flow]{
     %     \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
