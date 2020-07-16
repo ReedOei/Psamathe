@@ -375,7 +375,7 @@ The selector acts as a function that ``chooses'' part of the source's resources 
 These resources then get applied to the transformer, which is an applicative functor applied to a function type.
 \reed{Bringing back $\one$ would let us do all the collections the same way in all of these flow-related rules, which would be nice.}
 \begin{mathpar}
-    % \inferrule*[right=Wf-Flow]{
+    % \inferrule*[right=Ok-Flow]{
     %     \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
     %     \and
     %     \Gamma \flowproves s~\selects_\mathcal{R}~\demote(\sigma)
@@ -387,7 +387,7 @@ These resources then get applied to the transformer, which is an applicative fun
     %     \min(\mathcal{Q}, \mathcal{R}) < \every
     % }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
-    \inferrule*[right=Wf-Flow]{
+    \inferrule*[right=Ok-Flow]{
         \Gamma \proves A~\provides_\mathcal{Q}~\tau
         \and
         \Gamma \proves s~\selects_\mathcal{R}~\tau
@@ -405,7 +405,7 @@ These resources then get applied to the transformer, which is an applicative fun
 \reed{TODO: Finish handling currying transformers.}
 
 \begin{mathpar}
-    \inferrule*[right=Wf-Var-Def]{
+    \inferrule*[right=Ok-Var-Def]{
         \Gamma \flowproves E : \tau \flowprovesout \Delta
         \and
         \Delta, x : \tau \flowproves S~\ok \flowprovesout \Xi, x : \sigma
@@ -413,7 +413,7 @@ These resources then get applied to the transformer, which is an applicative fun
         \lnot(\sigma~\asset)
     }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\ok \flowprovesout \Xi }
 
-    \inferrule*[right=Wf-If]{
+    \inferrule*[right=Ok-If]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
         \and
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
@@ -421,7 +421,7 @@ These resources then get applied to the transformer, which is an applicative fun
         \Gamma \flowproves S_2~\ok \flowprovesout \Xi
     }{ \Gamma \flowproves (\ifS~x~\thenS~S_1~\elseS~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
 
-    \inferrule*[right=Wf-Try]{
+    \inferrule*[right=Ok-Try]{
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
         \and
         \Gamma, x : \tau \flowproves S_2~\ok \flowprovesout \Xi, x : \sigma
@@ -429,27 +429,27 @@ These resources then get applied to the transformer, which is an applicative fun
         \lnot(\sigma~\asset)
     }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
 
-    \inferrule*[right=Wf-Revert]{
+    \inferrule*[right=Ok-Revert]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
     }{ \Gamma \flowproves \revert(E)~\ok \flowprovesout \Gamma }
 
-    \inferrule*[right=Wf-Expr]{
+    \inferrule*[right=Ok-Expr]{
         \Gamma \flowproves E : \tau \flowprovesout \Delta
         \and
         \lnot(\tau~\asset)
     }{ \Gamma \flowproves E~\ok \flowprovesout \Delta }
 
-    \inferrule*[right=Wf-Seq]{
+    \inferrule*[right=Ok-Seq]{
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
         \and
         \Delta \flowproves S_2~\ok \flowprovesout \Xi
     }{ \Gamma \flowproves (S_1 ; S_2)~\ok \flowprovesout \Xi }
 
-    \inferrule*[right=Wf-Unpack]{
+    \inferrule*[right=Ok-Unpack]{
         \this.f : \tau \in \fields(C)
     }{ \Gamma, \this : C \flowproves \unpack(f)~\ok \flowprovesout \Gamma, \this : C, \this.f : \tau }
 
-    \inferrule*[right=Wf-Pack]{
+    \inferrule*[right=Ok-Pack]{
         (\Gamma|_{\dom(\fields(C))}) \leq \fields(C)
         \and
         \Delta = \setbuild{x : \tau \in \Gamma}{x \not\in \dom(\fields(C))}
@@ -458,43 +458,52 @@ These resources then get applied to the transformer, which is an applicative fun
 
 \framebox{$\proves_C \Decl~\ok$} \textbf{Declaration Well-formedness}
 \begin{mathpar}
-    \inferrule*[right=Wf-View]{
+    \inferrule*[right=Ok-View]{
         \Gamma = \this : C, \fields(C), \overline{x : \tau}
         \and
         \Gamma \flowproves E : \sigma \flowprovesout \Gamma
     }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\ok }
 
-    \inferrule*[right=Wf-Tx-Public]{
+    \inferrule*[right=Ok-Tx-Public]{
         \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+        \and
+        \lnot(\mathcal{Q}~T~\asset)
     }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
 
-    \inferrule*[right=Wf-Tx-Private]{
+    \inferrule*[right=Ok-Tx-Private]{
         \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
     }{ \proves_C (\private~\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
+\end{mathpar}
 
-    \inferrule*[right=Wf-Field]{
-    }{ \proves_C (x : \tau)~\ok }
+A field definition is always okay, as long as the type doesn't have the $\every$ modifier.
+\reed{Add this restriction to the rest of the places where we write types.}
+\reed{Maybe we should always restrict variable definitions so that you can only write named types that appear in the current contract.
+This isn't strictly necessary, because everything will still work, but you'll simply never be able to get a value of an asset type not created in the current contract.}
+\begin{mathpar}
+    \inferrule*[right=Ok-Field]{
+        \mathcal{Q} \neq \every
+    }{ \proves_C (x : \mathcal{Q}~T)~\ok }
+\end{mathpar}
 
-    \inferrule*[right=Wf-Type]{
+A type declaration is okay as long as it has the $\asset$ modifier if its base type is an asset.
+Note that this restriction isn't necessary, but is intended to help users realize which types are assets without unfolding the entire type definition.
+\begin{mathpar}
+    \inferrule*[right=Ok-Type]{
         T~\asset \implies \asset \in \overline{M}
     }{ \proves_C (\type~t~\is~\overline{M}~T)~\ok }
 \end{mathpar}
 
-\reed{Public transaction shouldn't be able to return an asset?
-Actually, everything would be a lot nicer if you just couldn't move assets around with transactions.
-Probably wouldn't be that limiting, because of the demotion system.}
-
 Note that we need to have constructors, because only the contract that defines a named type is allowed to create values of that type, and so it is not always possible to externally initialize all contract fields.
 \begin{mathpar}
-    \inferrule*[right=Wf-Constructor]{
+    \inferrule*[right=Ok-Constructor]{
         \fields(C) = \overline{\this.f : \mathcal{Q}~T}
         \and
         \this : C, \overline{x : \tau}, \overline{\this.f : \emptyq~T} \flowproves S~\ok \flowprovesout \Delta
@@ -505,7 +514,7 @@ Note that we need to have constructors, because only the contract that defines a
 
 \framebox{$\Con~\ok$} \textbf{Contract Well-formedness}
 \begin{mathpar}
-    \inferrule*[right=Wf-Con]{
+    \inferrule*[right=Ok-Con]{
         \forall d \in \overline{\Decl}. (\proves_C d~\ok)
         \and
         \exists! d \in \overline{\Decl}. \exists \overline{x : \tau}, S. d = \oncreate(\overline{x : \tau})~\doC~S
@@ -514,7 +523,7 @@ Note that we need to have constructors, because only the contract that defines a
 
 \framebox{$\Prog~\ok$} \textbf{Program Well-formedness}
 \begin{mathpar}
-    \inferrule*[right=Wf-Prog]{
+    \inferrule*[right=Ok-Prog]{
         \forall C \in \overline{\Con}. C~\ok
         \and
         \emptyset \flowproves S \flowprovesout \emptyset
