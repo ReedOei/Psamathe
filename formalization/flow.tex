@@ -40,12 +40,12 @@
     $\mathcal{C}$ & \bnfdef & $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (collection type constructors) \\
     % Removed product types for the moment because you don't really need them if you have records.
     % $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
-    $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
+    $T$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
-        & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & (expressions) \\
+        & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ \bnfalt $x = x$ \bnfalt $x \neq x$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     % $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ \bnfalt $\consume$ & (nodes) \\
@@ -54,9 +54,10 @@
     $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{s} x \to \mathcal{D}$ & (flows) \\
     $\Stmt$ & \bnfdef & $F$ \bnfalt $E$ \bnfalt $\revert(E)$ \bnfalt $\tryS~S~\catchS(x : \tau)~S$ \bnfalt $\ifS~x~\thenS~S~\elseS~S$ \\
-            & \bnfalt & $\var~x:\tau := E$ \bnfalt $S;S$ \bnfalt \pack \bnfalt $\unpack(x)$ & (statements) \\
+            & \bnfalt & $\var~x:\tau := E$ \bnfalt $S;S$ \bnfalt \pack \bnfalt $\unpack(x)$ \bnfalt $\emit~E(\overline{x})$ & (statements) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $\Decl$ & \bnfdef & $x : \tau$ & (field) \\
+            & \bnfalt & $\event~E(\overline{x : \tau})$ & (event declaration) \\
             & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
             & \bnfalt & $[\private]~\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
             & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
@@ -576,7 +577,7 @@ Alternatively, can just not allow for currying...}
 
 \begin{align*}
     \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
-    \demote_*(\voidt) &= \voidt \\
+    % \demote_*(\voidt) &= \voidt \\
     \demote_*(\natt) &= \natt \\
     \demote_*(\boolt) &= \boolt \\
     \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \\

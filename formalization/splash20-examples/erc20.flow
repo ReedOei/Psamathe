@@ -1,29 +1,20 @@
 contract ERC20Bank {
     type Token is fungible asset uint256
     type Approval is fungible consumable asset uint256
-
-    event Transfer(address _from, address _to, uint256 _value)
-    event Approval(address _owner, address _spender, uint256 _value)
-
     accounts : map address => Token
     allowances : map address => map address => Approval
-
+    event Transfer(_from : address, _to : address, _value : uint256)
+    event Approval(_owner : address, _spender : address, _value : uint256)
     view totalSupply() returns uint256 := total Token
-    view balanceOf(addr : address) returns uint256 := account[addr]
-    view allowance(src : address, dst : address) returns uint256 := allowances[src][dst]
-
     transaction transfer(dst : address, amount : uint256):
         account[msg.sender] --[ amount ]-> account[dst]
         emit Transfer(msg.sender, dst, amount)
-
     transaction approve(dst : address, amount : uint256):
         allowances[msg.sender][dst] --> consume
         Approval --[ amount ]-> allowances[msg.sender][dst]
         emit Approval(msg.sender, dst, amount)
-
     transaction transferFrom(src : address, dst : address, amount : uint256):
         allowances[src][dst] --[ amount ]-> consume
         account[src] --[ amount ]-> account[dst]
         emit Transfer(src, dst, amount)
 }
-
