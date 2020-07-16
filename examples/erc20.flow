@@ -2,6 +2,9 @@ contract ERC20Bank {
     type Token is fungible asset nat
     type Approval is fungible consumable asset nat
 
+    event Transfer(address _from, address _to, uint256 _value)
+    event Approval(address _owner, address _spender, uint256 _value)
+
     accounts : map address => Token
     allowances : map address => map address => Approval
 

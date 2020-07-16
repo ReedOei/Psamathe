@@ -622,58 +622,6 @@ Alternatively, can just not allow for currying...}
 
 \reed{What guarantees should we provide (no errors except for flowing a resource that doesn't exist in the source/already exists in the destination)?}
 
-\section{Introduction}
-
-\langName is a DSL for implementing programs which manage resources, targeted at writing smart contracts.
-
-\subsection{Contributions}
-
-We make the following main contributions:
-\begin{itemize}
-    \item \textbf{Safety guarantees}: similar to \reed{or maybe just exactly} linear types\reed{or maybe uniqueness types? need to read more about this}, preventing accidental resource loss or duplication.
-        Additionally, provides some amount of reentrancy safety.
-
-        \begin{itemize}
-            \item We can evaluate these by formalizing the language and proving them; the formalization is something that would be nice to do anyway.
-        \end{itemize}
-
-    \item \textbf{Simplicity}: The language is quite simple---it makes writing typical smart contract programs easier and shorter, because many common pitfalls in Solidity are automatically handled by the language, such as overflow/underflow, checking of balances, short address attacks, etc.
-
-        \begin{itemize}
-            \item We can evaluate these by comparing LOC, cyclomatic complexity, etc.
-                Not sure what the right metric would be.
-                \reed{Or how cyclomatic complexity would work exactly in this language.}
-
-            \item We can also evaluate via a user study, but that will take a long(er) time.
-        \end{itemize}
-
-    \item \reed{Optimizations?}
-        Some of the Solidity contracts are actually inefficient because:
-        \begin{enumerate}
-            \item They use lots of modifiers which repeat checks (see reference implementation of ERC-721).
-            \item They tend to use arrays to represent sets.
-                Maybe this is more efficient for very small sets, but checking containment is going to be much faster with a \lstinline{mapping (X => bool)} eventually.
-        \end{enumerate}
-
-        \begin{itemize}
-            \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
-        \end{itemize}
-\end{itemize}
-
-
-\section{Language Intro}
-
-The basic state-changing construct in the language is a \emph{flow}.
-A flow describes a transfer of a \emph{resource} from one \emph{storage} to another.
-A \emph{transaction} is a sequence of statements.
-
-Each flow has a \emph{source}, a \emph{destination}, and a \emph{selector}.
-The source and destination are two storages which hold a resource, and the selector describes which part of the resource in the source should be transferred to the destination.
-A flow may optionally have a \emph{name}.
-
-Note that all flows fail if they can't be performed.
-For example, a flow of fungible resources fails if there is enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
-
 NOTE: If we wanted to be "super pure", we can implement preconditions with just flows by doing something like:
 \begin{lstlisting}
 { contractCreator = msg.sender } --[ true ]-> consume
@@ -681,26 +629,5 @@ NOTE: If we wanted to be "super pure", we can implement preconditions with just 
 This works because \lstinline|{ contractCreator = msg.sender } : set bool| (specifically, a singleton), so if \lstinline{contractCreator = msg.sender} doesn't evaluate to true, then we will fail to consume true from it.
 \reed{I don't think actually doing this is a good idea; at least, not in the surface language.
 Maybe it would simplify the compiler and/or formalization, but it's interesting/entertaining.}
-
-\paragraph{The DAO attack}
-We can prevent the DAO attack (the below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}):
-\begin{lstlisting}
-function withdrawBalance() public {
-    uint amountToWithdraw = userBalances[msg.sender];
-    // At this point, the caller's code is executed, and can call withdrawBalance again
-    require(msg.sender.call.value(amountToWithdraw)(""));
-    userBalances[msg.sender] = 0;
-}
-\end{lstlisting}
-
-In \langName, we would write this as:
-
-\begin{lstlisting}
-transaction withdrawBalance():
-    userBalances[msg.sender] --> msg.sender.balance
-\end{lstlisting}
-
-Not only is this simpler, but the compiler can automatically place the actual call that does the transfer last, meaning that the mistake could simply never be made.
-
 \end{document}
 
