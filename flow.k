@@ -52,10 +52,16 @@ module FLOW
     rule pass => .
 
     // Temporary variable declaration
-    rule <k> var X : T := V => . ... </k>
-        <localTypeEnv> ... .Map => X |-> T </localTypeEnv>
-        <lookup> ... .Map => X |-> !Loc:StorageLoc </lookup>
+    rule <k> var X : T := V in S:Stmt => S ~> drop(X) ... </k>
+        <localTypeEnv> ... .Map => X |-> T ... </localTypeEnv>
+        <lookup> ... .Map => X |-> !Loc:StorageLoc ... </lookup>
         <storage> ... .Map => !Loc |-> coerce(V, T) ... </storage>
+
+    syntax Stmt ::= drop(Id)
+    rule <k> drop(X) => . ... </k>
+        <localTypeEnv> ... X |-> T => .Map ... </localTypeEnv>
+        <lookup> ... X |-> Loc => .Map ... </lookup>
+        <storage> ... Loc |-> R => .Map ... </storage>
 
     rule I:Int => resource(nat, I)
         requires I >=Int 0
@@ -137,7 +143,7 @@ module FLOW
              =>
              put(combine(resource(C, Fs), DV), D)
              ~>
-             setupArgs(Args, FormalArgs) ~> cleanEnv(keys(Env)) ~> unpack(D) ~> S ~> pack(Old, Lookup, Env)
+             setupArgs(Args, FormalArgs, cleanEnv(keys(Env)) S) ~> pack(Old, Lookup, Env)
              ...
          </k>
         <localTypeEnv> Env </localTypeEnv>
@@ -256,7 +262,7 @@ module FLOW
 
     rule combine(resource(R, A), resource(R, emptyval)) => resource(R, A)
     rule combine(resource(nat, A), resource(nat, B)) => resource(nat, A +Int B)
-    rule combine(resource(X:Id, _), resource(R, B)) => revert("Destination already full!")
+    rule combine(resource(X:Id, _), resource(_, B)) => revert("Destination already full!")
         requires X =/=K nat andBool B =/=K emptyval
     rule combine(resource(X.T, _), resource(X.T, B)) => revert("Destination already full!")
         requires B =/=K emptyval
@@ -298,10 +304,10 @@ module FLOW
     // =================================
     // Transaction calls:
     // =================================
-    syntax Stmt ::= setupArgs(Exprs, VarDefs)
+    syntax Stmt ::= setupArgs(Exprs, VarDefs, Stmt)
 
-    rule setupArgs(.Exprs, .VarDefs) => .
-    rule setupArgs((E:Storage, Es):Exprs, (Y : T, Defs2)) => (var Y : T := E) ~> setupArgs(Es, Defs2)
+    rule setupArgs(.Exprs, .VarDefs, S) => S
+    rule setupArgs((E:Storage, Es):Exprs, (Y : T, Defs2), S) => var Y : T := E in setupArgs(Es, Defs2, S)
 
     syntax Stmt ::= cleanEnv(Set)
 
@@ -309,7 +315,7 @@ module FLOW
         <localTypeEnv> Env => removeAll(Env, ToRemove) </localTypeEnv>
         <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
 
-    rule <k> X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs) ~> cleanEnv(keys(Env)) ~> doUnpack((T |-> TxLoc) Fs) ~> S ~> pack(Old, (X |-> XLoc) Lookup, Env) ... </k>
+    rule <k> X.T(ActualArgs) => setupArgs(ActualArgs, FormalArgs, cleanEnv(keys(Env)) S) ~> pack(Old, (X |-> XLoc) Lookup, Env) ... </k>
         <lookup> ((X |-> XLoc) Lookup) </lookup>
         <storage> ... XLoc |-> resource(C, (T |-> TxLoc) Fs) ... </storage>
         <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
@@ -332,17 +338,8 @@ module FLOW
     rule <k> initFields(resource(C, Fs), SetItem(X : T) Rest, Args) => initFields(resource(C, (X |-> !XLoc:StorageLoc) Fs), Rest, Args) ... </k>
         <storage> ... .Map => !XLoc |-> defaultValue(T) ... </storage>
 
-    // Pack/unpack
+    // Pack TODO: Rename this to something else, because there's also a pack construct in the language itself.
     syntax Stmt ::= pack(QualifiedId, Map, Map)
-               | unpack(StorageLoc)
-               | doUnpack(Map)
-
-    rule <k> unpack(Loc) => doUnpack(Fs) ... </k>
-        <storage> ... Loc |-> resource(C, Fs) ... </storage>
-
-    rule doUnpack(.Map) => .
-    rule <k> doUnpack((X |-> Loc) Rest) => doUnpack(Rest) ... </k>
-        <lookup> ... .Map => this.X |-> Loc ... </lookup>
 
     // NOTE: This would be unsafe if used to destroy assets, but the typechecker will ensure that it's safe, so we don't need to check.
     // NOTE: We don't **HAVE** to clean up the storage.

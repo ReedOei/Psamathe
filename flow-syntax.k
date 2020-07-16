@@ -89,10 +89,12 @@ module FLOW-CORE-SYNTAX
     syntax Decls ::= List{Decl, " "}
 
     syntax Stmt ::= Flow
-                  | "var" VarDef ":=" Expr [strict(2)]
+                  | "var" VarDef ":=" Expr "in" Stmt [strict(2)]
                   | "pass"
+                  | "pack"
+                  | unpack(Id)
                   | "return" Expr [strict]
-                  | FunctionCall
+                  | Expr
                   | Stmt Stmt [right]
 
     // Add the built-in types to the Id sort so we can reference them in the rules
@@ -130,6 +132,8 @@ module FLOW-SYNTAX
     syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt
 
     syntax Stmt ::= "var" VarDef
+                  // NOTE: The following is desugared by normalize(), because it's a little more complicated than the rest of the macros below
+                  | "var" VarDef ":=" Expr [strict(2)]
 
     rule var X : T => var X : T := emptyval [macro]
 

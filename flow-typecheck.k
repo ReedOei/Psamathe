@@ -40,7 +40,7 @@ module FLOW-TYPECHECK
 
     // Variable definition
     // TODO: Need to change to use the (var X : T := E in S) construct to match the current typing rules
-    rule (var X : T := E) wf => E : T ~> insert(X, T)
+    rule (var X : T := E in S) wf => E : T ~> insert(X, T) ~> S wf ~> drop(X)
 
     // Primitive types
     rule I:Int : ! nat => .

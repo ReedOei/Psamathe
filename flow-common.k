@@ -40,7 +40,7 @@ module FLOW-COMMON
         <fields> ... .Map => C |-> .Set ... </fields>
         <constructors> ... .Map => C |-> constructor(.VarDefs, pass) ... </constructors>
         [structural]
-    rule .Contracts ; S => S [structural]
+    rule .Contracts ; S => normalize(S) [structural]
 
     syntax Set ::= modToSet(Modifiers) [function]
     rule modToSet(.Modifiers) => .Set
@@ -70,12 +70,29 @@ module FLOW-COMMON
 
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
         <fields> ... C |-> (Fields => Fields SetItem(T : any (varDefsToProdType(resolveTypes(C, Args)) ~~> resolveType(C, RetType)))) ... </fields>
-        <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, S)) ... </transactions>
+        <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, normalizeTxBody(S))) ... </transactions>
         [structural]
+
+    syntax Stmt ::= normalizeTxBody(Stmt) [function, functional]
+    rule normalizeTxBody(S) => normalize(S pack)
 
     // TODO: Write this function, which is intended to perform more thorough desugaring (such as generating fresh variables for non-variable storages, etc.)
     syntax Stmt ::= normalize(Stmt) [function, functional]
-    rule normalize(S) => S
+
+    // TODO: Is this right? Probably need to split up pipelines and insert identity transformers.
+    rule normalize(A --[ Sel ]-> B) => A --[ Sel ]-> B
+    rule normalize(var X : T := E in S:Stmt) => var X : T := E in normalize(S)
+    rule normalize((var X : T := E) S) => var X : T := E in normalize(S)
+    rule normalize((var X : T := E)) => var X : T := E in pass
+    rule normalize(pass) => pass
+    rule normalize(pack) => pack
+    rule normalize(unpack(F)) => unpack(F) // TODO: Need to unpack all fields before some statement, so do something like "=> unpackAll(fieldsUsedBy(S))". Will also need to keep track of what's already unpacked.
+    rule normalize(return E) => return E // TODO: Need to handle this properly.
+    rule normalize(F:FunctionCall) => pack F
+    rule normalize(E:Expr) => E // TODO: Any other expressions we need to handle specially?
+        requires (_):FunctionCall :/=K E // Ensure E is not a transaction call, or we need to apply a different rule
+    rule normalize(S1:Stmt S2:Stmt) => normalize(S1) normalize(S2)
+        requires (var _ : _ := _) :/=K S1
 
     syntax Type ::= resolveType(Id, Type) [function]
     syntax BaseType ::= resolveType(Id, BaseType) [function]
@@ -100,11 +117,11 @@ module FLOW-COMMON
     rule resolveType(C, Q:TypeQuant T) => Q resolveType(C, T)
 
     // Resolve VarDef types
-    rule resolveTypes(C, .VarDefs) => .VarDefs
+    rule resolveTypes(_, .VarDefs) => .VarDefs
     rule resolveTypes(C, (X : T, Defs:VarDefs)) => X : resolveType(C, T), resolveTypes(C, Defs)
 
     // Resolve statement types
-    rule resolveTypes(C, var X : T := E) => var X : resolveType(C, T) := resolveTypes(C, E)
+    rule resolveTypes(C, var X : T := E in S:Stmt) => var X : resolveType(C, T) := resolveTypes(C, E) in resolveTypes(C, S)
     rule resolveTypes(C, S --[ Sel ]-> D) => resolveTypes(C, S) --[ resolveTypes(C, Sel) ]-> resolveTypes(C, D)
     rule resolveTypes(C, S1:Stmt S2:Stmt) => resolveTypes(C, S1) resolveTypes(C, S2)
     rule resolveTypes(C, return E) => return resolveTypes(C, E)
