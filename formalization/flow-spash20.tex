@@ -50,7 +50,7 @@
 %%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title{\langName}
+\title{\langName: A DSL for the Safe Handling of Resources}
 
 %%
 %% The "author" command and its associated commands are used to define
@@ -122,22 +122,34 @@
 
 \section{Introduction}
 
+\reed{How do authors/affiiliations work for this?}
 \langName is a DSL for implementing programs which manage resources, targeted at writing smart contracts.
 
 \subsection{Contributions}
 
-We make the following main contributions:
+We make the following main contributions with \langName.
 \begin{itemize}
-    \item \textbf{Safety guarantees}: similar to \reed{or maybe just exactly} linear types\reed{or maybe uniqueness types? need to read more about this}, preventing accidental resource loss or duplication.
-        Additionally, provides some amount of reentrancy safety.
+    \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about a program into the code.
 
-        \begin{itemize}
-            \item We can evaluate these by formalizing the language and proving them; the formalization is something that would be nice to do anyway.
-        \end{itemize}
+    \item \textbf{Safety guarantees}: \langName ensures that resources are properly managed, eliminating double-spend and asset-loss bugs.
 
-    \item \textbf{Conciseness}: \langName is simple---it makes writing typical smart contract programs more concise, because many common patterns are automatically handled by the language; these include handling overflow/underflow, checking of balances, short address attacks \reed{Do this}, string operations, etc.
+    \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns automatically.
+
+    % \item \reed{Optimizations? Probably don't have time for this, unfortunately.}
+    %     Some of the Solidity contracts are actually inefficient because:
+    %     \begin{enumerate}
+    %         \item They use lots of modifiers which repeat checks (see reference implementation of ERC-721).
+    %         \item They tend to use arrays to represent sets.
+    %             Maybe this is more efficient for very small sets, but checking containment is going to be much faster with a \lstinline{mapping (X => bool)} eventually.
+    %     \end{enumerate}
+
+    %     \begin{itemize}
+    %         \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
+    %     \end{itemize}
+\end{itemize}
+
+        handled by the language; these include handling overflow/underflow, checking of balances, short address attacks \reed{Do this}, string operations, etc.
         This conciseness is not only an improvement for a developers workflow, but also means that such issues are automatically handled, making it impossible for developers to forget them \reed{Wording}.
-
         \begin{itemize}
             \item We can evaluate these by comparing LOC, cyclomatic complexity, etc.
                 Not sure what the right metric would be.
@@ -146,32 +158,14 @@ We make the following main contributions:
             \item We can also evaluate via a user study, but that will take a long(er) time.
         \end{itemize}
 
-    \item \reed{Optimizations? Probably don't have time for this, unfortunately.}
-        Some of the Solidity contracts are actually inefficient because:
-        \begin{enumerate}
-            \item They use lots of modifiers which repeat checks (see reference implementation of ERC-721).
-            \item They tend to use arrays to represent sets.
-                Maybe this is more efficient for very small sets, but checking containment is going to be much faster with a \lstinline{mapping (X => bool)} eventually.
-        \end{enumerate}
+\section{Language Description}
+The \langName language is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a resource.
+Each flow has at least a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a transformer.
+The source and destination are two storages which \emph{provide} and \emph{accept} resources, and the selector, if present, describes which part of the resource in the source should be transferred to the destination.
+If not present, all resources will be transferred.
 
-        \begin{itemize}
-            \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
-        \end{itemize}
-\end{itemize}
-
-
-\section{Language Intro}
-
-The basic state-changing construct in the language is a \emph{flow}.
-A flow describes a transfer of a \emph{resource} from one \emph{storage} to another.
-A \emph{transaction} is a sequence of statements.
-
-Each flow has a \emph{source}, a \emph{destination}, and a \emph{selector}.
-The source and destination are two storages which hold a resource, and the selector describes which part of the resource in the source should be transferred to the destination.
-A flow may optionally have a \emph{name}.
-
-Note that all flows fail if they can't be performed.
-For example, a flow of fungible resources fails if there is enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
+All flows fail if the selected resources are not present in the source, or if the selected resources cannot be added to the destination.
+For example, a flow of fungible resources fails if there is not enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
 
 \subsection{Syntax}
 \begin{figure}[t]
@@ -183,10 +177,7 @@ For example, a flow of fungible resources fails if there is enough of the resour
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\ldots$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x = x$ \bnfalt $x \neq x$ \bnfalt $\ldots$ & (expressions) \\
-    % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
-    % $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ \bnfalt $\consume$ & (nodes) \\
-    % $F$ & \bnfdef & $\mathcal{N} \sends{s} \mathcal{N}$ & (flows) \\
     $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{s} x \to \mathcal{D}$ & (flows) \\
@@ -198,14 +189,15 @@ For example, a flow of fungible resources fails if there is enough of the resour
             & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
 \end{tabular}
-\caption{Abstract syntax of \langName.}
-\label{lang-syntax}
+\caption{Abstract syntax of the core calculus of \langName.}
+\label{fig:lang-syntax}
 \end{figure}
 
-Not only is this simpler, but the compiler can automatically place the actual call that does the transfer last, meaning that the mistake could simply never be made.
+Figure~\ref{fig:lang-syntax} shows a fragment of the syntax of the core calculus of \langName, which uses A-normal form \reed{cite} and makes several simplifications to the surface \langName language.
+These simplifications can be performed automatically by the compiler.
+\reed{TODO: The core calculus has been formalized (in K???).}
 
-\section{Case Study}
-
+\section{Case Studies}
 \subsection{ERC-20}
 \reed{NOTE: I removed the MAX\_UINT thing that gives an unlimited approval from ERC20.sol, because that's not part of the standard and not particularly interesting.}
 \reed{Cite properly Solidity code properly}

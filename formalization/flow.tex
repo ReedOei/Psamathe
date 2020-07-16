@@ -68,7 +68,7 @@
     % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
 \end{tabular}
 \caption{Abstract syntax of \langName.}
-\label{lang-syntax}
+\label{fig:lang-syntax}
 \end{figure}
 
 \reed{We have public and private transactons...we could also have a public/private type?}
@@ -260,6 +260,7 @@ The difference between internal and external calls is that we may transfer asset
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
     }{ \Gamma \flowproves \newc~C(\overline{y}) : C }
 \end{mathpar}
+\reed{Add method typing as transformers}
 
 Finally, the rules for If and Let expressions.
 In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed or is not an asset in the body.
