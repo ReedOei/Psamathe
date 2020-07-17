@@ -22,11 +22,10 @@ static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-sy
 	$(KDISTR)/kompile --backend haskell flow-typecheck.k -d static/
 
 tests/exec/%.flow: kompile
-	# $(KDISTR)/krun $(FLAGS) --directory static/ $@
 	./flow test $(FLAGS) $@
 
 tests/typecheck/%.flow: static
-	$(KDISTR)/krun $(FLAGS) --directory static/ $@
+	./flow typecheck $(FLAGS) $@
 
 clean:
 	rm -rf dynamic/flow-kompiled

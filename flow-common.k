@@ -79,7 +79,7 @@ module FLOW-COMMON
 
     // TODO: It would be nice toa void inserting the unpacks if not necessary (i.e., no fields are accessed)
     syntax Stmt ::= normalizeTxBody(Var, Stmt) [function, functional]
-    rule normalizeTxBody(_, A --[ Sel ]-> B) => unpackAll(fields(vars(A --[ Sel ]-> B))) (A --[ Sel ]-> B)
+    rule normalizeTxBody(_, A --[ Sel ]-> B) => unpackAll(fields(varsStmt(A --[ Sel ]-> B))) (A --[ Sel ]-> B)
     rule normalizeTxBody(RetVar, var X : T := E in S:Stmt) => unpackAll(fields(vars(E))) (var X : T := E in normalizeTxBody(RetVar, S))
     rule normalizeTxBody(_, pass) => pass
     rule normalizeTxBody(_, pack) => pack
@@ -87,7 +87,7 @@ module FLOW-COMMON
     rule normalizeTxBody(RetVar, return E) => unpackAll(fields(vars(E))) (E --> RetVar) pack exit
     rule normalizeTxBody(_, exit) => pack exit
     rule normalizeTxBody(_, revert(E)) => unpackAll(fields(vars(E))) revert(E) pack
-    rule normalizeTxBody(_, E:Expr) => unpackAll(fields(vars(E))) E // TODO: Any other expressions we need to handle specially?
+    rule normalizeTxBody(_, F:FunctionCall) => unpackAll(fields(vars(F))) F // TODO: Any other expressions we need to handle specially?
     rule normalizeTxBody(RetVar, if E { S1 } else { S2 } ) => unpackAll(fields(vars(E))) (if E { normalizeTxBody(RetVar, S1) } else { normalizeTxBody(RetVar, S2) })
     rule normalizeTxBody(RetVar, S1:Stmt S2:Stmt) => normalizeTxBody(RetVar, S1) normalizeTxBody(RetVar, S2)
 
@@ -107,8 +107,6 @@ module FLOW-COMMON
     rule normalize(return E) => return E
     rule normalize(revert(E)) => revert(E)
     rule normalize(F:FunctionCall) => pack expr(F)
-    rule normalize(E:Expr) => expr(E) // TODO: Any other expressions we need to handle specially?
-        requires (_):FunctionCall :/=K E // Ensure E is not a transaction call, or we need to apply a different rule
     rule normalize( if E { S1 } else { S2 } ) => if E { normalize(S1) } else { normalize(S2) }
     rule normalize(S1:Stmt S2:Stmt) => normalize(S1) normalize(S2)
         requires (var _ : _ := _) :/=K S1
@@ -120,20 +118,20 @@ module FLOW-COMMON
     rule fields(SetItem(A) Rest) => fields(Rest)
         requires (this._) :/=K A
 
-    syntax Set ::= vars(Stmt) [function, functional]
+    syntax Set ::= varsStmt(Stmt) [function, functional]
+                 | vars(FunctionCall) [function, functional]
                  | vars(Expr) [function, functional]
                  | vars(Selector) [function, functional]
                  | vars(Exprs) [function, functional]
 
-    rule vars(A --[ Sel ]-> B) => vars(A) |Set vars(Sel) |Set vars(B)
-    rule vars(var _ : _ := E in S:Stmt) => vars(E) |Set vars(S)
-    rule vars((var _ : _ := E) S) => vars(E) |Set vars(S)
-    rule vars(pass) => .Set
-    rule vars(pack) => .Set
-    rule vars(unpack(_)) => .Set
-    rule vars(return E) => vars(E)
-    rule vars(exit) => .Set
-    rule vars(S1:Stmt S2:Stmt) => vars(S1) |Set vars(S2)
+    rule varsStmt(A --[ Sel ]-> B) => vars(A) |Set vars(Sel) |Set vars(B)
+    rule varsStmt(var _ : _ := E in S:Stmt) => vars(E) |Set varsStmt(S)
+    rule varsStmt(pass) => .Set
+    rule varsStmt(pack) => .Set
+    rule varsStmt(unpack(_)) => .Set
+    rule varsStmt(exit) => .Set
+    rule varsStmt(S1:Stmt S2:Stmt) => varsStmt(S1) |Set varsStmt(S2)
+    rule varsStmt(if B { S1:Stmt } else { S2:Stmt } ) => vars(B) |Set varsStmt(S1) |Set varsStmt(S2)
 
     rule vars(_:Int) => .Set
     rule vars(_:String) => .Set
@@ -159,7 +157,8 @@ module FLOW-COMMON
     rule vars(A < B) => vars(A) |Set vars(B)
     rule vars(S in X) => vars(S) |Set vars(X)
     rule vars(not A) => vars(A)
-    rule vars(if B { E1 } else { E2 } ) => vars(B) |Set vars(E1) |Set vars(E2)
+    rule vars((if B { E1 } else { E2 }):IfExpr ) => vars(B) |Set vars(E1) |Set vars(E2)
+    rule vars(let _ : _ := E in Body) => vars(E) |Set vars(Body)
 
     syntax Type ::= resolveType(Var, Type) [function]
     syntax BaseType ::= resolveType(Var, BaseType) [function]

@@ -37,7 +37,7 @@ module FLOW-CORE-SYNTAX
     syntax RecordMemberExprs ::= List{RecordMemberExpr, ","} [klabel(recordMembers)]
                                | RecordMemberVals
 
-    syntax FunctionCall ::= Var "(" Exprs ")"
+    syntax FunctionCall ::= Var "(" Exprs ")" [klabel(funccall)]
     syntax IfExpr ::= "if" Expr "{" Expr "}" "else" "{" Expr "}" [strict(1), klabek(if)]
     syntax Expr ::= Val | EmptyVal | Int | Bool | String
                   | "\\" Var ":" Type "." Expr
@@ -110,10 +110,9 @@ module FLOW-CORE-SYNTAX
                   | ReturnExpr
                   | Revert
                   | IfStmt
-                  > "exit"
+                  | FunctionCall
+                  | "exit"
                   > Stmt Stmt [right, klabel(stmtseq)]
-
-    syntax priorities returnexpr > stmtseq
 
     syntax Contract ::= "contract" Var "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
@@ -147,7 +146,6 @@ module FLOW-SYNTAX
                   // NOTE: The following is desugared by normalize(), because it's a little more complicated than the rest of the macros in this module
                   | "var" VarDef ":=" Expr
                   | "if" Expr "{" Stmt "}"
-                  | Expr
 
     rule var X : T => var X : T := emptyval [macro]
 

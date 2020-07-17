@@ -21,7 +21,6 @@ var b : ! nat := 0
 781 --> a
 611 --> b
 
-var res : ! nat := 0
-x.add(a,b)
-x.add --> res
+var res : ! nat := x.add(a,b)
+if res != 1392 { revert("Failure!") }
 

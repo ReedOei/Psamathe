@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 KDISTR="$HOME/k-framework/k-distribution/bin"
 FLAGS=()
 
@@ -17,7 +19,7 @@ if [[ "$1" == "typecheck" ]]; then
         shift # Clear out the debug argument
     fi
 
-    set -ex
+    set -x
     "$KDISTR/krun" --directory "static/" "${FLAGS[@]}" "$@"
 elif [[ "$1" == "test" ]]; then
     shift
@@ -36,12 +38,12 @@ elif [[ "$1" == "test" ]]; then
         exit 1
     fi
 
-    if [[ -e "$fname.out" ]]; then
-        FLAGS+=("--pattern")
+    FLAGS+=("--pattern")
+    if [[ -e "$fname.pat" ]]; then
         FLAGS+=("$(cat "$fname.pat")")
+    else
+        FLAGS+=("<k> . </k>")
     fi
-
-    set -e
     to_run=("$KDISTR/krun" "${FLAGS[@]}" --directory "dynamic/" "$@")
     printf "'%s' " "${to_run[@]}"
     echo

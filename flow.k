@@ -94,8 +94,11 @@ module FLOW
     rule resource(bool, false) or B => B
     rule not resource(bool, B) => resource(bool, notBool B)
 
-    rule if resource(bool, true) { A } else { _ }  => A
-    rule if resource(bool, false) { _ } else { B } => B
+    rule (if resource(bool, true) { A } else { _ }):IfExpr => A
+    rule (if resource(bool, false) { _ } else { B }):IfExpr => B
+
+    rule if resource(bool, true) { A:Stmt } else { _ }  => A
+    rule if resource(bool, false) { _ } else { B:Stmt } => B
 
     // Variable lookup
     rule <k> X => demoteVal(Val) ... </k>
@@ -355,5 +358,8 @@ module FLOW
             ...
         </lookup>
         <storage> ... Loc |-> resource(_, (X |-> XLoc) _) ... </storage>
+
+    rule <k> unpack(X) => . ... </k>
+        <lookup> ... X |-> _ ... </lookup>
 endmodule
 
