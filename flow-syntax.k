@@ -38,26 +38,26 @@ module FLOW-CORE-SYNTAX
                                | RecordMemberVals
 
     syntax FunctionCall ::= Var "(" Exprs ")" [klabel(funccall)]
-    syntax IfExpr ::= "if" Expr "{" Expr "}" "else" "{" Expr "}" [strict(1), klabek(if)]
+    syntax IfExpr ::= "if" Expr "{" Expr "}" "else" "{" Expr "}" [klabek(if)]
     syntax Expr ::= Val | EmptyVal | Int | Bool | String
                   | "\\" Var ":" Type "." Expr
                   | Var
                   | FunctionCall
-                  | "some" "(" Expr ")" [strict]
-                  | Selector "in" Source [strict(1)]
+                  | "some" "(" Expr ")"
+                  | Selector "in" Source
                   | "{" RecordMemberExprs "}"
-                  | "let" VarDef ":=" Expr "in" Expr [strict(2)]
+                  | "let" VarDef ":=" Expr "in" Expr
                   | IfExpr
                   | "(" Expr ")"        [bracket]
                   | "new" Var "(" Exprs ")"
-                  > Expr "or" Expr [strict(1)]
-                  | Expr "and" Expr [strict(1)]
-                  > Expr "+" Expr [left, seqstrict]
-                  | Expr "-" Expr [left, seqstrict]
-                  > Expr "=" Expr [seqstrict]
-                  | Expr "<=" Expr [seqstrict]
-                  | Expr "<" Expr [seqstrict]
-                  > "not" Expr [strict]
+                  > Expr "or" Expr
+                  | Expr "and" Expr
+                  > Expr "+" Expr [left]
+                  | Expr "-" Expr [left]
+                  > Expr "=" Expr
+                  | Expr "<=" Expr
+                  | Expr "<" Expr
+                  > "not" Expr
                   > IfExpr
     syntax Exprs ::= List{Expr, ","} [klabel(exprs)]
 
@@ -75,7 +75,7 @@ module FLOW-CORE-SYNTAX
                       | SelectorVal
                       | SelectorQuant VarDef "such" "that" Expr
 
-    syntax Flow ::= Source "--[" Selector "]->" Destination [strict(2)]
+    syntax Flow ::= Source "--[" Selector "]->" Destination
 
     // TODO: Maybe get rid of nonfungible or fungible and have be the default
     // TODO: Warn if people put consumable on non-asset types, because that's redundant.
@@ -97,16 +97,16 @@ module FLOW-CORE-SYNTAX
                   | FieldDef
     syntax Decls ::= List{Decl, " "}
 
-    syntax Revert ::= "revert" "(" Expr ")" [strict]
-    syntax IfStmt ::= "if" Expr "{" Stmt "}" "else" "{" Stmt "}" [strict(1), klabel(if)]
+    syntax Revert ::= "revert" "(" Expr ")"
+    syntax IfStmt ::= "if" Expr "{" Stmt "}" "else" "{" Stmt "}" [klabel(if)]
                     | IfExpr
-    syntax ReturnExpr ::= "return" Expr [strict, klabel(returnexpr)]
+    syntax ReturnExpr ::= "return" Expr [klabel(returnexpr)]
     syntax Stmt ::= Flow
-                  | "var" VarDef ":=" Expr "in" Stmt [strict(2)]
+                  | "var" VarDef ":=" Expr "in" Stmt
                   | "pass"
                   | "pack"
                   | "unpack" "(" Var ")"
-                  | "expr" "(" Expr ")" [strict]
+                  | "expr" "(" Expr ")"
                   | ReturnExpr
                   | Revert
                   | IfStmt

@@ -22,6 +22,8 @@ module FLOW
     syntax Val ::= Resource | FlowError
     syntax KResult ::= Val | Vals | StorageVal | SelectorVal
 
+    syntax Expr ::= evaluate(Expr) [strict]
+
     syntax Var ::= "Base"
 
     configuration
@@ -36,6 +38,7 @@ module FLOW
     rule pass => . [structural]
 
     // Temporary variable declaration
+    context var _ : _ := HOLE in _:Stmt
     rule <k> var X : T := V:Val in S:Stmt => insert(X, loc(I)) ~> S ~> drop(X) ... </k>
         <storage> ... .Map => loc(I) |-> coerce(V, T) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
@@ -65,7 +68,7 @@ module FLOW
     // Check-In
     rule Sel in R => checkIn(Sel, resolveStorage(R))
 
-    syntax Expr ::= checkIn(SelectorVal, Storage) [strict]
+    syntax Expr ::= checkIn(Selector, Storage) [strict]
 
     rule <k> checkIn(Sel, Loc) => resource(bool, select(Sel, SV) contained_in SV) ... </k>
         <storage> ... Loc |-> SV ... </storage>
@@ -80,23 +83,39 @@ module FLOW
     // Simple arithmetic and boolean expressions
     // TODO: I would like to remove all this resource stuff at some point
     //       The typechecker can also compile this stuff into the correct instructions to permit erasing all these runtime types.
+    context HOLE + _
+    context _ + HOLE
     rule resource(nat, I1) + resource(nat, I2) => resource(nat, I1 +Int I2)
     rule resource(nat, I1) - resource(nat, I2) => resource(nat, I1 -Int I2)
 
+    context _ = HOLE
+    context HOLE = _
     rule resource(R, A) = resource(R, B) => A ==K B
 
+    context HOLE < _
+    context _ < HOLE
     rule resource(nat, I1) < resource(nat, I2) => resource(bool, I1 <Int I2)
+
+    context HOLE <= _
+    context _ <= HOLE
     rule resource(nat, I1) <= resource(nat, I2) => resource(bool, I1 <=Int I2)
 
+    context HOLE and _
     rule resource(bool, true) and B => B
     rule resource(bool, false) and _ => resource(bool, false)
+
+    context HOLE or _
     rule resource(bool, true) or _ => resource(bool, true)
     rule resource(bool, false) or B => B
+
+    context not HOLE
     rule not resource(bool, B) => resource(bool, notBool B)
 
+    context (if HOLE { _ } else { _ }):IfExpr
     rule (if resource(bool, true) { A } else { _ }):IfExpr => A
     rule (if resource(bool, false) { _ } else { B }):IfExpr => B
 
+    context if HOLE { _:Stmt } else { _:Stmt }
     rule if resource(bool, true) { A:Stmt } else { _ }  => A
     rule if resource(bool, false) { _ } else { B:Stmt } => B
 
@@ -134,6 +153,7 @@ module FLOW
     // =================================
     // Flows:
     // =================================
+    context _ --[ HOLE ]-> _
     rule S --[ Sel:SelectorVal ]-> D => handleFlow(Sel, resolveStorage(S), resolveStorage(D))
 
     syntax Stmt ::= handleFlow(SelectorVal, Storage, Storage) [seqstrict]
@@ -265,6 +285,7 @@ module FLOW
     rule defaultValue(set R) => resource(set R, .Set)
     rule defaultValue(list R) => resource(list R, .List)
 
+    context expr(HOLE)
     rule expr(_:Val) => .
 
     // =================================

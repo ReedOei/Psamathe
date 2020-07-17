@@ -10,12 +10,10 @@ module FLOW-TYPECHECK
     imports DOMAINS
     imports COLLECTIONS
 
-    syntax KResult ::= Type
-
+    syntax KResult
     configuration
         <common />
         <typeEnv> .Map </typeEnv>
-
 
     syntax K ::= Stmt "wf"
                | Selector "selects" "{" TypeQuant "}" Type
@@ -26,73 +24,73 @@ module FLOW-TYPECHECK
     rule <k> S:Stmt => S wf </k>
 
     // Sequence
-    rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf
+    /* rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf */
 
-    syntax K ::= insert(Var, Type)
-               | drop(Var)
+    /* syntax K ::= insert(Var, Type) */
+    /*            | drop(Var) */
 
-    rule <k> insert(X, T) => . ... </k>
-        <typeEnv> ... .Map => X |-> T ... </typeEnv>
+    /* rule <k> insert(X, T) => . ... </k> */
+    /*     <typeEnv> ... .Map => X |-> T ... </typeEnv> */
 
-    rule <k> drop(X) => . ... </k>
-        <typeEnv> ... X |-> T:Type => .Map ... </typeEnv>
-        requires notBool(isAsset(T))
+    /* rule <k> drop(X) => . ... </k> */
+    /*     <typeEnv> ... X |-> T:Type => .Map ... </typeEnv> */
+    /*     requires notBool(isAsset(T)) */
+
+    // Primitive types
+    /* rule I:Int : ! nat => . */
+    /*     requires I >=Int 0 */
+    /* rule _:Bool : ! bool => . */
+    /* rule _:String : ! string => . */
+
+    /* rule emptyval : empty _ => . */
 
     // Variable definition
     // TODO: Need to change to use the (var X : T := E in S) construct to match the current typing rules
-    rule (var X : T := E in S) wf => E : T ~> insert(X, T) ~> S wf ~> drop(X)
+    /* rule (var X : T := E in S) wf => E : T ~> insert(X, T) ~> S wf ~> drop(X) */
 
-    // Primitive types
-    rule I:Int : ! nat => .
-        requires I >=Int 0
-    rule _:Bool : ! bool => .
-    rule _:String : ! string => .
+    /* // Storage typing */
+    /* rule <k> X accepts (_ T:BaseType) => . ... </k> */
+    /*     <typeEnv> ... X |-> _ T ... </typeEnv> */
 
-    rule emptyval : empty _ => .
+    /* rule <k> X provides {Q} T => . ... </k> */
+    /*     <typeEnv> ... X |-> Q _:Collection T ... </typeEnv> */
 
-    // Storage typing
-    rule <k> X accepts (_ T:BaseType) => . ... </k>
-        <typeEnv> ... X |-> _ T ... </typeEnv>
+    /* rule <k> X provides {!} T => . ... </k> */
+    /*     <typeEnv> ... X |-> T ... </typeEnv> */
 
-    rule <k> X provides {Q} T => . ... </k>
-        <typeEnv> ... X |-> Q _:Collection T ... </typeEnv>
+    /* syntax K ::= checkEach(Exprs, VarDefs) */
 
-    rule <k> X provides {!} T => . ... </k>
-        <typeEnv> ... X |-> T ... </typeEnv>
+    /* rule consume accepts T => . */
+    /*     requires isConsumable(T) */
 
-    syntax K ::= checkEach(Exprs, VarDefs)
+    /* rule checkEach(.Exprs, .VarDefs) => . */
+    /* rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs) */
 
-    rule consume accepts T => .
-        requires isConsumable(T)
+    /* // Selector typing */
+    /* rule everything selects {every} _ => . */
 
-    rule checkEach(.Exprs, .VarDefs) => .
-    rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
+    /* // Flow typing */
+    /* // TODO: need to update storage information */
+    /* rule (S --[ Sel ]-> D) wf => */
+    /*     S provides {?Q} ?T1 ~> */
+    /*     Sel selects {?R} demote(?T1) ~> */
+    /*     D accepts ?T1 */
 
-    // Selector typing
-    rule everything selects {every} _ => .
+    /* // Type modifier checking */
+    /* syntax Bool ::= isConsumable(Type) [function, functional] */
+    /*            | isConsumable(BaseType) [function, functional] */
+    /*            | isAsset(Type) [function, functional] */
+    /*            | isAsset(BaseType) [function, functional] */
 
-    // Flow typing
-    // TODO: need to update storage information
-    rule (S --[ Sel ]-> D) wf =>
-        S provides {?Q} ?T1 ~>
-        Sel selects {?R} demote(?T1) ~>
-        D accepts ?T1
+    /* syntax Set ::= modifiers(BaseType) [function, functional] */
 
-    // Type modifier checking
-    syntax Bool ::= isConsumable(Type) [function, functional]
-               | isConsumable(BaseType) [function, functional]
-               | isAsset(Type) [function, functional]
-               | isAsset(BaseType) [function, functional]
+    /* rule [[ modifiers(T) => Ms ]] */
+    /*     <types> ... T |-> modified(Ms, _) ... </types> */
+    /* rule [[ modifiers(T) => .Set ]] */
+    /*     <types> Types </types> */
+    /*     requires notBool(T in keys(Types)) */
 
-    syntax Set ::= modifiers(BaseType) [function, functional]
-
-    rule [[ modifiers(T) => Ms ]]
-        <types> ... T |-> modified(Ms, _) ... </types>
-    rule [[ modifiers(T) => .Set ]]
-        <types> Types </types>
-        requires notBool(T in keys(Types))
-
-    // TODO: Finish this definition
-    rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool (notBool(asset in modifiers(T)))
+    /* // TODO: Finish this definition */
+    /* rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool (notBool(asset in modifiers(T))) */
 endmodule
 
