@@ -10,7 +10,8 @@ module FLOW-TYPECHECK
     imports DOMAINS
     imports COLLECTIONS
 
-    syntax KResult
+    syntax TypeOp ::= Type
+    syntax KResult ::= Type
     configuration
         <common />
         <typeEnv> .Map </typeEnv>
@@ -35,11 +36,12 @@ module FLOW-TYPECHECK
     // =======================================
     syntax Stmt ::= insert(Var, Type)
                   | drop(Var)
-                  | update(Storage, Type)
+                  | update(Storage, TypeOp)
 
-    rule <k> update(X, T) => . </k>
+    context update(_, HOLE)
+    rule <k> update(X, T) => . ... </k>
         <typeEnv> ... X |-> (_ => T) ... </typeEnv>
-    rule <k> update(X, _) => . </k>
+    rule <k> update(X, _) => . ... </k>
         <typeEnv> Gamma </typeEnv>
         requires notBool(X in keys(Gamma))
 
@@ -49,6 +51,11 @@ module FLOW-TYPECHECK
     rule <k> drop(X) => . ... </k>
         <typeEnv> ... X |-> T:Type => .Map ... </typeEnv>
         requires notBool(isAsset(T))
+
+    syntax TypeOp ::= typeof(Var)
+
+    rule <k> typeof(X) => typeof(Gamma, X) ... </k>
+        <typeEnv> Gamma </typeEnv>
 
     syntax Type ::= typeof(Map, Var) [function, functional]
 
@@ -75,6 +82,11 @@ module FLOW-TYPECHECK
 
     rule Q <=Q R => Q <Q R orBool Q ==K R
 
+    syntax TypeQuant ::= min(TypeQuant, TypeQuant) [function, functional]
+                       | max(TypeQuant, TypeQuant) [function, functional]
+    rule min(Q, R) => #if Q <Q R #then Q #else R #fi
+    rule max(Q, R) => #if Q <Q R #then R #else Q #fi
+
     syntax TypeQuant ::= TypeQuant "+" TypeQuant [function, functional]
                        | TypeQuant "-" TypeQuant [function, functional]
 
@@ -92,6 +104,14 @@ module FLOW-TYPECHECK
     rule ! - R => empty requires ! <=Q R
     rule ! - any => any
     rule any - R => any requires empty <Q R andBool R <Q every
+
+    syntax TypeOp ::= TypeOp "+Ty" TypeQuant
+                    | TypeOp "-Ty" TypeQuant
+
+    context HOLE +Ty _
+    rule (Q:TypeQuant T) +Ty R => (Q + R) T
+    context HOLE -Ty _
+    rule (Q:TypeQuant T) -Ty R => (Q - R) T
 
     // =======================================
     // Type/Type Environment Ordering
@@ -128,6 +148,14 @@ module FLOW-TYPECHECK
         <constructors> ... C |-> constructor(FormalArgs, _) ... </constructors>
 
     // =======================================
+    // Variable Lookup
+    // =======================================
+    rule <k> X : demote(T) => . ... </k>
+        <typeEnv> ... X |-> T ... </typeEnv>
+    rule <k> X : Q T => . ... </k>
+        <typeEnv> ... X |-> (Q:TypeQuant T => empty T) ... </typeEnv>
+
+    // =======================================
     // Storage typing
     // =======================================
     rule <k> X accepts (_ T:BaseType) => . ... </k>
@@ -139,16 +167,11 @@ module FLOW-TYPECHECK
     rule <k> X provides {!} T => . ... </k>
         <typeEnv> ... X |-> T ... </typeEnv>
 
-    syntax Stmt ::= checkEach(Exprs, VarDefs)
-
-    // =======================================
-    // Consume typing
-    // =======================================
     rule consume accepts T => .
         requires isConsumable(T)
 
-    rule checkEach(.Exprs, .VarDefs) => .
-    rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
+    rule <k> new C.T provides {every} ! T => . </k>
+        <typeEnv> ... this |-> C ... </typeEnv>
 
     // =======================================
     // Selector typing
@@ -162,9 +185,14 @@ module FLOW-TYPECHECK
     rule S --[ Sel ]-> D =>
         S provides {?Q} ?T1 ~>
         Sel selects {?R} demote(?T1) ~>
-        D accepts ?T1
+        checkThat(min(?Q, ?R) <Q every) ~>
+        update(S, typeof(S) -Ty ?R) ~>
+        D accepts ?T1 ~>
+        update(D, typeof(D) +Ty min(?Q, ?R))
 
-    /* // Type modifier checking */
+    // =======================================
+    // Type modifier checking
+    // =======================================
     syntax Bool ::= isConsumable(Type) [function, functional]
                   | isConsumable(BaseType) [function, functional]
                   | isAsset(Type) [function, functional]
@@ -182,5 +210,16 @@ module FLOW-TYPECHECK
     rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool (asset in modifiers(T))
 
     rule isConsumable(Q:TypeQuant T) => (consumable in modifiers(T)) orBool notBool(isAsset(Q T))
+
+    // =======================================
+    // Misc. helpers
+    // =======================================
+    syntax Stmt ::= checkEach(Exprs, VarDefs)
+    rule checkEach(.Exprs, .VarDefs) => .
+    rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
+
+
+    syntax Stmt ::= checkThat(Bool)
+    rule checkThat(true) => .
 endmodule
 
