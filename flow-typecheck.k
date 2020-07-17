@@ -35,6 +35,13 @@ module FLOW-TYPECHECK
     // =======================================
     syntax Stmt ::= insert(Var, Type)
                   | drop(Var)
+                  | update(Storage, Type)
+
+    rule <k> update(X, T) => . </k>
+        <typeEnv> ... X |-> (_ => T) ... </typeEnv>
+    rule <k> update(X, _) => . </k>
+        <typeEnv> Gamma </typeEnv>
+        requires notBool(X in keys(Gamma))
 
     rule <k> insert(X, T) => . ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
@@ -42,6 +49,62 @@ module FLOW-TYPECHECK
     rule <k> drop(X) => . ... </k>
         <typeEnv> ... X |-> T:Type => .Map ... </typeEnv>
         requires notBool(isAsset(T))
+
+    syntax Type ::= typeof(Map, Var) [function, functional]
+
+    // Bottom
+    syntax Type ::= "bot"
+
+    rule typeof((X |-> T) _, X) => T
+    rule typeof(Gamma, X) => bot
+        requires notBool(X in keys(Gamma))
+
+    // =======================================
+    // Type Quantity Operators
+    // =======================================
+    syntax Bool ::= TypeQuant "<Q" TypeQuant [function, functional]
+                  | TypeQuant "<=Q" TypeQuant [function, functional]
+    rule empty <Q Q => Q =/=K empty
+    rule any <Q ! => true
+    rule any <Q nonempty => true
+    rule any <Q every => true
+    rule ! <Q nonempty => true
+    rule ! <Q every => true
+    rule nonempty <Q every => true
+    rule _ <Q _ => false [owise]
+
+    rule Q <=Q R => Q <Q R orBool Q ==K R
+
+    syntax TypeQuant ::= TypeQuant "+" TypeQuant [function, functional]
+                       | TypeQuant "-" TypeQuant [function, functional]
+
+    rule Q + empty => Q
+    rule _ + every => every
+    rule nonempty + R => nonempty requires empty <Q R andBool R <Q every
+    rule ! + R => nonempty requires empty <Q R andBool R <Q every
+    rule any + any => any
+
+    rule Q - empty => Q
+    rule empty - _ => empty
+    rule _ - every => empty
+    rule every - R => every requires R <Q every
+    rule nonempty - R => any requires empty <Q R andBool R <Q every
+    rule ! - R => empty requires ! <=Q R
+    rule ! - any => any
+    rule any - R => any requires empty <Q R andBool R <Q every
+
+    // =======================================
+    // Type/Type Environment Ordering
+    // =======================================
+    syntax Bool ::= TypeQuant "[" TypeQuant [function, functional]
+                  | TypeQuant "[=" TypeQuant [function, functional]
+                  | Type "<=Ty" Type [function, functional]
+                  | Map "<=Env" Map [function, functional]
+    rule Q [ R => (Q =/=K any andBool R ==K any) orBool (Q in (SetItem(!) SetItem(every)) andBool R ==K nonempty)
+    rule Q [= R => Q [ R orBool Q ==K R
+    rule Q:TypeQuant TQ <=Ty R:TypeQuant TR => (TQ ==K TR) andBool (Q [= R)
+    rule .Map <=Env _ => true
+    rule ((X |-> T) As) <=Env B => (typeof(B, X) <=Ty T) andBool As <=Env B
 
     // =======================================
     // Primitive types
