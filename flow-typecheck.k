@@ -37,6 +37,11 @@ module FLOW-TYPECHECK
     syntax Stmt ::= insert(Var, Type)
                   | drop(Var)
                   | update(Storage, TypeOp)
+                  | assertEnv(Map)
+
+    // Only succeed when the type environment is exactly as expected.
+    rule <k> assertEnv(Gamma) => . ... </k>
+        <typeEnv> Gamma </typeEnv>
 
     context update(_, HOLE)
     rule <k> update(X, T) => . ... </k>
@@ -114,7 +119,7 @@ module FLOW-TYPECHECK
     rule (Q:TypeQuant T) -Ty R => (Q - R) T
 
     // =======================================
-    // Type/Type Environment Ordering
+    // Type/Type Environment Helpers
     // =======================================
     syntax Bool ::= TypeQuant "[" TypeQuant [function, functional]
                   | TypeQuant "[=" TypeQuant [function, functional]
@@ -125,6 +130,9 @@ module FLOW-TYPECHECK
     rule Q:TypeQuant TQ <=Ty R:TypeQuant TR => (TQ ==K TR) andBool (Q [= R)
     rule .Map <=Env _ => true
     rule ((X |-> T) As) <=Env B => (typeof(B, X) <=Ty T) andBool As <=Env B
+
+    syntax Map ::= restrict(Map, Set) [function, functional]
+    rule restrict(M, Ks) => removeAll(M, keys(M) -Set Ks)
 
     // =======================================
     // Primitive types
@@ -177,18 +185,45 @@ module FLOW-TYPECHECK
     // Selector typing
     // =======================================
     rule everything selects {every} _ => .
+    // TODO: Finish
 
     // =======================================
     // Flow typing
     // =======================================
-    // TODO: need to update storage information
+    // TODO: Implement transformers
     rule S --[ Sel ]-> D =>
-        S provides {?Q} ?T1 ~>
-        Sel selects {?R} demote(?T1) ~>
+        S provides {?Q} ?Tau ~>
+        Sel selects {?R} demote(?Tau) ~>
         checkThat(min(?Q, ?R) <Q every) ~>
         update(S, typeof(S) -Ty ?R) ~>
-        D accepts ?T1 ~>
+        D accepts ?Tau ~>
         update(D, typeof(D) +Ty min(?Q, ?R))
+
+    // =======================================
+    // Revert
+    // =======================================
+    rule <k> revert(E)
+             =>
+             E : ?Tau ~>
+             assertEnv(Gamma)
+             ...
+         </k>
+         <typeEnv> Gamma </typeEnv>
+        requires notBool(isAsset(?Tau))
+
+    // =======================================
+    // Expression statement
+    // =======================================
+    rule expr(E) => E : ?Sigma
+        requires notBool(isAsset(?Sigma))
+
+    // =======================================
+    // Pack
+    // =======================================
+    rule <k> pack => . ... </k>
+        <typeEnv> Gamma </typeEnv>
+        <fields> ... Gamma[this] |-> Fields </fields>
+        requires restrict(Gamma, keys(fieldEnv(Fields))) <=Env fieldEnv(Fields)
 
     // =======================================
     // Type modifier checking
@@ -218,8 +253,12 @@ module FLOW-TYPECHECK
     rule checkEach(.Exprs, .VarDefs) => .
     rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
 
-
     syntax Stmt ::= checkThat(Bool)
     rule checkThat(true) => .
+
+    // TODO: Maybe just store the fields like this in the first place?
+    syntax Map ::= fieldEnv(Set) [function, functional]
+    rule fieldEnv(.Set) => .Map
+    rule fieldEnv(SetItem(X : T) Rest) => (X |-> T) fieldEnv(Rest)
 endmodule
 
