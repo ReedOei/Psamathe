@@ -164,7 +164,7 @@ Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \o
     Define the following orderings, which make types and type environments into join-semilattices.
     For type quantities, define the partial order $\sqsubseteq$ as the reflexive closure of the strict partial order $\sqsubset$ given by
     \[
-        \mathcal{Q} \sqsubset \mathcal{R} \iff \mathcal{R} = \any \tor (\mathcal{Q} \in \curlys{\exactlyone, \every} \tand \mathcal{R} = \nonempty)
+        \mathcal{Q} \sqsubset \mathcal{R} \iff (\mathcal{Q} \neq \any \tand \mathcal{R} = \any) \tor (\mathcal{Q} \in \curlys{\exactlyone, \every} \tand \mathcal{R} = \nonempty)
     \]
     For types, define the partial order $\leq$ by
     \[
@@ -456,6 +456,8 @@ Finally, if $s$ is $\everything$, the same argument applies---the outcome will b
 
     \inferrule*[right=Ok-Revert]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
+        \and
+        \lnot(\tau~\asset)
     }{ \Gamma \flowproves \revert(E)~\ok \flowprovesout \Gamma }
 
     \inferrule*[right=Ok-Expr]{
