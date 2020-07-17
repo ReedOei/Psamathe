@@ -2,32 +2,52 @@
 module FLOW-CORE-SYNTAX
     imports DOMAINS-SYNTAX
 
-    syntax EmptyVal ::= "emptyval" [token]
-    syntax Val ::= Int
-                 | Bool
-                 | String
-                 | EmptyVal
-                 | "\\" Id ":" Type "." Expr [binder]
+    syntax Var ::= Id
+                 | Var "." Var [left]
 
-    syntax QualifiedId ::= Id
-                         | Storage "[" Expr "]" [strict(2)]
-                         | Storage "." Storage [left]
+    // Add the built-in types to the Var sort so we can reference them in the rules
+    syntax Var ::= "nat"
+                | "bool"
+                | "string"
+                | "address"
+                | "unit"
+                | "void"
+    // Special reserved Ids
+    syntax Var ::= "this"
 
-    syntax SpecialStorage ::= "consume"
-    syntax Storage ::= Val
-                     | QualifiedId
-                     | SpecialStorage
-                     | "new" QualifiedId "(" Exprs ")"
+    syntax SelectorQuant ::= "!" | "any" | "nonempty"
+    syntax TypeQuant ::= SelectorQuant | "empty" | "every"
+    syntax Collection ::= "option" | "set" | "list"
+    syntax BaseType ::= Var | Collection Type | Type "~~>" Type | "{" VarDefs "}"
+                      | "(" Type ")" [bracket]
+    // TODO: Add syntactic sugar that allows users to not always write the type quantity.
+    syntax Type ::= TypeQuant BaseType
 
-    /* syntax TupleExpr ::= "(" Exprs ")" // Tuples */
+    syntax EmptyVal ::= "emptyval"
 
-    syntax FunctionCall ::= Storage "(" Exprs ")"
+    syntax Val
+    syntax Vals ::= List{Val, ","} [klabel(exprs)]
+
+    syntax RecordMemberVal ::= Var ":" Type "|->" Val   [klabel(recordMember)]
+    syntax RecordMemberExpr ::= Var ":" Type "|->" Expr [klabel(recordMember)]
+                              | RecordMemberVal
+    syntax RecordMemberVals ::= List{RecordMemberVal, ","} [klabel(recordMembers)]
+    syntax RecordMemberExprs ::= List{RecordMemberExpr, ","} [klabel(recordMembers)]
+                               | RecordMemberVals
+
+    syntax FunctionCall ::= Var "(" Exprs ")"
     syntax IfExpr ::= "if" Expr "{" Expr "}" "else" "{" Expr "}" [strict(1), klabek(if)]
-    syntax Expr ::= Storage
-                  | "(" Expr ")"        [bracket]
-                  /* | "{" Exprs "}" // Set literals */
-                  /* | TupleExpr */
+    syntax Expr ::= Val | EmptyVal | Int | Bool | String
+                  | "\\" Var ":" Type "." Expr
+                  | Var
                   | FunctionCall
+                  | "some" "(" Expr ")"
+                  | Selector "in" Source
+                  | "{" RecordMemberExprs "}"
+                  | "let" VarDef ":=" Expr "in" Expr
+                  | IfExpr
+                  | "(" Expr ")"        [bracket]
+                  | "new" Var "(" Exprs ")"
                   > Expr "or" Expr [strict(1)]
                   | Expr "and" Expr [strict(1)]
                   > Expr "+" Expr [left, seqstrict]
@@ -35,55 +55,38 @@ module FLOW-CORE-SYNTAX
                   > Expr "=" Expr [seqstrict]
                   | Expr "<=" Expr [seqstrict]
                   | Expr "<" Expr [seqstrict]
-                  > Selector "in" Storage [strict(1)]
                   > "not" Expr [strict]
                   > IfExpr
-    syntax Vals ::= List{Val, ","} [klabel(exprs)]
-    syntax Exprs ::= List{Expr, ","} [seqstrict, klabel(exprs)]
-                   | Vals
+    syntax Exprs ::= List{Expr, ","} [klabel(exprs)]
 
-    syntax SpecialSelect ::= "everything" [token]
-    // Quantifiers and their symbol synonyms
-    syntax Quant ::= "!" [token]
-                   | "any" [token]
-                   | "nonempty" [token]
+    syntax Source ::= Expr
+                    | "new" Var
+    syntax Destination ::= Expr
+                         | "consume"
+
+    syntax SelectorVal ::= Val | "everything"
     syntax Selector ::= Expr
-                      | SpecialSelect
-                      | Quant Id ":" Type "such" "that" Expr [binder]
+                      | SelectorVal
+                      | SelectorQuant VarDef "such" "that" Expr
 
-    syntax Flow ::= Storage
-                  | Storage "--[" Selector "]->" Flow [strict(2)]
+    syntax Flow ::= Source "--[" Selector "]->" Destination
 
     // TODO: Maybe get rid of nonfungible or fungible and have be the default
     // TODO: Warn if people put consumable on non-asset types, because that's redundant.
-    syntax Modifier ::= "nonfungible" [token]
-                      | "fungible"    [token]
-                      | "consumable"  [token]
-                      | "asset"       [token]
-                      | "copyable"    [token]
+    syntax Modifier ::= "nonfungible"
+                      | "fungible"
+                      | "consumable"
+                      | "asset"
+                      | "copyable"
     syntax Modifiers ::= List{Modifier, " "}
 
-    syntax TypeQuant ::= Quant
-                       | "empty" [token]
-                       | "every" [token]
-
-    syntax Collection ::= "set" [token]
-                        | "list" [token]
-                        | "option" [token]
-    syntax BaseType ::= QualifiedId
-                      | Type "*" Type
-                      | Type "~~>" Type
-                      | Collection Type
-                      | "(" Type ")" [bracket]
-    // TODO: Add syntactic sugar that allows users to not always write the type quantity.
-    syntax Type ::= TypeQuant BaseType
-
-    syntax VarDef ::= Id ":" Type
+    syntax VarDef ::= Var ":" Type
     syntax VarDefs ::= List{VarDef, ","}
-    syntax TypeDef ::= "type" Id "is" Modifiers BaseType
+
+    syntax TypeDef ::= "type" Var "is" Modifiers BaseType
     syntax FieldDef ::= VarDef
                       | VarDef ":=" Expr
-    syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" "returns" Type ":" Stmt
+    syntax TransactionDef ::= "transaction" Var "(" VarDefs ")" "returns" Type ":" Stmt
     syntax Decl ::= TypeDef
                   | TransactionDef
                   | FieldDef
@@ -96,24 +99,14 @@ module FLOW-CORE-SYNTAX
                   | "var" VarDef ":=" Expr "in" Stmt [strict(2)]
                   | "pass"
                   | "pack"
-                  | "unpack" "(" Id ")"
+                  | "unpack" "(" Var ")"
                   | "return" Expr [strict]
                   | Revert
-                  | Expr
                   | IfStmt
                   | Stmt Stmt [right]
+                  > Expr
 
-    // Add the built-in types to the Id sort so we can reference them in the rules
-    syntax Id ::= "nat"        [token]
-                | "bool"       [token]
-                | "string"     [token]
-                | "address"    [token]
-                | "unit"       [token]
-                | "void"       [token]
-    // Special reserved Ids
-    syntax Id ::= "this" [token]
-
-    syntax Contract ::= "contract" Id "{" Decls "}"
+    syntax Contract ::= "contract" Var "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
 
     syntax Program ::= Contracts ";" Stmt
@@ -122,23 +115,26 @@ endmodule
 module FLOW-SYNTAX
     imports DOMAINS-SYNTAX
     imports FLOW-CORE-SYNTAX
+    imports DOMAINS
+
+    syntax KResult
 
     // All the new syntax here gets desugared at some point.
     syntax Expr ::= Expr ">=" Expr
                   | Expr ">" Expr
-                  | Selector "not" "in" Storage
+                  | Selector "not" "in" Source
                   | Expr "!=" Expr
 
     // Quantifiers "speaking names"
     syntax Quant ::= "exactly" "one"
 
-    syntax Flow ::= Storage "-->" Flow
-                  | Storage ":=" Expr // Assignment only allowed for consumable types
+    syntax Flow ::= Source "-->" Destination
+                  | Expr ":=" Expr // Assignment only allowed for consumable types
 
-    syntax TransactionDef ::= "transaction" Id "(" VarDefs ")" ":" Stmt
+    syntax TransactionDef ::= "transaction" Var "(" VarDefs ")" ":" Stmt
 
     syntax Stmt ::= "var" VarDef
-                  // NOTE: The following is desugared by normalize(), because it's a little more complicated than the rest of the macros below
+                  // NOTE: The following is desugared by normalize(), because it's a little more complicated than the rest of the macros in this module
                   | "var" VarDef ":=" Expr
                   | "if" Expr "{" Stmt "}"
 
@@ -147,11 +143,12 @@ module FLOW-SYNTAX
     // Desugaring
     rule S --> D => S --[ everything ]-> D [macro]
 
-    rule S --[ Sel1 ]-> T:QualifiedId --[ Sel2 ]-> D
-         =>
-         (S --[ Sel1 ]-> T)
-         (T --[ Sel2 ]-> D)
-         [macro]
+    // TODO: Allow these pipelines again?
+    /* rule S --[ Sel1 ]-> T:QualifiedId --[ Sel2 ]-> D */
+    /*      => */
+    /*      (S --[ Sel1 ]-> T) */
+    /*      (T --[ Sel2 ]-> D) */
+    /*      [macro] */
 
     rule S := E => (S --> consume) (E --> S) [macro]
 

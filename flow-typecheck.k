@@ -1,4 +1,3 @@
-require "substitution.k"
 require "flow-common.k"
 
 module FLOW-TYPECHECK-SYNTAX
@@ -10,7 +9,6 @@ module FLOW-TYPECHECK
     imports FLOW-COMMON
     imports DOMAINS
     imports COLLECTIONS
-    imports SUBSTITUTION
 
     syntax KResult ::= Type
 
@@ -18,25 +16,27 @@ module FLOW-TYPECHECK
         <common />
         <typeEnv> .Map </typeEnv>
 
-    syntax Judgement ::= Stmt "wf"
-                       | Selector "selects" "{" TypeQuant "}" Type
-                       | Expr ":" Type
-                       | Storage "::" Type "==>" "{" TypeQuant "}" Type
-    syntax K ::= Judgement
+
+    syntax K ::= Stmt "wf"
+               | Selector "selects" "{" TypeQuant "}" Type
+               | Expr ":" Type
+               | Source "provides" "{" TypeQuant "}" Type
+               | Destination "accepts" Type
 
     rule <k> S:Stmt => S wf </k>
 
     // Sequence
     rule (S1:Stmt S2:Stmt) wf => S1 wf ~> S2 wf
 
-    syntax K ::= insert(QualifiedId, Type)
-               | drop(QualifiedId)
+    syntax K ::= insert(Var, Type)
+               | drop(Var)
 
     rule <k> insert(X, T) => . ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
 
-    rule <k> drop(X) => nonAsset(T) ... </k>
-        <typeEnv> ... X |-> T => .Map ... </typeEnv>
+    rule <k> drop(X) => . ... </k>
+        <typeEnv> ... X |-> T:Type => .Map ... </typeEnv>
+        requires notBool(isAsset(T))
 
     // Variable definition
     // TODO: Need to change to use the (var X : T := E in S) construct to match the current typing rules
@@ -45,29 +45,25 @@ module FLOW-TYPECHECK
     // Primitive types
     rule I:Int : ! nat => .
         requires I >=Int 0
-    rule B:Bool : ! bool => .
-    rule S:String : ! string => .
+    rule _:Bool : ! bool => .
+    rule _:String : ! string => .
 
     rule emptyval : empty _ => .
 
     // Storage typing
-    rule <k> X :: R T ==> {!} Q T => . ... </k>
+    rule <k> X accepts (R T:BaseType) => . ... </k>
         <typeEnv> ... X |-> Q T ... </typeEnv>
 
-    rule <k> X :: T ==> {Q} T => . ... </k>
+    rule <k> X provides {Q} T => . ... </k>
         <typeEnv> ... X |-> Q C:Collection T ... </typeEnv>
+
+    rule <k> X provides {!} T => . ... </k>
+        <typeEnv> ... X |-> T ... </typeEnv>
 
     syntax K ::= checkEach(Exprs, VarDefs)
 
-    rule <k> new C(Args) :: empty void ==> {!} ! C
-             =>
-             checkEach(Args, ArgDefs)
-             ...  </k>
-        <constructors> ... C |-> constructor(ArgDefs, _) ... </constructors>
-
-    rule consume :: T ==> {empty} empty void
-         =>
-         checkConsumable(T)
+    rule consume accepts T => .
+        requires isConsumable(T)
 
     rule checkEach(.Exprs, .VarDefs) => .
     rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
@@ -78,17 +74,25 @@ module FLOW-TYPECHECK
     // Flow typing
     // TODO: need to update storage information
     rule (S --[ Sel ]-> D) wf =>
-        S :: ?T1 ==> {?Q} ?T2 ~>
-        Sel selects {?R} demote(?T2) ~>
-        D :: ?T2 ==> {?_} ?T3
+        S provides {?Q} ?T1 ~>
+        Sel selects {?R} demote(?T1) ~>
+        D accepts ?T1
 
     // Type modifier checking
-    syntax K ::= checkConsumable(Type)
-               | checkConsumable(BaseType)
-               | nonAsset(Type)
+    syntax Bool ::= isConsumable(Type) [function, functional]
+               | isConsumable(BaseType) [function, functional]
+               | isAsset(Type) [function, functional]
+               | isAsset(BaseType) [function, functional]
 
-    /* rule checkConsumable(Q:TypeQuant T) => nonAsset(Q T) or checkConsumable(T) */
-    /*     <types> ... T |-> modified(Ms, _) ... </types> */
-    /*     requires consumable in Ms */
+    syntax Set ::= modifiers(BaseType) [function, functional]
+
+    rule [[ modifiers(T) => Ms ]]
+        <types> ... T |-> modified(Ms, _) ... </types>
+    rule [[ modifiers(T) => .Set ]]
+        <types> Types </types>
+        requires notBool(T in keys(Types))
+
+    // TODO: Finish this definition
+    rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool (notBool(asset in modifiers(T)))
 endmodule
 

@@ -14,8 +14,6 @@ if A != 2 { revert("Failure!") }
 A --[ 1 ]-> B
 B --> C
 
-A --[ 1 ]-> C --> B
-
 "foo" --> D
 "bar" --> D
 if "bar" not in D { revert("Failure!") }

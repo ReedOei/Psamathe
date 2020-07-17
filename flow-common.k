@@ -1,5 +1,4 @@
 require "flow-syntax.k"
-require "substitution.k"
 
 module FLOW-COMMON-SYNTAX
     imports FLOW-SYNTAX
@@ -24,14 +23,13 @@ module FLOW-COMMON
                 bool |-> modified(SetItem(consumable) SetItem(nonfungible), bool)
                 address |-> modified(SetItem(consumable) SetItem(nonfungible), address)
             </types>
-            <log stream="stdout"> .List </log>
+            /* <log stream="stdout"> .List </log> */
         </common>
 
     // Helper terms
-    syntax Stmt ::= processDecls(Id, Decls)
+    syntax Stmt ::= processDecls(Var, Decls)
 
     syntax TypeMod ::= modified(Set, BaseType)
-    syntax KItem ::= TypeMod
 
     syntax KItem ::= constructor(VarDefs, Stmt)
 
@@ -61,15 +59,12 @@ module FLOW-COMMON
 
     syntax TxData ::= transaction(Type, VarDefs, Stmt)
 
-    syntax Type ::= varDefsToProdType(VarDefs) [function]
-
-    rule varDefsToProdType(.VarDefs) => ! unit
-    rule varDefsToProdType(_ : T1) => T1
-    rule varDefsToProdType((_ : T1, _ : T2)) => ! (T1 * T2)
-    rule varDefsToProdType((_ : T1, Y : T2, Z : T3, Rest)) => ! (T1 * varDefsToProdType((Y : T2, Z : T3, Rest)))
-
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
-        <fields> ... C |-> (Fields => Fields SetItem(T : any (varDefsToProdType(resolveTypes(C, Args)) ~~> resolveType(C, RetType)))) ... </fields>
+        <fields>
+            ...
+            (C |-> (Fields => Fields SetItem(T : ! (! { resolveTypes(C, Args) }) ~~> resolveType(C, RetType))))
+            ...
+        </fields>
         <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, normalizeTxBody(S))) ... </transactions>
         [structural]
 
@@ -116,21 +111,20 @@ module FLOW-COMMON
                  | vars(Exprs) [function, functional]
 
     rule vars(A --[ Sel ]-> B) => vars(A) |Set vars(Sel) |Set vars(B)
-    rule vars(var X : T := E in S:Stmt) => vars(E) |Set vars(S)
-    rule vars((var X : T := E) S) => vars(E) |Set vars(S)
+    rule vars(var _ : _ := E in S:Stmt) => vars(E) |Set vars(S)
+    rule vars((var _ : _ := E) S) => vars(E) |Set vars(S)
     rule vars(pass) => .Set
     rule vars(pack) => .Set
-    rule vars(unpack(F)) => .Set
+    rule vars(unpack(_)) => .Set
     rule vars(return E) => vars(E)
     rule vars(S1:Stmt S2:Stmt) => vars(S1) |Set vars(S2)
 
-    rule vars(I:Int) => .Set
-    rule vars(S:String) => .Set
-    rule vars(B:Bool) => .Set
-    rule vars(X:Id) => SetItem(X)
+    rule vars(_:Int) => .Set
+    rule vars(_:String) => .Set
+    rule vars(_:Bool) => .Set
+    rule vars(X:Var) => SetItem(X)
     rule vars(X.T) => SetItem(X.T)
-    rule vars(new C(Args)) => vars(Args)
-    rule vars(X[E]) => vars(X) |Set vars(E)
+    rule vars(new _(Args)) => vars(Args)
 
     rule vars(.Exprs) => .Set
     rule vars((E, Es):Exprs) => vars(E) |Set vars(Es)
@@ -148,13 +142,16 @@ module FLOW-COMMON
     rule vars(not A) => vars(A)
     rule vars(if B { E1 } else { E2 } ) => vars(B) |Set vars(E1) |Set vars(E2)
 
-    syntax Type ::= resolveType(Id, Type) [function]
-    syntax BaseType ::= resolveType(Id, BaseType) [function]
-    syntax VarDefs ::= resolveTypes(Id, VarDefs) [function]
-    syntax Stmt ::= resolveTypes(Id, Stmt) [function]
-    syntax Flow ::= resolveTypes(Id, Flow) [function]
-    syntax Storage ::= resolveTypes(Id, Storage) [function]
-    syntax Selector ::= resolveTypes(Id, Selector) [function]
+    syntax Type ::= resolveType(Var, Type) [function]
+    syntax BaseType ::= resolveType(Var, BaseType) [function]
+    syntax VarDefs ::= resolveTypes(Var, VarDefs) [function]
+    syntax Stmt ::= resolveTypes(Var, Stmt) [function]
+    syntax Flow ::= resolveTypes(Var, Flow) [function]
+    syntax Source ::= resolveTypes(Var, Source) [function]
+    syntax Destination ::= resolveTypes(Var, Destination) [function]
+    syntax Selector ::= resolveTypes(Var, Selector) [function]
+    syntax Expr ::= resolveTypes(Var, Expr) [function]
+    syntax Var ::= resolveTypes(Var, Var) [function]
 
     // Resolve types
     // TODO: Do this better...it's very repetitive and also just assumes all types are child types of the current contract, which may not be true.
@@ -163,10 +160,9 @@ module FLOW-COMMON
     rule resolveType(_, string) => string
     rule resolveType(_, address) => address
     rule resolveType(_, unit) => unit
-    rule resolveType(C, T:Id) => C.T
+    rule resolveType(C, T:Var) => C.T
         requires T =/=K nat andBool T =/=K bool andBool T =/=K address andBool T =/=K string
     rule resolveType(_, X.T) => X.T
-    rule resolveType(C, T1 * T2) => resolveType(C, T1) * resolveType(C, T2)
     rule resolveType(C, T1 ~~> T2) => resolveType(C, T1) ~~> resolveType(C, T2)
     rule resolveType(C, Q:TypeQuant T) => Q resolveType(C, T)
 
@@ -180,13 +176,13 @@ module FLOW-COMMON
     rule resolveTypes(C, S1:Stmt S2:Stmt) => resolveTypes(C, S1) resolveTypes(C, S2)
     rule resolveTypes(C, return E) => return resolveTypes(C, E)
     rule resolveTypes(C, revert(E)) => revert(resolveTypes(C, E))
-    rule resolveTypes(C, pass) => pass
-    rule resolveTypes(C, pack) => pack
-    rule resolveTypes(C, unpack(X)) => unpack(X) // TODO: Should this have a resolve types call inside of it?
+    rule resolveTypes(_, pass) => pass
+    rule resolveTypes(_, pack) => pack
+    rule resolveTypes(_, unpack(X)) => unpack(X) // TODO: Should this have a resolve types call inside of it?
 
     // Resolve selector types
-    rule resolveTypes(_, S:SpecialSelect) => S
-    rule resolveTypes(C, Q:Quant X : T:Type such that E) => Q X : resolveType(C, T) such that resolveTypes(C, E)
+    rule resolveTypes(C, Q:SelectorQuant X : T:Type such that E) => Q X : resolveType(C, T) such that resolveTypes(C, E)
+    rule resolveTypes(_, everything) => everything
 
     // Resolve expression types
     rule resolveTypes(_, I:Int) => I
@@ -194,14 +190,12 @@ module FLOW-COMMON
     rule resolveTypes(_, B:Bool) => B
     rule resolveTypes(_, emptyval) => emptyval
     rule resolveTypes(C, \ X : T . E) => \ X : resolveType(C, T) . resolveTypes(C, E)
-    rule resolveTypes(_, X:Id) => X
-    rule resolveTypes(C, X:Storage.E) => resolveTypes(C, X) . resolveTypes(C, E)
-    rule resolveTypes(C, X[E]) => resolveTypes(C, X) [ resolveTypes(C, E) ]
+    rule resolveTypes(_, X:Var) => X
+    rule resolveTypes(C, X.Y) => resolveTypes(C, X) . resolveTypes(C, Y)
     // TODO: Finish all cases of resolveTypes
 
     // Not sure why this isn't included in the standard library, but whatever.
     syntax List ::= remove(List, KItem) [function]
-
     rule remove(.List, _) => .List
     rule remove(ListItem(X) Rest, X) => Rest
     rule remove(ListItem(Y) Rest, X) => remove(Rest, X)
