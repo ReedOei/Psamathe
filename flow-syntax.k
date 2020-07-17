@@ -41,10 +41,10 @@ module FLOW-CORE-SYNTAX
                   | "\\" Var ":" Type "." Expr
                   | Var
                   | FunctionCall
-                  | "some" "(" Expr ")"
-                  | Selector "in" Source
+                  | "some" "(" Expr ")" [strict]
+                  | Selector "in" Source [strict(1)]
                   | "{" RecordMemberExprs "}"
-                  | "let" VarDef ":=" Expr "in" Expr
+                  | "let" VarDef ":=" Expr "in" Expr [strict(2)]
                   | IfExpr
                   | "(" Expr ")"        [bracket]
                   | "new" Var "(" Exprs ")"
@@ -59,17 +59,21 @@ module FLOW-CORE-SYNTAX
                   > IfExpr
     syntax Exprs ::= List{Expr, ","} [klabel(exprs)]
 
+    syntax SourceVal ::= "new" Var
     syntax Source ::= Expr
-                    | "new" Var
+                    | SourceVal
+    syntax DestinationVal ::= "consume"
     syntax Destination ::= Expr
-                         | "consume"
+                         | DestinationVal
+    syntax StorageVal ::= SourceVal | DestinationVal
+    syntax Storage ::= Source | Destination | StorageVal
 
     syntax SelectorVal ::= Val | "everything"
     syntax Selector ::= Expr
                       | SelectorVal
                       | SelectorQuant VarDef "such" "that" Expr
 
-    syntax Flow ::= Source "--[" Selector "]->" Destination
+    syntax Flow ::= Source "--[" Selector "]->" Destination [strict(2)]
 
     // TODO: Maybe get rid of nonfungible or fungible and have be the default
     // TODO: Warn if people put consumable on non-asset types, because that's redundant.
@@ -85,7 +89,6 @@ module FLOW-CORE-SYNTAX
 
     syntax TypeDef ::= "type" Var "is" Modifiers BaseType
     syntax FieldDef ::= VarDef
-                      | VarDef ":=" Expr
     syntax TransactionDef ::= "transaction" Var "(" VarDefs ")" "returns" Type ":" Stmt
     syntax Decl ::= TypeDef
                   | TransactionDef

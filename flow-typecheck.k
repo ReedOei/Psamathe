@@ -51,11 +51,11 @@ module FLOW-TYPECHECK
     rule emptyval : empty _ => .
 
     // Storage typing
-    rule <k> X accepts (R T:BaseType) => . ... </k>
-        <typeEnv> ... X |-> Q T ... </typeEnv>
+    rule <k> X accepts (_ T:BaseType) => . ... </k>
+        <typeEnv> ... X |-> _ T ... </typeEnv>
 
     rule <k> X provides {Q} T => . ... </k>
-        <typeEnv> ... X |-> Q C:Collection T ... </typeEnv>
+        <typeEnv> ... X |-> Q _:Collection T ... </typeEnv>
 
     rule <k> X provides {!} T => . ... </k>
         <typeEnv> ... X |-> T ... </typeEnv>
@@ -69,7 +69,7 @@ module FLOW-TYPECHECK
     rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
 
     // Selector typing
-    rule everything selects {every} T => .
+    rule everything selects {every} _ => .
 
     // Flow typing
     // TODO: need to update storage information

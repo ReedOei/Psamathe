@@ -52,19 +52,15 @@ module FLOW-COMMON
     rule <k> processDecls(C, (X : T) Ds) => processDecls(C, Ds) ... </k>
         <fields> ... C |-> (Fields => Fields SetItem(X : resolveType(C, T))) ... </fields>
         [structural]
-    rule <k> processDecls(C, (X : T := E) Ds) => processDecls(C, Ds) ... </k>
-        <fields> ... C |-> (Fields => Fields SetItem(X : resolveType(C, T))) ... </fields>
-        <constructors> ... C |-> constructor(_, S => S (E --> X)) ... </constructors>
-        [structural]
 
     syntax TxData ::= transaction(Type, VarDefs, Stmt)
 
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
-        <fields>
-            ...
-            (C |-> (Fields => Fields SetItem(T : ! (! { resolveTypes(C, Args) }) ~~> resolveType(C, RetType))))
-            ...
-        </fields>
+        /* <fields> */
+        /*     ... */
+        /*     (C |-> (Fields => Fields SetItem(T : ! (! { resolveTypes(C, Args) }) ~~> resolveType(C, RetType)))) */
+        /*     ... */
+        /* </fields> */
         <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, normalizeTxBody(S))) ... </transactions>
         [structural]
 
@@ -147,8 +143,7 @@ module FLOW-COMMON
     syntax VarDefs ::= resolveTypes(Var, VarDefs) [function]
     syntax Stmt ::= resolveTypes(Var, Stmt) [function]
     syntax Flow ::= resolveTypes(Var, Flow) [function]
-    syntax Source ::= resolveTypes(Var, Source) [function]
-    syntax Destination ::= resolveTypes(Var, Destination) [function]
+    syntax Storage ::= resolveTypes(Var, Storage) [function]
     syntax Selector ::= resolveTypes(Var, Selector) [function]
     syntax Expr ::= resolveTypes(Var, Expr) [function]
     syntax Var ::= resolveTypes(Var, Var) [function]
@@ -195,11 +190,15 @@ module FLOW-COMMON
     // TODO: Finish all cases of resolveTypes
 
     // Not sure why this isn't included in the standard library, but whatever.
-    syntax List ::= remove(List, KItem) [function]
+    syntax List ::= remove(List, KItem) [function, functional]
     rule remove(.List, _) => .List
     rule remove(ListItem(X) Rest, X) => Rest
     rule remove(ListItem(Y) Rest, X) => remove(Rest, X)
         requires X =/=K Y
+
+    syntax Bool ::= Set "is_subset_of" Set [function, functional]
+    rule .Set is_subset_of _ => true
+    rule (SetItem(A) As) is_subset_of Bs => (A in Bs) andBool (As is_subset_of Bs)
 
     syntax Type ::= demote(Type) [function, functional]
     rule demote(Q:TypeQuant T) => Q demote(T)

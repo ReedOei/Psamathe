@@ -24,5 +24,3 @@ if "foo" in D { revert("Failure!") }
 A --> consume
 if A > 0 { revert("Failure!") }
 
-B --[ 1 ]-> consume
-
