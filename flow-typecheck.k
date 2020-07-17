@@ -221,7 +221,7 @@ module FLOW-TYPECHECK
     // Pack
     // =======================================
     rule <k> pack => . ... </k>
-        <typeEnv> Gamma </typeEnv>
+        <typeEnv> Gamma => removeAll(Gamma, keys(fieldEnv(Fields))) </typeEnv>
         <fields> ... Gamma[this] |-> Fields </fields>
         requires restrict(Gamma, keys(fieldEnv(Fields))) <=Env fieldEnv(Fields)
 
