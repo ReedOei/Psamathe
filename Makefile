@@ -23,7 +23,7 @@ static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-sy
 
 tests/exec/%.flow: kompile
 	# $(KDISTR)/krun $(FLAGS) --directory static/ $@
-	$(KDISTR)/krun $(FLAGS) --directory dynamic/ $@
+	./flow test $(FLAGS) $@
 
 tests/typecheck/%.flow: static
 	$(KDISTR)/krun $(FLAGS) --directory static/ $@

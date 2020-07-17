@@ -22,12 +22,12 @@ module FLOW
     syntax Val ::= Resource | FlowError
     syntax KResult ::= Val | Vals | StorageVal | SelectorVal
 
+    syntax Var ::= "Base"
+
     configuration
         <common />
-        <storage> .Map </storage>
-        <lookup> .Map </lookup>
-        <localTypeEnv> .Map </localTypeEnv>
-        <freshCounter> 0 </freshCounter>
+        <storage> loc(-1) |-> resource(Base, .Map) </storage>
+        <lookup> this |-> loc(-1) </lookup>
 
     // Sequence statements
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
@@ -36,11 +36,13 @@ module FLOW
     rule pass => . [structural]
 
     // Temporary variable declaration
-    rule <k> var X : T := V:Val in S:Stmt => S ~> drop(X) ... </k>
-        <localTypeEnv> ... .Map => X |-> T ... </localTypeEnv>
-        <lookup> ... .Map => X |-> loc(I) ... </lookup>
+    rule <k> var X : T := V:Val in S:Stmt => insert(X, loc(I)) ~> S ~> drop(X) ... </k>
         <storage> ... .Map => loc(I) |-> coerce(V, T) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
+
+    syntax Stmt ::= insert(Var, StorageLoc)
+    rule <k> insert(X, Loc) => . ... </k>
+        <lookup> ... .Map => X |-> Loc ... </lookup>
 
     syntax Val ::= coerce(Val, Type) [function, functional]
     rule coerce(resource(R, V), _ R) => resource(R, V)
@@ -54,9 +56,8 @@ module FLOW
 
     syntax Stmt ::= drop(Var)
                   | dropLoc(StorageLoc)
-    rule <k> drop(X) => dropLoc(Loc) ... </k>
-        <localTypeEnv> ... X |-> _ => .Map ... </localTypeEnv>
-        <lookup> ... X |-> Loc => .Map ... </lookup>
+    rule <k> drop(X) => . ... </k>
+        <lookup> ... X |-> _ => .Map ... </lookup>
 
     rule <k> dropLoc(Loc) => . ... </k>
         <storage> ... Loc |-> _ => .Map ... </storage>
@@ -261,6 +262,8 @@ module FLOW
     rule defaultValue(set R) => resource(set R, .Set)
     rule defaultValue(list R) => resource(list R, .List)
 
+    rule expr(_:Val) => .
+
     // =================================
     // Transaction calls:
     // =================================
@@ -272,28 +275,29 @@ module FLOW
     rule setupArgs((E, Es):Exprs, (Y : T, Defs2), S) => var Y : T := E in setupArgs(Es, Defs2, S)
 
     rule <k> cleanEnv(ToRemove) => . ... </k>
-        <localTypeEnv> Env => removeAll(Env, ToRemove) </localTypeEnv>
         <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
 
-    rule <k> invoke(Loc, Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Env)) Body) ~> resetEnv(Lookup, Env) ... </k>
-        <localTypeEnv> Env </localTypeEnv>
-        <lookup> Lookup (.Map => this |-> Loc) </lookup>
-        <storage> ... Loc |-> resource(C, _) ... </storage>
+    rule <k> invoke(Loc, Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Lookup)) insert(this, Loc) Body) ~> resetEnv(Lookup) ... </k>
+        <lookup> Lookup </lookup>
 
-    rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, S) ... </k>
-        <lookup> ((X |-> Loc) Lookup) </lookup>
-        <transactions> ... C.T |-> transaction(RetType, FormalArgs, S) ... </transactions>
+    rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, insert(RetVar, loc(I)) S) ~> lookupVal(loc(I)) ... </k>
+        <lookup> ... X |-> Loc ... </lookup>
+        <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> defaultValue(RetType)) ... </storage>
+        <transactions> ... C.T |-> transaction(RetVar : _:TypeQuant RetType, FormalArgs, S) ... </transactions>
+        <freshCounter> I => I +Int 1 </freshCounter>
 
-    // TODO: Move everything to an activation stack system probably so the K-cell becomes more managable?
-    // TODO: Convert all returns to a flow to the return variable and add if statements and such so that we immediately jump to the end.
-    rule return Ret ~> _ ~> resetEnv(Lookup, Env) => resetEnv(Lookup, Env) ~> Ret
+    rule exit ~> S:Stmt => exit
+        requires resetEnv(_) :/=K S
+        [structural]
+    rule exit ~> resetEnv(Lookup) => resetEnv(Lookup)
+        [structural]
 
     // ============================
     // New contract
     // ============================
     rule <k> new C(Args)
              =>
-             initFields(loc(I), Fields) ~> invoke(loc(I), Args, FormalArgs, S) ~> lookupContract(loc(I))
+             initFields(loc(I), Fields) ~> invoke(loc(I), Args, FormalArgs, S) ~> lookupVal(loc(I))
              ...
          </k>
         <storage> ... .Map => loc(I) |-> resource(C, .Map) ... </storage>
@@ -301,15 +305,14 @@ module FLOW
         <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    syntax Expr ::= lookupContract(StorageLoc)
-
-    rule <k> lookupContract(Loc) => resource(C, Fs) ... </k>
-        <storage> ... Loc |-> resource(C, Fs) => .Map ... </storage>
+    syntax Expr ::= lookupVal(StorageLoc)
+    rule <k> lookupVal(Loc) => V ... </k>
+        <storage> ... Loc |-> V => .Map ... </storage>
 
     syntax Stmt ::= initFields(StorageLoc, Set)
 
     rule initFields(_, .Set) => .
-    rule <k> initFields(Loc, SetItem(X : Q:TypeQuant T) Rest) => initFields(Loc, Rest) ... </k>
+    rule <k> initFields(Loc, SetItem(X : _:TypeQuant T) Rest) => initFields(Loc, Rest) ... </k>
         <storage>
             ...
             (Loc |-> resource(C, Fs))
@@ -320,20 +323,11 @@ module FLOW
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    syntax Stmt ::= resetEnv(Map, Map)
+    syntax Stmt ::= resetEnv(Map)
 
     // NOTE: This would be unsafe if used to destroy assets, but the typechecker will ensure that it's safe, so we don't need to check.
-    // NOTE: We don't **HAVE** to clean up the storage.
-    //       It would be (a little) faster if we didn't, but it does save us from some junk lying around from local variables, which
-    //       is probably faster overall, but most importantly, it makes the output nicer to read.
-    rule <k> resetEnv(Lookup, Env) => . ... </k>
-        <localTypeEnv> .Map => Env </localTypeEnv>
+    rule <k> resetEnv(Lookup) => . ... </k>
         <lookup> _ => Lookup </lookup>
-
-    rule <k> resetEnv(_, _) ... </k>
-        <localTypeEnv> ... X |-> _ => .Map ... </localTypeEnv>
-        <lookup> ... X |-> Loc:StorageLoc ... </lookup>
-        <storage> Store => removeAll(Store, SetItem(Loc)) </storage>
 
     // ==================================
     // Pack
@@ -342,7 +336,7 @@ module FLOW
 
     rule <k> pack => doPack(Fs) ... </k>
         <lookup> ... this |-> Loc ... </lookup>
-        <storage> ... Loc |-> resource(C, Fs) ... </storage>
+        <storage> ... Loc |-> resource(_, Fs) ... </storage>
 
     rule doPack(.Map) => .
     rule <k> doPack((X |-> _) Rest) => doPack(Rest) ... </k>
@@ -351,7 +345,7 @@ module FLOW
     // ==================================
     // Unpack
     // ==================================
-    rule <k> unpack(X) => . </k>
+    rule <k> unpack(X) => . ... </k>
         <lookup>
             ...
             (this |-> Loc)

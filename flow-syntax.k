@@ -14,6 +14,8 @@ module FLOW-CORE-SYNTAX
                 | "void"
     // Special reserved Ids
     syntax Var ::= "this"
+    // For generated Vars
+    syntax Var ::= var(Int)
 
     syntax SelectorQuant ::= "!" | "any" | "nonempty"
     syntax TypeQuant ::= SelectorQuant | "empty" | "every"
@@ -89,7 +91,7 @@ module FLOW-CORE-SYNTAX
 
     syntax TypeDef ::= "type" Var "is" Modifiers BaseType
     syntax FieldDef ::= VarDef
-    syntax TransactionDef ::= "transaction" Var "(" VarDefs ")" "returns" Type ":" Stmt
+    syntax TransactionDef ::= "transaction" Var "(" VarDefs ")" "returns" VarDef ":" Stmt
     syntax Decl ::= TypeDef
                   | TransactionDef
                   | FieldDef
@@ -98,16 +100,20 @@ module FLOW-CORE-SYNTAX
     syntax Revert ::= "revert" "(" Expr ")" [strict]
     syntax IfStmt ::= "if" Expr "{" Stmt "}" "else" "{" Stmt "}" [strict(1), klabel(if)]
                     | IfExpr
+    syntax ReturnExpr ::= "return" Expr [strict, klabel(returnexpr)]
     syntax Stmt ::= Flow
                   | "var" VarDef ":=" Expr "in" Stmt [strict(2)]
                   | "pass"
                   | "pack"
                   | "unpack" "(" Var ")"
-                  | "return" Expr [strict]
+                  | "expr" "(" Expr ")" [strict]
+                  | ReturnExpr
                   | Revert
                   | IfStmt
-                  | Stmt Stmt [right]
-                  > Expr
+                  > "exit"
+                  > Stmt Stmt [right, klabel(stmtseq)]
+
+    syntax priorities returnexpr > stmtseq
 
     syntax Contract ::= "contract" Var "{" Decls "}"
     syntax Contracts ::= List{Contract, " "}
@@ -135,11 +141,13 @@ module FLOW-SYNTAX
                   | Expr ":=" Expr // Assignment only allowed for consumable types
 
     syntax TransactionDef ::= "transaction" Var "(" VarDefs ")" ":" Stmt
+                            | "transaction" Var "(" VarDefs ")" "returns" Type ":" Stmt
 
     syntax Stmt ::= "var" VarDef
                   // NOTE: The following is desugared by normalize(), because it's a little more complicated than the rest of the macros in this module
                   | "var" VarDef ":=" Expr
                   | "if" Expr "{" Stmt "}"
+                  | Expr
 
     rule var X : T => var X : T := emptyval [macro]
 
@@ -167,7 +175,7 @@ module FLOW-SYNTAX
 
     rule transaction T(Args): S
          =>
-         transaction T(Args) returns ! bool: S (return true)
+         transaction T(Args) returns ! bool: S (return true):ReturnExpr
          [macro]
 endmodule
 

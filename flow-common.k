@@ -24,6 +24,7 @@ module FLOW-COMMON
                 address |-> modified(SetItem(consumable) SetItem(nonfungible), address)
             </types>
             /* <log stream="stdout"> .List </log> */
+            <freshCounter> 0 </freshCounter>
         </common>
 
     // Helper terms
@@ -53,43 +54,60 @@ module FLOW-COMMON
         <fields> ... C |-> (Fields => Fields SetItem(X : resolveType(C, T))) ... </fields>
         [structural]
 
-    syntax TxData ::= transaction(Type, VarDefs, Stmt)
+    syntax TxData ::= transaction(VarDef, VarDefs, Stmt)
 
-    rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, Ds) ... </k>
+    // If no return variable name was specified, generate a fresh one, then use the standard transaction processing rule.
+    rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, (transaction T(Args) returns var(I) : RetType : S) Ds) ... </k>
+        <freshCounter> I => I +Int 1 </freshCounter>
+
+    rule <k> processDecls(C, (transaction T(Args) returns X : RetType : S) Ds) => processDecls(C, Ds) ... </k>
         /* <fields> */
         /*     ... */
         /*     (C |-> (Fields => Fields SetItem(T : ! (! { resolveTypes(C, Args) }) ~~> resolveType(C, RetType)))) */
         /*     ... */
         /* </fields> */
-        <transactions> ... .Map => C.T |-> transaction(resolveType(C, RetType), resolveTypes(C, Args), resolveTypes(C, normalizeTxBody(S))) ... </transactions>
+        <transactions>
+            ...
+            .Map
+            =>
+            C.T |-> transaction(X : resolveType(C, RetType),
+                                resolveTypes(C, Args),
+                                resolveTypes(C, normalizeTxBody(X, normalize(S))))
+            ...
+        </transactions>
         [structural]
 
-    syntax Stmt ::= normalizeTxBody(Stmt) [function, functional]
-    rule normalizeTxBody(S) => normalize(S pack)
+    // TODO: It would be nice toa void inserting the unpacks if not necessary (i.e., no fields are accessed)
+    syntax Stmt ::= normalizeTxBody(Var, Stmt) [function, functional]
+    rule normalizeTxBody(_, A --[ Sel ]-> B) => unpackAll(fields(vars(A --[ Sel ]-> B))) (A --[ Sel ]-> B)
+    rule normalizeTxBody(RetVar, var X : T := E in S:Stmt) => unpackAll(fields(vars(E))) (var X : T := E in normalizeTxBody(RetVar, S))
+    rule normalizeTxBody(_, pass) => pass
+    rule normalizeTxBody(_, pack) => pack
+    rule normalizeTxBody(_, unpack(F)) => unpack(F)
+    rule normalizeTxBody(RetVar, return E) => unpackAll(fields(vars(E))) (E --> RetVar) pack exit
+    rule normalizeTxBody(_, exit) => pack exit
+    rule normalizeTxBody(_, revert(E)) => unpackAll(fields(vars(E))) revert(E) pack
+    rule normalizeTxBody(_, E:Expr) => unpackAll(fields(vars(E))) E // TODO: Any other expressions we need to handle specially?
+    rule normalizeTxBody(RetVar, if E { S1 } else { S2 } ) => unpackAll(fields(vars(E))) (if E { normalizeTxBody(RetVar, S1) } else { normalizeTxBody(RetVar, S2) })
+    rule normalizeTxBody(RetVar, S1:Stmt S2:Stmt) => normalizeTxBody(RetVar, S1) normalizeTxBody(RetVar, S2)
 
-    // TODO: Write this function, which is intended to perform more thorough desugaring (such as generating fresh variables for non-variable storages, etc.)
+    syntax Stmt ::= unpackAll(Set) [function, functional]
+    rule unpackAll(.Set) => pass
+    rule unpackAll(SetItem(this . F) Rest) => unpack(F) unpackAll(Rest)
+
     syntax Stmt ::= normalize(Stmt) [function, functional]
-
-    // TODO: Is this right? Probably need to split up pipelines and insert identity transformers.
-    // TODO: Implement something like this
-    /* rule S --[ Sel1 ]-> V:Val --[ Sel2 ]-> D */
-    /*      => */
-    /*      (V:Val --> !Fresh) */
-    /*      (S --[ Sel1 ]-> !Fresh) */
-    /*      (!Fresh --[ Sel2 ]-> D) */
-    /*      [strucural] */
-
     rule normalize(A --[ Sel ]-> B) => A --[ Sel ]-> B
     rule normalize(var X : T := E in S:Stmt) => var X : T := E in normalize(S)
     rule normalize((var X : T := E) S) => var X : T := E in normalize(S)
     rule normalize((var X : T := E)) => var X : T := E in pass
     rule normalize(pass) => pass
     rule normalize(pack) => pack
+    rule normalize(exit) => exit
     rule normalize(unpack(F)) => unpack(F) // TODO: Need to unpack all fields before some statement, so do something like "=> unpackAll(fieldsUsedBy(S))". Will also need to keep track of what's already unpacked.
-    rule normalize(return E) => return E // TODO: Need to handle this properly.
+    rule normalize(return E) => return E
     rule normalize(revert(E)) => revert(E)
-    rule normalize(F:FunctionCall) => pack F
-    rule normalize(E:Expr) => E // TODO: Any other expressions we need to handle specially?
+    rule normalize(F:FunctionCall) => pack expr(F)
+    rule normalize(E:Expr) => expr(E) // TODO: Any other expressions we need to handle specially?
         requires (_):FunctionCall :/=K E // Ensure E is not a transaction call, or we need to apply a different rule
     rule normalize( if E { S1 } else { S2 } ) => if E { normalize(S1) } else { normalize(S2) }
     rule normalize(S1:Stmt S2:Stmt) => normalize(S1) normalize(S2)
@@ -104,6 +122,7 @@ module FLOW-COMMON
 
     syntax Set ::= vars(Stmt) [function, functional]
                  | vars(Expr) [function, functional]
+                 | vars(Selector) [function, functional]
                  | vars(Exprs) [function, functional]
 
     rule vars(A --[ Sel ]-> B) => vars(A) |Set vars(Sel) |Set vars(B)
@@ -113,6 +132,7 @@ module FLOW-COMMON
     rule vars(pack) => .Set
     rule vars(unpack(_)) => .Set
     rule vars(return E) => vars(E)
+    rule vars(exit) => .Set
     rule vars(S1:Stmt S2:Stmt) => vars(S1) |Set vars(S2)
 
     rule vars(_:Int) => .Set
@@ -121,6 +141,9 @@ module FLOW-COMMON
     rule vars(X:Var) => SetItem(X)
     rule vars(X.T) => SetItem(X.T)
     rule vars(new _(Args)) => vars(Args)
+
+    rule vars(everything) => .Set
+    rule vars(_:SelectorQuant _ : _ such that E) => vars(E)
 
     rule vars(.Exprs) => .Set
     rule vars((E, Es):Exprs) => vars(E) |Set vars(Es)
@@ -173,6 +196,7 @@ module FLOW-COMMON
     rule resolveTypes(C, revert(E)) => revert(resolveTypes(C, E))
     rule resolveTypes(_, pass) => pass
     rule resolveTypes(_, pack) => pack
+    rule resolveTypes(_, exit) => exit
     rule resolveTypes(_, unpack(X)) => unpack(X) // TODO: Should this have a resolve types call inside of it?
 
     // Resolve selector types

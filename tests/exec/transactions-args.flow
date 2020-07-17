@@ -14,11 +14,10 @@ contract Main {
 
 ;
 
-var x : empty Main
+var x : ! Main := new Main()
 var a : ! nat := 0
 var b : ! nat := 0
 
-new Main() --> x
 781 --> a
 611 --> b
 

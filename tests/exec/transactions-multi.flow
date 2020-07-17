@@ -12,9 +12,7 @@ contract Main {
 
 ;
 
-var x : empty Main
-
-new Main() --> x
+var x : ! Main := new Main()
 
 x.add(25)
 x.add(75)

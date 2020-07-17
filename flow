@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
+KDISTR="$HOME/k-framework/k-distribution/bin"
 FLAGS=()
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
 
 if [[ "$1" == "typecheck" ]]; then
     shift
@@ -13,7 +18,40 @@ if [[ "$1" == "typecheck" ]]; then
     fi
 
     set -ex
-    krun -d static/ "${FLAGS[@]}" "$@"
+    "$KDISTR/krun" --directory "static/" "${FLAGS[@]}" "$@"
+elif [[ "$1" == "test" ]]; then
+    shift
+
+    fname=""
+
+    for arg in "$@"; do
+        if [[ ! "$arg" =~ "^--" ]]; then
+            fname="$arg"
+            break
+        fi
+    done
+
+    if [[ -z "$fname" ]]; then
+        echo "No filename specified!"
+        exit 1
+    fi
+
+    if [[ -e "$fname.out" ]]; then
+        FLAGS+=("--pattern")
+        FLAGS+=("$(cat "$fname.pat")")
+    fi
+
+    set -e
+    to_run=("$KDISTR/krun" "${FLAGS[@]}" --directory "dynamic/" "$@")
+    printf "'%s' " "${to_run[@]}"
+    echo
+    result="$("${to_run[@]}")"
+    if [[ "$result" == "#False" ]]; then
+        echo -e "${RED}[ERROR] $fname failed${NC}"
+        exit 1
+    else
+        echo -e "${GREEN}[INFO] $fname passed${NC}"
+    fi
 else
     if [[ "$1" == "debug" ]]; then
         FLAGS+=("--log")
@@ -23,6 +61,6 @@ else
     fi
 
     set -ex
-    krun -d "dynamic/" "${FLAGS[@]}" "$@"
+    "$KDISTR/krun" --directory "dynamic/" "${FLAGS[@]}" "$@"
 fi
 
