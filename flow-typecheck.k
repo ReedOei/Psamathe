@@ -43,7 +43,9 @@ module FLOW-TYPECHECK
         <typeEnv> ... X |-> T:Type => .Map ... </typeEnv>
         requires notBool(isAsset(T))
 
+    // =======================================
     // Primitive types
+    // =======================================
     rule I:Int : ! nat => .
         requires I >=Int 0
     rule _:Bool : ! bool => .
@@ -51,10 +53,20 @@ module FLOW-TYPECHECK
 
     rule emptyval : empty _ => .
 
+    // =======================================
     // Variable definition
+    // =======================================
     rule var X : T := E in S:Stmt => E : T ~> insert(X, T) ~> S ~> drop(X)
 
+    // =======================================
+    // New contract
+    // =======================================
+    rule <k> new C(Args) : ! C => checkEach(Args, FormalArgs) ... </k>
+        <constructors> ... C |-> constructor(FormalArgs, _) ... </constructors>
+
+    // =======================================
     // Storage typing
+    // =======================================
     rule <k> X accepts (_ T:BaseType) => . ... </k>
         <typeEnv> ... X |-> _ T ... </typeEnv>
 
@@ -66,16 +78,23 @@ module FLOW-TYPECHECK
 
     syntax Stmt ::= checkEach(Exprs, VarDefs)
 
+    // =======================================
+    // Consume typing
+    // =======================================
     rule consume accepts T => .
         requires isConsumable(T)
 
     rule checkEach(.Exprs, .VarDefs) => .
     rule checkEach((E, Es):Exprs, (_ : T, Defs)) => E : T ~> checkEach(Es, Defs)
 
+    // =======================================
     // Selector typing
+    // =======================================
     rule everything selects {every} _ => .
 
+    // =======================================
     // Flow typing
+    // =======================================
     // TODO: need to update storage information
     rule S --[ Sel ]-> D =>
         S provides {?Q} ?T1 ~>

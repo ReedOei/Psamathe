@@ -9,8 +9,11 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
+directory="dynamic/"
+
 if [[ "$1" == "typecheck" ]]; then
     shift
+    directory="static/"
 
     if [[ "$1" == "debug" ]]; then
         FLAGS+=("--log")
@@ -18,10 +21,16 @@ if [[ "$1" == "typecheck" ]]; then
         FLAGS+=("(k),(#pc),#result,(typeEnv)")
         shift # Clear out the debug argument
     fi
+else
+    if [[ "$1" == "debug" ]]; then
+        FLAGS+=("--log")
+        FLAGS+=("--log-cells")
+        FLAGS+=("(k),(#pc),#result,(storage),(lookup),(localTypeEnv)")
+        shift # Clear out the debug argument
+    fi
+fi
 
-    set -x
-    "$KDISTR/krun" --directory "static/" "${FLAGS[@]}" "$@"
-elif [[ "$1" == "test" ]]; then
+if [[ "$1" == "test" ]]; then
     shift
 
     fname=""
@@ -44,25 +53,28 @@ elif [[ "$1" == "test" ]]; then
     else
         FLAGS+=("<k> . </k>")
     fi
-    to_run=("$KDISTR/krun" "${FLAGS[@]}" --directory "dynamic/" "$@")
+    to_run=("$KDISTR/krun" "${FLAGS[@]}" --directory "$directory" "$@")
     printf "'%s' " "${to_run[@]}"
     echo
     result="$("${to_run[@]}")"
-    if [[ "$result" == "#False" ]]; then
-        echo -e "${RED}[ERROR] $fname failed${NC}"
-        exit 1
+
+    if echo "$fname" | grep -qE "\-fail.flow$"; then
+        if [[ "$result" == "#False" ]]; then
+            echo -e "${GREEN}[INFO] $fname passed${NC}"
+        else
+            echo -e "${RED}[ERROR] $fname failed${NC}"
+            exit 1
+        fi
     else
-        echo -e "${GREEN}[INFO] $fname passed${NC}"
+        if [[ "$result" == "#False" ]]; then
+            echo -e "${RED}[ERROR] $fname failed${NC}"
+            exit 1
+        else
+            echo -e "${GREEN}[INFO] $fname passed${NC}"
+        fi
     fi
 else
-    if [[ "$1" == "debug" ]]; then
-        FLAGS+=("--log")
-        FLAGS+=("--log-cells")
-        FLAGS+=("(k),(#pc),#result,(storage),(lookup),(localTypeEnv)")
-        shift # Clear out the debug argument
-    fi
-
-    set -ex
-    "$KDISTR/krun" --directory "dynamic/" "${FLAGS[@]}" "$@"
+    set -x
+    "$KDISTR/krun" --directory "$directory" "${FLAGS[@]}" "$@"
 fi
 
