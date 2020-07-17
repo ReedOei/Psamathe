@@ -21,10 +21,10 @@ dynamic/flow-kompiled/timestamp: flow.k flow-common.k flow-syntax.k
 static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --backend haskell flow-typecheck.k -d static/
 
-tests/exec/%.flow: kompile
+tests/exec/%.flow: dynamic/flow-kompiled/timestamp static/flow-typecheck-kompiled/timestamp
 	./flow test $(FLAGS) $@
 
-tests/typecheck/%.flow: static
+tests/typecheck/%.flow: static/flow-typecheck-kompiled/timestamp
 	./flow typecheck $(FLAGS) $@
 
 clean:

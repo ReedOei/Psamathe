@@ -2,6 +2,5 @@ contract Main {
 }
 ;
 
-var x : empty Main
-new Main() --> x
+var x : ! Main := new Main()
 

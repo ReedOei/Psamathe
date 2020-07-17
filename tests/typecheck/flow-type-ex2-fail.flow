@@ -6,6 +6,5 @@ contract Wrong {
 
 ;
 
-var x : empty Main
-new Wrong() --> x
+var x : ! Main := new Wrong()
 
