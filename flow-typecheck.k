@@ -51,6 +51,12 @@ module FLOW-TYPECHECK
          assertEnv(?Gamma) ~> A : ! bool ~> assertEnv(?Gamma)
 
     // =======================================
+    // Let Expr
+    // TODO: Maybe unify this with the var ... in S Statement because they're basically the same. Could use a form where we only have expressions, and no statements.
+    // =======================================
+    rule (let X : T := E in Body) : Tau => E : T ~> insert(X, T) ~> Body : Tau ~> drop(X)
+
+    // =======================================
     // Pass
     // =======================================
     rule pass => .
@@ -249,21 +255,25 @@ module FLOW-TYPECHECK
         update(D, typeof(D) +Ty min(?Q, ?R))
 
     // =======================================
-    // If Statement
+    // If Statement, Expr
     // =======================================
-    rule <k> if E { S1:Stmt } else { S2:Stmt }
-             =>
-             E : ! bool ~>
-             assertEnv(Gamma) ~>
-             S1 ~>
-             assertEnv(?Delta) ~>
-             setEnv(Gamma) ~>
-             S2 ~>
-             assertEnv(?Xi) ~>
-             setEnv(join(?Delta, ?Xi))
-             ...
-         </k>
-        <typeEnv> Gamma </typeEnv>
+    rule if E { S1:Stmt } else { S2:Stmt }
+         =>
+         assertEnv(?Gamma) ~>
+         E : ! bool ~> assertEnv(?Gamma) ~>
+         S1 ~> assertEnv(?Delta) ~>
+         setEnv(?Gamma) ~>
+         S2 ~> assertEnv(?Xi) ~>
+         setEnv(join(?Delta, ?Xi))
+
+    rule (if E { E1 } else { E2 }) : Tau
+         =>
+         assertEnv(?Gamma) ~>
+         E : ! bool ~> assertEnv(?Gamma) ~>
+         E1 : Tau ~> assertEnv(?Delta) ~>
+         setEnv(?Gamma) ~>
+         E2 : Tau ~> assertEnv(?Xi) ~>
+         setEnv(join(?Delta, ?Xi))
 
     // =======================================
     // Revert
