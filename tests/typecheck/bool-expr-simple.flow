@@ -1,0 +1,5 @@
+contract Main {}
+;
+
+var A : ! bool := (false and true) or false or not true
+

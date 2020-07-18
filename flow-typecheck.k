@@ -21,7 +21,7 @@ module FLOW-TYPECHECK
                   | Source "provides" "{" TypeQuant "}" Type
                   | Destination "accepts" Type
     // =======================================
-    // Bool Expressions
+    // Boolean Expressions
     // =======================================
     rule (E1 = E2) : ! bool
          =>
@@ -33,6 +33,22 @@ module FLOW-TYPECHECK
          =>
          X provides {?_} ?Tau ~>
          S selects {?_} demote(?Tau)
+
+    rule (A and B) : ! bool
+         =>
+         assertEnv(?Gamma) ~>
+         A : ! bool ~> assertEnv(?Gamma) ~>
+         B : ! bool ~> assertEnv(?Gamma)
+
+    rule (A or B) : ! bool
+         =>
+         assertEnv(?Gamma) ~>
+         A : ! bool ~> assertEnv(?Gamma) ~>
+         B : ! bool ~> assertEnv(?Gamma)
+
+    rule (not A) : ! bool
+         =>
+         assertEnv(?Gamma) ~> A : ! bool ~> assertEnv(?Gamma)
 
     // =======================================
     // Pass

@@ -50,14 +50,14 @@ module FLOW-CORE-SYNTAX
                   | IfExpr
                   | "(" Expr ")"        [bracket]
                   | "new" Var "(" Exprs ")"
-                  > Expr "or" Expr
-                  | Expr "and" Expr
+                  > "not" Expr
+                  > Expr "or" Expr [left]
+                  > Expr "and" Expr [left]
                   > Expr "+" Expr [left]
                   | Expr "-" Expr [left]
                   > Expr "=" Expr
                   | Expr "<=" Expr
                   | Expr "<" Expr
-                  > "not" Expr
                   > IfExpr
     syntax Exprs ::= List{Expr, ","} [klabel(exprs)]
 
