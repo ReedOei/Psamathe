@@ -29,6 +29,11 @@ module FLOW-TYPECHECK
          E1 : ?Tau ~> assertEnv(?Gamma) ~>
          E2 : ?Tau ~> assertEnv(?Gamma)
 
+    rule (S in X) : ! bool
+         =>
+         X provides {?_} ?Tau ~>
+         S selects {?_} demote(?Tau)
+
     // =======================================
     // Pass
     // =======================================

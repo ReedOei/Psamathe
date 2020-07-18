@@ -1,0 +1,5 @@
+contract Main {}
+;
+
+if true = 1 { pass } else { pass }
+
