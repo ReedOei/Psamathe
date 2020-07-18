@@ -131,6 +131,22 @@ module FLOW-TYPECHECK
     rule .Map <=Env _ => true
     rule ((X |-> T) As) <=Env B => (typeof(B, X) <=Ty T) andBool As <=Env B
 
+    syntax TypeQuant ::= join(TypeQuant, TypeQuant) [function, functional]
+    rule join(Q:TypeQuant, Q) => Q
+    rule join(!, every) => nonempty
+    rule join(every, !) => nonempty
+    rule join(_:TypeQuant, _:TypeQuant) => any [owise]
+
+    syntax Type ::= join(Type, Type) [function, functional]
+    rule join(A, bot) => A
+    rule join(bot, B) => B
+    rule join(Q:TypeQuant T, R:TypeQuant T) => join(Q, R) T
+
+    syntax Map ::= join(Map, Map) [function, functional]
+    rule join(A, .Map) => A
+    rule join(.Map, B) => B
+    rule join((X |-> T) A, B) => (X |-> join(T, typeof(B, X))) join(A, removeAll(B, SetItem(X)))
+
     syntax Map ::= restrict(Map, Set) [function, functional]
     rule restrict(M, Ks) => removeAll(M, keys(M) -Set Ks)
 
