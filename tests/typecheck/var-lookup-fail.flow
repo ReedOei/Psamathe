@@ -1,0 +1,6 @@
+contract Main {}
+;
+
+var x : ! string := "testing"
+var y : ! nat := x
+

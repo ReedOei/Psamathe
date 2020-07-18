@@ -20,6 +20,14 @@ module FLOW-TYPECHECK
                   | Expr ":" Type
                   | Source "provides" "{" TypeQuant "}" Type
                   | Destination "accepts" Type
+    // =======================================
+    // Bool Expressions
+    // =======================================
+    rule (E1 = E2) : ! bool
+         =>
+         assertEnv(?Gamma) ~>
+         E1 : ?Tau ~> assertEnv(?Gamma) ~>
+         E2 : ?Tau ~> assertEnv(?Gamma)
 
     // =======================================
     // Pass
@@ -38,10 +46,7 @@ module FLOW-TYPECHECK
                   | drop(Var)
                   | update(Storage, TypeOp)
                   | assertEnv(Map)
-
-    // Only succeed when the type environment is exactly as expected.
-    rule <k> assertEnv(Gamma) => . ... </k>
-        <typeEnv> Gamma </typeEnv>
+                  | setEnv(Map)
 
     context update(_, HOLE)
     rule <k> update(X, T) => . ... </k>
@@ -56,6 +61,13 @@ module FLOW-TYPECHECK
     rule <k> drop(X) => . ... </k>
         <typeEnv> ... X |-> T:Type => .Map ... </typeEnv>
         requires notBool(isAsset(T))
+
+    // Only succeed when the type environment is exactly as expected.
+    rule <k> assertEnv(Gamma) => . ... </k>
+        <typeEnv> Gamma </typeEnv>
+
+    rule <k> setEnv(Gamma) => . ... </k>
+        <typeEnv> _ => Gamma </typeEnv>
 
     syntax TypeOp ::= typeof(Var)
 
@@ -214,6 +226,23 @@ module FLOW-TYPECHECK
         update(S, typeof(S) -Ty ?R) ~>
         D accepts ?Tau ~>
         update(D, typeof(D) +Ty min(?Q, ?R))
+
+    // =======================================
+    // If Statement
+    // =======================================
+    rule <k> if E { S1:Stmt } else { S2:Stmt }
+             =>
+             E : ! bool ~>
+             assertEnv(Gamma) ~>
+             S1 ~>
+             assertEnv(?Delta) ~>
+             setEnv(Gamma) ~>
+             S2 ~>
+             assertEnv(?Xi) ~>
+             setEnv(join(?Delta, ?Xi))
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
     // =======================================
     // Revert
