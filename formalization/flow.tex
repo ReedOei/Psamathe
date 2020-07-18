@@ -222,7 +222,7 @@ The expression $s~\varin~x$ allows checking whether a flow will succeed without 
 A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true and ``$s~\varin~B$'' is false.
 \begin{mathpar}
     \inferrule*[right=Check-In]{
-        \Gamma \proves x~\stores_{\mathcal{Q}}~\tau
+        \Gamma \proves x~\provides_{\mathcal{Q}}~\tau
         \and
         \Gamma \proves s~\selects~\demote(\tau)
     }{ \Gamma \proves (s~\varin~x) : \boolt \flowprovesout \Gamma }
