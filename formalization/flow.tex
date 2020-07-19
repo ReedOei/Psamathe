@@ -378,6 +378,14 @@ This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is rea
     }{ \Gamma \proves (\mathfrak{q}~x : \tau~\suchthat~p)~\selects_\mathfrak{q}~\tau }
 \end{mathpar}
 
+\framebox{$\validSelect(s, \mathcal{R}, \mathcal{Q})$}
+We need to ensure that the resources to be selected are easily computable.
+In particular, we wish to enforce that we never select $\everything$ from a source containing $\every$ of something, nor do we use a selector like $\mathfrak{q} x : \tau \tsuchthat E$ on a source contianing $\every$ of something.
+The following definition captures these restrictions.
+\begin{align*}
+    \validSelect(s, \mathcal{R}, \mathcal{Q}) \iff \min(\mathcal{Q}, \mathcal{R}) < \every \tand (\mathcal{Q} = \every \implies \exists \mathcal{L}. s = \mathcal{L})
+\end{align*}
+
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 
 \reed{In the new flow rule, we \textbf{always} use a transformer.
@@ -417,7 +425,7 @@ Finally, if $s$ is $\everything$, the same argument applies---the outcome will b
         \and
         \Gamma \proves s~\selects_\mathcal{R}~\tau
         \and
-        \min(\mathcal{Q}, \mathcal{R}) < \every
+        \validSelect(s, \mathcal{R}, \mathcal{Q})
         \\
         \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
         \and
