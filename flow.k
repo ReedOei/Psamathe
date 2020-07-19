@@ -28,26 +28,41 @@ module FLOW
 
     configuration
         <common />
-        <storage> loc(-1) |-> resource(Base, .Map) </storage>
         <lookup> this |-> loc(-1) </lookup>
+        <storage> loc(-1) |-> resource(Base, .Map) </storage>
+        <catchStack> .List </catchStack>
 
     // =================================
     // Sequence
     // =================================
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
 
+    // =================================
     // Pass
+    // =================================
     rule pass => . [structural]
 
-    // Temporary variable declaration
+    // =================================
+    // Variable declaration
+    // =================================
     context var _ : _ := HOLE in _:Stmt
     rule <k> var X : T := V:Val in S:Stmt => insert(X, loc(I)) ~> S ~> drop(X) ... </k>
         <storage> ... .Map => loc(I) |-> coerce(V, T) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
+    // =================================
+    // Environment Helpers
+    // =================================
     syntax Stmt ::= insert(Var, StorageLoc)
+                  | resetEnv(Map)
+                  | "dropCatch"
+
     rule <k> insert(X, Loc) => . ... </k>
         <lookup> ... .Map => X |-> Loc ... </lookup>
+    rule <k> resetEnv(Lookup) => . ... </k>
+        <lookup> _ => Lookup </lookup>
+    rule <k> dropCatch => . ... </k>
+        <catchStack> ListItem(_) => .List ... </catchStack>
 
     syntax Val ::= coerce(Val, Type) [function, functional]
     rule coerce(resource(R, V), _ R) => resource(R, V)
@@ -154,16 +169,20 @@ module FLOW
     // =================================
     // Try-Catch:
     // =================================
-    syntax Stmt ::= catch(Var, Type, Stmt)
+    // Stores the variable/type to catch, the handler, the lookup table, the storage to restore to, and the continuation.
+    syntax Stmt ::= catch(Var, Type, Stmt, Map, Map, K)
 
-    rule try { S1 } catch (X : T) { S2 } => S1 ~> catch(X, T, S2)
-    // Catch is only run when we have a revert
-    rule catch(_, _, _) => .
+    context revert(HOLE)
 
-    // TODO: Finish these rules for more complicated examples where the catch doesn't occur right after the revert.
-    //       Will need to handle packing, exit, etc, and also do a typecheck to ensure that the particular catch is actually appropriate for this revert value.
-    //       Maybe there is a more elegant solution using some catch-handler-stack approach.
-    rule revert(E) ~> catch(X, T, S) => var X : T := E in S
+    rule <k> try { S1 } catch (X : T) { S2 } ~> K => S1 ~> dropCatch </k>
+        <lookup> Lookup </lookup>
+        <storage> Storage </storage>
+        <catchStack> .List => ListItem(catch(X, T, S2, Lookup, Storage, K)) ... </catchStack>
+
+    rule <k> revert(V:Val) ~> _ => var X : T := V in S ~> K </k>
+        <lookup> _ => Lookup </lookup>
+        <storage> _ => Storage </storage>
+        <catchStack> ListItem(catch(X, T, S, Lookup, Storage, K)) => .List ... </catchStack>
 
     // =================================
     // Flows:
@@ -190,6 +209,7 @@ module FLOW
 
     syntax Stmt ::= put(Val, StorageLoc)
 
+    rule put(flowError(Err), _) => revert(flowError(Err))
     rule <k> put(R:Resource, Loc) => . ... </k>
         <storage> ... .Map => Loc |-> R ... </storage>
 
@@ -300,8 +320,18 @@ module FLOW
     rule defaultValue(set R) => resource(set R, .Set)
     rule defaultValue(list R) => resource(list R, .List)
 
+    // =================================
+    // Expression Statements
+    // =================================
     context expr(HOLE)
     rule expr(_:Val) => .
+
+    // =================================
+    // Linear Lookup Value Helper
+    // =================================
+    syntax Expr ::= lookupVal(StorageLoc)
+    rule <k> lookupVal(Loc) => V ... </k>
+        <storage> ... Loc |-> V => .Map ... </storage>
 
     // =================================
     // Transaction calls:
@@ -325,6 +355,7 @@ module FLOW
         <transactions> ... C.T |-> transaction(RetVar : _:TypeQuant RetType, FormalArgs, S) ... </transactions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
+    // TODO: Mabye replace this by a more efficient system (e.g., a call stack cell)
     rule exit ~> S:Stmt => exit
         requires resetEnv(_) :/=K S
         [structural]
@@ -344,10 +375,6 @@ module FLOW
         <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    syntax Expr ::= lookupVal(StorageLoc)
-    rule <k> lookupVal(Loc) => V ... </k>
-        <storage> ... Loc |-> V => .Map ... </storage>
-
     syntax Stmt ::= initFields(StorageLoc, Set)
 
     rule initFields(_, .Set) => .
@@ -361,12 +388,6 @@ module FLOW
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
-
-    syntax Stmt ::= resetEnv(Map)
-
-    // NOTE: This would be unsafe if used to destroy assets, but the typechecker will ensure that it's safe, so we don't need to check.
-    rule <k> resetEnv(Lookup) => . ... </k>
-        <lookup> _ => Lookup </lookup>
 
     // ==================================
     // Pack

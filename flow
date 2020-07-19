@@ -54,8 +54,8 @@ if [[ "$1" == "test" ]]; then
         FLAGS+=("<k> . </k>")
     fi
     to_run=("$KDISTR/krun" "${FLAGS[@]}" --directory "$directory" "$@")
-    printf "'%s' " "${to_run[@]}"
-    echo
+    # printf "'%s' " "${to_run[@]}"
+    # echo
     result="$("${to_run[@]}")"
 
     if echo "$fname" | grep -qE "\-fail.flow$"; then

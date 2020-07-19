@@ -107,11 +107,18 @@ module FLOW-COMMON
     rule normalize(unpack(F)) => unpack(F) // TODO: Need to unpack all fields before some statement, so do something like "=> unpackAll(fieldsUsedBy(S))". Will also need to keep track of what's already unpacked.
     rule normalize(return E) => return E
     rule normalize(revert(E)) => revert(E)
-    rule normalize(F:FunctionCall) => pack expr(F)
+    // TODO: Pretty ugly...not sure if there's a better way to write this.
+    rule normalize(((_:Var(Args)):FunctionCall #as FCall):FunctionCall) => pack toANormal(Args, expr(FCall))
     rule normalize( if E { S1 } else { S2 } ) => if E { normalize(S1) } else { normalize(S2) }
     rule normalize(try { S1 } catch (X : T) { S2 }) => try { normalize(S1) } catch (X : T) { normalize(S2) }
     rule normalize(S1:Stmt S2:Stmt) => normalize(S1) normalize(S2)
         requires (var _ : _ := _) :/=K S1
+
+    // TODO: Implement this, or something like it. It should take something like
+    syntax Stmt ::= toANormal(Exprs, Stmt) [function, functional]
+    rule toANormal(_, S) => S
+    /* rule toANormal(.Exprs, S) => S */
+    /* rule toANormal((X:Var, Es):Exprs, S) => toANormal( */
 
     syntax Set ::= fields(Set) [function, functional]
 
