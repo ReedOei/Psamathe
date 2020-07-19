@@ -109,7 +109,7 @@ module FLOW-CORE-SYNTAX
                   | "expr" "(" Expr ")"
                   | ReturnExpr
                   | Revert
-                  | "try" "{" Stmt "}" "catch" VarDef "{" Stmt "}"
+                  | "try" "{" Stmt "}" "catch" "(" VarDef ")" "{" Stmt "}"
                   | IfStmt
                   | FunctionCall
                   | "exit"

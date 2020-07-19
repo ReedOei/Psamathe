@@ -26,7 +26,7 @@ syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not
 
-syntax keyword specialKeywords constant fungible nonfungible identified by stores emit let consume consumable call is return total many held each owner key type via var link action handle transformer created asserting pass
+syntax keyword specialKeywords try catch constant fungible nonfungible identified by stores emit let consume consumable call is return total many held each owner key type via var link action handle transformer created asserting pass
 syntax keyword specialVars msg this one some any now
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'

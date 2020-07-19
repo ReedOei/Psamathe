@@ -89,6 +89,7 @@ module FLOW-COMMON
     rule normalizeTxBody(_, revert(E)) => unpackAll(fields(vars(E))) revert(E) pack
     rule normalizeTxBody(_, F:FunctionCall) => unpackAll(fields(vars(F))) F // TODO: Any other expressions we need to handle specially?
     rule normalizeTxBody(RetVar, if E { S1 } else { S2 } ) => unpackAll(fields(vars(E))) (if E { normalizeTxBody(RetVar, S1) } else { normalizeTxBody(RetVar, S2) })
+    rule normalizeTxBody(RetVar, try { S1 } catch (X : T) { S2 }) => try { normalizeTxBody(RetVar, S1) } catch (X : T) { normalizeTxBody(RetVar, S2) }
     rule normalizeTxBody(RetVar, S1:Stmt S2:Stmt) => normalizeTxBody(RetVar, S1) normalizeTxBody(RetVar, S2)
 
     syntax Stmt ::= unpackAll(Set) [function, functional]
@@ -108,6 +109,7 @@ module FLOW-COMMON
     rule normalize(revert(E)) => revert(E)
     rule normalize(F:FunctionCall) => pack expr(F)
     rule normalize( if E { S1 } else { S2 } ) => if E { normalize(S1) } else { normalize(S2) }
+    rule normalize(try { S1 } catch (X : T) { S2 }) => try { normalize(S1) } catch (X : T) { normalize(S2) }
     rule normalize(S1:Stmt S2:Stmt) => normalize(S1) normalize(S2)
         requires (var _ : _ := _) :/=K S1
 

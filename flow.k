@@ -31,7 +31,9 @@ module FLOW
         <storage> loc(-1) |-> resource(Base, .Map) </storage>
         <lookup> this |-> loc(-1) </lookup>
 
-    // Sequence statements
+    // =================================
+    // Sequence
+    // =================================
     rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
 
     // Pass
@@ -141,14 +143,27 @@ module FLOW
     rule resolveStorage(consume) => consume
     rule <k> resolveStorage(X) => Loc ... </k>
         <lookup> ... X |-> Loc ... </lookup>
-    /* rule <k> resolveStorage(X . F) => Loc ... </k> */
-    /*     <lookup> ... X |-> XLoc ... </lookup> */
-    /*     <storage> ... XLoc |-> resource(_, (F |-> Loc) _) ... </storage> */
-    /* rule resolveStorage(Loc:StorageVal) => Loc */
+    rule <k> resolveStorage(X . F) => Loc ... </k>
+        <lookup> ... X |-> XLoc ... </lookup>
+        <storage> ... XLoc |-> resource(_, (F |-> Loc) _) ... </storage>
 
     // NOTE: All types are always stored as their demoted value, so we simply need to demote the type.
     syntax Resource ::= demoteVal(Resource) [function, functional]
     rule demoteVal(resource(R, V)) => resource(demote(R), V)
+
+    // =================================
+    // Try-Catch:
+    // =================================
+    syntax Stmt ::= catch(Var, Type, Stmt)
+
+    rule try { S1 } catch (X : T) { S2 } => S1 ~> catch(X, T, S2)
+    // Catch is only run when we have a revert
+    rule catch(_, _, _) => .
+
+    // TODO: Finish these rules for more complicated examples where the catch doesn't occur right after the revert.
+    //       Will need to handle packing, exit, etc, and also do a typecheck to ensure that the particular catch is actually appropriate for this revert value.
+    //       Maybe there is a more elegant solution using some catch-handler-stack approach.
+    rule revert(E) ~> catch(X, T, S) => var X : T := E in S
 
     // =================================
     // Flows:
@@ -172,6 +187,11 @@ module FLOW
             ...
         </storage>
         requires select(Sel, SV) contained_in SV
+
+    syntax Stmt ::= put(Val, StorageLoc)
+
+    rule <k> put(R:Resource, Loc) => . ... </k>
+        <storage> ... .Map => Loc |-> R ... </storage>
 
     syntax Resource ::= select(SelectorVal, Resource) [function, functional]
 
@@ -271,11 +291,6 @@ module FLOW
     rule combine(resource(set R, A), resource(set R, B)) => resource(set R, A |Set B)
     // Combine as `B A` instead of `A B`, because the new values should be **appended**, not prepended.
     rule combine(resource(list R, A:List), resource(list R, B:List)) => resource(list R, B A)
-
-    syntax Stmt ::= put(Val, StorageLoc)
-
-    rule <k> put(R:Resource, Loc) => . ... </k>
-        <storage> ... .Map => Loc |-> R ... </storage>
 
     syntax Resource ::= defaultValue(BaseType) [function, functional]
     rule defaultValue(nat) => resource(nat, 0)
