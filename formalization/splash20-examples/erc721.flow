@@ -4,80 +4,15 @@ contract NFToken {
     balances : linking address <=> {Token}
     approval : linking address <=> {TokenApproval}
     ownerToOperators : linking address <=> {address}
-    view canOperate(_tokenId : nat) returns bool :=
-        _tokenId in balances[msg.sender] or
-        msg.sender in ownerToOperators[tokenOwner]
     view canTransfer(_tokenId : nat) returns bool :=
         _tokenId in balances[msg.sender] or
         _tokenId in approval[msg.sender] or
         msg.sender in ownerToOperators[balances.ownerOf(_tokenId)]
     view validNFToken(_tokenId : nat) returns bool := balances.hasOwner(_tokenId)
-    transaction safeTransferFrom(_from : address, _to : address, _tokenId : nat, _data : bytes):
+    transaction transferFrom(_from : address, _to : address, _tokenId : nat):
         only when _to != 0x0 and canTransfer(_tokenId)
         if approval.hasOwner(_tokenId) then
             approval[approval.ownerOf(_tokenId)] --[ _tokenId ]-> consume
-        balances[_from] --[ _tokenId ]--> balances[_to]
-        if isContract(_to) and _to.onERC721Received(msg.sender, _from, _tokenId, _data) != MAGIC_ON_ERC721_RECEIVED:
-                revert("Failure!")
-    transaction transferFrom(_from : address, _to : address, _tokenId : nat):
-        only when _to != 0x0 and canTransfer(_tokenId)
-        if approval.hasOwner(_tokenid) then
-            approval[approval.ownerOf(_tokenId)] --[ _tokenId ]-> consume
         balances[_from] --[ _tokenId ]-> balances[_to]
-
-  // Set or reaffirm the approved address for an NFT.
-  transaction approve(_approved : address, _tokenId : nat)
-    only when _approved != owner of _tokenId from balances and canOperate(_tokenId) then
-        // If it's already been given to someone else, then remove their approval
-        if TokenApproval created _tokenId then
-            consume _tokenId from approval[owner of _tokenId from approval]
-
-        TokenApproval[_tokenId] --> approval[_approved]
-
-        on success: emit Approval(owner of _tokenId from balances, _approved, _tokenId)
-
-  // Enables or disables approval for a third party ("operator") to manage all of `msg.sender`'s assets.
-  transaction setApprovalForAll(_operator : address, _approved : bool):
-    if _approved then
-        _operator --> ownerToOperators[msg.sender]
-    else
-        // Consume is fine here because address is a primitive type, all of which are consumable.
-        consume _operator from ownerToOperators[msg.sender]
-
-    on success: emit ApprovalForAll(msg.sender, _operator, _approved)
-
-  // Returns the number of NFTs owned by `_owner`.
-  view balanceOf(_owner : address) returns nat :=
-    only when _owner != 0x0 then
-        total balances[_owner]
-
-  // Returns the address of the owner of the NFT.
-  view ownerOf(_tokenId : nat) returns address := owner of _tokenId from balances
-
-  // Get the approved address for a single NFT.
-  view getApproved(_tokenId : nat) returns address := owner of _tokenId from approval
-
-  // Checks if `_operator` is an approved operator for `_owner`.
-  view isApprovedForAll(_owner : address, _operator : address) returns bool := _operator in ownerToOperators[_owner]
-
-  // Mints a new NFT.
-  transaction mint(_to : address, _tokenId : nat):
-    // NOTE: This is just an example, so there's no authorization or anything.
-    // Would include something like: only when msg.sender = minterAddr then
-    only when _to != 0x0 then
-        Token[_tokenId] --[ _tokenId ]-> balances[_to]
-        on success: emit Transfer(0x0, _to, _tokenId)
-
-  // Burns a NFT.
-  transaction burn(_tokenId : nat):
-    // In a real implementation, this would be guarded by some condition like mint() would be
-    let tokenOwner := owner of _tokenId from balances
-    if TokenApproval created _tokenId then
-        consume _tokenId from approval[owner of _tokenId from approval]
-
-    // Note that this won't currently work, because tokens aren't consumable.
-    consume _tokenId from balances[tokenOwner]
-
-    on success: emit Transfer(tokenOwner, 0x0, _tokenId)
 }
 
