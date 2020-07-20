@@ -5,12 +5,6 @@
 - How to figure out where to put stuff (e.g., memory, calldata, storage, etc.)?
     - Can we do this automatically and easily?
 
-- If we flow a non-asset into a storage that already holds it, is that an error or is it okay?
-- If we try to consume a non-asset that doesn't exist, is that an error or is it okay?
-
-- Should we have require() or `only when`.
-    - I like `only when`, but it is harder to provide error messages, so maybe require is the way to go.
-
 - Automatic optimizations:
     - We will typically track "total" for an asset automatically (i.e., the amount in circulation + the amount in any given storage)
         - However, if never used, then we can omit it.
@@ -39,8 +33,4 @@
     - Implement other proofs of concept
     - Maybe look at the testnet too (is there a corpus available here?)
     - That one voting application I found is somewhat interesting.
-
-- See how we can represent things like database operations declaratively that people use
-    - Maybe we only need to support cheap operations.
-    - Look at examples of Fabric stuff, because Fabric has a database
 

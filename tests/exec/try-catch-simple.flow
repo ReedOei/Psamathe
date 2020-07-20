@@ -1,0 +1,9 @@
+contract Main {}
+;
+
+try {
+    revert("test")
+} catch (x : ! string) {
+    if x != "test" { revert("Failure!") }
+}
+
