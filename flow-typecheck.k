@@ -276,16 +276,25 @@ module FLOW-TYPECHECK
          setEnv(join(?Delta, ?Xi))
 
     // =======================================
+    // Try-Catch
+    // =======================================
+    rule try { S1 } catch (X : T) { S2 }
+         =>
+         assertEnv(?Gamma) ~>
+         S1 ~> assertEnv(?Delta) ~>
+         setEnv(?Gamma) ~>
+         insert(X, T) ~> S2 ~> drop(X) ~> assertEnv(?Xi) ~>
+         setEnv(join(?Delta, ?Xi))
+
+    // =======================================
     // Revert
     // =======================================
-    rule <k> revert(E)
-             =>
-             E : ?Tau ~>
-             assertEnv(Gamma)
-             ...
-         </k>
-         <typeEnv> Gamma </typeEnv>
-        requires notBool(isAsset(?Tau))
+    rule revert(E)
+         =>
+         assertEnv(?Gamma) ~>
+         E : ?Tau ~>
+         checkThat(notBool(isAsset(?Tau))) ~>
+         assertEnv(?Gamma)
 
     // =======================================
     // Expression statement
