@@ -50,7 +50,7 @@
 %%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title{\langName: A DSL for the Safe Handling of Resources}
+\title{\langName: A DSL for the Safe Management of Resources in Smart Contracts}
 
 %%
 %% The "author" command and its associated commands are used to define
@@ -122,7 +122,7 @@
 
 \section{Introduction}
 
-\reed{How do authors/affiiliations work for this?}
+\reed{How do authors/affiliations work for this?}
 \langName is a DSL for implementing programs which manage resources, targeted at writing smart contracts.
 
 \subsection{Contributions}
@@ -160,22 +160,6 @@ This conciseness is not only an improvement for a developers workflow, but also 
 \end{itemize}
 
 \section{Language Description}
-The \langName language is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a resource.
-Each flow has at least a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a transformer.
-The source and destination are two storages which \emph{provide} and \emph{accept} resources, and the selector, if present, describes which part of the resource in the source should be transferred to the destination.
-If not present, all resources will be transferred.
-
-All flows fail if the selected resources are not present in the source, or if the selected resources cannot be added to the destination.
-For example, a flow of fungible resources fails if there is not enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
-
-There are two kinds of assets \reed{Should probably pick either ``asset'' or ``resource''...}: \emph{fungible} and \emph{nonfungible}.
-\reed{Not really sure about these definitions}
-Fungible assets are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
-A nonfungible asset is an asset that is unique, and can be held in at most one location.
-For example, ERC-721 \reed{cite} tokens are nonfungible---each token can be held by at most one account at a time.
-\langName will automatically ensure that all newly created nonfungible assets are unique.
-Furthermore, it supports data structures that make working with assets easier, such as \emph{linkings}, which provide a useful abstraction of an account of nonfungible assets.
-\reed{Is it worth discussing this?}
 
 \subsection{Syntax}
 \begin{figure}[t]
@@ -194,18 +178,45 @@ Furthermore, it supports data structures that make working with assets easier, s
     $\Stmt$ & \bnfdef & $F$ \bnfalt $S;S$ \bnfalt $\ldots$ & (statements) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible & \\
         & \bnfalt & \consumable \bnfalt \asset & (type modifiers) \\
-    $\Decl$ & \bnfdef & $\ldots$ & \\
-            & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
+    $\Decl$ & \bnfdef & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
             & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
+            & \bnfalt & $\ldots$ & \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
 \end{tabular}
-\caption{Abstract syntax of the core calculus of \langName.}
+\caption{A fragment of the abstract syntax of the core calculus of \langName.}
 \label{fig:lang-syntax}
 \end{figure}
 
 Figure~\ref{fig:lang-syntax} shows a fragment of the syntax of the core calculus of \langName, which uses A-normal form \reed{cite} and makes several simplifications to the surface \langName language.
-These simplifications can be performed automatically by the compiler.
+These simplifications are performed automatically by the compiler.
 \reed{TODO: The core calculus has been formalized (in K???).}
+
+\subsection{Flows}
+The \langName language is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a resource.
+Each flow has at least a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a transformer.
+The source and destination are two storages which \emph{provide} and \emph{accept} resources, and the selector, if present, describes which part of the resource in the source should be transferred to the destination.
+If not present, all resources will be transferred.
+
+All flows fail if the selected resources are not present in the source, or if the selected resources cannot be added to the destination.
+For example, a flow of fungible resources fails if there is not enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
+
+There are two kinds of assets \reed{Should probably pick either ``asset'' or ``resource''...}: \emph{fungible} and \emph{nonfungible}.
+\reed{Not really sure about these definitions}
+Fungible assets are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
+A nonfungible asset is an asset that is unique, and can be held in at most one location.
+For example, ERC-721 \reed{cite} tokens are nonfungible---each token can be held by at most one account at a time.
+\langName will automatically ensure that all newly created nonfungible assets are unique.
+Furthermore, it supports data structures that make working with assets easier, such as \emph{linkings}, which provide a useful abstraction of an account of nonfungible assets.
+\reed{Is it worth discussing this?}
+
+\subsection{Benefits}
+\reed{Potential benefits:
+\begin{itemize}
+    \item Good expression of financial assets: fungilbe, nonfungible/general uniqueness constraints. Consumable vs. nonconsumable. NOTE: These are things that Obsidian can't express. Emphasize the uniqueness stuff is actually not any more difficult/inefficient than existing solutions.
+    \item Atomic flow construct encodes semantic intent
+    \item Maybe efficient, but would need an implementation to evaluate this.
+    \item Flows are good and interesting.
+\end{itemize}}
 
 \section{Case Studies}
 \subsection{ERC-20}
@@ -237,6 +248,33 @@ This code shows several advantages of the flow abstraction:
     \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
     \label{fig:erc20-impl}
 \end{figure*}
+
+\subsection{ERC-721}
+\begin{figure*}[h]
+    \centering
+    \begin{minipage}[t]{0.5\textwidth}
+        \lstinputlisting{splash20-examples/erc721.sol}
+    \end{minipage}%
+    \begin{minipage}[t]{0.5\textwidth}
+        \lstinputlisting{splash20-examples/erc721.flow}
+    \end{minipage}
+    \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
+    \label{fig:erc20-impl}
+\end{figure*}
+
+\reed{Another benefit here is that linkings are a good datastructure for accounts of nonfungible resources.
+Of course, you could always implement a linking in a Solidity library...
+However, you still wouldn't have the property that only one account is guaranteed to hold each token, because of the nonfungibility/uniqueness.}
+
+The ERC-721 standard \reed{cite} requires many invariants hold:
+    they must be unique,
+    at most one non-owning account can have ``approval'' for a token,
+    we must be able to support ``operators'' who can manage all of the tokens of a user,
+    among others.
+Because \langName is designed to handle resources, it makes, and removes the burden of ensuring these correctness properties hold from developers.
+\reed{A \langName implementation has several benefits: because of the resource abstraction, we can be sure that tokens will not be}
+
+\subsection{Voting}
 
 \subsection{The DAO attack}
 \reed{Describe attack}
