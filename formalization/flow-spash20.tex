@@ -50,7 +50,7 @@
 %%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title{\langName: A DSL for the Safe Management of Resources in Smart Contracts}
+\title{\langName: A DSL for the Safe Management of \AssetTxt{}s in Smart Contracts}
 
 %%
 %% The "author" command and its associated commands are used to define
@@ -123,7 +123,7 @@
 \section{Introduction}
 
 \reed{How do authors/affiliations work for this?}
-\langName is a DSL for implementing programs which manage resources, targeted at writing smart contracts.
+\langName is a DSL for implementing programs which manage \assetTxt{}s, targeted at writing smart contracts.
 
 \subsection{Contributions}
 
@@ -132,7 +132,7 @@ We make the following contributions with \langName.
     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about a program into the code.
         \reed{Is this a contribution or does it just enable the other contributions?}
 
-    \item \textbf{Safety guarantees}: \langName ensures that resources are properly managed, eliminating double-spend and asset-loss bugs.
+    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating double-spend and \assetTxt-loss bugs.
 
     \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common pitfalls automatically.
 
@@ -192,27 +192,33 @@ These simplifications are performed automatically by the compiler.
 \reed{TODO: The core calculus has been formalized (in K???).}
 
 \subsection{Flows}
-The \langName language is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a resource.
+The \langName language is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
 Each flow has at least a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a transformer.
-The source and destination are two storages which \emph{provide} and \emph{accept} resources, and the selector, if present, describes which part of the resource in the source should be transferred to the destination.
-If not present, all resources will be transferred.
+The source and destination are two storages which \emph{provide} and \emph{accept} \assetTxt{}s, and the selector, if present, describes which part of the \assetTxt in the source should be transferred to the destination.
+If not present, all \assetTxt{}s will be transferred.
 
-All flows fail if the selected resources are not present in the source, or if the selected resources cannot be added to the destination.
-For example, a flow of fungible resources fails if there is not enough of the resource, and a flow of a nonfungible resource fails if the selected value doesn't exist in the source location.
+All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
+For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt, and a flow of a nonfungible \assetTxt fails if the selected value doesn't exist in the source location.
 
-There are two kinds of assets \reed{Should probably pick either ``asset'' or ``resource''...}: \emph{fungible} and \emph{nonfungible}.
+There are two special kinds of \assetTxt{}s: \emph{fungible} and \emph{nonfungible}.
+\reed{I think there's also \assetTxt{}s which are neither fungible nor nonfungible.}
 \reed{Not really sure about these definitions}
-Fungible assets are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
-A nonfungible asset is an asset that is unique, and can be held in at most one location.
-For example, ERC-721 \reed{cite} tokens are nonfungible---each token can be held by at most one account at a time.
-\langName will automatically ensure that all newly created nonfungible assets are unique.
-Furthermore, it supports data structures that make working with assets easier, such as \emph{linkings}, which provide a useful abstraction of an account of nonfungible assets.
+Fungible \assetTxt{}s are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
+\reed{Fungible is two things? Isn't that kind of confusing?}
+A nonfungible \assetTxt is an \assetTxt that is unique, and can be held in at most one location.
+Notably, nonfungible \assetTxt{}s \textbf{must} be unique.
+For example, ERC-721 \reed{cite} tokens are nonfungible---each token is unique and can be held by at most one account at a time.
+\langName will automatically and dynamically ensure that all newly created nonfungible \assetTxt{}s are unique.
+Furthermore, it supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, which provide a useful abstraction of an account of nonfungible \assetTxt{}s.
 \reed{Is it worth discussing this?}
+\reed{Why couldn't you jsut wrie this as alibrary}
+\reed{Need to merge this stuff with the more in-depth discussion of examples later.}
+\reed{How to balance discussion of the various benefits between here and the examples sections?}
 
 \subsection{Benefits}
 \reed{Potential benefits:
 \begin{itemize}
-    \item Good expression of financial assets: fungilbe, nonfungible/general uniqueness constraints. Consumable vs. nonconsumable. NOTE: These are things that Obsidian can't express. Emphasize the uniqueness stuff is actually not any more difficult/inefficient than existing solutions.
+    \item Good expression of financial \assetTxt{}s: fungilbe, nonfungible/general uniqueness constraints. Consumable vs. nonconsumable. NOTE: These are things that Obsidian can't express. Emphasize the uniqueness stuff is actually not any more difficult/inefficient than existing solutions.
     \item Atomic flow construct encodes semantic intent
     \item Maybe efficient, but would need an implementation to evaluate this.
     \item Flows are good and interesting.
@@ -228,7 +234,7 @@ Only the core functions of \lstinline{transfer}, \lstinline{transferFrom}, and \
 All event code has been omitted, because \langName handles events in the same way as Solidity.
 This code shows several advantages of the flow abstraction:
 \begin{itemize}
-    \item Precondition checking: For a flow to succeed, the source must have enough resources and the destination must be capable of receiving the resources flowed.
+    \item Precondition checking: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
         In this case, the balance of the sender must be greater than the amount sent, and the balance of the destination must not overflow when it receives the tokens.
         Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
     \item Error messages: When a flow fails, we provide \reed{TODO: **will provide**} automatic, descriptive error messages, such as ``\lstinline{Failed to flow '<amount>' Token from account[<src>] to account[<dst>]: account[<dst>] does not have enough Token.}''.
@@ -262,7 +268,7 @@ This code shows several advantages of the flow abstraction:
     \label{fig:erc20-impl}
 \end{figure*}
 
-\reed{Another benefit here is that linkings are a good datastructure for accounts of nonfungible resources.
+\reed{Another benefit here is that linkings are a good datastructure for accounts of nonfungible \assetTxt{}s.
 Of course, you could always implement a linking in a Solidity library...
 However, you still wouldn't have the property that only one account is guaranteed to hold each token, because of the nonfungibility/uniqueness.}
 
@@ -271,8 +277,9 @@ The ERC-721 standard \reed{cite} requires many invariants hold:
     at most one non-owning account can have ``approval'' for a token,
     we must be able to support ``operators'' who can manage all of the tokens of a user,
     among others.
-Because \langName is designed to handle resources, it makes, and removes the burden of ensuring these correctness properties hold from developers.
-\reed{A \langName implementation has several benefits: because of the resource abstraction, we can be sure that tokens will not be}
+Because \langName is designed to handle \assetTxt{}s, it makes, and removes the burden of ensuring these correctness properties hold from developers.
+\reed{A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that tokens will not be}
+\reed{I think we should focus on the benefits of nonfungible \assetTxt{}s + linkings here in easily and correctly expressing these invariants, and ignore all the other functions.}
 
 \subsection{Voting}
 
