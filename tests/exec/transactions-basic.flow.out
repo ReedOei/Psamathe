@@ -1,0 +1,45 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      Main |-> contract Main { balance : ! nat  transaction addOne ( .VarDefs ) returns ! bool : 1 --[ everything ]-> this . balance return true  .Decls }
+    </contracts>
+    <fields>
+      Main |-> SetItem ( balance : ! nat )
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      Main . addOne |-> transaction ( var ( 0 ) : ! bool , .VarDefs , ( ( unpack ( balance ) pass ) 1 --[ everything ]-> this . balance ) pass true --[ everything ]-> var ( 0 ) pack exit )
+    </transactions>
+    <types>
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <freshCounter>
+      7
+    </freshCounter>
+  </common>
+  <lookup>
+    this |-> loc ( -1 )
+  </lookup>
+  <storage>
+    loc ( 2 ) |-> resource ( nat , 1 )
+    loc ( 3 ) |-> resource ( Main , balance |-> loc ( 2 ) )
+    loc ( 5 ) |-> resource ( nat , 0 )
+    loc ( 6 ) |-> resource ( bool , emptyval )
+    loc ( -1 ) |-> resource ( Base , .Map )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

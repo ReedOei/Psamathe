@@ -299,8 +299,7 @@ module FLOW-TYPECHECK
     // =======================================
     // Expression statement
     // =======================================
-    rule expr(E) => E : ?Sigma
-        requires notBool(isAsset(?Sigma))
+    rule expr(E) => E : ?Sigma ~> checkThat(notBool(isAsset(?Sigma)))
 
     // =======================================
     // Pack

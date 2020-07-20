@@ -1,0 +1,50 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      Main |-> contract Main { balance : ! nat  transaction add ( n : ! nat , .VarDefs ) returns ! bool : n --[ everything ]-> this . balance return true  transaction remove ( m : ! nat , .VarDefs ) returns ! nat : var t : ! nat := 0 this . balance --[ m ]-> t return t  .Decls }
+    </contracts>
+    <fields>
+      Main |-> SetItem ( balance : ! nat )
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      Main . add |-> transaction ( var ( 0 ) : ! bool , n : ! nat , .VarDefs , ( ( unpack ( balance ) pass ) n --[ everything ]-> this . balance ) pass true --[ everything ]-> var ( 0 ) pack exit )
+      Main . remove |-> transaction ( var ( 1 ) : ! nat , m : ! nat , .VarDefs , pass var t : ! nat := 0 in ( ( ( unpack ( balance ) pass ) this . balance --[ m ]-> t ) pass t --[ everything ]-> var ( 1 ) pack exit ) )
+    </transactions>
+    <types>
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <freshCounter>
+      14
+    </freshCounter>
+  </common>
+  <lookup>
+    this |-> loc ( -1 )
+  </lookup>
+  <storage>
+    loc ( 3 ) |-> resource ( nat , 40 )
+    loc ( 4 ) |-> resource ( Main , balance |-> loc ( 3 ) )
+    loc ( 6 ) |-> resource ( nat , 0 )
+    loc ( 7 ) |-> resource ( bool , emptyval )
+    loc ( 9 ) |-> resource ( nat , 0 )
+    loc ( 10 ) |-> resource ( bool , emptyval )
+    loc ( 12 ) |-> resource ( nat , 60 )
+    loc ( 13 ) |-> resource ( nat , 0 )
+    loc ( -1 ) |-> resource ( Base , .Map )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

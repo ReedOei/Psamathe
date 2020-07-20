@@ -1,0 +1,45 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      Main |-> contract Main { transaction foo ( .VarDefs ) returns ! nat : var x : ! nat := 0 47 --[ everything ]-> x return 0  .Decls }
+    </contracts>
+    <fields>
+      Main |-> .Set
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      Main . foo |-> transaction ( var ( 0 ) : ! nat , .VarDefs , pass var x : ! nat := 0 in ( ( pass 47 --[ everything ]-> x ) pass 0 --[ everything ]-> var ( 0 ) pack exit ) )
+    </transactions>
+    <types>
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <freshCounter>
+      7
+    </freshCounter>
+  </common>
+  <lookup>
+    this |-> loc ( -1 )
+  </lookup>
+  <storage>
+    loc ( 2 ) |-> resource ( Main , .Map )
+    loc ( 4 ) |-> resource ( nat , 47 )
+    loc ( 5 ) |-> resource ( nat , 0 )
+    loc ( 6 ) |-> resource ( nat , 0 )
+    loc ( -1 ) |-> resource ( Base , .Map )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

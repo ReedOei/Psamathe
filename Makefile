@@ -26,7 +26,7 @@ tests/exec/%.flow: dynamic/flow-kompiled/timestamp static/flow-typecheck-kompile
 	time ./flow test $(FLAGS) $@
 
 tests/typecheck/%.flow: static/flow-typecheck-kompiled/timestamp
-	time ./flow typecheck $(FLAGS) $@
+	time ./flow typecheck test $(FLAGS) $@
 
 clean:
 	rm -rf dynamic/flow-kompiled
