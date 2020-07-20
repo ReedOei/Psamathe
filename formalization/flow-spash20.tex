@@ -149,6 +149,17 @@ We make the following contributions with \langName.
     %     \end{itemize}
 \end{itemize}
 
+\reed{Potential benefits of the language.
+Some of these are already discussed in the paper.
+\begin{itemize}
+    \item Good expression of financial \assetTxt{}s: fungible, nonfungible/general uniqueness constraints, consumable vs. nonconsumable.
+        NOTE: These are things that Obsidian can't express.
+        Emphasize the uniqueness stuff is actually not any more difficult/inefficient than existing solutions.
+    \item Atomic flow construct encodes semantic intent
+    \item Maybe the language is efficient, but would need an implementation to evaluate this.
+    \item Flows are interesting?
+\end{itemize}}
+
 % handled by the language; these include handling overflow/underflow, checking of balances, short address attacks \reed{Do this}, string operations, etc.
 % This conciseness is not only an improvement for a developers workflow, but also means that such issues are automatically handled, making it impossible for developers to forget them \reed{Wording}.
 % \begin{itemize}
@@ -213,17 +224,6 @@ Furthermore, it supports data structures that make working with \assetTxt{}s eas
 \reed{Why couldn't you jsut wrie this as a library? --- You could, but you wouldn't ahve the same guarantees that you get via uniqueness/nonfungibility.}
 \reed{Need to merge this stuff with the more in-depth discussion of examples later.}
 \reed{How to balance discussion of the various benefits between here and the examples sections?}
-
-\subsection{Benefits}
-\reed{Potential benefits:
-\begin{itemize}
-    \item Good expression of financial \assetTxt{}s: fungible, nonfungible/general uniqueness constraints, consumable vs. nonconsumable.
-        NOTE: These are things that Obsidian can't express.
-        Emphasize the uniqueness stuff is actually not any more difficult/inefficient than existing solutions.
-    \item Atomic flow construct encodes semantic intent
-    \item Maybe efficient, but would need an implementation to evaluate this.
-    \item Flows are good and interesting.
-\end{itemize}}
 
 \section{Case Studies}
 \subsection{ERC-20}

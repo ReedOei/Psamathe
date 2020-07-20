@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs #-}
+
 import Data.List
 import Data.Maybe
 
@@ -97,4 +99,6 @@ flow source selector transformer dest =
             Right (source `split` selected, dest `combine` sent)
         else
             Left "Cannot flow!"
+
+type Linking r k v = [(k, r v)]
 

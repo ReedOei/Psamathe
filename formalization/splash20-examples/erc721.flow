@@ -1,8 +1,8 @@
 contract NFToken {
     type Token is nonfungible asset nat
     type TokenApproval is nonfungible consumable asset nat
-    balances : linking address <=> {Token}
-    approval : linking address <=> {TokenApproval}
+    balances : linking address <=> set Token
+    approval : linking address <=> set TokenApproval
     ownerToOperators : linking address <=> {address}
     view canTransfer(_tokenId : nat) returns bool :=
         _tokenId in balances[msg.sender] or

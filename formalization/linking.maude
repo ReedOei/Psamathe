@@ -1,0 +1,47 @@
+fth COLLECTION is
+    protecting BOOL .
+    including TRIV .
+    sort Col .
+    subsort Elt < Col .
+
+    op empty : -> Col .
+    op __ : Col Col -> Col [assoc id: empty] .
+    op select : Col Col -> Col .
+    op contains : Col Col -> Bool .
+    op canContain : Col Col -> Bool .
+endfth
+
+fmod LINKING{K :: TRIV, C :: COLLECTION} is
+    sort Link{K, C} Linking{K, C} .
+    subsort Link{K, C} < Linking{K, C} .
+
+    vars Lk : Link{K, C} .
+
+    op _<=>_ : K$Elt C$Col -> Link{K, C} [ctor] .
+    op mt : -> Linking{K, C} [ctor] .
+    op __ : Linking{K, C} Linking{K, C} -> Linking{K, C} [ctor comm assoc id: mt] .
+
+    vars K K1 K2 : K$Elt .
+    vars L M : Linking{K, C} .
+    vars C D : C$Col .
+    vars V V1 V2 : C$Elt .
+
+    op _[_] : Linking{K, C} K$Elt -> C$Col .
+    eq ((K <=> C) L)[K] = C .
+
+    op _[_<-_] : Linking{K, C} K$Elt C$Elt -> Linking{K, C} .
+    eq ((K <=> C) L)[K <- V] = (K <=> (C V)) L .
+    eq L[K <- V] = (K <=> V) L [owise] .
+
+    op _.ownerOf(_) : Linking{K, C} C$Elt -> K$Elt .
+    eq ((K <=> (C V D)) L).ownerOf(V) = K .
+
+    op _.hasOwner(_) : Linking{K, C} C$Elt -> Bool .
+    eq ((K <=> (C V D)) L).hasOwner(V) = true .
+    eq L .hasOwner(V) = false [owise] .
+
+    op _.values() : Linking{K, C} -> C$Col .
+    eq mt .values() = empty .
+    eq ((K <=> C) L).values() = C L .values() .
+endfm
+
