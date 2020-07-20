@@ -16,17 +16,17 @@ if [[ "$1" == "typecheck" ]]; then
     directory="static/"
 
     if [[ "$1" == "debug" ]]; then
+        shift
         FLAGS+=("--log")
         FLAGS+=("--log-cells")
         FLAGS+=("(k),(#pc),#result,(typeEnv)")
-        shift # Clear out the debug argument
     fi
 else
     if [[ "$1" == "debug" ]]; then
+        shift
         FLAGS+=("--log")
         FLAGS+=("--log-cells")
         FLAGS+=("(k),(#pc),#result,(storage),(lookup),(localTypeEnv)")
-        shift # Clear out the debug argument
     fi
 fi
 
@@ -47,31 +47,21 @@ if [[ "$1" == "test" ]]; then
         exit 1
     fi
 
-    FLAGS+=("--pattern")
-    if [[ -e "$fname.pat" ]]; then
-        FLAGS+=("$(cat "$fname.pat")")
+    result="fail"
+    if [[ -e "$fname.out" ]]; then
+        if "$KDISTR/krun" "${FLAGS[@]}" --directory "$directory" "$@" | diff - "$fname.out"; then
+            result="pass"
+        fi
     else
-        FLAGS+=("<k> . </k>")
+        echo "[ERROR] No output file for $fname!"
+        exit 1
     fi
-    to_run=("$KDISTR/krun" "${FLAGS[@]}" --directory "$directory" "$@")
-    printf "'%s' " "${to_run[@]}"
-    echo
-    result="$("${to_run[@]}")"
 
-    if echo "$fname" | grep -qE "\-fail.flow$"; then
-        if [[ "$result" == "#False" ]]; then
-            echo -e "${GREEN}[INFO] $fname passed${NC}"
-        else
-            echo -e "${RED}[ERROR] $fname failed${NC}"
-            exit 1
-        fi
+    if [[ "$result" == "fail" ]]; then
+        echo -e "${RED}[ERROR] $fname failed${NC}"
+        exit 1
     else
-        if [[ "$result" == "#False" ]]; then
-            echo -e "${RED}[ERROR] $fname failed${NC}"
-            exit 1
-        else
-            echo -e "${GREEN}[INFO] $fname passed${NC}"
-        fi
+        echo -e "${GREEN}[INFO] $fname passed${NC}"
     fi
 else
     set -x

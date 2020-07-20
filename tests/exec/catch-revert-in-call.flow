@@ -1,0 +1,14 @@
+contract Main {
+    transaction T():
+        revert("Blah")
+}
+;
+
+var x : ! Main := new Main()
+
+try {
+    x.T()
+} catch (err : ! string) {
+    if err != "Blah" { revert("Failure!") }
+}
+

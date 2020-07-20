@@ -1,0 +1,42 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      Main |-> contract Main { .Decls }
+    </contracts>
+    <fields>
+      Main |-> .Set
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      .Map
+    </transactions>
+    <types>
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <freshCounter>
+      1
+    </freshCounter>
+  </common>
+  <lookup>
+    this |-> loc ( -1 )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( string , "test" )
+    loc ( -1 ) |-> resource ( Base , .Map )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

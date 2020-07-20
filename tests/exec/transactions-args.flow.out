@@ -1,0 +1,51 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      Main |-> contract Main { transaction foo ( n : ! nat , .VarDefs ) returns ! nat : var t : ! nat := 0 n --[ everything ]-> t 12 --[ everything ]-> t return t  transaction add ( n : ! nat , m : ! nat , .VarDefs ) returns ! nat : var t : ! nat := 0 n --[ everything ]-> t m --[ everything ]-> t return t  .Decls }
+    </contracts>
+    <fields>
+      Main |-> .Set
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      Main . add |-> transaction ( var ( 1 ) : ! nat , n : ! nat , m : ! nat , .VarDefs , pass var t : ! nat := 0 in ( ( pass n --[ everything ]-> t ) ( pass m --[ everything ]-> t ) pass t --[ everything ]-> var ( 1 ) pack exit ) )
+      Main . foo |-> transaction ( var ( 0 ) : ! nat , n : ! nat , .VarDefs , pass var t : ! nat := 0 in ( ( pass n --[ everything ]-> t ) ( pass 12 --[ everything ]-> t ) pass t --[ everything ]-> var ( 0 ) pack exit ) )
+    </transactions>
+    <types>
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <freshCounter>
+      13
+    </freshCounter>
+  </common>
+  <lookup>
+    this |-> loc ( -1 )
+  </lookup>
+  <storage>
+    loc ( 3 ) |-> resource ( Main , .Map )
+    loc ( 4 ) |-> resource ( nat , 781 )
+    loc ( 5 ) |-> resource ( nat , 611 )
+    loc ( 6 ) |-> resource ( nat , 0 )
+    loc ( 7 ) |-> resource ( nat , 0 )
+    loc ( 9 ) |-> resource ( nat , 0 )
+    loc ( 10 ) |-> resource ( nat , 0 )
+    loc ( 11 ) |-> resource ( nat , 0 )
+    loc ( 12 ) |-> resource ( nat , 1392 )
+    loc ( -1 ) |-> resource ( Base , .Map )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

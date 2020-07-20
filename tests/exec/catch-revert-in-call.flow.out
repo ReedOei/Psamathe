@@ -1,0 +1,43 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      Main |-> contract Main { transaction T ( .VarDefs ) returns ! bool : revert ( "Blah" ) return true  .Decls }
+    </contracts>
+    <fields>
+      Main |-> .Set
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      Main . T |-> transaction ( var ( 0 ) : ! bool , .VarDefs , ( pass revert ( "Blah" ) pack ) pass true --[ everything ]-> var ( 0 ) pack exit )
+    </transactions>
+    <types>
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <freshCounter>
+      5
+    </freshCounter>
+  </common>
+  <lookup>
+    this |-> loc ( -1 )
+  </lookup>
+  <storage>
+    loc ( 2 ) |-> resource ( Main , .Map )
+    loc ( 4 ) |-> resource ( string , "Blah" )
+    loc ( -1 ) |-> resource ( Base , .Map )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

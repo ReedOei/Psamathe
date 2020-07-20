@@ -23,10 +23,10 @@ static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-sy
 	$(KDISTR)/kompile --backend $(BACKEND) flow-typecheck.k -d static/
 
 tests/exec/%.flow: dynamic/flow-kompiled/timestamp static/flow-typecheck-kompiled/timestamp
-	./flow test $(FLAGS) $@
+	time ./flow test $(FLAGS) $@
 
 tests/typecheck/%.flow: static/flow-typecheck-kompiled/timestamp
-	./flow typecheck $(FLAGS) $@
+	time ./flow typecheck test $(FLAGS) $@
 
 clean:
 	rm -rf dynamic/flow-kompiled

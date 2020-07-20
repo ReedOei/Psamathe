@@ -1,0 +1,45 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      ERC20Bank |-> contract ERC20Bank { type Token is fungible  asset  .Modifiers nat  balance : ! Token  .Decls }
+    </contracts>
+    <fields>
+      ERC20Bank |-> SetItem ( balance : ! ERC20Bank . Token )
+    </fields>
+    <constructors>
+      ERC20Bank |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      .Map
+    </transactions>
+    <types>
+      ERC20Bank . Token |-> modified ( SetItem ( asset )
+      SetItem ( fungible ) , nat )
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <freshCounter>
+      3
+    </freshCounter>
+  </common>
+  <lookup>
+    this |-> loc ( -1 )
+  </lookup>
+  <storage>
+    loc ( 1 ) |-> resource ( ERC20Bank . Token , emptyval )
+    loc ( 2 ) |-> resource ( ERC20Bank , balance |-> loc ( 1 ) )
+    loc ( -1 ) |-> resource ( Base , .Map )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

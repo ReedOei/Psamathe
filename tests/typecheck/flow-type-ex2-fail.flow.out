@@ -1,0 +1,38 @@
+<generatedTop>
+  <common>
+    <k>
+      new Wrong ( .Exprs ) : ! Main ~> insert ( x , ! Main ) ~> pass ~> drop ( x ) ~> .
+    </k>
+    <contracts>
+      Main |-> contract Main { .Decls }
+      Wrong |-> contract Wrong { .Decls }
+    </contracts>
+    <fields>
+      Main |-> .Set
+      Wrong |-> .Set
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+      Wrong |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <transactions>
+      .Map
+    </transactions>
+    <types>
+      address |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , address )
+      bool |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , bool )
+      nat |-> modified ( SetItem ( consumable )
+      SetItem ( fungible ) , nat )
+      string |-> modified ( SetItem ( consumable )
+      SetItem ( nonfungible ) , string )
+    </types>
+    <freshCounter>
+      0
+    </freshCounter>
+  </common>
+  <typeEnv>
+    .Map
+  </typeEnv>
+</generatedTop>
