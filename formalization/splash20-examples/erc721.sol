@@ -23,11 +23,9 @@ contract NFToken {
     if (idToApproval[_tokenId] != address(0)) {
       delete idToApproval[_tokenId];
     }
-    _removeNFToken(from, _tokenId);
     require(idToOwner[_tokenId] == _from, NOT_OWNER);
     ownerToNFTokenCount[_from] = ownerToNFTokenCount[_from] - 1;
     delete idToOwner[_tokenId];
-    _addNFToken(_to, _tokenId);
     require(idToOwner[_tokenId] == address(0), NFT_ALREADY_EXISTS);
     idToOwner[_tokenId] = _to;
     ownerToNFTokenCount[_to] = ownerToNFTokenCount[_to].add(1);

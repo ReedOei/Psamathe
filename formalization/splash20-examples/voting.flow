@@ -5,10 +5,6 @@ contract Ballot {
     voters : set Voter
     proposals : linking ProposalName <=> set Voter
     winningProposalName : string
-    on create(proposalNames : set string):
-        chairperson := msg.sender
-        new Voter(chairperson) --> voters
-        new ProposalName --[ proposalNames ]-> (\name. name <=> {}) --> proposals
     transaction giveRightToVote(voter : address):
         only when msg.sender = chairperson
         new Voter(voter) --> voters

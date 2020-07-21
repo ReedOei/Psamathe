@@ -10,3 +10,4 @@ contract EIP20 {
         allowances[msg.sender][dst] --> consume
         new Approval --[ amount ]-> allowances[msg.sender][dst]
 }
+

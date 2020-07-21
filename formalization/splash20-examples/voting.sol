@@ -11,13 +11,6 @@ contract Ballot {
     address public chairperson;
     mapping(address => Voter) public voters;
     Proposal[] public proposals;
-    constructor(bytes32[] memory proposalNames) public {
-        chairperson = msg.sender;
-        voters[chairperson].weight = 1;
-        for (uint i = 0; i < proposalNames.length; i++) {
-            proposals.push(Proposal(proposalNames[i], ));
-        }
-    }
     function giveRightToVote(address voter) public {
         require(msg.sender == chairperson,
             "Only chairperson can give right to vote.");
