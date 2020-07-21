@@ -15,9 +15,9 @@
       Main |-> constructor ( .VarDefs , pass )
       Wrong |-> constructor ( .VarDefs , pass )
     </constructors>
-    <transactions>
+    <functions>
       .Map
-    </transactions>
+    </functions>
     <types>
       address |-> modified ( SetItem ( consumable )
       SetItem ( nonfungible ) , address )

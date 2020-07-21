@@ -12,9 +12,9 @@
     <constructors>
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
-    <transactions>
+    <functions>
       Main . addOne |-> transaction ( var ( 0 ) : ! bool , .VarDefs , ( ( unpack ( balance ) pass ) 1 --[ everything ]-> this . balance ) pass true --[ everything ]-> var ( 0 ) pack exit )
-    </transactions>
+    </functions>
     <types>
       address |-> modified ( SetItem ( consumable )
       SetItem ( nonfungible ) , address )

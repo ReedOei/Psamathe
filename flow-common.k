@@ -16,7 +16,7 @@ module FLOW-COMMON
             <contracts> .Map </contracts>
             <fields> .Map </fields>
             <constructors> .Map </constructors>
-            <transactions> .Map </transactions>
+            <functions> .Map </functions>
             <types>
                 nat |-> modified(SetItem(consumable) SetItem(fungible), nat)
                 string |-> modified(SetItem(consumable) SetItem(nonfungible), string)
@@ -54,19 +54,14 @@ module FLOW-COMMON
         <fields> ... C |-> (Fields => Fields SetItem(X : resolveType(C, T))) ... </fields>
         [structural]
 
-    syntax TxData ::= transaction(VarDef, VarDefs, Stmt)
+    syntax FuncData ::= transaction(VarDef, VarDefs, Stmt)
 
     // If no return variable name was specified, generate a fresh one, then use the standard transaction processing rule.
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, (transaction T(Args) returns var(I) : RetType : S) Ds) ... </k>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     rule <k> processDecls(C, (transaction T(Args) returns X : RetType : S) Ds) => processDecls(C, Ds) ... </k>
-        /* <fields> */
-        /*     ... */
-        /*     (C |-> (Fields => Fields SetItem(T : ! (! { resolveTypes(C, Args) }) ~~> resolveType(C, RetType)))) */
-        /*     ... */
-        /* </fields> */
-        <transactions>
+        <functions>
             ...
             .Map
             =>
@@ -74,8 +69,26 @@ module FLOW-COMMON
                                 resolveTypes(C, Args),
                                 resolveTypes(C, normalizeTxBody(X, normalize(S))))
             ...
-        </transactions>
+        </functions>
         [structural]
+
+    syntax FuncData ::= view(Type, VarDefs, Expr)
+
+    rule <k> processDecls(C, (view F(Args) returns RetType := E) Ds) => processDecls(C, Ds) ... </k>
+        <functions>
+            ...
+            .Map
+            =>
+            C.F |-> view(resolveType(C, RetType),
+                         resolveTypes(C, Args),
+                         resolveTypes(C, normalizeExpr(E)))
+            ...
+        </functions>
+        [structural]
+
+    // TODO: Implement this. It will translate to A-normal form, eliminate more complicated syntactic sugar, etc.
+    syntax Expr ::= normalizeExpr(Expr) [function, functional]
+    rule normalizeExpr(E) => E
 
     // TODO: It would be nice toa void inserting the unpacks if not necessary (i.e., no fields are accessed)
     syntax Stmt ::= normalizeTxBody(Var, Stmt) [function, functional]

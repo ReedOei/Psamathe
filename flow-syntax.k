@@ -97,8 +97,10 @@ module FLOW-CORE-SYNTAX
     syntax TypeDef ::= "type" Var "is" Modifiers BaseType
     syntax FieldDef ::= VarDef
     syntax TransactionDef ::= "transaction" Var "(" VarDefs ")" "returns" VarDef ":" Stmt
+    syntax ViewDef ::= "view" Var "(" VarDefs ")" "returns" Type ":=" Expr
     syntax Decl ::= TypeDef
                   | TransactionDef
+                  | ViewDef
                   | FieldDef
     syntax Decls ::= List{Decl, " "}
 

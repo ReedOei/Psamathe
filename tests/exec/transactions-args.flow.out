@@ -12,10 +12,10 @@
     <constructors>
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
-    <transactions>
+    <functions>
       Main . add |-> transaction ( var ( 1 ) : ! nat , n : ! nat , m : ! nat , .VarDefs , pass var t : ! nat := 0 in ( ( pass n --[ everything ]-> t ) ( pass m --[ everything ]-> t ) pass t --[ everything ]-> var ( 1 ) pack exit ) )
       Main . foo |-> transaction ( var ( 0 ) : ! nat , n : ! nat , .VarDefs , pass var t : ! nat := 0 in ( ( pass n --[ everything ]-> t ) ( pass 12 --[ everything ]-> t ) pass t --[ everything ]-> var ( 0 ) pack exit ) )
-    </transactions>
+    </functions>
     <types>
       address |-> modified ( SetItem ( consumable )
       SetItem ( nonfungible ) , address )

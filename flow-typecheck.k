@@ -302,12 +302,30 @@ module FLOW-TYPECHECK
     rule expr(E) => E : ?Sigma ~> checkThat(notBool(isAsset(?Sigma)))
 
     // =======================================
+    // View calls
+    // =======================================
+
+    // =======================================
+    // External calls
+    // =======================================
+
+    // =======================================
+    // External calls
+    // =======================================
+
+    // =======================================
     // Pack
     // =======================================
     rule <k> pack => . ... </k>
         <typeEnv> Gamma => removeAll(Gamma, keys(fieldEnv(Fields))) </typeEnv>
         <fields> ... Gamma[this] |-> Fields </fields>
         requires restrict(Gamma, keys(fieldEnv(Fields))) <=Env fieldEnv(Fields)
+
+    syntax Stmt ::= packed(Var)
+    rule <k> packed(C) => . ... </k>
+        <typeEnv> Gamma </typeEnv>
+        <fields> C |-> Fields </fields>
+        requires intersectSet(keys(Fields), keys(Gamma)) ==K .Set
 
     // =======================================
     // Type modifier checking

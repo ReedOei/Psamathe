@@ -11,6 +11,6 @@ for fname in $(find "$test_dir" -name "*.flow" -type f); do
         continue
     fi
 
-    "$(git rev-parse --show-toplevel)/flow" "$@" "$fname" > "$fname.out"
+    "$(git rev-parse --show-toplevel)/flow" "$@" "$fname" | tee "$fname.out"
 done
 

@@ -12,9 +12,9 @@
     <constructors>
       ERC20Bank |-> constructor ( .VarDefs , pass )
     </constructors>
-    <transactions>
+    <functions>
       .Map
-    </transactions>
+    </functions>
     <types>
       ERC20Bank . Token |-> modified ( SetItem ( asset )
       SetItem ( fungible ) , nat )

@@ -12,10 +12,10 @@
     <constructors>
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
-    <transactions>
+    <functions>
       Main . add |-> transaction ( var ( 0 ) : ! bool , n : ! nat , .VarDefs , ( ( unpack ( balance ) pass ) n --[ everything ]-> this . balance ) pass true --[ everything ]-> var ( 0 ) pack exit )
       Main . remove |-> transaction ( var ( 1 ) : ! nat , m : ! nat , .VarDefs , pass var t : ! nat := 0 in ( ( ( unpack ( balance ) pass ) this . balance --[ m ]-> t ) pass t --[ everything ]-> var ( 1 ) pack exit ) )
-    </transactions>
+    </functions>
     <types>
       address |-> modified ( SetItem ( consumable )
       SetItem ( nonfungible ) , address )

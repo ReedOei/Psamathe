@@ -392,7 +392,7 @@ module FLOW
     rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, insert(RetVar, loc(I)) S) ~> lookupVal(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> defaultValue(RetType)) ... </storage>
-        <transactions> ... C.T |-> transaction(RetVar : _:TypeQuant RetType, FormalArgs, S) ... </transactions>
+        <functions> ... C.T |-> transaction(RetVar : _:TypeQuant RetType, FormalArgs, S) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // TODO: Mabye replace this by a more efficient system (e.g., a call stack cell)
