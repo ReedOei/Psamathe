@@ -14,8 +14,9 @@ contract Ballot {
         new Voter(voter) --> voters
     transaction vote(proposal : string):
         voters[msg.sender] --> proposals[proposal][msg.sender]
-        if total proposals[proposal] > total proposals[winningProposalName] then
+        if total proposals[proposal] > total proposals[winningProposalName] {
             winningProposalName := proposal
+        }
     view winningProposal() returns string := winningProposalName
 }
 

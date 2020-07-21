@@ -182,7 +182,7 @@ Some of these are already discussed in the paper.
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
-    $F$ & \bnfdef & $\mathcal{S} \sends{s} x \to \mathcal{D}$ & (flows) \\
+    $F$ & \bnfdef & $\mathcal{S} \sends{s} \mathcal{D}$ & (flows) \\
     $\Stmt$ & \bnfdef & $F$ \bnfalt $S;S$ \bnfalt $\ldots$ & (statements) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible & \\
         & \bnfalt & \consumable \bnfalt \asset & (type modifiers) \\
@@ -221,7 +221,6 @@ Furthermore, it supports data structures that make working with \assetTxt{}s eas
 
 \section{Case Studies}
 \subsection{ERC-20}
-\reed{NOTE: I removed the MAX\_UINT thing that gives an unlimited approval from ERC20.sol, because that's not part of the standard and not particularly relevant.}
 \reed{Cite all Solidity code properly}
 \begin{figure*}[h]
     \centering
@@ -238,15 +237,15 @@ Furthermore, it supports data structures that make working with \assetTxt{}s eas
 Figure~\ref{fig:erc20-impl} shows implementations of the ERC-20 \reed{cite} standard in both Solidity and \langName, one of the most commonly implemented standards on the Ethereum blockchain \reed{cite}.
 Only the core functions of \lstinline{transfer}, \lstinline{transferFrom}, and \lstinline{approve} are shown, with the exception of \lstinline{totalSupply} in the \langName implementation (included because to show the use of the \total operator).
 All event code has been omitted, because \langName handles events in the same way as Solidity.
-This code shows several advantages of the flow abstraction:
+This contract shows several advantages of the flow abstraction:
 \begin{itemize}
-    \item Precondition checking: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
+    \item \textbf{Precondition checking}: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
         In this case, the balance of the sender must be greater than the amount sent, and the balance of the destination must not overflow when it receives the tokens.
         Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
-    \item Data-flow tracking: It is clear where the resources are flowing from the code itself, which may not be apparent in more complicated implementations, such as those involving transfer fees.
+    \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in more complicated implementations, such as those involving transfer fees.
         Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as consumable may be consumed.
         This restriction prevents, in this example, tokens from being consumed, and can also be used to ensure that other \assetTxt{}s, like ether, are not consumed.
-    \item Error messages: When a flow fails, we provide \reed{TODO: **will provide**} automatic, descriptive error messages, such as ``\lstinline{Failed to flow '<amount>' Token from account[<src>] to account[<dst>]: account[<dst>] does not have enough Token.}''.
+    \item \textbf{Error messages}: When a flow fails, \langName provides \reed{TODO: **will provide**} automatic, descriptive error messages, such as ``\lstinline{Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <amount> Token.}''.
         \reed{Not sure exactly what the error message should be.}
         The default implementation provides no error message forcing developers to write their own.
         Flows enable the generation of the messages by encoding the semantic information of a \textbf{transfer} into the program, instead of using low-level incrementing and decrementing.
@@ -270,14 +269,14 @@ Of course, you could always implement a linking in a Solidity library...
 However, you still wouldn't have the property that only one account is guaranteed to hold each token, because of the nonfungibility/uniqueness.}
 
 The ERC-721 standard \reed{cite} requires many invariants hold:
-    they must be unique,
+    the tokens must be unique,
     at most one non-owning account can have ``approval'' for a token,
     we must be able to support ``operators'' who can manage all of the tokens of a user,
     among others.
-Because \langName is designed to handle \assetTxt{}s, it makes, and removes the burden of ensuring these correctness properties hold from developers.
-\reed{A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that tokens will not be}
+Because \langName is designed to handle \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
+A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\nonfungible$, we can be sure that we will not mint two of the same token.
 
-Figure~\ref{fig:erc721-impl} shows an implementation of the ERC-721 \lstinline{transferFrom} function in both Solidity and \langName.
+Figure~\ref{fig:erc721-impl} shows an implementation ERC-721's \lstinline{transferFrom} function in both Solidity and \langName.
 The Solidity implementation is extracted from one of the reference implementations of ERC-721 given on its official Ethereum EIP page.
 In addition to the invariant required by the specification, there are also internal invariant which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled by \langName.
 This example demonstrates the benefits of having nonfungible \assetTxt{}s and linkings built into the language itself.
@@ -321,7 +320,7 @@ transaction withdrawBalance():
     userBalances[msg.sender] --> msg.sender.balance
 \end{lstlisting}
 
-Because of the additional information encoded in the flow construct, the compiler can output the safe version of the above code---reducing the balance before peforming the call---without any user intervention.
+Because of the additional information encoded in the flow construct, the compiler can output the safe version of the above code---reducing the balance before peforming the external call---without any user intervention.
 
 \section{Discussion}
 
@@ -335,11 +334,9 @@ Because of the additional information encoded in the flow construct, the compile
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{biblio}
 
-%%
 %% If your work has an appendix, this is the place to put it.
-\appendix
-
-\section{Appendix}
+% \appendix
+% \section{Appendix}
 
 \end{document}
 \endinput

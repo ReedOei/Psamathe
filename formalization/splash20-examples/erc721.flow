@@ -11,8 +11,9 @@ contract NFToken {
     view validNFToken(_tokenId : nat) returns bool := balances.hasOwner(_tokenId)
     transaction transferFrom(_from : address, _to : address, _tokenId : nat):
         only when _to != 0x0 and canTransfer(_tokenId)
-        if approval.hasOwner(_tokenId) then
+        if approval.hasOwner(_tokenId) {
             approval[approval.ownerOf(_tokenId)] --[ _tokenId ]-> consume
+        }
         balances[_from] --[ _tokenId ]-> balances[_to]
 }
 
