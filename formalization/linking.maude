@@ -45,3 +45,39 @@ fmod LINKING{K :: TRIV, C :: COLLECTION} is
     eq ((K <=> C) L).values() = C L .values() .
 endfm
 
+fmod NAT-LIST-COL is
+    protecting NAT-LIST .
+
+    vars N M : Nat .
+    vars L L1 L2 : NatList .
+
+    op select : NatList NatList -> NatList .
+    eq select(L, nil) = L .
+    eq select(L1 N L2, N L) = select(L1 L2, L) .
+    eq select(L1, N L) = select(L1, L) [owise] .
+
+    op contains : NatList NatList -> Bool .
+    eq contains(L, nil) = true .
+    eq contains(L1 N L2, N L) = contains(L1 L2, L) .
+    eq contains(L1, N L) = contains(L1, L) [owise] .
+
+    op canContain : NatList NatList -> Bool .
+    eq canContain(L1, L2) = true .
+endfm
+
+view NatList from COLLECTION to NAT-LIST-COL is
+    sort Elt to Nat .
+    sort Col to NatList .
+
+    op empty to nil .
+endv
+
+fmod LINKING-NAT-NAT-LIST is
+    protecting LINKING{Nat, NatList} .
+endfm
+
+red mt .
+red ((1 <=> nil) (2 <=> (3 4 5 6))) .
+red ((1 <=> nil) (2 <=> (3 4 5 6)))[2] .
+red ((1 <=> nil) (2 <=> (3 4 5 6))).ownerOf(5) .
+
