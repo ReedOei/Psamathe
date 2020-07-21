@@ -239,14 +239,19 @@ module FLOW
 
     syntax Resource ::= select(SelectorVal, Resource) [function, functional]
 
-    // Selection (includes select, subtract, and contains)
+    // ==================================
+    // Select
     // TODO: Handle selectors that need to be converted (or maybe just convert by default), such as selecting from a set with a list.
+    // ==================================
     rule select(everything, R) => R
     rule select(resource(R, V), resource(R, _)) => resource(R, V)
     rule select(resource(R, V), resource(option Q R, _)) => resource(option Q R, some(V))
     rule select(resource(R, V), resource(set Q R, _)) => resource(set Q R, SetItem(V))
     rule select(resource(R, V), resource(list Q R, _)) => resource(list Q R, ListItem(V))
 
+    // ==================================
+    // Subtract
+    // ==================================
     syntax Resource ::= subtract(Resource, Resource) [function, functional]
     rule subtract(resource(nat, A), resource(nat, B)) => resource(nat, A -Int B)
     rule subtract(resource(X:Var, A), resource(X, A)) => resource(X, emptyval)
@@ -266,6 +271,9 @@ module FLOW
     rule subtract(resource(R, A), resource(S, _)) => resource(R, A)
         requires R =/=K S
 
+    // ==================================
+    // contained_in
+    // ==================================
     syntax Bool ::= Val "contained_in" Val [function, functional]
 
     rule resource(nat, A) contained_in resource(nat, B) => A <=Int B
@@ -290,15 +298,19 @@ module FLOW
     rule resource(_, _) contained_in resource(_ ~~> _, _) => false
     rule resource(_ ~~> _, _) contained_in resource(_, _) => false
 
+    // ==================================
     // `pure` as in Haskell's Applicative's "pure : a -> f a"
+    // ==================================
     syntax Val ::= pure(BaseType, BasicVal) [function, functional]
     rule pure(X:Var, V) => resource(X, V)
     rule pure(option R, V) => resource(option R, some(V))
     rule pure(set R, V) => resource(set R, SetItem(V))
     rule pure(list R, V) => resource(list R, ListItem(V))
 
+    // ==================================
     // Convert resources: Takes a resource value and converts it to be compatible with the specified type
     //  - e.g., an option => set conversion makes `none` into the empty set and `some(A)` into a singleton containing A
+    // ==================================
     syntax Val ::= convert(Resource, BaseType) [function, functional]
 
     rule convert(resource(_, emptyval), Target) => defaultValue(Target)
@@ -314,7 +326,9 @@ module FLOW
     rule convert(resource(option _, none), Target) => defaultValue(Target)
     rule convert(resource(option _, some(A)), Target) => pure(Target, A)
 
+    // ==================================
     // Combine resources: takes two collections of values and makes a single collection.
+    // ==================================
     syntax Val ::= combine(Val, Val) [function, functional]
 
     // Error propagation
@@ -336,6 +350,8 @@ module FLOW
     // Combine as `B A` instead of `A B`, because the new values should be **appended**, not prepended.
     rule combine(resource(list R, A:List), resource(list R, B:List)) => resource(list R, B A)
 
+    // ==================================
+    // ==================================
     syntax Resource ::= defaultValue(BaseType) [function, functional]
     rule defaultValue(nat) => resource(nat, 0)
     rule defaultValue(X:Var) => resource(X, emptyval)
