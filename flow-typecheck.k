@@ -5,7 +5,7 @@ module FLOW-TYPECHECK-SYNTAX
 endmodule
 
 module FLOW-TYPECHECK
-    imports FLOW-SYNTAX
+    imports FLOW-TYPECHECK-SYNTAX
     imports FLOW-COMMON
     imports DOMAINS
     imports COLLECTIONS
@@ -96,10 +96,12 @@ module FLOW-TYPECHECK
     rule <k> setEnv(Gamma) => . ... </k>
         <typeEnv> _ => Gamma </typeEnv>
 
-    syntax TypeOp ::= typeof(Var)
+    syntax TypeOp ::= typeof(Storage)
 
     rule <k> typeof(X) => typeof(Gamma, X) ... </k>
         <typeEnv> Gamma </typeEnv>
+    rule typeof(new _) => bot
+    rule typeof(consume) => bot
 
     syntax Type ::= typeof(Map, Var) [function, functional]
 
@@ -154,8 +156,10 @@ module FLOW-TYPECHECK
 
     context HOLE +Ty _
     rule (Q:TypeQuant T) +Ty R => (Q + R) T
+    rule bot +Ty _ => bot
     context HOLE -Ty _
     rule (Q:TypeQuant T) -Ty R => (Q - R) T
+    rule bot -Ty _ => bot
 
     // =======================================
     // Type/Type Environment Helpers
@@ -249,8 +253,9 @@ module FLOW-TYPECHECK
     rule S --[ Sel ]-> D =>
         S provides {?Q} ?Tau ~>
         Sel selects {?R} demote(?Tau) ~>
+        // TODO: Update this to the newer version in the rules.
         checkThat(min(?Q, ?R) <Q every) ~>
-        update(S, typeof(S) -Ty ?R) ~>
+        update(S, typeof(S) -Ty ?R)
         D accepts ?Tau ~>
         update(D, typeof(D) +Ty min(?Q, ?R))
 
@@ -306,7 +311,7 @@ module FLOW-TYPECHECK
     // =======================================
 
     // =======================================
-    // External calls
+    // Internal calls
     // =======================================
 
     // =======================================
@@ -337,11 +342,10 @@ module FLOW-TYPECHECK
 
     syntax Set ::= modifiers(BaseType) [function, functional]
 
+    rule [[ modifiers(C.T) => Ms ]]
+        <types> ... C |-> (SetItem(type(T, Ms, _)) _) ... </types>
     rule [[ modifiers(T) => Ms ]]
-        <types> ... T |-> modified(Ms, _) ... </types>
-    rule [[ modifiers(T) => .Set ]]
-        <types> Types </types>
-        requires notBool(T in keys(Types))
+        <types> ... T |-> (SetItem(type(T, Ms, _)) _) ... </types>
 
     // TODO: Finish this definition
     rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool (asset in modifiers(T))

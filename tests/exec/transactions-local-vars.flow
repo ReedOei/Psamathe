@@ -10,3 +10,5 @@ contract Main {
 var x : ! Main := new Main()
 x.foo()
 
+x --> consume
+

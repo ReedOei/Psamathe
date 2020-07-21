@@ -7,13 +7,13 @@
       SetItem ( Main )
     </contracts>
     <fields>
-      Main |-> SetItem ( balance : ! nat )
+      Main |-> .Set
     </fields>
     <constructors>
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
     <functions>
-      Main |-> SetItem ( transaction ( addOne , var ( 0 ) : ! bool , .VarDefs , ( ( unpack ( balance ) pass ) 1 --[ everything ]-> this . balance ) pass true --[ everything ]-> var ( 0 ) pack exit ) )
+      Main |-> .Set
     </functions>
     <types>
       Main |-> SetItem ( type ( Main , SetItem ( asset )
@@ -28,20 +28,10 @@
       SetItem ( nonfungible ) , string ) )
     </types>
     <freshCounter>
-      7
+      0
     </freshCounter>
   </common>
-  <lookup>
-    this |-> loc ( -1 )
-  </lookup>
-  <storage>
-    loc ( 2 ) |-> resource ( nat , 1 )
-    loc ( 3 ) |-> resource ( Main , emptyval )
-    loc ( 5 ) |-> resource ( nat , 0 )
-    loc ( 6 ) |-> resource ( bool , emptyval )
-    loc ( -1 ) |-> resource ( Base , .Map )
-  </storage>
-  <catchStack>
-    .List
-  </catchStack>
+  <objects>
+    ListItem ( object "Test" { code { sstore ( 0 , caller ( ) ) datacopy ( 0 , dataoffset ( "runtime" ) , datasize ( "runtime" ) ) return ( 0 , datasize ( "runtime" ) ) } } )
+  </objects>
 </generatedTop>

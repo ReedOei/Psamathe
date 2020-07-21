@@ -4,7 +4,7 @@
       .
     </k>
     <contracts>
-      Main |-> contract Main { transaction foo ( .VarDefs ) returns ! nat : var x : ! nat := 0 47 --[ everything ]-> x return 0  .Decls }
+      SetItem ( Main )
     </contracts>
     <fields>
       Main |-> .Set
@@ -13,17 +13,19 @@
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
     <functions>
-      Main . foo |-> transaction ( var ( 0 ) : ! nat , .VarDefs , pass var x : ! nat := 0 in ( ( pass 47 --[ everything ]-> x ) pass 0 --[ everything ]-> var ( 0 ) pack exit ) )
+      Main |-> SetItem ( transaction ( foo , var ( 0 ) : ! nat , .VarDefs , pass var x : ! nat := 0 in ( ( pass 47 --[ everything ]-> x ) pass 0 --[ everything ]-> var ( 0 ) pack exit ) ) )
     </functions>
     <types>
-      address |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , address )
-      bool |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , bool )
-      nat |-> modified ( SetItem ( consumable )
-      SetItem ( fungible ) , nat )
-      string |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , string )
+      Main |-> SetItem ( type ( Main , SetItem ( asset )
+      SetItem ( consumable ) , Main ) )
+      address |-> SetItem ( type ( address , SetItem ( consumable )
+      SetItem ( nonfungible ) , address ) )
+      bool |-> SetItem ( type ( bool , SetItem ( consumable )
+      SetItem ( nonfungible ) , bool ) )
+      nat |-> SetItem ( type ( nat , SetItem ( consumable )
+      SetItem ( fungible ) , nat ) )
+      string |-> SetItem ( type ( string , SetItem ( consumable )
+      SetItem ( nonfungible ) , string ) )
     </types>
     <freshCounter>
       7
@@ -33,7 +35,7 @@
     this |-> loc ( -1 )
   </lookup>
   <storage>
-    loc ( 2 ) |-> resource ( Main , .Map )
+    loc ( 2 ) |-> resource ( Main , emptyval )
     loc ( 4 ) |-> resource ( nat , 47 )
     loc ( 5 ) |-> resource ( nat , 0 )
     loc ( 6 ) |-> resource ( nat , 0 )

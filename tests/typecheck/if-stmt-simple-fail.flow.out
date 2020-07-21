@@ -4,7 +4,7 @@
         1 : ! bool ~> assertEnv ( .Map ) ~> assertEnv ( .Map ) ~> pass ~> assertEnv ( ?Delta ) ~> setEnv ( .Map ) ~> pass ~> assertEnv ( ?Xi ) ~> setEnv ( join ( ?Delta , ?Xi ) ) ~> .
       </k>
       <contracts>
-        Main |-> contract Main { .Decls }
+        SetItem ( Main )
       </contracts>
       <fields>
         Main |-> .Set
@@ -13,17 +13,19 @@
         Main |-> constructor ( .VarDefs , pass )
       </constructors>
       <functions>
-        .Map
+        Main |-> .Set
       </functions>
       <types>
-        address |-> modified ( SetItem ( consumable )
-        SetItem ( nonfungible ) , address )
-        bool |-> modified ( SetItem ( consumable )
-        SetItem ( nonfungible ) , bool )
-        nat |-> modified ( SetItem ( consumable )
-        SetItem ( fungible ) , nat )
-        string |-> modified ( SetItem ( consumable )
-        SetItem ( nonfungible ) , string )
+        Main |-> SetItem ( type ( Main , SetItem ( asset )
+        SetItem ( consumable ) , Main ) )
+        address |-> SetItem ( type ( address , SetItem ( consumable )
+        SetItem ( nonfungible ) , address ) )
+        bool |-> SetItem ( type ( bool , SetItem ( consumable )
+        SetItem ( nonfungible ) , bool ) )
+        nat |-> SetItem ( type ( nat , SetItem ( consumable )
+        SetItem ( fungible ) , nat ) )
+        string |-> SetItem ( type ( string , SetItem ( consumable )
+        SetItem ( nonfungible ) , string ) )
       </types>
       <freshCounter>
         0

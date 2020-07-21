@@ -6,5 +6,6 @@ contract ERC20Bank {
 
 ;
 
-var Bank : ! ERC20Bank := new ERC20Bank()
+var bank : ! ERC20Bank := new ERC20Bank()
+bank --> consume
 

@@ -4,7 +4,7 @@
       .
     </k>
     <contracts>
-      Main |-> contract Main { view get ( .VarDefs ) returns ! nat := 10  .Decls }
+      SetItem ( Main )
     </contracts>
     <fields>
       Main |-> .Set
@@ -13,17 +13,19 @@
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
     <functions>
-      Main . get |-> view ( ! nat , .VarDefs , 10 )
+      Main |-> SetItem ( view ( get , ! nat , .VarDefs , 10 ) )
     </functions>
     <types>
-      address |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , address )
-      bool |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , bool )
-      nat |-> modified ( SetItem ( consumable )
-      SetItem ( fungible ) , nat )
-      string |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , string )
+      Main |-> SetItem ( type ( Main , SetItem ( asset )
+      SetItem ( consumable ) , Main ) )
+      address |-> SetItem ( type ( address , SetItem ( consumable )
+      SetItem ( nonfungible ) , address ) )
+      bool |-> SetItem ( type ( bool , SetItem ( consumable )
+      SetItem ( nonfungible ) , bool ) )
+      nat |-> SetItem ( type ( nat , SetItem ( consumable )
+      SetItem ( fungible ) , nat ) )
+      string |-> SetItem ( type ( string , SetItem ( consumable )
+      SetItem ( nonfungible ) , string ) )
     </types>
     <freshCounter>
       5
@@ -33,7 +35,7 @@
     this |-> loc ( -1 )
   </lookup>
   <storage>
-    loc ( 1 ) |-> resource ( Main , .Map )
+    loc ( 1 ) |-> resource ( Main , emptyval )
     loc ( 3 ) |-> resource ( nat , 0 )
     loc ( 4 ) |-> resource ( nat , 10 )
     loc ( -1 ) |-> resource ( Base , .Map )

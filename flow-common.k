@@ -13,15 +13,15 @@ module FLOW-COMMON
     configuration
         <common>
             <k> $PGM:Program </k>
-            <contracts> .Map </contracts>
+            <contracts> .Set </contracts>
             <fields> .Map </fields>
             <constructors> .Map </constructors>
             <functions> .Map </functions>
             <types>
-                nat |-> modified(SetItem(consumable) SetItem(fungible), nat)
-                string |-> modified(SetItem(consumable) SetItem(nonfungible), string)
-                bool |-> modified(SetItem(consumable) SetItem(nonfungible), bool)
-                address |-> modified(SetItem(consumable) SetItem(nonfungible), address)
+                nat |-> SetItem(type(nat, SetItem(consumable) SetItem(fungible), nat))
+                string |-> SetItem(type(string, SetItem(consumable) SetItem(nonfungible), string))
+                bool |-> SetItem(type(bool, SetItem(consumable) SetItem(nonfungible), bool))
+                address |-> SetItem(type(address, SetItem(consumable) SetItem(nonfungible), address))
             </types>
             /* <log stream="stdout"> .List </log> */
             <freshCounter> 0 </freshCounter>
@@ -30,13 +30,16 @@ module FLOW-COMMON
     // Helper terms
     syntax Stmt ::= processDecls(Var, Decls)
 
-    syntax TypeMod ::= modified(Set, BaseType)
+    syntax KItem ::= type(Var, Set, BaseType)
 
     syntax KItem ::= constructor(VarDefs, Stmt)
 
     rule <k> contract C { Ds } Cs ; S => processDecls(C, Ds) ~> Cs ; S ... </k>
-        <contracts> ... .Map => C |-> contract C { Ds } ... </contracts>
+        <contracts> ... .Set => SetItem(C) ... </contracts>
         <fields> ... .Map => C |-> .Set ... </fields>
+        <functions> ... .Map => C |-> .Set ... </functions>
+        // TODO: Create the correct base type here.
+        <types> ... .Map  => C |-> SetItem(type(C, SetItem(consumable) SetItem(asset), C)) ... </types>
         <constructors> ... .Map => C |-> constructor(.VarDefs, pass) ... </constructors>
         [structural]
     rule .Contracts ; S => normalize(S) [structural]
@@ -47,14 +50,14 @@ module FLOW-COMMON
 
     rule processDecls(_, .Decls) => .
     rule <k> processDecls(C, (type T is Mods BaseType) Ds) => processDecls(C, Ds) ... </k>
-        <types> ... .Map => C.T |-> modified(modToSet(Mods), BaseType) ... </types>
+        <types> ... C |-> (Types => Types SetItem(type(T, modToSet(Mods), BaseType))) ... </types>
         [structural]
 
     rule <k> processDecls(C, (X : T) Ds) => processDecls(C, Ds) ... </k>
         <fields> ... C |-> (Fields => Fields SetItem(X : resolveType(C, T))) ... </fields>
         [structural]
 
-    syntax FuncData ::= transaction(VarDef, VarDefs, Stmt)
+    syntax FuncData ::= transaction(Var, VarDef, VarDefs, Stmt)
 
     // If no return variable name was specified, generate a fresh one, then use the standard transaction processing rule.
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, (transaction T(Args) returns var(I) : RetType : S) Ds) ... </k>
@@ -63,25 +66,21 @@ module FLOW-COMMON
     rule <k> processDecls(C, (transaction T(Args) returns X : RetType : S) Ds) => processDecls(C, Ds) ... </k>
         <functions>
             ...
-            .Map
-            =>
-            C.T |-> transaction(X : resolveType(C, RetType),
-                                resolveTypes(C, Args),
-                                resolveTypes(C, normalizeTxBody(X, normalize(S))))
+            C |-> (Funcs => Funcs SetItem(transaction(T, X : resolveType(C, RetType),
+                                          resolveTypes(C, Args),
+                                          resolveTypes(C, normalizeTxBody(X, normalize(S))))))
             ...
         </functions>
         [structural]
 
-    syntax FuncData ::= view(Type, VarDefs, Expr)
+    syntax FuncData ::= view(Var, Type, VarDefs, Expr)
 
     rule <k> processDecls(C, (view F(Args) returns RetType := E) Ds) => processDecls(C, Ds) ... </k>
         <functions>
             ...
-            .Map
-            =>
-            C.F |-> view(resolveType(C, RetType),
-                         resolveTypes(C, Args),
-                         resolveTypes(C, normalizeExpr(E)))
+            C |-> (Funcs => Funcs SetItem(view(F, resolveType(C, RetType),
+                                               resolveTypes(C, Args),
+                                               resolveTypes(C, normalizeExpr(E)))))
             ...
         </functions>
         [structural]

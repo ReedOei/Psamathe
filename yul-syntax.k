@@ -2,7 +2,8 @@ module YUL-SYNTAX
     imports DOMAINS-SYNTAX
 
     syntax Identifier ::= Id | Identifier "." Identifier [left, assoc]
-    syntax Identifiers ::= List{Identifier, ","}
+    syntax Identifiers ::= Identifier
+                         | Identifiers "," Identifiers [right, assoc]
 
 	syntax TypeName ::= Identifier
 
@@ -10,9 +11,10 @@ module YUL-SYNTAX
                              // Weird, because there's no type, but the grammar allows it because there is a default type..."usually the integer word of the target machine"
                              // In the case of Ethereum, this is uint256.
                              | Identifier
-    syntax TypedIdentifiers ::= List{TypedIdentifier, ","}
+    syntax TypedIdentifiers ::= TypedIdentifier
+                              | TypedIdentifiers "," TypedIdentifiers [right, assoc]
 
-	syntax Block ::= "{" Stmts "}"
+	syntax Block ::= "{" "}" | "{" Statements "}"
 	syntax Statement ::= Block
 					   | FunctionDefinition
 					   | VariableDeclaration
@@ -23,13 +25,18 @@ module YUL-SYNTAX
                        | ForLoop
                        | BreakContinue
                        | Leave
+    syntax Statements ::= Statement
+                        | Statements Statements [right, assoc]
 	syntax FunctionDefinition ::= "function" Identifier "(" TypedIdentifiers ")" "->" TypedIdentifiers Block
+	                            | "function" Identifier "(" ")" "->" TypedIdentifiers Block
 	                            | "function" Identifier "(" TypedIdentifiers ")" Block
+	                            | "function" Identifier "(" ")" Block
 	syntax VariableDeclaration ::= "let" TypedIdentifiers ":=" Expression
 	                             | "let" TypedIdentifiers
 	syntax Assignment ::= Identifiers ":=" Expression
 	syntax Expression ::= FunctionCall | Identifier | Literal
-    syntax Expressions ::= List{Expression, ","}
+    syntax Expressions ::= Expression
+                         | Expressions "," Expressions [right, assoc]
 	syntax If ::= "if" Expression Block
 	syntax Switch ::= "switch" Expression Cases
 	                | "switch" Expression Cases Default
@@ -40,9 +47,19 @@ module YUL-SYNTAX
 	syntax Default ::= "default" Block
 	syntax ForLoop ::= "for" Block Expression Block Block
 	syntax BreakContinue ::= "break" | "continue"
-	syntax Leave = "leave"
-	syntax FunctionCall = Identifier "(" Expressions ")"
-	syntax Literal = Int | String | Bool
+	syntax Leave ::= "leave"
+	syntax FunctionCall ::= Identifier "(" Expressions ")"
+	                      | Identifier "(" ")"
+	syntax Literal ::= Int | String | Bool
+
+    syntax Object ::= "object" String "{" Code ObjDatas "}"
+                    | "object" String "{" Code "}"
+    syntax Code ::= "code" Block
+    syntax Data ::= "data" String String
+    syntax ObjData ::= Object | Data
+    syntax ObjDatas ::= ObjData
+                      | ObjDatas "," ObjDatas [right, assoc]
+    /* syntax Data ::= "data" String ( HexLiteral | StringLiteral ) */
 
     // From the Official documentation. We can add support for these if we end up needed them.
     // For now, we only care about the syntax of Yul insofar compiling our own language.

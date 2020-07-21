@@ -24,3 +24,5 @@ var b : ! nat := 0
 var res : ! nat := x.add(a,b)
 if res != 1392 { revert("Failure!") }
 
+x --> consume
+

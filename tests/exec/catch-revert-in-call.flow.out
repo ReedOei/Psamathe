@@ -4,7 +4,7 @@
       .
     </k>
     <contracts>
-      Main |-> contract Main { transaction T ( .VarDefs ) returns ! bool : revert ( "Blah" ) return true  .Decls }
+      SetItem ( Main )
     </contracts>
     <fields>
       Main |-> .Set
@@ -13,17 +13,19 @@
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
     <functions>
-      Main . T |-> transaction ( var ( 0 ) : ! bool , .VarDefs , ( pass revert ( "Blah" ) pack ) pass true --[ everything ]-> var ( 0 ) pack exit )
+      Main |-> SetItem ( transaction ( T , var ( 0 ) : ! bool , .VarDefs , ( pass revert ( "Blah" ) pack ) pass true --[ everything ]-> var ( 0 ) pack exit ) )
     </functions>
     <types>
-      address |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , address )
-      bool |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , bool )
-      nat |-> modified ( SetItem ( consumable )
-      SetItem ( fungible ) , nat )
-      string |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , string )
+      Main |-> SetItem ( type ( Main , SetItem ( asset )
+      SetItem ( consumable ) , Main ) )
+      address |-> SetItem ( type ( address , SetItem ( consumable )
+      SetItem ( nonfungible ) , address ) )
+      bool |-> SetItem ( type ( bool , SetItem ( consumable )
+      SetItem ( nonfungible ) , bool ) )
+      nat |-> SetItem ( type ( nat , SetItem ( consumable )
+      SetItem ( fungible ) , nat ) )
+      string |-> SetItem ( type ( string , SetItem ( consumable )
+      SetItem ( nonfungible ) , string ) )
     </types>
     <freshCounter>
       5
@@ -33,7 +35,7 @@
     this |-> loc ( -1 )
   </lookup>
   <storage>
-    loc ( 2 ) |-> resource ( Main , .Map )
+    loc ( 2 ) |-> resource ( Main , emptyval )
     loc ( 4 ) |-> resource ( string , "Blah" )
     loc ( -1 ) |-> resource ( Base , .Map )
   </storage>

@@ -3,4 +3,5 @@ contract Main {
 ;
 
 var x : ! Main := new Main()
+x --> consume
 

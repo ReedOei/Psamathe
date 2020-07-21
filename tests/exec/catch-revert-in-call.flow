@@ -12,3 +12,5 @@ try {
     if err != "Blah" { revert("Failure!") }
 }
 
+x --> consume
+

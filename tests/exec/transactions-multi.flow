@@ -18,3 +18,5 @@ x.add(25)
 x.add(75)
 x.remove(60)
 
+x --> consume
+

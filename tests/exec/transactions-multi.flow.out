@@ -4,7 +4,7 @@
       .
     </k>
     <contracts>
-      Main |-> contract Main { balance : ! nat  transaction add ( n : ! nat , .VarDefs ) returns ! bool : n --[ everything ]-> this . balance return true  transaction remove ( m : ! nat , .VarDefs ) returns ! nat : var t : ! nat := 0 this . balance --[ m ]-> t return t  .Decls }
+      SetItem ( Main )
     </contracts>
     <fields>
       Main |-> SetItem ( balance : ! nat )
@@ -13,18 +13,20 @@
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
     <functions>
-      Main . add |-> transaction ( var ( 0 ) : ! bool , n : ! nat , .VarDefs , ( ( unpack ( balance ) pass ) n --[ everything ]-> this . balance ) pass true --[ everything ]-> var ( 0 ) pack exit )
-      Main . remove |-> transaction ( var ( 1 ) : ! nat , m : ! nat , .VarDefs , pass var t : ! nat := 0 in ( ( ( unpack ( balance ) pass ) this . balance --[ m ]-> t ) pass t --[ everything ]-> var ( 1 ) pack exit ) )
+      Main |-> SetItem ( transaction ( add , var ( 0 ) : ! bool , n : ! nat , .VarDefs , ( ( unpack ( balance ) pass ) n --[ everything ]-> this . balance ) pass true --[ everything ]-> var ( 0 ) pack exit ) )
+      SetItem ( transaction ( remove , var ( 1 ) : ! nat , m : ! nat , .VarDefs , pass var t : ! nat := 0 in ( ( ( unpack ( balance ) pass ) this . balance --[ m ]-> t ) pass t --[ everything ]-> var ( 1 ) pack exit ) ) )
     </functions>
     <types>
-      address |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , address )
-      bool |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , bool )
-      nat |-> modified ( SetItem ( consumable )
-      SetItem ( fungible ) , nat )
-      string |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , string )
+      Main |-> SetItem ( type ( Main , SetItem ( asset )
+      SetItem ( consumable ) , Main ) )
+      address |-> SetItem ( type ( address , SetItem ( consumable )
+      SetItem ( nonfungible ) , address ) )
+      bool |-> SetItem ( type ( bool , SetItem ( consumable )
+      SetItem ( nonfungible ) , bool ) )
+      nat |-> SetItem ( type ( nat , SetItem ( consumable )
+      SetItem ( fungible ) , nat ) )
+      string |-> SetItem ( type ( string , SetItem ( consumable )
+      SetItem ( nonfungible ) , string ) )
     </types>
     <freshCounter>
       14
@@ -35,7 +37,7 @@
   </lookup>
   <storage>
     loc ( 3 ) |-> resource ( nat , 40 )
-    loc ( 4 ) |-> resource ( Main , balance |-> loc ( 3 ) )
+    loc ( 4 ) |-> resource ( Main , emptyval )
     loc ( 6 ) |-> resource ( nat , 0 )
     loc ( 7 ) |-> resource ( bool , emptyval )
     loc ( 9 ) |-> resource ( nat , 0 )

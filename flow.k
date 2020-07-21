@@ -401,16 +401,18 @@ module FLOW
     rule <k> invoke(Loc, Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Lookup)) insert(this, Loc) Body) ~> resetEnv(Lookup) ... </k>
         <lookup> Lookup </lookup>
 
+    // Transactions
     rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, insert(RetVar, loc(I)) S) ~> lookupVal(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> defaultValue(RetType)) ... </storage>
-        <functions> ... C.T |-> transaction(RetVar : _:TypeQuant RetType, FormalArgs, S) ... </functions>
+        <functions> ... C |-> (SetItem(transaction(T, RetVar : _:TypeQuant RetType, FormalArgs, S)) _) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, handleFlow(everything, resolveStorage(evaluate(E)), loc(I))) ~> lookupVal(loc(I)) ... </k>
+    // Views
+    rule <k> X.F(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, handleFlow(everything, resolveStorage(evaluate(E)), loc(I))) ~> lookupVal(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> defaultValue(RetType)) ... </storage>
-        <functions> ... C.T |-> view(_:TypeQuant RetType, FormalArgs, E) ... </functions>
+        <functions> ... C |-> (SetItem(view(F, _:TypeQuant RetType, FormalArgs, E)) _) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // TODO: Mabye replace this by a more efficient system (e.g., a call stack cell)

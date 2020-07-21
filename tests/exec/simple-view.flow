@@ -9,3 +9,5 @@ var res : ! nat := x.get()
 
 if res != 10 { revert("Failure!") }
 
+x --> consume
+

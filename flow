@@ -21,6 +21,15 @@ if [[ "$1" == "typecheck" ]]; then
         FLAGS+=("--log-cells")
         FLAGS+=("(k),(#pc),#result,(typeEnv)")
     fi
+elif [[ "$1" == "compile" ]]; then
+    shift
+    directory="compiler/"
+    if [[ "$1" == "debug" ]]; then
+        shift
+        FLAGS+=("--log")
+        FLAGS+=("--log-cells")
+        FLAGS+=("(k),(#pc),#result")
+    fi
 else
     if [[ "$1" == "debug" ]]; then
         shift

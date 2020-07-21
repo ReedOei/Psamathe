@@ -4,8 +4,8 @@
       new Wrong ( .Exprs ) : ! Main ~> insert ( x , ! Main ) ~> pass ~> drop ( x ) ~> .
     </k>
     <contracts>
-      Main |-> contract Main { .Decls }
-      Wrong |-> contract Wrong { .Decls }
+      SetItem ( Main )
+      SetItem ( Wrong )
     </contracts>
     <fields>
       Main |-> .Set
@@ -16,17 +16,22 @@
       Wrong |-> constructor ( .VarDefs , pass )
     </constructors>
     <functions>
-      .Map
+      Main |-> .Set
+      Wrong |-> .Set
     </functions>
     <types>
-      address |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , address )
-      bool |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , bool )
-      nat |-> modified ( SetItem ( consumable )
-      SetItem ( fungible ) , nat )
-      string |-> modified ( SetItem ( consumable )
-      SetItem ( nonfungible ) , string )
+      Main |-> SetItem ( type ( Main , SetItem ( asset )
+      SetItem ( consumable ) , Main ) )
+      Wrong |-> SetItem ( type ( Wrong , SetItem ( asset )
+      SetItem ( consumable ) , Wrong ) )
+      address |-> SetItem ( type ( address , SetItem ( consumable )
+      SetItem ( nonfungible ) , address ) )
+      bool |-> SetItem ( type ( bool , SetItem ( consumable )
+      SetItem ( nonfungible ) , bool ) )
+      nat |-> SetItem ( type ( nat , SetItem ( consumable )
+      SetItem ( fungible ) , nat ) )
+      string |-> SetItem ( type ( string , SetItem ( consumable )
+      SetItem ( nonfungible ) , string ) )
     </types>
     <freshCounter>
       0
