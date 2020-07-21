@@ -49,7 +49,7 @@
 
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title{\langName: A DSL for the Safe Management of \AssetTxt{}s in Smart Contracts}
+\title{\langName: A DSL for the Safe Blockchain \AssetTxt{}s}
 
 %% The "author" command and its associated commands are used to define
 %% the authors and their affiliations.
@@ -129,7 +129,7 @@ We make the following contributions with \langName.
     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about a program into the code.
         \reed{Is this a contribution or does it just enable the other contributions?}
 
-    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating double-spend and \assetTxt-loss bugs.
+    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating reuse and \assetTxt-loss bugs.
 
     \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common pitfalls automatically.
 
@@ -177,17 +177,17 @@ Some of these are already discussed in the paper.
     $T$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\map~\tau~\Rightarrow~\sigma$ \bnfalt $t$ \bnfalt $\ldots$ & (base types) \\
     $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\ldots$ & (values) \\
-    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x[x]$ \bnfalt $x.x$ & (locations) \\
+    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $\total~t$ \bnfalt $\ldots$ & (expressions) \\
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{s} \mathcal{D}$ & (flows) \\
-    $\Stmt$ & \bnfdef & $F$ \bnfalt $S;S$ \bnfalt $\ldots$ & (statements) \\
+    $\Stmt$ & \bnfdef & $F$ \bnfalt $\Stmt ; \Stmt$ \bnfalt $\ldots$ & (statements) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible & \\
         & \bnfalt & \consumable \bnfalt \asset & (type modifiers) \\
     $\Decl$ & \bnfdef & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
-            & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~S$ & (transactions) \\
+            & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~\Stmt$ & (transactions) \\
             & \bnfalt & $\ldots$ & \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
 \end{tabular}
@@ -334,9 +334,624 @@ Because of the additional information encoded in the flow construct, the compile
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{biblio}
 
-%% If your work has an appendix, this is the place to put it.
-% \appendix
-% \section{Appendix}
+\appendix
+\section{Formalization}
+
+\subsection{Syntax}
+\begin{figure}[ht]
+\begin{align*}
+    C &\in \textsc{ContractNames} & m &\in \textsc{TransactionNames} \\
+    t &\in \textsc{TypeNames} & x,y,z &\in \textsc{Identifiers} \\
+    n &\in \Z \\
+\end{align*}
+\begin{tabular}{l r l l}
+    $\mathfrak{q}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
+    $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\every$ & (\typeQuantities) \\
+    $\mathcal{C}$ & \bnfdef & $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (collection type constructors) \\
+    % Removed product types for the moment because you don't really need them if you have records.
+    % $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
+    $T$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
+    $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
+    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\lambda x : \tau. E$ & (values) \\
+    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
+        & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ \bnfalt $x = x$ \bnfalt $x \neq x$ \bnfalt $\total~x$ \bnfalt $\total~t$ & (expressions) \\
+    % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
+    $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
+    % $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ \bnfalt $\consume$ & (nodes) \\
+    % $F$ & \bnfdef & $\mathcal{N} \sends{s} \mathcal{N}$ & (flows) \\
+    $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
+    $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
+    $F$ & \bnfdef & $\mathcal{S} \sends{s} x \to \mathcal{D}$ & (flows) \\
+    $\Stmt$ & \bnfdef & $F$ \bnfalt $E$ \bnfalt $\revert(E)$ \bnfalt $\tryS~\Stmt~\catchS(x : \tau)~\Stmt$ \bnfalt $\ifS~x~\thenS~\Stmt~\elseS~\Stmt$ \\
+            & \bnfalt & $\var~x:\tau := E~\varin~\Stmt$ \bnfalt $\Stmt;\Stmt$ \bnfalt \pack \bnfalt $\unpack(x)$ \bnfalt $\emit~E(\overline{x})$ & (statements) \\
+    $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
+    $\Decl$ & \bnfdef & $x : \tau$ & (field) \\
+            & \bnfalt & $\event~E(\overline{x : \tau})$ & (event declaration) \\
+            & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
+            & \bnfalt & $[\private]~\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~\Stmt$ & (transactions) \\
+            & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
+            & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~\Stmt$ & (constructor) \\
+    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
+    $\Prog$ & \bnfdef & $\overline{\Con}~;~S$ & (programs)
+
+    % Maybe:  $\alpha$ & \bnfdef & & (row type variables) \\
+\end{tabular}
+\caption{Abstract syntax of \langName.}
+\label{fig:lang-syntax}
+\end{figure}
+
+\reed{We have public and private transactons...we could also have a public/private type?}
+
+In the surface language, ``collection types'' (i.e., $\mathcal{Q}~\mathcal{C}~\tau$ or a transformer) are by default $\any$, but all other types, like $\natt$, are $\exactlyone$.
+
+\reed{Some simplification ideas}
+\reed{Could get rid of selecting by locations and only allowed selecting with quantifiers, and just optimize things like $\exactlyone~x:\tau~\suchthat~x = y$ into a lookup.
+Also, allowing \textbf{any} type quantity in a selector lets us do away with everything.
+Would actually be even nicer if we allowed any type quantity to appear in the quantifier, because then we wouldn't even need a special rule for everything.}
+\reed{We could also get rid of ``if'' and instead do something like $\any~x:\tau~\suchthat~\ifS~b~\thenS~x = y~\elseS~false$}
+
+\reed{Contract types should be consumable assets by default (consuming a contract is a self-destruct?)}
+
+\subsection{Statics}
+\begin{figure}[ht]
+\begin{tabular}{l r l l}
+    $\Gamma,\Delta,\Xi$ & \bnfdef & $\emptyset$ \bnfalt $\Gamma, x : \tau$ & (type environments)
+\end{tabular}
+\label{type-env}
+\end{figure}
+
+\begin{definition}
+    Define $\Quant = \curlys{\emptyq, \any, \exactlyone, \nonempty, \every}$, and call any $\mathcal{Q} \in \Quant$ a \emph{type quantity}.
+    Define $\emptyq < \any < \,\, \exactlyone < \nonempty < \every$.
+\end{definition}
+
+\framebox{$\tau~\asset$} \textbf{Asset Types}
+
+\reed{The syntax for record ``fields'' and type environments is the same...could just use it}
+\begin{align*}
+    (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
+                                                                & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
+                                                                & (T = \mathcal{C}~\tau \tand \tau~\asset) \tor \\
+                                                                & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. (\tau~\asset)))
+\end{align*}
+% \reed{It should be the case that a transformer can have an output of an asset type if and only if it has an input asset type (and it the case of curried transformers, that \textbf{some} input type is an asset).}
+
+\framebox{$\tau~\consumable$} \textbf{Consumable Types}
+\begin{align*}
+    (\mathcal{Q}~T)~\consumable &\iff \consumable \in \modifiers(T) \tor \lnot((\mathcal{Q}~T)~\asset)
+\end{align*}
+
+$\mathcal{Q} \oplus \mathcal{R}$ represents the quantity present when flowing $\mathcal{R}$ of something to a storage already containing $\mathcal{Q}$.
+$\mathcal{Q} \ominus \mathcal{R}$ represents the quantity left over after flowing $\mathcal{R}$ from a storage containing $\mathcal{Q}$.
+
+\begin{definition}
+    Let $\mathcal{Q}, \mathcal{R} \in \Quant$.
+    Define the commutative operator $\oplus$, called \emph{combine}, as the unique function $\Quant^2 \to \Quant$ such that
+    \[
+        \renewcommand\arraystretch{1.2}
+        \begin{array}{r c l l l}
+            \mathcal{Q} \oplus \emptyq & = & \mathcal{Q} & \\
+            \mathcal{Q} \oplus \every & = & \every & \\
+            \nonempty \oplus \mathcal{R} & = & \nonempty & \tif \emptyq < \mathcal{R} < \every \\
+            \exactlyone \oplus \mathcal{R} & = & \nonempty & \tif \emptyq < \mathcal{R} < \every \\
+            \any \oplus \any & = & \any &
+        \end{array}
+    \]
+
+    Define the operator $\ominus$, called \emph{split}, as the unique function $\Quant^2 \to \Quant$ such that
+    \[
+        \renewcommand\arraystretch{1.2}
+        \begin{array}{r c l l l}
+            \mathcal{Q} \ominus \emptyq & = & \mathcal{Q} & \\
+            \emptyq \ominus \mathcal{R} & = & \emptyq & \\
+            \mathcal{Q} \ominus \every &= & \emptyq & \\
+            \every \ominus \mathcal{R} &= & \every & \tif \mathcal{R} < \every \\
+            \nonempty - \mathcal{R} &= & \any & \tif \emptyq < \mathcal{R} < \every \\
+            \exactlyone - \mathcal{R} &= & \emptyq & \tif \exactlyone \leq \mathcal{R} \\
+            \exactlyone - \any &= & \any & \\
+            \any - \mathcal{R} &= & \any & \tif \emptyq < \mathcal{R} < \every \\
+        \end{array}
+    \]
+\end{definition}
+
+Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \oplus \mathcal{R})~T$ and similarly $(\mathcal{Q}~T) \ominus \mathcal{R}$ to mean $(\mathcal{Q} \ominus \mathcal{R})~T$.
+
+\begin{definition}
+    We can consider a type environment $\Gamma$ as a function $\textsc{Identifiers}\xspace \to \textsc{Types}\xspace \cup \curlys{\bot}$ as follows:
+    \[
+        \Gamma(x) =
+        \begin{cases}
+            \tau & \tif x : \tau \in \Gamma \\
+            \bot & \owise
+        \end{cases}
+    \]
+    We write $\dom(\Gamma)$ to mean $\setbuild{x \in \textsc{Identifiers}}{\Gamma(x) \neq \bot}$, and $\Gamma|_X$ to mean the environment $\setbuild{x : \tau \in \Gamma}{x \in X}$ (restricting the domain of $\Gamma$).
+\end{definition}
+
+\begin{definition}
+    Let $\mathcal{Q}$ and $\mathcal{R}$ be \typeQuantities, $T_\mathcal{Q}$ and $T_\mathcal{R}$ base types, and $\Gamma$ and $\Delta$ type environments.
+    Define the following orderings, which make types and type environments into join-semilattices.
+    For type quantities, define the partial order $\sqsubseteq$ as the reflexive closure of the strict partial order $\sqsubset$ given by
+    \[
+        \mathcal{Q} \sqsubset \mathcal{R} \iff (\mathcal{Q} \neq \any \tand \mathcal{R} = \any) \tor (\mathcal{Q} \in \curlys{\exactlyone, \every} \tand \mathcal{R} = \nonempty)
+    \]
+    For types, define the partial order $\leq$ by
+    \[
+        \mathcal{Q}~T_\mathcal{Q} \leq \mathcal{R}~T_\mathcal{R} \iff T_\mathcal{Q} = T_\mathcal{R} \tand \mathcal{Q} \sqsubseteq \mathcal{R}
+    \]
+    For type environments, define the partial order $\leq$ by
+    \[
+        \Gamma \leq \Delta \iff \forall x. \Gamma(x) \leq \Delta(x)
+    \]
+    Denote the join of $\Gamma$ and $\Delta$ by $\Gamma \sqcup \Delta$.
+\end{definition}
+
+\framebox{$\Gamma \flowproves E : \tau \flowprovesout \Delta$} \textbf{Expression Typing}
+
+These rules are for ensuring that expressions are well-typed, and keeping track of which variables are used throughout the expression.
+Most rules do \textbf{not} change the context, with the notable exceptions of internal calls and record-building operations.
+We begin with the rules for typing the various literal forms of values.
+\begin{mathpar}
+    \inferrule*[right=Empty-Val]{
+    }{ \Gamma \flowproves \emptyval : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }
+
+    \inferrule*[right=Transformer]{
+        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
+    }{ \Gamma \flowproves (\lambda x : \tau. E) : \every~\listq~\exactlyone~(\tau \transforms \sigma) \flowprovesout \Gamma }
+
+    \inferrule*[right=Some]{
+        \Gamma \flowproves x : \tau \flowprovesout \Delta
+    }{ \Gamma \flowproves \some(x) : \,\,\exactlyone~\optionq~\tau \flowprovesout \Delta }
+
+    \inferrule*[right=Build-Rec]{
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
+    }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
+\end{mathpar}
+
+Next, the lookup rules.
+Notably, the \textsc{Demote-Lookup} rule allows the use of variables of an asset type in an expression without consuming the variable as \textsc{Lin-Lookup} does.
+However, it is still safe, because it is treated as its demoted type, which is always guaranteed to be a non-asset.
+
+\begin{mathpar}
+    \inferrule*[right=Demote-Lookup]{
+    }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
+
+    \inferrule*[right=Lin-Lookup]{
+    }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
+
+    \inferrule*[right=Record-Field-Lookup]{
+        \Gamma \proves x : \curlys{\overline{y : \tau}} \flowproves \Gamma
+        \and
+        f : \sigma \in \overline{y : \tau}
+    }{ \Gamma \flowproves x.f : \sigma \flowproves \Gamma }
+\end{mathpar}
+\reed{Record field lookup rule doesn't take into account that fields can store assets...}
+
+The expression $s~\varin~x$ allows checking whether a flow will succeed without the EAFP-style (``Easier to ask for forgiveness than permission''; e.g., Python).
+A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true and ``$s~\varin~B$'' is false.
+\begin{mathpar}
+    \inferrule*[right=Check-In]{
+        \Gamma \proves x~\provides_{\mathcal{Q}}~\tau
+        \and
+        \Gamma \proves s~\selects~\demote(\tau)
+    }{ \Gamma \proves (s~\varin~x) : \boolt \flowprovesout \Gamma }
+\end{mathpar}
+
+We distinguish between three kinds of calls: view, internal, and external.
+A view call is guaranteed to not change any state in the receiver, while both internal and external calls may do so.
+The difference between internal and external calls is that we may transfer assets to an internal call, but \textbf{not} to an external call, because we cannot be sure any external contract will properly manage the asset of our contract.
+\begin{mathpar}
+    \inferrule*[right=View-Call]{
+        \typeof(C, m) = \curlys{\overline{a : \tau}} \transforms \sigma
+        \and
+        \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
+    }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
+
+    \inferrule*[right=Internal-Tx-Call]{
+        \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
+        \and
+        \typeof(C, m) = \curlys{\overline{a : \tau}} \transforms \sigma
+        \\
+        \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
+    }{ \Gamma, \this : C \flowproves \this.m(\overline{y}) : \sigma \flowprovesout \Delta, \this : C }
+
+    \inferrule*[right=External-Tx-Call]{
+        \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
+        \and
+        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(D)
+        \\
+        \Gamma, \this : C, x : D \flowproves \overline{y : \tau} \flowprovesout \Gamma, \this : C, x : D
+    }{ \Gamma, \this : C, x : D \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C, x : D }
+
+    \inferrule*[right=New-Con]{
+        (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
+        \and
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+    }{ \Gamma \flowproves \newc~C(\overline{y}) : C }
+\end{mathpar}
+\reed{Add method typing as transformers}
+
+Finally, the rules for If and Let expressions.
+In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed or is not an asset in the body.
+\begin{mathpar}
+    \inferrule*[right=If-Expr]{
+        \Gamma \flowproves x : \boolt \flowprovesout \Gamma
+        \and
+        \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
+        \and
+        \Gamma \flowproves E_2 : \tau \flowprovesout \Xi
+    }{ \Gamma \flowproves (\ifS~x~\thenS~E_1~\elseS~E_2) : \tau \flowprovesout \Delta \sqcup \Xi }
+
+    \inferrule*[right=Let-Expr]{
+        \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
+        \and
+        \Delta, x : \tau \flowproves E_2 : \pi \flowprovesout \Xi, x : \sigma
+        \and
+        \lnot(\sigma~\asset)
+    }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \pi \flowprovesout \Xi }
+\end{mathpar}
+
+% \framebox{$\elemtype(\tau) = \sigma$}
+% \begin{align*}
+%     \elemtype(\tau) =
+%     \begin{cases}
+%         \sigma & \tif \tau = \mathcal{Q}~\mathcal{C}~\sigma \\
+%         \tau & \owise
+%     \end{cases}
+% \end{align*}
+
+\framebox{$\Gamma \proves \mathcal{S}~\provides_{\mathcal{Q}}~\tau$} \textbf{Source Typing}
+% The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
+% \begin{mathpar}
+%     \inferrule*[right=Store-One]{
+%     }{ \Gamma, S : \mathcal{Q}~T \proves S :: \mathcal{R}~T \flowsto_{\exactlyone} \mathcal{Q}~T }
+
+%     \inferrule*[right=Store-Col]{
+%     }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S :: \tau \flowsto_{\mathcal{Q}} \tau }
+
+%     \inferrule*[right=Store-Transformer]{
+%     }{ \Gamma, x : \mathcal{Q}~(\tau \transforms \sigma) \proves x :: \tau \flowsto_{\mathcal{Q}} \sigma }
+
+%     \inferrule*[right=Store-Consume]{
+%         \tau~\consumable
+%     }{ \Gamma \flowproves \consume :: \tau \flowsto_{\emptyq} \voidt }
+
+%     \inferrule*[right=Store-New]{
+%         (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
+%         \and
+%         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
+%     }{ \Gamma \flowproves \newc~C(\overline{y}) :: \voidt \flowsto_{\exactlyone} C }
+
+%     \inferrule*[right=Store-Source]{
+%         (\type~t~\is~\overline{M}~T) \in \decls(C)
+%     }{ \Gamma, \this : C \proves \newc~t :: \voidt \flowsto_{\every} ~ t }
+% \end{mathpar}
+\begin{mathpar}
+    % Other version of rule using elemtype. Has an issue if I have x : set nat and y : set set nat, and I want to do x --> y.
+    % \inferrule*[right=Provide-Var]{
+    % }{ \Gamma, S : \mathcal{Q}~T \proves S~\provides_{\mathcal{Q}}~\elemtype(\mathcal{Q}~T) }
+
+    \inferrule*[right=Provide-One]{
+    }{ \Gamma, S : \tau \proves S~\provides_{\exactlyone}~\tau }
+
+    \inferrule*[right=Provide-Col]{
+    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\provides_{\mathcal{Q}}~\tau }
+
+    \inferrule*[right=Provide-Source]{
+        (\type~t~\is~\overline{M}~T) \in \decls(C)
+    }{ \Gamma, \this : C \proves (\newc~t)~\provides_{\every}~\exactlyone~t }
+\end{mathpar}
+
+\reed{Note, it will be too difficult to implement to make every kind of selector work with the sources, because the quantified selector can contain arbitrary expressions.
+It needs to be restricted somehow; the current rules only ensure you don't flow everything from a source.
+Could write special \textsc{Flow-Source} rules.}
+
+\framebox{$\Gamma \proves \mathcal{D}~\accepts~\tau$} \textbf{Destination Typing}
+\reed{Prevent variables that are supposed to store exactly one of something from receiving another?}
+Note that the \typeQuantities in \textsc{Accept-One} are different on the left and right of the turnstile.
+This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is reasonable to flow into it some $S : \any~\setq~\natt$.
+\begin{mathpar}
+    % \inferrule*[right=Accept-Var]{
+    % }{ \Gamma, S : \tau \proves S~\accepts~\elemtype(\tau) }
+
+    \inferrule*[right=Accept-One]{
+    }{ \Gamma, D : \mathcal{Q}~T \proves S~\accepts~\mathcal{R}~T }
+
+    \inferrule*[right=Accept-Col]{
+    }{ \Gamma, D : \mathcal{Q}~\mathcal{C}~\tau \proves S~\accepts~\tau }
+
+    \inferrule*[right=Accept-Consume]{
+        \tau~\consumable
+    }{ \Gamma \flowproves \consume~\accepts~\tau }
+\end{mathpar}
+
+\framebox{$\Gamma \proves s ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
+\begin{mathpar}
+    % \inferrule*[right=Select-Loc]{
+    %     \Gamma \flowproves \mathcal{L} : \mathcal{Q}~T \flowprovesout \Gamma
+    % }{ \Gamma \proves \mathcal{L}~\selects_{\mathcal{Q}}~\elemtype(\mathcal{Q}~T) }
+
+    \inferrule*[right=Select-Loc]{
+        \Gamma \flowproves \mathcal{L} : \mathcal{Q}~T \flowprovesout \Gamma
+    }{ \Gamma \proves \mathcal{L}~\selects_{\mathcal{Q}}~\mathcal{Q}~T }
+
+    \inferrule*[right=Select-Col]{
+        \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
+    }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\tau }
+
+    \inferrule*[right=Select-Everything]{
+    }{ \Gamma \proves \everything~\selects_{\every}~\tau }
+
+    \inferrule*[right=Select-Quant]{
+        \Gamma, x : \tau \flowproves p : \boolt \flowprovesout \Gamma, x : \tau
+    }{ \Gamma \proves (\mathfrak{q}~x : \tau~\suchthat~p)~\selects_\mathfrak{q}~\tau }
+\end{mathpar}
+
+\framebox{$\validSelect(s, \mathcal{R}, \mathcal{Q})$}
+We need to ensure that the resources to be selected are easily computable.
+In particular, we wish to enforce that we never select $\everything$ from a source containing $\every$ of something, nor do we use a selector like $\mathfrak{q} x : \tau \tsuchthat E$ on a source contianing $\every$ of something.
+The following definition captures these restrictions.
+\begin{align*}
+    \validSelect(s, \mathcal{R}, \mathcal{Q}) \iff \min(\mathcal{Q}, \mathcal{R}) < \every \tand (\mathcal{Q} = \every \implies \exists \mathcal{L}. s = \mathcal{L})
+\end{align*}
+
+\framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
+
+\reed{In the new flow rule, we \textbf{always} use a transformer.
+However, that just means we desugar something like $A \sends{s} B$ into $A \sends{s} (\lambda x : \tau. x) \to B$.
+In the real compiler, this can be optimized.}
+
+Flows are the main construct for transferring resources.
+A flow has four parts: a source, a selector, a transformer, and a destination.
+The selector acts as a function that ``chooses'' part of the source's resources to flow.
+These resources then get applied to the transformer, which is an applicative functor applied to a function type.
+\reed{Bringing back $\one$ would let us do all the collections the same way in all of these flow-related rules, which would be nice.}
+
+\paragraph{(Non)Ambiguity of Flow Rules}
+Consider the flow $A \sends{s} f \to B$.
+\reed{Actually, the type of $f$ will probably be enough to distinguish the cases, but if we want to desguar the flows into flows containing a transformer always then we would have to infer its type and run into the same issue again.}
+The only way that the choice of which Provide, Select, or Accept rules could be ambiguous \reed{I think...} is if $A$ and $B$ are both collections containing the same type, and either $s$ is a collection containing the same type or it is $\everything$.
+If $A$, $B$, and $s$ are all collections containing the same type, then we could use either version of the rules (the appropriate \textsc{One} rule or the appropriate \textsc{Col} rule).
+However, regardless of the rule we choose, the outcome will be the same.
+For example, if we use the \textsc{Select-Loc} rule, $A$ will now store the quantity $\any$ (unless $s$ is $\emptyq$), which is correct, because we don't know how many values will be transferred by $s$.
+Finally, if $s$ is $\everything$, the same argument applies---the outcome will be the same regardless of which rule we pick.
+
+\begin{mathpar}
+    % \inferrule*[right=Ok-Flow]{
+    %     \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
+    %     \and
+    %     \Gamma \flowproves s~\selects_\mathcal{R}~\demote(\sigma)
+    %     \\
+    %     \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
+    %     \and
+    %     \Delta \proves B :: \sigma \flowsto_\mathcal{S} \pi
+    %     \and
+    %     \min(\mathcal{Q}, \mathcal{R}) < \every
+    % }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+
+    \inferrule*[right=Ok-Flow]{
+        \Gamma \proves A~\provides_\mathcal{Q}~\tau
+        \and
+        \Gamma \proves s~\selects_\mathcal{R}~\tau
+        \and
+        \validSelect(s, \mathcal{R}, \mathcal{Q})
+        \\
+        \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
+        \and
+        \Delta \flowproves f : \tau \transforms \sigma \flowprovesout \Delta
+        \and
+        \Delta \proves B~\accepts~\sigma
+    }{ \Gamma \flowproves (A \sends{s} f \to B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+\end{mathpar}
+
+\reed{TODO: Finish handling currying transformers.}
+
+\begin{mathpar}
+    \inferrule*[right=Ok-Var-Def]{
+        \Gamma \flowproves E : \tau \flowprovesout \Delta
+        \and
+        \Delta, x : \tau \flowproves S~\ok \flowprovesout \Xi, x : \sigma
+        \and
+        \lnot(\sigma~\asset)
+    }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\ok \flowprovesout \Xi }
+
+    \inferrule*[right=Ok-If]{
+        \Gamma \flowproves x : \boolt \flowprovesout \Gamma
+        \and
+        \Gamma \flowproves S_1~\ok \flowprovesout \Delta
+        \and
+        \Gamma \flowproves S_2~\ok \flowprovesout \Xi
+    }{ \Gamma \flowproves (\ifS~x~\thenS~S_1~\elseS~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
+
+    \inferrule*[right=Ok-Try]{
+        \Gamma \flowproves S_1~\ok \flowprovesout \Delta
+        \and
+        \Gamma, x : \tau \flowproves S_2~\ok \flowprovesout \Xi, x : \sigma
+        \and
+        \lnot(\sigma~\asset)
+    }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
+
+    \inferrule*[right=Ok-Revert]{
+        \Gamma \flowproves E : \tau \flowprovesout \Gamma
+        \and
+        \lnot(\tau~\asset)
+    }{ \Gamma \flowproves \revert(E)~\ok \flowprovesout \Gamma }
+
+    \inferrule*[right=Ok-Expr]{
+        \Gamma \flowproves E : \tau \flowprovesout \Delta
+        \and
+        \lnot(\tau~\asset)
+    }{ \Gamma \flowproves E~\ok \flowprovesout \Delta }
+
+    \inferrule*[right=Ok-Seq]{
+        \Gamma \flowproves S_1~\ok \flowprovesout \Delta
+        \and
+        \Delta \flowproves S_2~\ok \flowprovesout \Xi
+    }{ \Gamma \flowproves (S_1 ; S_2)~\ok \flowprovesout \Xi }
+
+    \inferrule*[right=Ok-Unpack]{
+        \this.f : \tau \in \fields(C)
+    }{ \Gamma, \this : C \flowproves \unpack(f)~\ok \flowprovesout \Gamma, \this : C, \this.f : \tau }
+
+    \inferrule*[right=Ok-Pack]{
+        (\Gamma|_{\dom(\fields(C))}) \leq \fields(C)
+        \and
+        \Delta = \setbuild{x : \tau \in \Gamma}{x \not\in \dom(\fields(C))}
+    }{ \Gamma, \this : C \flowproves \pack~\ok \flowprovesout \Delta, \this : C }
+\end{mathpar}
+
+\framebox{$\proves_C \Decl~\ok$} \textbf{Declaration Well-formedness}
+\begin{mathpar}
+    \inferrule*[right=Ok-View]{
+        \Gamma = \this : C, \fields(C), \overline{x : \tau}
+        \and
+        \Gamma \flowproves E : \sigma \flowprovesout \Gamma
+    }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\ok }
+
+    \inferrule*[right=Ok-Tx-Public]{
+        \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
+        \\
+        \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
+        \and
+        \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+        \and
+        \lnot(\mathcal{Q}~T~\asset)
+    }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
+
+    \inferrule*[right=Ok-Tx-Private]{
+        \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
+        \\
+        \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
+        \and
+        \forall x : \tau \in \Delta. \lnot(\tau~\asset)
+    }{ \proves_C (\private~\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
+\end{mathpar}
+
+A field definition is always okay, as long as the type doesn't have the $\every$ modifier.
+\reed{Add this restriction to the rest of the places where we write types.}
+\reed{Maybe we should always restrict variable definitions so that you can only write named types that appear in the current contract.
+This isn't strictly necessary, because everything will still work, but you'll simply never be able to get a value of an asset type not created in the current contract.}
+\begin{mathpar}
+    \inferrule*[right=Ok-Field]{
+        \mathcal{Q} \neq \every
+    }{ \proves_C (x : \mathcal{Q}~T)~\ok }
+\end{mathpar}
+
+A type declaration is okay as long as it has the $\asset$ modifier if its base type is an asset.
+Note that this restriction isn't necessary, but is intended to help users realize which types are assets without unfolding the entire type definition.
+\reed{Need to ensure that nonfungible types are immutable.}
+\begin{mathpar}
+    \inferrule*[right=Ok-Type]{
+        T~\asset \implies \asset \in \overline{M}
+    }{ \proves_C (\type~t~\is~\overline{M}~T)~\ok }
+\end{mathpar}
+
+Note that we need to have constructors, because only the contract that defines a named type is allowed to create values of that type, and so it is not always possible to externally initialize all contract fields.
+\begin{mathpar}
+    \inferrule*[right=Ok-Constructor]{
+        \fields(C) = \overline{\this.f : \mathcal{Q}~T}
+        \and
+        \this : C, \overline{x : \tau}, \overline{\this.f : \emptyq~T} \flowproves S~\ok \flowprovesout \Delta
+        \and
+        \forall y : \sigma \in \Delta. \lnot(\sigma~\asset)
+    }{ \proves_C (\oncreate(\overline{x : \tau})~\doC~S)~\ok }
+\end{mathpar}
+
+\framebox{$\Con~\ok$} \textbf{Contract Well-formedness}
+\begin{mathpar}
+    \inferrule*[right=Ok-Con]{
+        \forall d \in \overline{\Decl}. (\proves_C d~\ok)
+        \and
+        \exists! d \in \overline{\Decl}. \exists \overline{x : \tau}, S. d = \oncreate(\overline{x : \tau})~\doC~S
+    }{ (\contract~C~\{ \overline{\Decl} \})~\ok }
+\end{mathpar}
+
+\framebox{$\Prog~\ok$} \textbf{Program Well-formedness}
+\begin{mathpar}
+    \inferrule*[right=Ok-Prog]{
+        \forall C \in \overline{\Con}. C~\ok
+        \and
+        \emptyset \flowproves S \flowprovesout \emptyset
+    }{ (\overline{\Con} ; S)~\ok }
+\end{mathpar}
+
+\paragraph{Other Auxiliary Definitions}
+\reed{Eliminate all the locations except for $x$ and then use flows to extract and put stuff back?}
+\framebox{$\modifiers(T) = \overline{M}$} \textbf{Type Modifiers}
+\begin{align*}
+    \modifiers(T) =
+    \begin{cases}
+        \overline{M} & \tif (\type~T~\is~\overline{M}~T) \\
+        \emptyset & \owise
+    \end{cases}
+\end{align*}
+
+\framebox{$\demote(\tau) = \sigma$}
+\framebox{$\demote_*(T_1) = T_2$} \textbf{Type Demotion}
+$\demote$ and $\demote_*$ take a type and ``strip'' all the asset modifiers from it, as well as unfolding named type definitions.
+This process is useful, because it allows selecting asset types without actually having a value of the desired asset type.
+% Note that demoting a transformer type changes nothing.
+% This is because a transformer is \textbf{never} an asset, regardless of the types that it operators on, because it has no storage.
+\reed{TODO: Transformer demotion?
+My current thought is we should split functions and transformers, with the latter being able to ``hold'' a resource after being partially applied, and therefore being able to be an asset.
+Alternatively, can just not allow for currying...}
+
+\begin{align*}
+    \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
+    % \demote_*(\voidt) &= \voidt \\
+    \demote_*(\natt) &= \natt \\
+    \demote_*(\boolt) &= \boolt \\
+    \demote_*(t) &= \demote_*(T) & \twhere \type~t~\is~\overline{M}~T \\
+    \demote_*(C) &= \demote_*(\curlys{\overline{x : \tau}}) & \twhere \fields(C) = \curlys{\overline{x : \tau}} \\
+    \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
+    \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
+    % \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
+    % \demote_*(\tau \transforms \sigma) &= \tau \transforms \sigma
+\end{align*}
+
+\framebox{$\decls(C) = \overline{\Decl}$} \textbf{Contract Declarations}
+\begin{align*}
+    \decls(C) = \overline{\Decl} \twhere (\contract~C~\{ \overline{\Decl} \})
+\end{align*}
+
+\framebox{$\fields(C) = \Gamma$} \textbf{Contract Fields}
+\begin{align*}
+    \fields(C) = \setbuild{\this.f : \tau}{f : \tau \in \decls(C)}
+\end{align*}
+
+\framebox{$\typeof(C, m) = \tau \transforms \sigma$} \textbf{Method Type Lookup}
+\begin{align*}
+    \typeof(C, m) =
+    \begin{cases}
+        \curlys{\overline{x : \tau}} \transforms \sigma & \tif (\private~\transaction~m(\overline{x : \tau})~\returns~y:\sigma~\doC~S) \in \decls(C) \\
+        \curlys{\overline{x : \tau}} \transforms \sigma & \tif (\transaction~m(\overline{x : \tau})~\returns~y:\sigma~\doC~S) \in \decls(C) \\
+        \curlys{\overline{x : \tau}} \transforms \sigma & \tif (\view~m(\overline{x : \tau})~\returns~\sigma := E) \in \decls(C)
+    \end{cases}
+\end{align*}
+
+\framebox{$\update(\Gamma, x, \tau)$} \textbf{Type environment modification}
+% These auxiliary functions are used to update the statically known information about a storage after flowing in or out of it (see the \textsc{Flow} rule).
+\[
+    \update(\Gamma, x, \tau) =
+    \begin{cases}
+        \Delta, x : \tau & \tif \Gamma = \Delta, x : \sigma \\
+        \Gamma & \owise
+    \end{cases}
+\]
+
+\reed{Asset retention theorem?}
+\reed{Resource accessiblity?}
+
+\reed{What guarantees should we provide (no errors except for flowing a resource that doesn't exist in the source/already exists in the destination)?}
+
+NOTE: If we wanted to be "super pure", we can implement preconditions with just flows by doing something like:
+\begin{lstlisting}
+{ contractCreator = msg.sender } --[ true ]-> consume
+\end{lstlisting}
+This works because \lstinline|{ contractCreator = msg.sender } : set bool| (specifically, a singleton), so if \lstinline{contractCreator = msg.sender} doesn't evaluate to true, then we will fail to consume true from it.
+\reed{I don't think actually doing this is a good idea; at least, not in the surface language.
+Maybe it would simplify the compiler and/or formalization, but it's interesting/entertaining.}
 
 \end{document}
 \endinput
