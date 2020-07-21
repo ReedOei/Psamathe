@@ -1,4 +1,4 @@
-\documentclass[sigconf]{acmart}
+\documentclass[dvipsnames, usenames, sigconf]{acmart}
 
 \usepackage{listings}
 \usepackage{hyperref}
@@ -11,6 +11,7 @@
 \usepackage{mathpartir}
 \usepackage{float}
 \usepackage{subcaption}
+\usepackage{xcolor}
 % \usepackage[inline]{enumitem}
 
 %% \BibTeX command to typeset BibTeX logo in the docs
@@ -43,6 +44,8 @@
 %%\acmSubmissionID{123-A56-BU3}
 
 \input{LaTeX/macros.tex}
+\input{solidity-latex-highlighting/solidity-highlighting.tex}
+\input{flow-highlighting.tex}
 \input{macros.tex}
 
 \begin{document}
@@ -184,7 +187,7 @@ The transaction \lstinline{transfer} contains a single flow, transferring the de
 
 \begin{figure}[h]
     \centering
-    \lstinputlisting{splash20-examples/erc20-transfer.flow}
+    \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
     \caption{An implement of ERC-20's \lstinline{transfer} function in \langName.}
     \label{fig:erc20-transfer}
 \end{figure}
@@ -243,10 +246,10 @@ These simplifications are performed automatically by the compiler.
 \begin{figure*}[h]
     \centering
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc20.sol}
+        \lstinputlisting[language=Solidity]{splash20-examples/erc20.sol}
     \end{minipage}%
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc20.flow}
+        \lstinputlisting[language=flow]{splash20-examples/erc20.flow}
     \end{minipage}
     \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
     \label{fig:erc20-impl}
@@ -273,10 +276,10 @@ This contract shows several advantages of the flow abstraction:
 \begin{figure*}[h]
     \centering
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc721.sol}
+        \lstinputlisting[language=Solidity]{splash20-examples/erc721.sol}
     \end{minipage}%
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc721.flow}
+        \lstinputlisting[language=flow]{splash20-examples/erc721.flow}
     \end{minipage}
     \caption{A Solidity and a \langName implementation of the \lstinline{transferFrom} function of the ERC-721 standard.}
     \label{fig:erc721-impl}
@@ -300,10 +303,10 @@ This example demonstrates the benefits of having nonfungible \assetTxt{}s and li
 \begin{figure*}[h]
     \centering
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/voting.sol}
+        \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
     \end{minipage}%
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/voting.flow}
+        \lstinputlisting[language=flow]{splash20-examples/voting.flow}
     \end{minipage}
     \caption{A Solidity and a \langName implementation of a simple voting contract.}
     \label{fig:voting-impl}
@@ -317,7 +320,7 @@ We can also use $\nonfungible$ to remove certain incorrect behaviors from a voti
 One of the most financially impactful bugs in the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth about \$50 million dollars at the time, to be stolen \reed{cite, verifying dollar amount}.
 The bug relied on a reentrancy-unsafe function in the contract, illustrated below.
 \reed{The below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}}
-\begin{lstlisting}
+\begin{lstlisting}[language=Solidity]
 function withdrawBalance() public {
     uint amountToWithdraw = userBalances[msg.sender];
     // At this point, the caller's code is executed, and
@@ -329,7 +332,7 @@ function withdrawBalance() public {
 
 In \langName, this attack could not have occurred for several reasons.
 Consider the following implementation of the same function in \langName given below.
-\begin{lstlisting}
+\begin{lstlisting}[language=flow]
 transaction withdrawBalance():
     userBalances[msg.sender] --> msg.sender.balance
 \end{lstlisting}

@@ -1,3 +1,6 @@
 [submodule "LaTeX"]
 	path = formalization/LaTeX
 	url = https://github.com/ReedOei/LaTeX
+[submodule "formalization/solidity-latex-highlighting"]
+	path = formalization/solidity-latex-highlighting
+	url = https://github.com/s-tikhomirov/solidity-latex-highlighting
