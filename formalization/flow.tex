@@ -119,17 +119,16 @@
 
 \section{Introduction}
 
-\reed{How do authors/affiliations work for this?}
+\reed{Authors/affiliations?}
 \langName is a DSL for implementing programs which manage \assetTxt{}s, targeted at writing smart contracts.
 
 \subsection{Contributions}
 
 We make the following contributions with \langName.
 \begin{itemize}
-    \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about a program into the code.
-        \reed{Is this a contribution or does it just enable the other contributions?}
-
     \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating reuse and \assetTxt-loss bugs.
+
+    \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about a program into the code.
 
     \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common pitfalls automatically.
 
@@ -169,6 +168,37 @@ Some of these are already discussed in the paper.
 
 \section{Language Description}
 
+A \langName program is made of many \emph{contracts}, each containing \emph{declarations}, such as \emph{transactions}, \emph{views}, \emph{types}, and \emph{fields}.
+A contract is a high-level unit of functionality, which behaves \reed{``very similarly''} to a contract in Solidity.
+
+\subsection{Example}
+\begin{figure}[h]
+    \centering
+    \lstinputlisting{splash20-examples/erc20-transfer.flow}
+    \caption{An implement of ERC-20's \lstinline{transfer} function in \langName.}
+    \label{fig:erc20-transfer}
+\end{figure}
+
+\subsection{Flows}
+The \langName language is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
+Each flow has at least a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
+
+There are two special kinds of \assetTxt{}s: \emph{fungible} and \emph{nonfungible}.
+\reed{I think there's also \assetTxt{}s which are neither fungible nor nonfungible.}
+\reed{Not sure about these definitions.}
+A \emph{fungible} \assetTxt{}s are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
+A \emph{nonfungible} \assetTxt is an \assetTxt that is unique and immutable, and can be held in at most one location.
+For example, ERC-721 \reed{cite} (discussed in more depth in Section~\ref{sec:erc721-impl}) tokens are nonfungible---each token is unique and can be held by at most one account at a time.
+\langName dynamically ensures that all newly created nonfungible \assetTxt{}s are unique, and statically ensures that the resources are not duplicated or changed.
+\reed{This dynamic checking is no more costly that the standard approaches used for this purpose, should we discuss this?}
+Furthermore, it supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional mapping between keys and a collection of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens.
+
+The source and destination of a flow are two storages which \emph{provide} and \emph{accept} \assetTxt{}s, and the selector describes which subpart of the value of the \assetTxt{}(s) in the source should be transferred to the destination.
+If not present, all \assetTxt{}s will be transferred.
+
+All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
+For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, and a flow of a nonfungible \assetTxt fails if the selected value doesn't exist in the source location.
+
 \subsection{Syntax}
 \begin{figure}[t]
 \begin{tabular}{l r l l}
@@ -198,25 +228,6 @@ Some of these are already discussed in the paper.
 Figure~\ref{fig:lang-syntax} shows a fragment of the syntax of the core calculus of \langName, which uses A-normal form \reed{cite} and makes several other simplifications to the surface \langName language.
 These simplifications are performed automatically by the compiler.
 \reed{TODO: We have formalized this core calculus (in K???).}
-
-\subsection{Flows}
-The \langName language is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
-Each flow has at least a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a transformer.
-The source and destination are two storages which \emph{provide} and \emph{accept} \assetTxt{}s, and the selector, if present, describes which part of the \assetTxt in the source should be transferred to the destination.
-If not present, all \assetTxt{}s will be transferred.
-
-There are two special kinds of \assetTxt{}s: \emph{fungible} and \emph{nonfungible}.
-\reed{I think there's also \assetTxt{}s which are neither fungible nor nonfungible.}
-\reed{Not sure about these definitions.}
-A \emph{fungible} \assetTxt{}s are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
-A \emph{nonfungible} \assetTxt is an \assetTxt that is unique and immutable, and can be held in at most one location.
-For example, ERC-721 \reed{cite} (discussed in more depth in Section~\ref{sec:erc721-impl}) tokens are nonfungible---each token is unique and can be held by at most one account at a time.
-\langName dynamically ensures that all newly created nonfungible \assetTxt{}s are unique, and statically ensures that the resources are not duplicated or changed.
-\reed{This dynamic checking is no more costly that the standard approaches used for this purpose, should we discuss this?}
-Furthermore, it supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional mapping between keys and a collection of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens.
-
-All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
-For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the soruce, and a flow of a nonfungible \assetTxt fails if the selected value doesn't exist in the source location.
 
 \section{Case Studies}
 \subsection{ERC-20}
@@ -263,7 +274,7 @@ This contract shows several advantages of the flow abstraction:
     \label{fig:erc721-impl}
 \end{figure*}
 
-\reed{Another benefit here is that linkings are a good datastructure for accounts of nonfungible \assetTxt{}s.
+\reed{Another benefit here is that linkings are a good data structure for accounts of nonfungible \assetTxt{}s.
 Of course, you could always implement a linking in a Solidity library...
 However, you still wouldn't have the property that only one account is guaranteed to hold each token, because of the nonfungibility/uniqueness.}
 
@@ -319,7 +330,7 @@ transaction withdrawBalance():
     userBalances[msg.sender] --> msg.sender.balance
 \end{lstlisting}
 
-Because of the additional information encoded in the flow construct, the compiler can output the safe version of the above code---reducing the balance before peforming the external call---without any user intervention.
+Because of the additional information encoded in the flow construct, the compiler can output the safe version of the above code---reducing the balance before performing the external call---without any user intervention.
 
 \section{Discussion}
 
