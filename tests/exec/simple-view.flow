@@ -1,0 +1,11 @@
+contract Main {
+    view get() returns ! nat := 10
+}
+
+;
+
+var x : ! Main := new Main()
+var res : ! nat := x.get()
+
+if res != 10 { revert("Failure!") }
+

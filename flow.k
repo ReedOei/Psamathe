@@ -46,8 +46,6 @@ module FLOW
     syntax Val ::= Resource | FlowError
     syntax KResult ::= Val | Vals | StorageVal | SelectorVal
 
-    syntax Expr ::= evaluate(Expr) [strict]
-
     syntax Var ::= "Base"
 
     configuration
@@ -106,7 +104,9 @@ module FLOW
     rule <k> dropLoc(Loc) => . ... </k>
         <storage> ... Loc |-> _ => .Map ... </storage>
 
+    // =================================
     // Check-In
+    // =================================
     rule Sel in R => checkIn(Sel, resolveStorage(R))
 
     syntax Expr ::= checkIn(Selector, Storage) [strict]
@@ -114,14 +114,18 @@ module FLOW
     rule <k> checkIn(Sel, Loc) => resource(bool, select(Sel, SV) contained_in SV) ... </k>
         <storage> ... Loc |-> SV ... </storage>
 
+    // =================================
     // Literals
+    // =================================
     rule I:Int => resource(nat, I)
         requires I >=Int 0
     rule B:Bool => resource(bool, B)
     rule S:String => resource(string, S)
     rule emptyval => resource(?_, emptyval)
 
+    // =================================
     // Simple arithmetic and boolean expressions
+    // =================================
     // TODO: I would like to remove all this resource stuff at some point
     //       The typechecker can also compile this stuff into the correct instructions to permit erasing all these runtime types.
     context HOLE + _
@@ -160,7 +164,9 @@ module FLOW
     rule if resource(bool, true) { A:Stmt } else { _ }  => A
     rule if resource(bool, false) { _ } else { B:Stmt } => B
 
+    // =================================
     // Variable lookup
+    // =================================
     rule <k> X => demoteVal(Val) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... Loc |-> Val ... </storage>
@@ -171,7 +177,9 @@ module FLOW
 
     syntax Expr ::= resolveStorage(Storage)
 
-    // NOTE: Some unfortunate duplication here...
+    context resolveStorage(evaluate(HOLE))
+
+    rule resolveStorage(evaluate(V:Val)) => resolveStorage(V)
     rule resolveStorage(I:Int) => resolveStorage(resource(nat, I))
         requires I >=Int 0
     rule resolveStorage(S:String) => resolveStorage(resource(string, S))
@@ -185,6 +193,7 @@ module FLOW
     rule <k> resolveStorage(X . F) => Loc ... </k>
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... XLoc |-> resource(_, (F |-> Loc) _) ... </storage>
+    rule resolveStorage(loc(I)) => loc(I)
 
     // NOTE: All types are always stored as their demoted value, so we simply need to demote the type.
     syntax Resource ::= demoteVal(Resource) [function, functional]
@@ -366,6 +375,9 @@ module FLOW
     context expr(HOLE)
     rule expr(_:Val) => .
 
+    syntax Expr ::= evaluate(Expr) [strict]
+    rule evaluate(V:Val) => V
+
     // =================================
     // Linear Lookup Value Helper
     // =================================
@@ -374,7 +386,7 @@ module FLOW
         <storage> ... Loc |-> V => .Map ... </storage>
 
     // =================================
-    // Transaction calls:
+    // Function calls:
     // =================================
     syntax Stmt ::= setupArgs(Exprs, VarDefs, Stmt)
                   | cleanEnv(Set)
@@ -393,6 +405,12 @@ module FLOW
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> defaultValue(RetType)) ... </storage>
         <functions> ... C.T |-> transaction(RetVar : _:TypeQuant RetType, FormalArgs, S) ... </functions>
+        <freshCounter> I => I +Int 1 </freshCounter>
+
+    rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, handleFlow(everything, resolveStorage(evaluate(E)), loc(I))) ~> lookupVal(loc(I)) ... </k>
+        <lookup> ... X |-> Loc ... </lookup>
+        <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> defaultValue(RetType)) ... </storage>
+        <functions> ... C.T |-> view(_:TypeQuant RetType, FormalArgs, E) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // TODO: Mabye replace this by a more efficient system (e.g., a call stack cell)
