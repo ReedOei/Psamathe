@@ -1,0 +1,144 @@
+\documentclass[leqno,presentation,usenames,dvipsnames]{beamer}
+\DeclareGraphicsExtensions{.eps,.jpg,.png,.tif}
+\usepackage{amssymb, amsmath, pdfpages, amsfonts, calc, times, type1cm, latexsym, xcolor, colortbl, hyperref, bookmark}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{mathtools}
+\usepackage{mathpartir}
+
+\usepackage[latin1]{inputenc}
+\usepackage[english]{babel}
+
+\usetheme{Szeged}
+\usecolortheme{beaver}
+
+\definecolor{websiteGreen}{RGB}{107, 224, 134}
+\definecolor{silvery}{RGB}{232, 241, 248}
+\definecolor{deepOrange}{RGB}{209, 126, 0}
+
+\definecolor{softTan}{RGB}{240, 240, 223}
+\definecolor{deepGreen}{RGB}{87, 149, 115}
+\definecolor{lilac}{RGB}{199, 164, 202}
+\definecolor{lightOlive}{RGB}{168, 166, 96}
+\definecolor{deepOlive}{RGB}{101, 109, 41}
+
+\setbeamercolor*{palette primary}{bg=websiteGreen}
+\setbeamercolor*{palette secondary}{bg=white}
+\setbeamercolor*{palette tertiary}{bg=silvery}
+\setbeamercolor*{palette quaternary}{bg=websiteGreen}
+
+\setbeamercolor{section in head/foot}{fg=black}
+\setbeamerfont{section in head/foot}{series=\bfseries}
+
+\setbeamercolor{titlelike}{parent=palette primary,bg=websiteGreen,fg=white}
+\setbeamercolor{frametitle}{parent=palette primary,bg=websiteGreen, fg=white}
+
+\addtobeamertemplate{frametitle}{\vspace*{-0.65\baselineskip}}{}
+
+\newcommand{\overbar}[1]{\mkern1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern1.5mu}
+\newcommand{\highlight}[1]{
+  \addtolength{\fboxrule}{.2ex}
+  \begin{block}{}
+    \begin{quote}#1
+    \end{quote}
+  \end{block}
+}
+
+\title{Automatic Theorem Proving}
+\author[names]{Reed Oei}
+
+\institute{%
+    University of Illinois at Urbana-Champaign
+}
+
+\date{July 2020}
+
+\input{LaTeX/macros.tex}
+\input{macros.tex}
+\input{solidity-latex-highlighting/solidity-highlighting.tex}
+\input{flow-highlighting.tex}
+
+\begin{document}
+
+% Title slide
+\frame{\titlepage}
+
+\section{Blockchain}
+
+\begin{frame}{Blockchain}
+    \begin{itemize}
+        \item An \emph{automated theorem prover} is a program that takes a statement and proves (or disproves) it.
+            \begin{itemize}
+                \item Computers are reliable and fast
+                \item We can easily explore new ideas
+            \end{itemize}
+
+        \item It is impossible to prove \textbf{all} statements automatically
+
+        \item Theorem provers can still solve many interesting problems
+    \end{itemize}
+\end{frame}
+
+\section{\langName}
+
+\begin{frame}[fragile]{Pecan}
+\begin{itemize}
+    \item \textbf{Pecan} is an automated theorem prover we are developing
+    \item It represents logical statements via B\"uchi automata, a model of computation that can handle infinitely long inputs
+    \item Try it online at \url{http://reedoei.com/pecan}!
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{The Thue-Morse Word}
+    \begin{itemize}
+        \item $T[n] = 1$ if the binary representation of $n$ has an odd number of $1$'s, and $0$ otherwise.
+        \[
+            T = 01101001100101101001011001101001\ldots
+        \]
+
+        \item $p > 0$ is a \emph{period} of a word $w$ if $w$ repeats every $p$ letters; the smallest period of a word is its \emph{least period}.
+
+    \end{itemize}
+
+\end{frame}
+
+\section{Sturmian Words}
+
+\begin{frame}
+    \frametitle{Sturmian Words}
+
+    \begin{itemize}
+        \item Imagine hitting a billiard ball at some angle along the line $y = \alpha x$
+        \item When the ball crosses a vertical line, write a 0; for horizontal lines, write a 1
+        \item Each $\alpha$ defines a \emph{characteristic Sturmian word}, $C_{\alpha}$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Theorems about Sturmian Words}
+    We have used Pecan to automatically prove many theorems about Sturmian words, including:
+    \begin{itemize}
+        \item Sturmian words are not eventually periodic.
+        \item All Sturmian words contain cubes.
+        % \item Sturmian words start with arbitrarily long squares.
+        \item Sturmian words contain palindromes of every length.
+        \item Sturmian words contain only finitely many antisquares and antipalindromes.
+        % \item If $x$ is a subword of a Sturmian word $C_{\alpha}$, then so is the reverse of $x$.
+        \item Every subword of a Sturmian word occurs infinitely often.
+        \item The unique special factor of length $n$ is the reverse of the length $n$ prefix of the Sturmian word.
+        \item $\vdots$
+    \end{itemize}
+\end{frame}
+
+\section{Future Work}
+\begin{frame}{Future Work}
+    \begin{enumerate}
+        \item Continue to develop Pecan.
+        \item Write a paper about Pecan and the various properties of Sturmian words we are able to automatically prove.
+        \item Explore other applications of Pecan such as proving properties about real numbers or functions on real numbers, which are representable with B\"uchi automata but not finite automata.
+    \end{enumerate}
+\end{frame}
+
+\end{document}
+
