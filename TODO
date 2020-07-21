@@ -1,3 +1,5 @@
+- Implement a way to gather performance statistics from the Travis builds
+
 - It would be cool to have dataflow-like programming available, so I could say:
     - dataflow X := f()
     - So that whenever one of the dependencies of X is updated, teh value of X is also updated.
