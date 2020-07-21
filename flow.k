@@ -1,10 +1,33 @@
 require "flow-common.k"
 
 module FLOW
-    imports FLOW-SYNTAX
-    imports FLOW-COMMON
     imports DOMAINS
     imports COLLECTIONS
+
+    imports FLOW-SYNTAX
+    imports FLOW-COMMON
+
+    // TODO: Split this out?
+    // TODO: Or replace by the improved "identified by" system?
+    syntax Link ::= Val "<=>" Val
+    syntax Linking ::= linking(BaseType, Set)
+
+    rule linking(T, SetItem(K <=> V1) SetItem(K <=> V2) Rest) => linking(T, SetItem(K <=> combine(V1, V2)) Rest)
+
+    syntax Val ::= Linking "[" Val "]" [function, functional]
+    rule linking(_, (SetItem(K <=> V) _))[K] => V
+
+    syntax Val ::= ownerOf(Linking, Val) [function, functional]
+    rule ownerOf(linking(_, SetItem(K <=> Vs) _), V) => K
+        requires V contained_in Vs
+
+    syntax Bool ::= hasOwner(Linking, Val) [function, functional]
+    rule hasOwner(linking(_, .Set), _) => false
+    rule hasOwner(linking(T, SetItem(_ <=> Vs) L), V) => (V contained_in Vs) orBool hasOwner(linking(T, L), V)
+
+    syntax Val ::= values(Linking) [function, functional]
+    rule values(linking(T, .Set)) => defaultValue(T)
+    rule values(linking(T, SetItem(_ <=> C) L)) => combine(C, values(linking(T, L)))
 
     syntax StorageLoc ::= loc(Int)
     syntax StorageVal ::= StorageLoc
@@ -17,6 +40,7 @@ module FLOW
                       | Set
                       | List
                       | Map
+                      | Linking
     syntax Resource ::= resource(BaseType, BasicVal)
     syntax FlowError ::= flowError(String)
     syntax Val ::= Resource | FlowError

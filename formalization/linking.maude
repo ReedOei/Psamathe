@@ -97,9 +97,6 @@ fmod LINKING{K :: TRIV, C :: COLLECTION} is
     op _[_] : Linking{K, C} K$Elt -> C$Col .
     eq ((K <=> C) L)[K] = C .
 
-    op _[_<-_] : Linking{K, C} K$Elt C$Elt -> Linking{K, C} .
-    eq L[K <- V] = (K <=> V) L .
-
     op _.ownerOf(_) : Linking{K, C} C$Elt -> K$Elt .
     eq ((K <=> (C V D)) L).ownerOf(V) = K .
 
@@ -148,6 +145,6 @@ endfm
 --- red ((1 <=> nil) (2 <=> (3 4 5 6))) .
 --- red ((1 <=> nil) (2 <=> (3 4 5 6)))[2] == (3 4 5 6) .
 --- red ((1 <=> nil) (2 <=> (3 4 5 6))).ownerOf(5) == 2 .
---- red ((1 <=> nil) (2 <=> (3 4 5 6)))[5 <- 10] == ((1 <=> nil) (2 <=> (3 4 5 6)) (5 <=> 10)) .
---- red ((1 <=> nil) (2 <=> (3 4 5 6)))[1 <- 2] == ((1 <=> 2) (2 <=> (3 4 5 6))) .
+--- red ((1 <=> nil) (2 <=> (3 4 5 6)))(5 <=> 10) == ((1 <=> nil) (2 <=> (3 4 5 6)) (5 <=> 10)) .
+--- red ((1 <=> nil) (2 <=> (3 4 5 6)))(1 <=> 2) == ((1 <=> 2) (2 <=> (3 4 5 6))) .
 
