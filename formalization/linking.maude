@@ -1,3 +1,68 @@
+fmod IDENTIFIER is
+    protecting QID .
+
+    sort Id .
+    subsort Qid < Id .
+
+    op _._ : Id Id -> Id [ctor assoc ] .
+endfm
+
+fmod RECORD is
+    protecting IDENTIFIER .
+    protecting NAT .
+
+    sort Val .
+    --- Should be everything in the language, but just for testing purposes.
+    subsort Nat < Val .
+    subsort Qid < Val .
+    subsort Record < Val .
+
+    sort Field Fields Record .
+    subsort Field < Fields .
+
+    op _|->_ : Qid Val -> Field [ctor prec 80] .
+    op mt : -> Fields [ctor] .
+    op _,_ : Fields Fields -> Fields [ctor prec 90 assoc comm id: mt] .
+
+    op {_} : Fields -> Record [ctor] .
+
+    op _._ : Record Qid -> Val .
+
+    vars Q R S : Qid .
+    vars V V1 V2 : Val .
+    vars Fs : Fields .
+
+    eq { Q |-> V, Fs }. Q = V .
+endfm
+
+fmod LINK is
+    protecting QID .
+    protecting RECORD .
+
+    sort Qids .
+    subsort Qid < Qids .
+
+    op mt : -> Qids [ctor] .
+    op _or_ : Qids Qids -> Qids [ctor assoc comm id: mt] .
+
+    sort Link .
+
+    op _id.by_ : Record Qids -> Link [ctor] .
+
+    op _ids_ : Field Link -> Bool .
+
+    vars F F1 F2 : Qid .
+    vars V V1 V2 : Val .
+    vars Fs : Fields .
+    vars Ids : Qids .
+
+    eq (F |-> V) ids ({ F |-> V, Fs } id.by (F or Ids)) = true .
+    eq (F |-> V) ids { Fs } id.by Ids = false [owise] .
+endfm
+
+--- red (('name |-> 1) ids { 'name |-> 1, 'balance |-> 0 } id.by 'name) == true .
+--- red (('balance |-> 0) ids { 'name |-> 1, 'balance |-> 0 } id.by 'name) == false .
+
 fth COLLECTION is
     protecting BOOL .
     including TRIV .
@@ -21,6 +86,9 @@ fmod LINKING{K :: TRIV, C :: COLLECTION} is
     op mt : -> Linking{K, C} [ctor] .
     op __ : Linking{K, C} Linking{K, C} -> Linking{K, C} [ctor comm assoc id: mt] .
 
+    --- Merge links with the same key.
+    eq (K <=> C) (K <=> D) = (K <=> (C D)) .
+
     vars K K1 K2 : K$Elt .
     vars L M : Linking{K, C} .
     vars C D : C$Col .
@@ -30,8 +98,7 @@ fmod LINKING{K :: TRIV, C :: COLLECTION} is
     eq ((K <=> C) L)[K] = C .
 
     op _[_<-_] : Linking{K, C} K$Elt C$Elt -> Linking{K, C} .
-    eq ((K <=> C) L)[K <- V] = (K <=> (C V)) L .
-    eq L[K <- V] = (K <=> V) L [owise] .
+    eq L[K <- V] = (K <=> V) L .
 
     op _.ownerOf(_) : Linking{K, C} C$Elt -> K$Elt .
     eq ((K <=> (C V D)) L).ownerOf(V) = K .
@@ -76,8 +143,11 @@ fmod LINKING-NAT-NAT-LIST is
     protecting LINKING{Nat, NatList} .
 endfm
 
-red mt .
-red ((1 <=> nil) (2 <=> (3 4 5 6))) .
-red ((1 <=> nil) (2 <=> (3 4 5 6)))[2] .
-red ((1 <=> nil) (2 <=> (3 4 5 6))).ownerOf(5) .
+--- These two just are supposed to run with no syntax errors
+--- red mt .
+--- red ((1 <=> nil) (2 <=> (3 4 5 6))) .
+--- red ((1 <=> nil) (2 <=> (3 4 5 6)))[2] == (3 4 5 6) .
+--- red ((1 <=> nil) (2 <=> (3 4 5 6))).ownerOf(5) == 2 .
+--- red ((1 <=> nil) (2 <=> (3 4 5 6)))[5 <- 10] == ((1 <=> nil) (2 <=> (3 4 5 6)) (5 <=> 10)) .
+--- red ((1 <=> nil) (2 <=> (3 4 5 6)))[1 <- 2] == ((1 <=> 2) (2 <=> (3 4 5 6))) .
 

@@ -16,12 +16,16 @@ module FLOW-CORE-SYNTAX
     syntax Var ::= "this"
     // For generated Vars
     syntax Var ::= var(Int)
+    syntax IdentifyingVars ::= List{Var, "or"}
 
     syntax SelectorQuant ::= "!" | "any" | "nonempty"
     syntax TypeQuant ::= SelectorQuant | "empty" | "every"
     syntax Collection ::= "option" | "set" | "list"
-    syntax BaseType ::= Var | Collection Type | Type "~~>" Type | "{" VarDefs "}"
+    syntax RecordType ::= "{" VarDefs "}"
+    syntax BaseType ::= Var | Collection Type | Type "~~>" Type
                       | "(" Type ")" [bracket]
+                      | RecordType
+                      | RecordType "identified" "by" IdentifyingVars
     // TODO: Add syntactic sugar that allows users to not always write the type quantity.
     syntax Type ::= TypeQuant BaseType
 

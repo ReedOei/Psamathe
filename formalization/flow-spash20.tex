@@ -289,6 +289,17 @@ This example demonstrates the benefits of having nonfungible \assetTxt{}s and li
 \reed{Can include this if we don't \textbf{only} want to talk about tokens...}
 The $\nonfungible$ modifier is useful for more than just tokens.
 We can also use it to remove certain incorrect behaviors from a voting contract.
+\begin{figure*}[h]
+    \centering
+    \begin{minipage}[t]{0.5\textwidth}
+        \lstinputlisting{splash20-examples/erc721.sol}
+    \end{minipage}%
+    \begin{minipage}[t]{0.5\textwidth}
+        \lstinputlisting{splash20-examples/erc721.flow}
+    \end{minipage}
+    \caption{A Solidity and a \langName implementation of the \lstinline{transferFrom} function of the ERC-721 standard.}
+    \label{fig:erc721-impl}
+\end{figure*}
 
 \subsection{The DAO attack}
 \reed{Not sure how notable this is.}
