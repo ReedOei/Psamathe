@@ -1,0 +1,7 @@
+contract EIP20 {
+    type Token is fungible asset uint256
+    accounts : map address => Token
+    transaction transfer(dst : address, amount : uint256):
+        account[msg.sender] --[ amount ]-> account[dst]
+}
+
