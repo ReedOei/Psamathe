@@ -150,7 +150,7 @@ We make the following contributions with \langName.
 Some of these are already discussed in the paper.
 \begin{itemize}
     \item Good expression of financial \assetTxt{}s: fungible, nonfungible/general uniqueness constraints, consumable vs. nonconsumable.
-        NOTE: These are things that Obsidian can't express.
+        NOTE: These are things that Obsidian doesn't express automatically.
         Emphasize the uniqueness stuff is actually not any more difficult/inefficient than existing solutions.
     \item Atomic flow construct encodes semantic intent
     \item Maybe the language is efficient, but would need an implementation to evaluate this.
@@ -243,6 +243,9 @@ This code shows several advantages of the flow abstraction:
     \item Precondition checking: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
         In this case, the balance of the sender must be greater than the amount sent, and the balance of the destination must not overflow when it receives the tokens.
         Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
+    \item Data-flow tracking: It is clear where the resources are flowing from the code itself, which may not be apparent in more complicated implementations, such as those involving transfer fees.
+        Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as consumable may be consumed.
+        This restriction prevents, in this example, tokens from being consumed, and can also be used to ensure that other \assetTxt{}s, like ether, are not consumed.
     \item Error messages: When a flow fails, we provide \reed{TODO: **will provide**} automatic, descriptive error messages, such as ``\lstinline{Failed to flow '<amount>' Token from account[<src>] to account[<dst>]: account[<dst>] does not have enough Token.}''.
         \reed{Not sure exactly what the error message should be.}
         The default implementation provides no error message forcing developers to write their own.
@@ -290,12 +293,12 @@ This example demonstrates the benefits of having nonfungible \assetTxt{}s and li
         \lstinputlisting{splash20-examples/voting.flow}
     \end{minipage}
     \caption{A Solidity and a \langName implementation of a simple voting contract.}
-    \label{fig:erc721-impl}
+    \label{fig:voting-impl}
 \end{figure*}
 
 \reed{Can include this section if we don't \textbf{only} want to talk about tokens...}
-The $\nonfungible$ modifier is useful for more than just tokens.
-We can also use it to remove certain incorrect behaviors from a voting contract.
+The $\nonfungible$ modifier is useful in many programs, even those not dealing with financial assets, like ERC-721 contracts.
+We can also use $\nonfungible$ to remove certain incorrect behaviors from a voting contract, shown in Figure~\ref{fig:voting-impl}.
 
 \subsection{The DAO attack}
 \reed{Not sure how notable this is.}

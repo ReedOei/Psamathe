@@ -3,9 +3,6 @@ contract EIP20 {
     type Approval is fungible consumable asset uint256
     accounts : map address => Token
     allowances : map address => map address => Approval
-    view totalSupply() returns uint256 := total Token
-    transaction transfer(dst : address, amount : uint256):
-        account[msg.sender] --[ amount ]-> account[dst]
     transaction transferFrom(src : address, dst : address, amount : uint256):
         allowances[src][dst] --[ amount ]-> consume
         account[src] --[ amount ]-> account[dst]

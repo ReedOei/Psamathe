@@ -10,7 +10,7 @@ contract Ballot {
         new Voter(chairperson) --> voters
         new ProposalName --[ proposalNames ]-> (\name. name <=> {}) --> proposals
     transaction giveRightToVote(voter : address):
-        only when msg.sender = chairperson and voter not in proposals.values()
+        only when msg.sender = chairperson
         new Voter(voter) --> voters
     transaction vote(proposal : string):
         voters[msg.sender] --> proposals[proposal][msg.sender]
