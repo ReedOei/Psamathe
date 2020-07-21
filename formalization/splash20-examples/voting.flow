@@ -1,20 +1,17 @@
 contract Ballot {
     type Voter is nonfungible asset address
-	type VoterInfo is {
-        weight : nat
-    }
     type ProposalName is nonfungible asset string
-    chairperson : address [public]
-    voters : map Voter => VoterInfo
-    proposals : linking ProposalName <=> (map Voter => VoterInfo)
+    chairperson : address
+    voters : set Voter
+    proposals : linking ProposalName <=> set Voter
     winningProposalName : string
     on create(proposalNames : set string):
         chairperson := msg.sender
-        new Voter(chairperson) --> (\voter. voter => 1) --> voters
+        new Voter(chairperson) --> voters
         new ProposalName --[ proposalNames ]-> (\name. name <=> {}) --> proposals
     transaction giveRightToVote(voter : address):
         only when msg.sender = chairperson and voter not in proposals.values()
-        new Voter(voter) --> (\voter. voter => 1) --> voters
+        new Voter(voter) --> voters
     transaction vote(proposal : string):
         voters[msg.sender] --> proposals[proposal][msg.sender]
         if total proposals[proposal] > total proposals[winningProposalName] then

@@ -47,12 +47,10 @@
 
 \begin{document}
 
-%%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
 \title{\langName: A DSL for the Safe Management of \AssetTxt{}s in Smart Contracts}
 
-%%
 %% The "author" command and its associated commands are used to define
 %% the authors and their affiliations.
 %% Of note is the shared affiliation of the first two authors, and the
@@ -73,7 +71,6 @@
 %% of authors' names for this purpose.
 % \renewcommand{\shortauthors}{Trovato and Tobin, et al.}
 
-%%
 %% The abstract is a short summary of the work to be presented in the
 %% article.
 % \begin{abstract}
@@ -214,21 +211,29 @@ For example, a flow of fungible \assetTxt{}s fails if there is not enough of the
 There are two special kinds of \assetTxt{}s: \emph{fungible} and \emph{nonfungible}.
 \reed{I think there's also \assetTxt{}s which are neither fungible nor nonfungible.}
 \reed{Not sure about these definitions.}
-Fungible \assetTxt{}s are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
-A nonfungible \assetTxt is an \assetTxt that is unique and immutable, and can be held in at most one location.
-For example, ERC-721 \reed{cite} tokens are nonfungible---each token is unique and can be held by at most one account at a time.
+A \emph{fungible} \assetTxt{}s are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
+A \emph{nonfungible} \assetTxt is an \assetTxt that is unique and immutable, and can be held in at most one location.
+For example, ERC-721 \reed{cite} (discussed in more depth in Section~\ref{sec:erc721-impl}) tokens are nonfungible---each token is unique and can be held by at most one account at a time.
 \langName dynamically ensures that all newly created nonfungible \assetTxt{}s are unique, and statically ensures that the resources are not duplicated or changed.
 \reed{This dynamic checking is no more costly that the standard approaches used for this purpose, should we discuss this?}
 Furthermore, it supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, which provide a useful abstraction of an ``account'' that holds a set of resources.
-\reed{Is it worth discussing this?}
-\reed{Why couldn't you jsut wrie this as a library? --- You could, but you wouldn't ahve the same guarantees that you get via uniqueness/nonfungibility.}
-\reed{Need to merge this stuff with the more in-depth discussion of examples later.}
-\reed{How to balance discussion of the various benefits between here and the examples sections?}
+\reed{Is it worth discussing linkings in more depth.?}
 
 \section{Case Studies}
 \subsection{ERC-20}
-\reed{NOTE: I removed the MAX\_UINT thing that gives an unlimited approval from ERC20.sol, because that's not part of the standard and not particularly interesting.}
-\reed{Cite properly Solidity code properly}
+\reed{NOTE: I removed the MAX\_UINT thing that gives an unlimited approval from ERC20.sol, because that's not part of the standard and not particularly relevant.}
+\reed{Cite all Solidity code properly}
+\begin{figure*}[h]
+    \centering
+    \begin{minipage}[t]{0.5\textwidth}
+        \lstinputlisting{splash20-examples/erc20.sol}
+    \end{minipage}%
+    \begin{minipage}[t]{0.5\textwidth}
+        \lstinputlisting{splash20-examples/erc20.flow}
+    \end{minipage}
+    \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
+    \label{fig:erc20-impl}
+\end{figure*}
 
 Figure~\ref{fig:erc20-impl} shows implementations of the ERC-20 \reed{cite} standard in both Solidity and \langName, one of the most commonly implemented standards on the Ethereum blockchain \reed{cite}.
 Only the core functions of \lstinline{transfer}, \lstinline{transferFrom}, and \lstinline{approve} are shown, with the exception of \lstinline{totalSupply} in the \langName implementation (included because to show the use of the \total operator).
@@ -244,19 +249,19 @@ This code shows several advantages of the flow abstraction:
         Flows enable the generation of the messages by encoding the semantic information of a \textbf{transfer} into the program, instead of using low-level incrementing and decrementing.
 \end{itemize}
 
+\subsection{ERC-721}\label{sec:erc721-impl}
 \begin{figure*}[h]
     \centering
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc20.sol}
+        \lstinputlisting{splash20-examples/erc721.sol}
     \end{minipage}%
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc20.flow}
+        \lstinputlisting{splash20-examples/erc721.flow}
     \end{minipage}
-    \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
-    \label{fig:erc20-impl}
+    \caption{A Solidity and a \langName implementation of the \lstinline{transferFrom} function of the ERC-721 standard.}
+    \label{fig:erc721-impl}
 \end{figure*}
 
-\subsection{ERC-721}
 \reed{Another benefit here is that linkings are a good datastructure for accounts of nonfungible \assetTxt{}s.
 Of course, you could always implement a linking in a Solidity library...
 However, you still wouldn't have the property that only one account is guaranteed to hold each token, because of the nonfungibility/uniqueness.}
@@ -271,35 +276,26 @@ Because \langName is designed to handle \assetTxt{}s, it makes, and removes the 
 
 Figure~\ref{fig:erc721-impl} shows an implementation of the ERC-721 \lstinline{transferFrom} function in both Solidity and \langName.
 The Solidity implementation is extracted from one of the reference implementations of ERC-721 given on its official Ethereum EIP page.
+In addition to the invariant required by the specification, there are also internal invariant which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled by \langName.
 This example demonstrates the benefits of having nonfungible \assetTxt{}s and linkings built into the language itself.
 
+\subsection{Voting}
+\reed{Solidity impl. comes from ``Solidity by Example'' page}
 \begin{figure*}[h]
     \centering
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc721.sol}
+        \lstinputlisting{splash20-examples/voting.sol}
     \end{minipage}%
     \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc721.flow}
+        \lstinputlisting{splash20-examples/voting.flow}
     \end{minipage}
-    \caption{A Solidity and a \langName implementation of the \lstinline{transferFrom} function of the ERC-721 standard.}
+    \caption{A Solidity and a \langName implementation of a simple voting contract.}
     \label{fig:erc721-impl}
 \end{figure*}
 
-\subsection{Voting}
-\reed{Can include this if we don't \textbf{only} want to talk about tokens...}
+\reed{Can include this section if we don't \textbf{only} want to talk about tokens...}
 The $\nonfungible$ modifier is useful for more than just tokens.
 We can also use it to remove certain incorrect behaviors from a voting contract.
-\begin{figure*}[h]
-    \centering
-    \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc721.sol}
-    \end{minipage}%
-    \begin{minipage}[t]{0.5\textwidth}
-        \lstinputlisting{splash20-examples/erc721.flow}
-    \end{minipage}
-    \caption{A Solidity and a \langName implementation of the \lstinline{transferFrom} function of the ERC-721 standard.}
-    \label{fig:erc721-impl}
-\end{figure*}
 
 \subsection{The DAO attack}
 \reed{Not sure how notable this is.}
