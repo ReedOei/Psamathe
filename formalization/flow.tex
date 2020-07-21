@@ -205,9 +205,6 @@ Each flow has at least a \emph{source} and a \emph{destination}; they may option
 The source and destination are two storages which \emph{provide} and \emph{accept} \assetTxt{}s, and the selector, if present, describes which part of the \assetTxt in the source should be transferred to the destination.
 If not present, all \assetTxt{}s will be transferred.
 
-All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
-For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the soruce, and a flow of a nonfungible \assetTxt fails if the selected value doesn't exist in the source location.
-
 There are two special kinds of \assetTxt{}s: \emph{fungible} and \emph{nonfungible}.
 \reed{I think there's also \assetTxt{}s which are neither fungible nor nonfungible.}
 \reed{Not sure about these definitions.}
@@ -216,8 +213,10 @@ A \emph{nonfungible} \assetTxt is an \assetTxt that is unique and immutable, and
 For example, ERC-721 \reed{cite} (discussed in more depth in Section~\ref{sec:erc721-impl}) tokens are nonfungible---each token is unique and can be held by at most one account at a time.
 \langName dynamically ensures that all newly created nonfungible \assetTxt{}s are unique, and statically ensures that the resources are not duplicated or changed.
 \reed{This dynamic checking is no more costly that the standard approaches used for this purpose, should we discuss this?}
-Furthermore, it supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, which provide a useful abstraction of an ``account'' that holds a set of resources.
-\reed{Is it worth discussing linkings in more depth.?}
+Furthermore, it supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional mapping between keys and a collection of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens.
+
+All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
+For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the soruce, and a flow of a nonfungible \assetTxt fails if the selected value doesn't exist in the source location.
 
 \section{Case Studies}
 \subsection{ERC-20}
@@ -355,7 +354,8 @@ Because of the additional information encoded in the flow construct, the compile
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
-        & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ \bnfalt $x = x$ \bnfalt $x \neq x$ \bnfalt $\total~x$ \bnfalt $\total~t$ & (expressions) \\
+        & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & \\
+        & \bnfalt & $x = x$ \bnfalt $x \neq x$ \bnfalt $\total~x$ \bnfalt $\total~t$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
     $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
     % $\mathcal{N}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~C(\overline{x})$ \bnfalt $\newc~t$ \bnfalt $\consume$ & (nodes) \\
@@ -363,8 +363,9 @@ Because of the additional information encoded in the flow construct, the compile
     $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{s} x \to \mathcal{D}$ & (flows) \\
-    $\Stmt$ & \bnfdef & $F$ \bnfalt $E$ \bnfalt $\revert(E)$ \bnfalt $\tryS~\Stmt~\catchS(x : \tau)~\Stmt$ \bnfalt $\ifS~x~\thenS~\Stmt~\elseS~\Stmt$ \\
-            & \bnfalt & $\var~x:\tau := E~\varin~\Stmt$ \bnfalt $\Stmt;\Stmt$ \bnfalt \pack \bnfalt $\unpack(x)$ \bnfalt $\emit~E(\overline{x})$ & (statements) \\
+    $\Stmt$ & \bnfdef & $F$ \bnfalt $E$ \bnfalt $\revert(E)$ \bnfalt \pack \bnfalt $\unpack(x)$ \bnfalt $\emit~E(\overline{x})$ & \\
+            & \bnfalt & $\tryS~\Stmt~\catchS(x : \tau)~\Stmt$ \bnfalt $\ifS~x~\thenS~\Stmt~\elseS~\Stmt$ & \\
+            & \bnfalt & $\var~x:\tau := E~\varin~\Stmt$ \bnfalt $\Stmt;\Stmt$ & (statements) \\
     $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $\Decl$ & \bnfdef & $x : \tau$ & (field) \\
             & \bnfalt & $\event~E(\overline{x : \tau})$ & (event declaration) \\
