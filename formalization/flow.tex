@@ -158,12 +158,9 @@ We make the following contributions with \langName.
     %     \end{itemize}
 \end{itemize}
 
-\reed{Here or in related work?}
+\reed{TODO (here or in related work?): The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability or uniqueness (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
 
-\reed{TODO: The safety guarantees provided by \langName differ from those provided by other languages:}
-
-\reed{Potential benefits of the language.
-Some of these are already discussed in the paper.
+\reed{Potential benefits of the language to discuss.
 \begin{itemize}
     \item Good expression of financial \assetTxt{}s: fungible, nonfungible/general uniqueness constraints, consumable vs. nonconsumable.
         NOTE: These are things that Obsidian doesn't express automatically.
@@ -187,15 +184,31 @@ A \langName program is made of many \emph{contracts}, each containing \emph{decl
 A contract is a high-level unit of functionality, which behaves \reed{``very similarly''} to a contract in Solidity.
 In \langName, we distinguish between two kinds of function: transactions, which can change the state of the contract, and views, which cannot.
 
-Figure~\ref{fig:erc20-transfer} shows a simple contract declaraing a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function.
-The transaction \lstinline{transfer} contains a single flow, transferring the desired amount of tokens from the transaction's sender to the destination account.
-
-\begin{figure}[h]
+Figure~\ref{fig:erc20-transfer} shows a simple contract declaraing a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:case-study-erc20} for more details on ERC-20).
+The transaction \lstinline{transfer} contains a single flow, transferring the desired number of tokens from the transaction's sender to the destination account.
+% \begin{figure}[h]
+%     \centering
+%     \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
+%     \caption{An implementation of ERC-20's \lstinline{transfer} function in \langName.}
+%     \label{fig:erc20-transfer-flow}
+% \end{figure}
+\begin{figure*}[h]
     \centering
-    \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
-    \caption{An implement of ERC-20's \lstinline{transfer} function in \langName.}
+    \begin{subfigure}[t]{0.5\textwidth}
+        \centering
+        \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
+        \caption{Solidity implementation of ERC-20's \lstinline{transferFrom}.}
+        \label{fig:erc20-transfer-sol}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.5\textwidth}
+        \centering
+        \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
+        \caption{\langName implementation of ERC-20's \lstinline{transferFrom}.}
+        \label{fig:erc20-transfer-flow}
+    \end{subfigure}
+    % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
     \label{fig:erc20-transfer}
-\end{figure}
+\end{figure*}
 
 \subsection{Syntax}
 \begin{figure}[t]
@@ -232,13 +245,18 @@ These simplifications are performed automatically by the compiler.
 \langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
 Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
 
-There are two special kinds of \assetTxt{}s: \emph{fungible} and \emph{nonfungible}.
-\reed{I think there's also \assetTxt{}s which are neither fungible nor nonfungible.}
-A \emph{fungible} \assetTxt{}s are those whose values are not unique and can be combined: for example, ERC-20 tokens are fungible, because two accounts may have the same number of tokens---the number isn't the token, but instead describes \textbf{how many} tokens there are.
-A \emph{nonfungible} \assetTxt is an \assetTxt that is unique and immutable, and can be held in at most one location.
-For example, ERC-721 \reed{cite} (discussed in more depth in Section~\ref{sec:erc721-impl}) tokens are nonfungible---each token is unique and can be held by at most one account at a time.
-\langName dynamically ensures that all newly created nonfungible \assetTxt{}s are unique, and statically ensures that \assetTxt{}s are not duplicated, reused, lost, or modified (if immutable).
-Furthermore, it supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional mapping between keys and a collection of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens.
+There are several modifiers that can be used to control how \assetTxt{}s are managed: \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
+A \flowinline{fungible} \assetTxt is a value which represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
+A \flowinline{unique} \assetTxt is a value which can only exist in at most one storage; it must be \flowinline{immutable}.
+A \flowinline{immutable} \assetTxt is a value which cannot be changed; in particular, it cannot be source or destination of a flow, the only state-changing construct in \langName \reed{this is the goal, anyway, which I think is true, but need to verify}.
+A \flowinline{consumable} \assetTxt is a value that it is sometimes appropriate to dispose of; however, this disposal must be done via the \flowinline{consume} construct, a way of documenting that the disposal is intentional.
+All of these constraints, except for uniqueness, are enforced statically.
+
+For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are best modeled as being both \flowinline{unique} and \flowinline{immutable}.
+By default, neither is \flowinline{consumable}, but one of the common extensions of both standards is to add a \flowinline{burn} function, which allows tokens to be destroyed by users with the appropriate authentication.
+In this case, it would be appropriate to add the \flowinline{consumable} modifier.
+
+It supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional mapping between keys and a collection of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens.
 
 The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
 All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
@@ -250,31 +268,36 @@ Computation on blockchains like the Ethereum blockchain are grouped into units c
 \langName follows this
 To this end, \langName supports
 Sequences of flows are \emph{atomic}: they will either all succeed, or, if a single flow fails, the rest will fails as well.
-If a sequence of flows fails, it ``bubbles up'' like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \lstinline{catch}, in which case only the changes made inside the corresponding \lstinline{try} block will be reverted, and the code inside the \lstinline{catch} block will be executed.
+If a sequence of flows fails, it ``bubbles up'' like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \flowinline{catch}, in which case only the changes made inside the corresponding \flowinline{try} block will be reverted, and the code inside the \flowinline{catch} block will be executed.
 
 \section{Case Studies}
 \subsection{ERC-20}
 \reed{Cite all Solidity code properly}
-\begin{figure*}[h]
-    \centering
-    \begin{subfigure}[t]{0.5\textwidth}
-        \centering
-        \lstinputlisting[language=Solidity]{splash20-examples/erc20.sol}
-        \caption{Solidity implementation of ERC-20's \lstinline{transferFrom}.}
-        \label{fig:erc20-impl-sol}
-    \end{subfigure}%
-    \begin{subfigure}[t]{0.5\textwidth}
-        \centering
-        \lstinputlisting[language=flow]{splash20-examples/erc20.flow}
-        \caption{\langName implementation of ERC-20's \lstinline{transferFrom}.}
-        \label{fig:erc20-impl-flow}
-    \end{subfigure}
-    % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
-    \label{fig:erc20-impl}
-\end{figure*}
-
-Figures~\ref{fig:erc20-impl-sol} and~\ref{fig:erc20-impl-flow} show a Solidity and a \langName implementation, respectively, of the ERC-20 \reed{cite} \lstinline{transferFrom} function.
-All event code has been omitted, because \langName handles events in the same way as Solidity.
+% \begin{figure*}[h]
+%     \centering
+%     \begin{subfigure}[t]{0.5\textwidth}
+%         \centering
+%         \lstinputlisting[language=Solidity]{splash20-examples/erc20.sol}
+%         \caption{Solidity implementation of ERC-20's \lstinline{transferFrom}.}
+%         \label{fig:erc20-impl-sol}
+%     \end{subfigure}%
+%     \begin{subfigure}[t]{0.5\textwidth}
+%         \centering
+%         \lstinputlisting[language=flow]{splash20-examples/erc20.flow}
+%         \caption{\langName implementation of ERC-20's \lstinline{transferFrom}.}
+%         \label{fig:erc20-impl-flow}
+%     \end{subfigure}
+%     % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
+%     \label{fig:erc20-impl}
+% \end{figure*}
+% \begin{figure}[h]
+%     \centering
+%     \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
+%     \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity.}
+%     \label{fig:erc20-transfer-sol}
+% \end{figure}
+Figures~\ref{fig:erc20-transfer-sol} and~\ref{fig:erc20-transfer-flow} show a Solidity and a \langName implementation, respectively, of the ERC-20 \reed{cite} \lstinline{transferFrom} function.
+Note that event code has been omitted, because \langName handles events in the same way as Solidity.
 This contract shows several advantages of the flow abstraction:
 \begin{itemize}
     \item \textbf{Precondition checking}: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
