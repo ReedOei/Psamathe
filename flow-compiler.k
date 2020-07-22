@@ -5,12 +5,19 @@ module FLOW-COMPILER-SYNTAX
     imports FLOW-SYNTAX
 endmodule
 
+module KRYPTO
+    imports STRING-SYNTAX
+	syntax String ::= keccak256(String) [function, hook(KRYPTO.keccak256)]
+endmodule
+
 module FLOW-COMPILER
     imports DOMAINS
     imports COLLECTIONS
 
     imports FLOW-COMPILER-SYNTAX
     imports FLOW-COMMON
+
+    imports KRYPTO
 
     imports YUL-SYNTAX
 
@@ -35,15 +42,20 @@ module FLOW-COMPILER
     // Add some special Ethereum built-ins identifiers
     syntax Identifier ::= "caller"
                         | "return"
-                        | "datasize"
-                        | "datacopy"
+                        | "datasize" | "datacopy" | "dataoffset"
                         | "sstore"
-                        | "dataoffset"
                         | "revert"
                         | "selector"
-                        | "div"
-                        | "calldataload"
-                        | "s"
+                        | "div" | "add" | "mul"
+                        | "calldataload" | "calldatasize"
+			            | "decodeAsAddress" | "decodeAsUint"
+                        | "iszero"
+                        | "and" | "not"
+                        | "mstore"
+                        | "returnUint" | "returnTrue"
+                        | "lt"
+    // Add some variable names that we want to use below
+    syntax Identifier ::= "s" | "v" | "pos" | "offset"
     syntax CompileStmt ::= compileContract(Var, Set, Set, Set)
     rule <k> compileContract(C, _, _, _) => . ... </k>
         <objects> ... .List => ListItem(
@@ -54,16 +66,41 @@ module FLOW-COMPILER
                     datacopy(0, dataoffset("runtime"), datasize("runtime"))
                     return(0, datasize("runtime"))
                 }
-                object "runtime" {
+                object keccak256("test") {
                     code {
                         switch selector()
                         default {
                             revert(0, 0)
                         }
 
+						// These utility functions taken from https://solidity.readthedocs.io/en/v0.6.11/yul.html
                         function selector() -> s {
                             s := div(calldataload(0), 0x100000000000000000000000000000000000000000000000000000000)
                         }
+
+						function decodeAsAddress(offset) -> v {
+                			v := decodeAsUint(offset)
+                			if iszero(iszero(and(v, not(0xffffffffffffffffffffffffffffffffffffffff)))) {
+                    			revert(0, 0)
+                			}
+            			}
+
+            			function decodeAsUint(offset) -> v {
+                			let pos := add(4, mul(offset, 0x20))
+                			if lt(calldatasize(), add(pos, 0x20)) {
+                    			revert(0, 0)
+                			}
+                			v := calldataload(pos)
+            			}
+
+						function returnUint(v) {
+							mstore(0, v)
+							return(0, 0x20)
+						}
+
+						function returnTrue() {
+							returnUint(1)
+						}
                     }
                 }
             })

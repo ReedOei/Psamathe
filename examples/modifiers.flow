@@ -1,0 +1,183 @@
+contract ERC20 {
+    type Token is fungible asset nat
+}
+
+contract ERC721 {
+    type Token is unique immutable asset nat
+}
+
+// A dollar bill with a serial number
+contract Bank {
+    type DollarValue is fungible asset nat
+    // Note: unique requires immutable.
+    type SerialNumber is unique immutable asset string
+
+    // ====================================================
+    // A version with no explicit Bill type
+    accounts : linking address <=> map SerialNumber => DollarValue
+
+    transaction mint(to : address, bill : string, amount : nat):
+        // Could also imagine having a "next"/"fresh" selector that allows you pick an arbitrary new serial number.
+        var num : SerialNumber
+        new SerialNumber(bill) --> num
+        // Some syntactic sugar for this "declare and flow" pattern
+        new SerialNumber(bill) --> var num : SerialNumber
+
+        new DollarValue(amount) --> var value : DollarValue
+        { serialNum |-> value } --> accounts[to]
+
+    transaction transfer(to : address, bill : string):
+        accounts[msg.sender] --[ bill ]-> accounts[to]
+
+    view ownerOf(bill : string) returns address := accounts.ownerOf(bill)
+
+    // ====================================================
+    // A version using records
+    type Bill is unique immutable asset {
+        serialNumber : SerialNumber, dollarValue : DollarValue
+    }
+
+    accounts : linking address <=> set Bill
+
+    transaction mint(to : address, bill : string, amount : nat):
+        new SerialNumber(bill) --> var num : SerialNumber
+        new DollarValue(amount) --> var value : DollarValue
+
+        var newBill : Bill := { serialNumber: num, dollarValue: value }
+        { newBill } --> accounts[to]
+
+    transaction transfer(to : address, serialNum : string):
+        accounts[msg.sender] --[ exactly one bill : Bill such that bill.serialNumber = serialNum ]-> accounts[to]
+
+    // Awkward with records, because we can't use accounts.ownerOf()
+    view ownerOf(bill : string) returns address := get { addr | (addr <=> bills) <- accounts, bill in bills }
+
+    // ====================================================
+    // A verbose version, essentially the same as the map version but the "identified by" construct is more flexible
+    // It also plays nicely with selectors
+    type Bill is unique immutable asset {
+        serialNumber : SerialNumber, value : DollarValue
+    } identified by serialNumber
+
+    accounts : set ({ key : address, values : set Bill } identified by key or values.elem)
+
+    transaction mint(to : address, bill : string, amount : nat):
+        new SerialNumber(bill) --> var num : SerialNumber
+        new DollarValue(amount) --> var value : DollarValue
+
+        var newBill : Bill := { serialNumber: num, dollarValue: value }
+        { newBill } --> accounts[to]
+        // Or:
+        { key: to, values: { newBill } } --> accounts
+
+    transaction transfer(to : address, bill : string):
+        accounts[msg.sender] --[ bill ]-> accounts[to]
+
+    view ownerOf(bill : string) returns address := accounts.ownerOf(bill)
+
+    // ====================================================
+    // Another approach that works because `fungible` implies "mergable"
+    type Account is fungible asset map SerialNumber => DollarValue
+
+    accounts : map address => Account
+
+    transaction mint(to : address, bill : string, amount : nat):
+        new SerialNumber(bill) --> var num : SerialNumber
+        new DollarValue(amount) --> var value : DollarValue
+
+        { num |-> value } --> accounts[to]
+
+    transaction transfer(to : address, bill : string):
+        accounts[msg.sender] --[ bill ]-> accounts[to]
+
+    // ====================================================
+    transaction transferAmount(to : address, amount : nat):
+        pass
+
+// A more complicated paired fungible resource
+contract {
+
+}
+
+// Some pseudocode showing how all this might work
+
+// Identified by
+class Identified a where
+    type IdentifyingTypes a
+    eq : IdentifyingTypes a -> IdentifyingTypes a -> Bool
+
+instance Identified ({ x1 : t1, x2 : t2, ..., xn : tn } identified by y1 or y2 or ... or ym) where
+    eq a b = exists yi. a.yi = b.yi
+
+instance Collection c => Identified (c v identified by elem) where
+    eq a b = exists x in a. exists y in b. x = y
+
+// Fungible:
+class Fungible c where
+    type Elem c
+    type Selector c
+    empty : c
+    single : Elem c -> c
+
+    combine : c -> c -> Option c
+    select : c -> Selector c -> Option (c, c)
+
+instance Fungible a => Fungible (Identified a)
+
+instance Fungible Nat where
+    type Elem Nat = Nat
+    type Selector Nat = Nat
+
+    empty = 0
+    single = id
+    combine = (+)
+    select n m = (n - m, m)
+
+instance Fungible (List a) where
+    type Elem (List a) = a
+    type Selector (List a) = List a
+
+    empty = []
+    single x = [x]
+    combine = (++)
+    // select a b = basically a multiset-difference
+
+instance NotFungible v => Fungible (Map k v) where
+    type Elem (Map k v) = (k, v)
+    type Selector (Map k v) = (Set k) + (Set (k, v))
+
+    single (k, v) = [(k,v)]
+    combine a b = if disjoint (keys a) (keys b) then Some (a ++ b) else None
+
+instance Fungible v => Fungible (Map k v) where
+    type Elem (Map k v) = (k, v)
+    type Selector (Map k v) = (Set k) + (Set (k, v))
+
+    single (k, v) = [(k,v)]
+    combine a b = { k: combine a[k] b[k] | k <- a.keys() intersect b.keys() }
+                  ++ a.minus(b.keys())
+                  ++ b.minus(a.keys())
+    // ...
+
+// Not that with this Identified system, we don't technically need maps, except
+//  for performance, which can be recovered by a special case in the compiler.
+instance (Identified a, Fungible a) => Fungible (Set a) where
+    type Elem (Set a) = a
+    type Selector (Set a) = (IdentifyingTypes a) + (Set a)
+
+    combine a b = { combine v w | v <- a, w <- b, v.id = w.id } ++ symmetricDifference a b
+    // ...
+
+instance (Fungible a, Fungible b) => Fungible (a, b) where
+    type Elem (a, b) = (a, b)
+    type Selector (a, b) = (Selector a, Selector b)
+    // etc. basically a direct product
+
+// Linking interface
+type Linking k c v = List (k, c v)
+
+empty : Linking k c v
+get : Linking k c v -> k -> c v
+push : Linking k c v -> k -> v -> Linking k c v
+ownerOf : Linking k c v -> v -> Option k
+

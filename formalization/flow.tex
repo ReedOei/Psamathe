@@ -776,10 +776,15 @@ Finally, if $s$ is $\everything$, the same argument applies---the outcome will b
         \Delta \flowproves f : \tau \transforms \sigma \flowprovesout \Delta
         \and
         \Delta \proves B~\accepts~\sigma
+        \\
+        \Gamma \proves A~\immutable
+        \and
+        \Delta \proves B~\immutable
     }{ \Gamma \flowproves (A \sends{s} f \to B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 \end{mathpar}
 
 \reed{TODO: Finish handling currying transformers.}
+\reed{TODO: Define $\Gamma \proves A~\immutable$}
 
 \begin{mathpar}
     \inferrule*[right=Ok-Var-Def]{

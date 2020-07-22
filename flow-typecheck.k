@@ -286,6 +286,7 @@ module FLOW-TYPECHECK
     // Flow typing
     // =======================================
     // TODO: Implement transformers
+    // TODO: Deal with any potential ambiguities
     rule S --[ Sel ]-> D =>
         S provides {?Q} ?Tau ~>
         Sel selects {?R} demote(?Tau) ~>

@@ -12,7 +12,7 @@ endif
 
 let b:current_syntax = "flow"
 
-syntax keyword transaction internal transaction view returns returning event private
+syntax keyword transaction internal transaction view returns returning event private type is
 syntax match specialTransactions "on create"
 syntax match specialTransactions "on fail"
 syntax match specialTransactions "on success"
@@ -26,7 +26,7 @@ syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not
 
-syntax keyword specialKeywords try catch constant fungible nonfungible identified by stores emit let consume consumable call is return total many held each owner key type via var link action handle transformer created asserting pass
+syntax keyword specialKeywords try catch constant unique immutable fungible nonfungible identified by stores emit let consume consumable call return total many held each owner via var link action handle transformer created asserting pass
 syntax keyword specialVars msg this one some any now
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
@@ -46,7 +46,7 @@ syntax keyword type nat int bool bytes address string ether uint256 set linking 
 syntax keyword contract contract state storage source sink pool interface
 syntax keyword contractModifiers main asset
 
-hi def link transaction Statement
+hi def link transaction Function
 hi def link specialTransactions Statement
 hi def link operator Operator
 hi def link boolOps Operator
