@@ -1,0 +1,8 @@
+contract Main {};
+
+var x : ! nat := 10
+var s : ! nat := 5
+var dest : ! nat := 0
+
+x --[ s ]-> dest
+
