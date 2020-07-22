@@ -1,15 +1,19 @@
+// ERC-20 is unchanged
 contract ERC20 {
     type Token is fungible asset nat
+    // ...
 }
 
+// New type declarations for ERC-721 contracts (replacing nonfungible)
 contract ERC721 {
     type Token is unique immutable asset nat
+    // ...
 }
 
 // A dollar bill with a serial number
 contract Bank {
     type DollarValue is fungible asset nat
-    // Note: unique requires immutable.
+    // Note: unique requires immutable, or values might not be unique (no object ids.)
     type SerialNumber is unique immutable asset string
 
     // ====================================================
@@ -31,68 +35,9 @@ contract Bank {
 
     view ownerOf(bill : string) returns address := accounts.ownerOf(bill)
 
-    // ====================================================
-    // A version using records
-    type Bill is unique immutable asset {
-        serialNumber : SerialNumber, dollarValue : DollarValue
-    }
-
-    accounts : linking address <=> set Bill
-
-    transaction mint(to : address, bill : string, amount : nat):
-        new SerialNumber(bill) --> var num : SerialNumber
-        new DollarValue(amount) --> var value : DollarValue
-
-        var newBill : Bill := { serialNumber: num, dollarValue: value }
-        { newBill } --> accounts[to]
-
-    transaction transfer(to : address, serialNum : string):
-        accounts[msg.sender] --[ exactly one bill : Bill such that bill.serialNumber = serialNum ]-> accounts[to]
-
-    // Awkward with records, because we can't use accounts.ownerOf()
-    view ownerOf(bill : string) returns address := get { addr | (addr <=> bills) <- accounts, bill in bills }
-
-    // ====================================================
-    // A verbose version, essentially the same as the map version but the "identified by" construct is more flexible
-    // It also plays nicely with selectors
-    type Bill is unique immutable asset {
-        serialNumber : SerialNumber, value : DollarValue
-    } identified by serialNumber
-
-    accounts : set ({ key : address, values : set Bill } identified by key or values.elem)
-
-    transaction mint(to : address, bill : string, amount : nat):
-        new SerialNumber(bill) --> var num : SerialNumber
-        new DollarValue(amount) --> var value : DollarValue
-
-        var newBill : Bill := { serialNumber: num, dollarValue: value }
-        { newBill } --> accounts[to]
-        // Or:
-        { key: to, values: { newBill } } --> accounts
-
-    transaction transfer(to : address, bill : string):
-        accounts[msg.sender] --[ bill ]-> accounts[to]
-
-    view ownerOf(bill : string) returns address := accounts.ownerOf(bill)
-
-    // ====================================================
-    // Another approach that works because `fungible` implies "mergable"
-    type Account is fungible asset map SerialNumber => DollarValue
-
-    accounts : map address => Account
-
-    transaction mint(to : address, bill : string, amount : nat):
-        new SerialNumber(bill) --> var num : SerialNumber
-        new DollarValue(amount) --> var value : DollarValue
-
-        { num |-> value } --> accounts[to]
-
-    transaction transfer(to : address, bill : string):
-        accounts[msg.sender] --[ bill ]-> accounts[to]
-
-    // ====================================================
     transaction transferAmount(to : address, amount : nat):
         pass
+}
 
 // A more complicated paired fungible resource
 contract {
