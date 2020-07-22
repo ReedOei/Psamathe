@@ -1,0 +1,310 @@
+\documentclass[landscape,usenames,dvipsnames]{sciposter}
+\renewcommand{\papertype}{custom}
+\renewcommand{\sectionsize}{\large}
+
+
+% edit pointsize, width, height, and fontsize parameters as needed
+% DO ensure that values in the \special commands match!
+\usepackage[pass,paperwidth=36in,paperheight=24in]{geometry}
+\renewcommand{\fontpointsize}{25pt}
+\setmargins[2.5cm]
+
+%\renewcommand{\subsectionsize}{\large \textcolor{\SectionCol}}
+%\usepackage[spanish]{babel}
+% or whatever
+\usepackage{tikz}
+\usetikzlibrary{arrows,automata,positioning}
+\usepackage[latin1]{inputenc}
+\usepackage{amsmath,amsthm,amssymb,bm}
+\usepackage{multicol}
+\usepackage{mathtools}
+\usepackage{mathpartir}
+\usepackage{listings}
+\usepackage{enumerate, wrapfig}
+\usepackage{colortbl}
+\usepackage[absolute]{textpos}
+%\usepackage{subfigure}
+
+\usepackage{graphicx}
+
+\input{LaTeX/macros.tex}
+\input{solidity-latex-highlighting/solidity-highlighting.tex}
+\input{flow-highlighting.tex}
+\input{macros.tex}
+
+\newtheorem{thm}{Theorem}%[section] % uncomment [section] to number within section
+\newtheorem*{thm*}{Theorem}
+\newtheorem{lem}{Lemma}
+\newtheorem{cor}[thm]{Corollary}
+\newtheorem{prop}[thm]{Proposition}
+\newtheorem{rem}[thm]{Remark}
+\newtheorem{cond}[thm]{Condition}
+\newtheorem*{namedtheorem}{Theorem}
+\newtheorem*{ex}{Example}
+\newtheorem*{defin}{Definition}
+\newtheorem{env}[thm]{Variation}
+\renewcommand {\theequation}{\arabic{section}.\arabic{equation}}
+
+%Lines 54-73 define box theorem. You can do similar things to put boxes around conjectures, corollaries, ect, or use the mdframe to just create a box
+\usepackage[framemethod=TikZ]{mdframed}
+\definecolor{light-blue}{RGB}{197,219,249}
+\mdfdefinestyle{MyFrame}{linecolor=light-blue,
+    outerlinewidth=1.5pt,
+    roundcorner=0pt,
+    innertopmargin=7pt,
+    innerbottommargin=7pt,
+    innerrightmargin=15pt,
+    innerleftmargin=15pt,
+    backgroundcolor=light-blue}
+\mdfdefinestyle{thmsytle}{linecolor=orange,
+    outerlinewidth=2pt,
+    roundcorner=20pt,
+    innertopmargin=15pt,
+    innerbottommargin=15pt,
+    innerrightmargin=15pt,
+    innerleftmargin=15pt,
+    backgroundcolor=white,
+	}
+
+
+\mdtheorem[style=thmsytle]{MDtheorem}{Theorem}
+\newcommand*{\Title}{}
+\newenvironment{boxthm}[1][]{%
+\refstepcounter{thm}
+    \ifstrempty{#1}{\begin{MDtheorem}}%
+    {\begin{MDtheorem}[(#1)]}
+}{%
+    \end{MDtheorem}%
+}%
+
+%%hyperlinks
+\usepackage{hyperref}
+
+% \usepackage[
+% backend=biber,
+% style=alphabetic,
+% sorting=ynt
+% ]{biblatex}
+
+% \addbibresource{bibliography.bib}
+
+
+%\definecolor{BoxCol}{rgb}{0.9,0.9,0.9}
+% uncomment for grey background to \section boxes
+% for use with default option boxedsections
+
+\definecolor{BoxCol}{rgb}{.06,.16,.28}
+
+
+\definecolor{SectionCol}{rgb}{1,1,1}
+
+\definecolor{blue}{rgb}{0,0,1}
+\definecolor{orange}{rgb}{.93,.29,0.1}
+\definecolor{white}{rgb}{1,1,1}
+
+\newtheorem{Features}{Features}
+
+\title{\langName: A DSL for Safe Blockchain \AssetTxt{}s}
+\author{Reed Oei}
+% \institute{University of Illinois at Urbana-Champaign}
+%\email{}  shows author email address below institute
+
+%\date is unused by the current \maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Logo for Poster
+%%%%%%%%%%%%%%%%%%%%%
+
+% \leftlogo[.7]{igl-logo-small.png} % defines logo to left of title (with scale factor)
+% \rightlogo[.6]{imark.png} % same but on right
+
+%%%%%%%%%%%%%%%%%%%
+% Start of document
+%%%%%%%%%%%%%%%%%%%
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%
+%% Poster Set up
+%%%%%%%%%%%%%%%%%%%%%%%
+% \conference{Undergraduate Research Symposium SP 2020}
+\conference{IGL Poster Session Spring 2020}
+
+\maketitle
+\vspace{-3ex}
+\begin{multicols}{3}  % sets up 3 column poster
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%
+%% Start of First Column
+%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Introduction}
+% \begin{mdframed}[style=MyFrame]
+% \subsection*{Automated Theorem Proving}
+% \end{mdframed}
+
+An \textbf{automated theorem prover} is a program that takes a statement and \emph{decides} (i.e., proves or disproves) it.
+Theorem provers can be very useful: computers are reliable, and they never get tired or bored, allowing us to quickly explore new ideas.
+Though it is impossible to decide \emph{all} statements, we can still use theorem provers to solve many interesting problems.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Pecan
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Pecan: A Theorem Prover}
+
+\textbf{Pecan} is a system we are developing for automated theorem proving that represents logical predicates using B\"uchi automata.
+Pecan programs are made up of \textbf{predicates} and \textbf{directives}:
+
+\begin{itemize}
+    \item predicates: defined either by loading automata defined in files, translating LTL (linear temporal logic) formulas into B\"uchi automata, or some combination of these using first order logic and equality.
+
+
+\end{itemize}
+
+Pecan is capable of proving any statement expressed solely in terms of B\"uchi automata and first order logic connectives, such as $\wedge$, $\vee$, $\neg$, $\forall$, and $\exists$.
+In particular, Pecan is powerful enough to decide any statement in Presburger arithmetic, the first order theory of the natural numbers with addition (but \emph{not} multiplication by variables) and comparison.
+Try out Pecan at \url{http://reedoei.com/pecan}.
+
+\section*{The Chicken McNugget Problem}
+
+% In the 1980s, Henri Picciotto asked the following problem in his algebra textbook:
+
+\begin{quote}
+    What is the greatest number of chicken nuggets that cannot be ordered using only boxes of 6, 9, and 20?
+\end{quote}
+
+We call all such numbers \textbf{non-purchasable}, and we can define them in Pecan as follows:
+
+We can then define the largest non-purchasable number naturally as:
+
+\columnbreak
+
+\section*{The Thue-Morse Word}
+
+We now turn to \textbf{automatic sequences}, words defined by automata, starting with the Thue-Morse word, $T$.
+The $n$-th digit of the Thue-Morse word, $T[n]$, is $1$ if the binary representation of $n$ has an odd number of $1$'s, and $0$ otherwise.
+The Thue-Morse word starts with: $01101001100101101001011001101001\ldots$
+
+\begin{defin}
+    A word $w$ is a \textbf{square} if it is of the form $w = xx$ for some word $x$.
+    Similarly, $w$ is a \textbf{cube} if it is of the form $w = xxx$ for some word $x$.
+\end{defin}
+
+\begin{mdframed}[style=MyFrame]
+\begin{thm}
+    The Thue-Morse word does not contain any cubes.
+\end{thm}
+\end{mdframed}
+
+Below is a Pecan definition of cubes in the Thue-Morse word and the theorem we would like to prove.
+
+\begin{lstlisting}[basicstyle=\normalsize\ttfamily, mathescape=true, frame=single]
+[INFO] Checking if T does not contain cubes is true.
+$\color{ForestGreen} \text{T does not contain cubes is true.}$
+\end{lstlisting}
+
+\begin{mdframed}[style=MyFrame]
+\begin{thm}
+There are no overlapping squares, i.e., words of form $0x0x0$ or $1x1x1$ for some nonempty word $x$.
+\end{thm}
+\end{mdframed}
+
+We can check it by running the following Pecan commands.
+
+Pecan verifies the theorem:
+\begin{lstlisting}[basicstyle=\normalsize\ttfamily, mathescape=true, frame=single]
+[INFO] Checking if T does not contain overlapping squares is true.
+$\color{ForestGreen} \text{T does not contain overlapping squares is true.}$
+\end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% New Section
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Characteristic Sturmian Words}
+A \textbf{cutting sequence} for a curve is a sequence of $0$'s and $1$'s, corresponding to when the line crosses vertical and horizontal grid lines, respectively.
+\textbf{Characteristic Sturmian words} are infinite binary sequences defined by the cutting sequence of $y = \alpha x$ for some irrational $\alpha \in (0,1)$ in the Cartesian plane.
+Figure~\ref{fig:fib_word} shows the characteristic Sturmian word with slope $\frac{1}{\phi}$, which begins $0100101001\ldots$.
+
+Sturmian words are \textbf{automatic sequences} meaning that there are automata which calculate their $n$-th digit given the number $n$ in special numeration systems called \textbf{Ostrowski numeration systems}.
+With the addition automaton for general Ostrowski numeration systems, we are able to use Pecan to \emph{automatically prove} properties about Sturmian words.
+% as those in Du, Mousavi, Schaeffer, and Shallit's paper "Decision Algorithms for Fibonacci-Automatic Words, with Applications to Pattern Avoidance" for the \textbf{characteristic Sturmian word with all slopes} instead of for the original Fibonacci word.
+% \vspace*{0.4em}
+
+% \begin{definition}
+% The \textbf{characteristic Sturmian word with slope $\sqrt[~]{2}$}, which we denote as $C_2$, is the infinite word obtained as the limit of the sequence of \textbf{standard words} $s_n$ defined by{
+% \setlength{\abovedisplayskip}{3pt}
+% \setlength{\belowdisplayskip}{3pt}
+% $$ s_n=s^{d_n}_{n-1}s_{n-2} \text{ when } n\ge 2, \text{ where } s_1= 0^{d_1-1}1 \text{ and } s_0=0.$$}
+% \end{definition}
+% By having built the Ostrowski-$\sqrt[~]{2}$ numeration system and the automatic word $C_2$ in Walnut, we may use the command $C2[i]$ to return the $i^{th}$ digit of $C_2$.\\
+
+\columnbreak
+
+\section*{Theorems about Sturmian Words}
+
+There are many interesting properties of Sturmian words, and we can use Pecan to automatically prove many of these.
+
+\begin{defin}
+    A word is eventually periodic if it is of the form $abbbbb \ldots$ for some subwords $a$ and $b$ (e.g., $0.1024545454545\ldots$ where the repeating part is $45$).
+\end{defin}
+
+\begin{mdframed}[style=MyFrame]
+\begin{thm}
+Sturmian words are not eventually periodic.
+\end{thm}
+\end{mdframed}
+\begin{proof}
+In Pecan, we can write this statement as:
+
+The automata have hundreds of states, and its nearly impossible to understand them by looking at pictures of them.
+\end{proof}
+
+\begin{defin}
+    A word is a palindrome if reversing it gives the same word (e.g., ``racecar'' or ``0110'').
+\end{defin}
+
+\begin{mdframed}[style=MyFrame]
+\begin{thm}
+All Sturmian words contain palindromes of every length $n$; furthermore, if $n$ is even then there is exactly one palindrome, and if $n$ is odd there are exactly two.
+\end{thm}
+\end{mdframed}
+
+\begin{proof}
+Using Pecan, we first define a palindrome, then we define the first occurrence of each palindrome, giving us a unique position for each palindrome of each length, and finally we ask Pecan to prove the theorem.
+
+Finally, we state the theorem and ask Pecan to prove it.
+\end{proof}
+
+These examples highlight Pecan's ability to quantifying over uncountable sets of strings, something that previous theorem provers with a similar approach, such as Walnut, were unable to do.
+This allows us to state and prove theorems about \emph{all} Sturmian words, instead of just individual Sturmian words.
+
+\section*{Future Work}
+\begin{itemize}
+\item Continue to develop Pecan.
+\item Write a paper about Pecan and the various properties of Sturmian words we are able to automatically prove.
+\item Since Pecan uses B\"uchi automata, which accept infinite words, we can represent sets of real numbers using B\"uchi automata and prove properties about the real numbers.
+\end{itemize}
+
+% \vspace*{-10pt}  %change to -10
+\section*{References}
+
+{\footnotesize [1] Khoussainov, Bakhadyr.Nerode, Anil. (2001) \emph{Automata Theory and its Applications}, MA : Birkh\"auser Boston
+}
+
+{\footnotesize [2] Hamoon Mousavi. \emph{Automatic Theorem Proving in Walnut}. In: CoRR abs/1603.06017 (2016).
+arXiv: 1603.06017. url: http://arxiv.org/abs/1603.06017.
+}
+
+{\footnotesize [3] Du, Chen Fei. Mousavi, Hammoon. Schaeffer, Luke and Shallit, Jeffrey. (2014) \emph{Decision Algorithms for Fibonacci-Automatic Words, with Applications to Pattern Avoidance}
+}
+
+{\footnotesize [4] Hieronymi, P., \& Terry Jr, A. (2018). \emph{Ostrowski Numeration Systems, Addition, and Finite Automata}. Notre Dame Journal of Formal Logic, 59(2), 215-232.
+}
+
+\vspace*{10mm} %This will change to -5
+\emph{
+Support for this project was provided by the Illinois Geometry Lab and the Department of Mathematics at the University of Illinois at Urbana-Champaign.
+}
+\end{multicols}
+
+\end{document}
+
