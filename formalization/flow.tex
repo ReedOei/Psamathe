@@ -198,7 +198,7 @@ The transaction \lstinline{transfer} contains a single flow, transferring the de
 
 \subsection{Flows}
 \langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
-Each flow has at least a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
+Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
 
 There are two special kinds of \assetTxt{}s: \emph{fungible} and \emph{nonfungible}.
 \reed{I think there's also \assetTxt{}s which are neither fungible nor nonfungible.}
@@ -208,7 +208,7 @@ For example, ERC-721 \reed{cite} (discussed in more depth in Section~\ref{sec:er
 \langName dynamically ensures that all newly created nonfungible \assetTxt{}s are unique, and statically ensures that \assetTxt{}s are not duplicated, reused, lost, or modified (if immutable).
 Furthermore, it supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional mapping between keys and a collection of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens.
 
-The source and destination of a flow are two storages which \emph{provide} and \emph{accept} \assetTxt{}s, and the selector describes which subpart of the value of the \assetTxt{}(s) in the source should be transferred to the destination.
+The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
 All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
 For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, and a flow of a nonfungible \assetTxt fails if the selected values don't exist in the source location.
 Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
@@ -252,18 +252,19 @@ These simplifications are performed automatically by the compiler.
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/erc20.sol}
         \caption{Solidity implementation of ERC-20's \lstinline{transferFrom}.}
+        \label{fig:erc20-impl-sol}
     \end{subfigure}%
     \begin{subfigure}[t]{0.5\textwidth}
         \centering
         \lstinputlisting[language=flow]{splash20-examples/erc20.flow}
         \caption{\langName implementation of ERC-20's \lstinline{transferFrom}.}
+        \label{fig:erc20-impl-flow}
     \end{subfigure}
     % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
     \label{fig:erc20-impl}
 \end{figure*}
 
-Figure~\ref{fig:erc20-impl} shows implementations of the ERC-20 \reed{cite} standard in both Solidity and \langName, one of the most commonly implemented standards on the Ethereum blockchain \reed{cite}.
-Only the core functions of \lstinline{transfer}, \lstinline{transferFrom}, and \lstinline{approve} are shown, with the exception of \lstinline{totalSupply} in the \langName implementation (included because to show the use of the \total operator).
+Figures~\ref{fig:erc20-impl-sol} and~\ref{fig:erc20-impl-flow} show a Solidity and a \langName implementation, respectively, of the ERC-20 \reed{cite} \lstinline{transferFrom} function.
 All event code has been omitted, because \langName handles events in the same way as Solidity.
 This contract shows several advantages of the flow abstraction:
 \begin{itemize}

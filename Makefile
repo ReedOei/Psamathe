@@ -22,7 +22,7 @@ static: static/flow-typecheck-kompiled/timestamp
 compiler: compiler/flow-compiler-kompiled/timestamp
 
 compiler/flow-compiler-kompiled/timestamp: flow-compiler.k yul-syntax.k flow-common.k flow-syntax.k
-	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) flow-compiler.k -d compiler/
+	$(KDISTR)/kompile --hook-namespaces KRYPTO $(COMPILEFLAGS) --backend $(BACKEND) flow-compiler.k -d compiler/
 
 dynamic/flow-kompiled/timestamp: flow.k flow-common.k flow-syntax.k
 	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) flow.k -d dynamic/

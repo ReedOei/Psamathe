@@ -1,39 +1,37 @@
-  #Ceil ( keccak256 ( "test" ) )
-#And
-  <generatedTop>
-    <common>
-      <k>
-        .
-      </k>
-      <contracts>
-        SetItem ( Main )
-      </contracts>
-      <fields>
-        Main |-> .Set
-      </fields>
-      <constructors>
-        Main |-> constructor ( .VarDefs , pass )
-      </constructors>
-      <functions>
-        Main |-> .Set
-      </functions>
-      <types>
-        Main |-> SetItem ( type ( Main , SetItem ( asset )
-        SetItem ( consumable ) , Main ) )
-        address |-> SetItem ( type ( address , SetItem ( consumable )
-        SetItem ( nonfungible ) , address ) )
-        bool |-> SetItem ( type ( bool , SetItem ( consumable )
-        SetItem ( nonfungible ) , bool ) )
-        nat |-> SetItem ( type ( nat , SetItem ( consumable )
-        SetItem ( fungible ) , nat ) )
-        string |-> SetItem ( type ( string , SetItem ( consumable )
-        SetItem ( nonfungible ) , string ) )
-      </types>
-      <freshCounter>
-        0
-      </freshCounter>
-    </common>
-    <objects>
-      ListItem ( object "Main" { code { sstore ( 0 , caller ( ) ) datacopy ( 0 , dataoffset ( "runtime" ) , datasize ( "runtime" ) ) return ( 0 , datasize ( "runtime" ) ) } object keccak256 ( "test" ) { code { switch selector ( ) default { revert ( 0 , 0 ) } function selector ( ) -> s { s := div ( calldataload ( 0 ) , 0x100000000000000000000000000000000000000000000000000000000 ) } function decodeAsAddress ( offset ) -> v { v := decodeAsUint ( offset ) if iszero ( iszero ( and ( v , not ( 0xffffffffffffffffffffffffffffffffffffffff ) ) ) ) { revert ( 0 , 0 ) } } function decodeAsUint ( offset ) -> v { let pos := add ( 4 , mul ( offset , 0x20 ) ) if lt ( calldatasize ( ) , add ( pos , 0x20 ) ) { revert ( 0 , 0 ) } v := calldataload ( pos ) } function returnUint ( v ) { mstore ( 0 , v ) return ( 0 , 0x20 ) } function returnTrue ( ) { returnUint ( 1 ) } } } } )
-    </objects>
-  </generatedTop>
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <contracts>
+      SetItem ( Main )
+    </contracts>
+    <fields>
+      Main |-> .Set
+    </fields>
+    <constructors>
+      Main |-> constructor ( .VarDefs , pass )
+    </constructors>
+    <functions>
+      Main |-> .Set
+    </functions>
+    <types>
+      Main |-> SetItem ( type ( Main , SetItem ( asset )
+      SetItem ( consumable ) , Main ) )
+      address |-> SetItem ( type ( address , SetItem ( consumable )
+      SetItem ( nonfungible ) , address ) )
+      bool |-> SetItem ( type ( bool , SetItem ( consumable )
+      SetItem ( nonfungible ) , bool ) )
+      nat |-> SetItem ( type ( nat , SetItem ( consumable )
+      SetItem ( fungible ) , nat ) )
+      string |-> SetItem ( type ( string , SetItem ( consumable )
+      SetItem ( nonfungible ) , string ) )
+    </types>
+    <freshCounter>
+      0
+    </freshCounter>
+  </common>
+  <objects>
+    ListItem ( object "Main" { code { sstore ( 0 , caller ( ) ) datacopy ( 0 , dataoffset ( "runtime" ) , datasize ( "runtime" ) ) return ( 0 , datasize ( "runtime" ) ) } object "runtime" { code { switch selector ( ) default { revert ( 0 , 0 ) } function selector ( ) -> s { s := div ( calldataload ( 0 ) , 0x100000000000000000000000000000000000000000000000000000000 ) } function decodeAsAddress ( offset ) -> v { v := decodeAsUint ( offset ) if iszero ( iszero ( and ( v , not ( 0xffffffffffffffffffffffffffffffffffffffff ) ) ) ) { revert ( 0 , 0 ) } } function decodeAsUint ( offset ) -> v { let pos := add ( 4 , mul ( offset , 0x20 ) ) if lt ( calldatasize ( ) , add ( pos , 0x20 ) ) { revert ( 0 , 0 ) } v := calldataload ( pos ) } function returnUint ( v ) { mstore ( 0 , v ) return ( 0 , 0x20 ) } function returnTrue ( ) { returnUint ( 1 ) } } } } )
+  </objects>
+</generatedTop>

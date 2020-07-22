@@ -66,7 +66,7 @@ module FLOW-COMPILER
                     datacopy(0, dataoffset("runtime"), datasize("runtime"))
                     return(0, datasize("runtime"))
                 }
-                object keccak256("test") {
+                object "runtime" {
                     code {
                         switch selector()
                         default {
