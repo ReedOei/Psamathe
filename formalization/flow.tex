@@ -267,8 +267,8 @@ Flows can also fail for other reasons: a developer may specify that a certain fl
 
 \subsection{Error Handling}
 Computation on blockchains like the Ethereum blockchain are grouped into units called \emph{transactions}. \reed{which makes the use of the transaction keyword a little awkward, because multiple transaction calls can happen in a single transaction on the blockchain...}
-Transactions either completely succeed, or fail and revert all changes.
-In \langName, sequences of flows are \emph{atomic}: they will either all succeed, or, if a single flow fails, the rest will fails as well.
+Transactions either succeed or they fail and revert all changes.
+\langName also has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
 If a sequence of flows fails, it ``bubbles up'' like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \flowinline{catch}, in which case only the changes made inside the corresponding \flowinline{try} block will be reverted, and the code inside the \flowinline{catch} block will be executed.
 
 \section{Case Studies}
