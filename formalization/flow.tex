@@ -124,21 +124,24 @@
 
 \section{Introduction}
 
-\reed{Blockchain intro}
+\reed{Blockchain intro.}
 
-One of the most common applications \reed{cite} of smart contracts is managing ``digital assets'' called ``tokens.''
+Commonly proposed and implemented applications for the blockchain often revolve around the management of ``digital assets.'' \reed{cite}
+One of the most forms of these are a variety of smart contracts that managed assets called ``tokens.''
 There are many token standards, especially on the Ethereum blockchain \reed{cite}, including \reed{ERC-20, ERC-721, ERC-777, ERC-1155}, with others in various stages of the standardization process.
-However, despite their widespread adoption, Solidity \reed{cite}, the most common language used to write smart contracts on the Ethereum blockchain \reed{cite}, provides no special support for writing such smart contracts \reed{cite?}.
+Other applications or proposed applications for smart contracts include voting, supply chain management, auctions, lotteries, and other applications which require careful management of their respective assets \reed{cite/find examples}.
+
+However, despite the many smart contracts using and defining tokens and other digital assets, Solidity \reed{cite} and Vyper, the most common languages used to write smart contracts on the Ethereum blockchain \reed{cite}, provide few \reed{none?} language features for writing such contracts \reed{cite? rephrase?}.
 To this end, we have developed \langName, a DSL for implementing programs which manage \assetTxt{}s, targeted at writing smart contracts.
-\langName provides a special construct called a \emph{flow} an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing many kinds of \assetTxt{}s, and in particular, those managing tokens.
+\langName provides features to mark certain values as \emph{\assetTxt{}s} as well as a special construct called a \emph{flow}, an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing many a variety of kinds of digital \assetTxt{}s.
 
 \paragraph{Contributions}
 
 We make the following contributions with \langName.
 \begin{itemize}
-    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating reuse and \assetTxt-loss bugs.
+    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction.
 
-    \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of resources into the code.
+    \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
 
     \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common pitfalls automatically.
 
@@ -165,9 +168,7 @@ Some of these are already discussed in the paper.
     \item Good expression of financial \assetTxt{}s: fungible, nonfungible/general uniqueness constraints, consumable vs. nonconsumable.
         NOTE: These are things that Obsidian doesn't express automatically.
         Emphasize the uniqueness stuff is actually not any more difficult/inefficient than existing solutions.
-    \item Atomic flow construct encodes semantic intent
     \item Maybe the language is efficient, but would need an implementation to evaluate this.
-    \item Flows are interesting?
 \end{itemize}}
 
 % handled by the language; these include handling overflow/underflow, checking of balances, short address attacks \reed{Do this}, string operations, etc.
@@ -196,6 +197,37 @@ The transaction \lstinline{transfer} contains a single flow, transferring the de
     \label{fig:erc20-transfer}
 \end{figure}
 
+\subsection{Syntax}
+\begin{figure}[t]
+\setlength{\tabcolsep}{1pt}
+\begin{tabular}{l r l l}
+    $\mathfrak{q}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
+    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\every$ & (\typeQuantities) \\
+    $T$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\map~\tau~\Rightarrow~\sigma$ \bnfalt $t$ \bnfalt $\ldots$ & (base types) \\
+    $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
+    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\ldots$ & (values) \\
+    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $\total~t$ \bnfalt $\ldots$ & (expressions) \\
+    $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
+    $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
+    $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
+    $F$ & \bnfdef & $\mathcal{S} \sends{s} \mathcal{D}$ & (flows) \\
+    $\Stmt$ & \bnfdef & $F$ \bnfalt $\Stmt ; \Stmt$ \bnfalt $\ldots$ & (statements) \\
+    $M$ & \bnfdef & \fungible \bnfalt \nonfungible & \\
+        & \bnfalt & \consumable \bnfalt \asset & (type modifiers) \\
+    $\Decl$ & \bnfdef & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
+            & \bnfalt & $\transaction~m(\overline{x : \tau}) \to x : \tau~\doC~\Stmt$ & (transactions) \\
+            & \bnfalt & $\ldots$ & \\
+    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
+\end{tabular}
+\caption{A fragment of the abstract syntax of the core calculus of \langName.}
+\label{fig:lang-syntax}
+\end{figure}
+
+Figure~\ref{fig:lang-syntax} shows a fragment of the syntax of the core calculus of \langName, which uses A-normal form and makes several other simplifications to the surface \langName language.
+These simplifications are performed automatically by the compiler.
+\reed{TODO: We have formalized this core calculus (in K???).}
+
 \subsection{Flows}
 \langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
 Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
@@ -213,35 +245,12 @@ All flows fail if the selected \assetTxt{}s are not present in the source, or if
 For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, and a flow of a nonfungible \assetTxt fails if the selected values don't exist in the source location.
 Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
 
-\subsection{Syntax}
-\begin{figure}[t]
-\begin{tabular}{l r l l}
-    $\mathfrak{q}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
-    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\every$ & (\typeQuantities) \\
-    $T$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\map~\tau~\Rightarrow~\sigma$ \bnfalt $t$ \bnfalt $\ldots$ & (base types) \\
-    $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
-    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\ldots$ & (values) \\
-    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $\total~t$ \bnfalt $\ldots$ & (expressions) \\
-    $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
-    $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
-    $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
-    $F$ & \bnfdef & $\mathcal{S} \sends{s} \mathcal{D}$ & (flows) \\
-    $\Stmt$ & \bnfdef & $F$ \bnfalt $\Stmt ; \Stmt$ \bnfalt $\ldots$ & (statements) \\
-    $M$ & \bnfdef & \fungible \bnfalt \nonfungible & \\
-        & \bnfalt & \consumable \bnfalt \asset & (type modifiers) \\
-    $\Decl$ & \bnfdef & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
-            & \bnfalt & $\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~\Stmt$ & (transactions) \\
-            & \bnfalt & $\ldots$ & \\
-    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
-\end{tabular}
-\caption{A fragment of the abstract syntax of the core calculus of \langName.}
-\label{fig:lang-syntax}
-\end{figure}
-
-Figure~\ref{fig:lang-syntax} shows a fragment of the syntax of the core calculus of \langName, which uses A-normal form and makes several other simplifications to the surface \langName language.
-These simplifications are performed automatically by the compiler.
-\reed{TODO: We have formalized this core calculus (in K???).}
+\subsection{Error Handling}
+Computation on blockchains like the Ethereum blockchain are grouped into units called \emph{transactions}. \reed{which makes the use of the transaction keyword a little awkward, because multiple transaction calls can happen in a single transaction on the blockchain...}
+\langName follows this
+To this end, \langName supports
+Sequences of flows are \emph{atomic}: they will either all succeed, or, if a single flow fails, the rest will fails as well.
+If a sequence of flows fails, it ``bubbles up'' like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \lstinline{catch}, in which case only the changes made inside the corresponding \lstinline{try} block will be reverted, and the code inside the \lstinline{catch} block will be executed.
 
 \section{Case Studies}
 \subsection{ERC-20}
@@ -404,8 +413,8 @@ Additionally, \langName forbids any reentrant call from an external source, a si
     $\Decl$ & \bnfdef & $x : \tau$ & (field) \\
             & \bnfalt & $\event~E(\overline{x : \tau})$ & (event declaration) \\
             & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
-            & \bnfalt & $[\private]~\transaction~m(\overline{x : \tau})~\returns~x : \tau~\doC~\Stmt$ & (transactions) \\
-            & \bnfalt & $\view~m(\overline{x : \tau})~\returns~\tau := E$ & (views) \\
+            & \bnfalt & $[\private]~\transaction~m(\overline{x : \tau}) \to x : \tau~\doC~\Stmt$ & (transactions) \\
+            & \bnfalt & $\view~m(\overline{x : \tau}) \to \tau := E$ & (views) \\
             & \bnfalt & $\oncreate(\overline{x : \tau})~\doC~\Stmt$ & (constructor) \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
     $\Prog$ & \bnfdef & $\overline{\Con}~;~S$ & (programs)
@@ -594,7 +603,7 @@ The difference between internal and external calls is that we may transfer asset
     \inferrule*[right=External-Tx-Call]{
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
         \and
-        (\transaction~m(\overline{a : \tau})~\returns~\sigma~\doC~S) \in \decls(D)
+        (\transaction~m(\overline{a : \tau}) \to \sigma~\doC~S) \in \decls(D)
         \\
         \Gamma, \this : C, x : D \flowproves \overline{y : \tau} \flowprovesout \Gamma, \this : C, x : D
     }{ \Gamma, \this : C, x : D \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, \this : C, x : D }
@@ -847,7 +856,7 @@ Finally, if $s$ is $\everything$, the same argument applies---the outcome will b
         \Gamma = \this : C, \fields(C), \overline{x : \tau}
         \and
         \Gamma \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \proves_C (\view~m(\overline{x : \tau})~\returns~\sigma := E)~\ok }
+    }{ \proves_C (\view~m(\overline{x : \tau}) \to \sigma := E)~\ok }
 
     \inferrule*[right=Ok-Tx-Public]{
         \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
@@ -857,7 +866,7 @@ Finally, if $s$ is $\everything$, the same argument applies---the outcome will b
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
         \and
         \lnot(\mathcal{Q}~T~\asset)
-    }{ \proves_C (\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
+    }{ \proves_C (\transaction~m(\overline{x : \tau}) \to y : \mathcal{Q}~T~\doC~S)~\ok }
 
     \inferrule*[right=Ok-Tx-Private]{
         \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
@@ -865,7 +874,7 @@ Finally, if $s$ is $\everything$, the same argument applies---the outcome will b
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \and
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
-    }{ \proves_C (\private~\transaction~m(\overline{x : \tau})~\returns~y : \mathcal{Q}~T~\doC~S)~\ok }
+    }{ \proves_C (\private~\transaction~m(\overline{x : \tau}) \to y : \mathcal{Q}~T~\doC~S)~\ok }
 \end{mathpar}
 
 A field definition is always okay, as long as the type doesn't have the $\every$ modifier.
