@@ -209,6 +209,7 @@ The transaction \lstinline{transfer} contains a single flow, transferring the de
     % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
     \label{fig:erc20-transfer}
 \end{figure*}
+\reed{Not sure how to get the bounding box to be right in each column...}
 
 \subsection{Syntax}
 \begin{figure}[t]
@@ -226,7 +227,7 @@ The transaction \lstinline{transfer} contains a single flow, transferring the de
     $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
     $F$ & \bnfdef & $\mathcal{S} \sends{s} \mathcal{D}$ & (flows) \\
     $\Stmt$ & \bnfdef & $F$ \bnfalt $\Stmt ; \Stmt$ \bnfalt $\ldots$ & (statements) \\
-    $M$ & \bnfdef & \fungible \bnfalt \nonfungible & \\
+    $M$ & \bnfdef & \fungible \bnfalt \immutable \bnfalt \unique & \\
         & \bnfalt & \consumable \bnfalt \asset & (type modifiers) \\
     $\Decl$ & \bnfdef & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
             & \bnfalt & $\transaction~m(\overline{x : \tau}) \to x : \tau~\doC~\Stmt$ & (transactions) \\
@@ -245,11 +246,12 @@ These simplifications are performed automatically by the compiler.
 \langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
 Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
 
-There are several modifiers that can be used to control how \assetTxt{}s are managed: \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
-A \flowinline{fungible} \assetTxt is a value which represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
-A \flowinline{unique} \assetTxt is a value which can only exist in at most one storage; it must be \flowinline{immutable}.
-A \flowinline{immutable} \assetTxt is a value which cannot be changed; in particular, it cannot be source or destination of a flow, the only state-changing construct in \langName \reed{this is the goal, anyway, which I think is true, but need to verify}.
-A \flowinline{consumable} \assetTxt is a value that it is sometimes appropriate to dispose of; however, this disposal must be done via the \flowinline{consume} construct, a way of documenting that the disposal is intentional.
+There are several modifiers that can be used to control how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
+A \flowinline{asset} is a value that must not be reused or accidentally lost.
+A \flowinline{fungible} value represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
+A \flowinline{unique} value can only exist in at most one storage; it must be \flowinline{immutable}.
+A \flowinline{immutable} value cannot be changed; in particular, it cannot be source or destination of a flow, the only state-changing construct in \langName \reed{this is the goal, anyway, which I think is true, but need to verify}.
+A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes appropriate to dispose of; however, this disposal must be done via the \flowinline{consume} construct, a way of documenting that the disposal is intentional.
 All of these constraints, except for uniqueness, are enforced statically.
 
 For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are best modeled as being both \flowinline{unique} and \flowinline{immutable}.
@@ -260,14 +262,13 @@ It supports data structures that make working with \assetTxt{}s easier, such as 
 
 The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
 All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
-For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, and a flow of a nonfungible \assetTxt fails if the selected values don't exist in the source location.
+For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, or if there is too much in the destination; for example, the latter may occur in the case of overflow.
 Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
 
 \subsection{Error Handling}
 Computation on blockchains like the Ethereum blockchain are grouped into units called \emph{transactions}. \reed{which makes the use of the transaction keyword a little awkward, because multiple transaction calls can happen in a single transaction on the blockchain...}
-\langName follows this
-To this end, \langName supports
-Sequences of flows are \emph{atomic}: they will either all succeed, or, if a single flow fails, the rest will fails as well.
+Transactions either completely succeed, or fail and revert all changes.
+In \langName, sequences of flows are \emph{atomic}: they will either all succeed, or, if a single flow fails, the rest will fails as well.
 If a sequence of flows fails, it ``bubbles up'' like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \flowinline{catch}, in which case only the changes made inside the corresponding \flowinline{try} block will be reverted, and the code inside the \flowinline{catch} block will be executed.
 
 \section{Case Studies}
@@ -335,12 +336,12 @@ The ERC-721 standard \reed{cite} requires many invariants hold:
     we must be able to support ``operators'' who can manage all of the tokens of a user,
     among others.
 Because \langName is designed to handle \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
-A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\nonfungible$, we can be sure that we will not mint two of the same token.
+A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
 
 Figure~\ref{fig:erc721-impl} shows an implementation ERC-721's \lstinline{transferFrom} function in both Solidity and \langName.
 The Solidity implementation is extracted from one of the reference implementations of ERC-721 given on its official Ethereum EIP page.
 In addition to the invariant required by the specification, there are also internal invariant which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled by \langName.
-This example demonstrates the benefits of having nonfungible \assetTxt{}s and linkings built into the language itself.
+This example demonstrates the benefits of having $\unique$ \assetTxt{}s and linkings built into the language itself.
 
 \subsection{Voting}
 \reed{Solidity impl. comes from ``Solidity by Example'' page}
@@ -361,8 +362,8 @@ This example demonstrates the benefits of having nonfungible \assetTxt{}s and li
 \end{figure*}
 
 \reed{Can include this section if we don't \textbf{only} want to talk about tokens...}
-The $\nonfungible$ modifier is useful in many programs, even those not dealing with financial assets, like ERC-721 contracts.
-We can also use $\nonfungible$ to remove certain incorrect behaviors from a voting contract, shown in Figure~\ref{fig:voting-impl}.
+% The $\nonfungible$ modifier is useful in many programs, even those not dealing with financial assets, like ERC-721 contracts.
+We can also use the $\unique$ and $\immutable$ modifiers to remove certain incorrect behaviors from a voting contract, shown in Figure~\ref{fig:voting-impl}.
 
 \subsection{The DAO attack}
 One of the most financially impactful bugs in the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth about \$50 million dollars at the time, to be stolen \reed{cite, verifying dollar amount}.
@@ -432,7 +433,7 @@ Additionally, \langName forbids any reentrant call from an external source, a si
     $\Stmt$ & \bnfdef & $F$ \bnfalt $E$ \bnfalt $\revert(E)$ \bnfalt \pack \bnfalt $\unpack(x)$ \bnfalt $\emit~E(\overline{x})$ & \\
             & \bnfalt & $\tryS~\Stmt~\catchS(x : \tau)~\Stmt$ \bnfalt $\ifS~x~\thenS~\Stmt~\elseS~\Stmt$ & \\
             & \bnfalt & $\var~x:\tau := E~\varin~\Stmt$ \bnfalt $\Stmt;\Stmt$ & (statements) \\
-    $M$ & \bnfdef & \fungible \bnfalt \nonfungible \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
+    $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $\Decl$ & \bnfdef & $x : \tau$ & (field) \\
             & \bnfalt & $\event~E(\overline{x : \tau})$ & (event declaration) \\
             & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
@@ -912,7 +913,6 @@ This isn't strictly necessary, because everything will still work, but you'll si
 
 A type declaration is okay as long as it has the $\asset$ modifier if its base type is an asset.
 Note that this restriction isn't necessary, but is intended to help users realize which types are assets without unfolding the entire type definition.
-\reed{Need to ensure that nonfungible types are immutable.}
 \begin{mathpar}
     \inferrule*[right=Ok-Type]{
         T~\asset \implies \asset \in \overline{M}
