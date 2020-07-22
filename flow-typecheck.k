@@ -20,6 +20,13 @@ module FLOW-TYPECHECK
                   | Expr ":" Type
                   | Source "provides" "{" TypeQuant "}" Type
                   | Destination "accepts" Type
+
+    // =======================================
+    // Type Errors
+    // =======================================
+    syntax TypeError ::= typeError(Stmt)
+    syntax Stmt ::= TypeError
+
     // =======================================
     // Boolean Expressions
     // =======================================
@@ -76,7 +83,7 @@ module FLOW-TYPECHECK
                   | setEnv(Map)
 
     context update(_, HOLE)
-    rule <k> update(X, T) => . ... </k>
+    rule <k> update(X, T:Type) => . ... </k>
         <typeEnv> ... X |-> (_ => T) ... </typeEnv>
     rule <k> update(X, _) => . ... </k>
         <typeEnv> Gamma </typeEnv>
@@ -198,10 +205,21 @@ module FLOW-TYPECHECK
     // =======================================
     rule I:Int : ! nat => .
         requires I >=Int 0
+
+    rule I:Int : T => typeError(I : T)
+        requires T =/=K (! nat) orBool I <Int 0
+
     rule _:Bool : ! bool => .
+    rule B:Bool : T => typeError(B : T)
+        requires T =/=K (! bool)
+
     rule _:String : ! string => .
+    rule S:String : T => typeError(S : T)
+        requires T =/=K (! string)
 
     rule emptyval : empty _ => .
+    rule emptyval : Q:TypeQuant T => typeError(emptyval : Q T)
+        requires Q =/=K empty
 
     // =======================================
     // Variable definition
@@ -214,13 +232,24 @@ module FLOW-TYPECHECK
     rule <k> new C(Args) : ! C => checkEach(Args, FormalArgs) ... </k>
         <constructors> ... C |-> constructor(FormalArgs, _) ... </constructors>
 
+    rule new C(Args) : T => typeError(new C(Args) : T)
+        requires T =/=K (! C)
+
     // =======================================
     // Variable Lookup
     // =======================================
     rule <k> X : demote(T) => . ... </k>
         <typeEnv> ... X |-> T ... </typeEnv>
+
+    // There's no reason to use this rule if the type isn't an asset, because demote will always give us something equivalent to T
     rule <k> X : Q T => . ... </k>
         <typeEnv> ... X |-> (Q:TypeQuant T => empty T) ... </typeEnv>
+        requires isAsset(Q T)
+
+    rule <k> X : T:Type => typeError(X : T) ... </k>
+        <typeEnv> ... X |-> S:Type ... </typeEnv>
+        requires (demote(S) =/=K T)
+         andBool (notBool(isAsset(T)) orBool S =/=K T)
 
     // =======================================
     // Storage typing
@@ -244,7 +273,14 @@ module FLOW-TYPECHECK
     // Selector typing
     // =======================================
     rule everything selects {every} _ => .
-    // TODO: Finish
+
+    rule E:Expr selects {Q} (Q T) => assertEnv(?Gamma) ~> E : Q T ~> assertEnv(?Gamma)
+    rule E:Expr selects {Q} T => assertEnv(?Gamma) ~> E : Q ?_:Collection T ~> assertEnv(?Gamma)
+
+    rule (Q X : T such that E) selects {Q} T =>
+        assertEnv(?Gamma) ~>
+        insert(X, T) ~> E : ! bool ~> drop(X) ~>
+        assertEnv(?Gamma)
 
     // =======================================
     // Flow typing

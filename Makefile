@@ -1,5 +1,7 @@
 KDISTR := $(HOME)/k-framework/k-distribution/bin
 FLAGS :=
+COMPILEFLAGS :=
+# COMPILEFLAGS := --iterated -O3
 BACKEND := haskell
 
 all: exec typecheck
@@ -7,6 +9,8 @@ all: exec typecheck
 exec: $(wildcard tests/exec/*.flow)
 
 typecheck: $(wildcard tests/typecheck/*.flow)
+
+compile: $(wildcard tests/compile/*.flow)
 
 common: flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --backend $(BACKEND) flow-common.k
@@ -18,13 +22,13 @@ static: static/flow-typecheck-kompiled/timestamp
 compiler: compiler/flow-compiler-kompiled/timestamp
 
 compiler/flow-compiler-kompiled/timestamp: flow-compiler.k yul-syntax.k flow-common.k flow-syntax.k
-	$(KDISTR)/kompile --backend $(BACKEND) flow-compiler.k -d compiler/
+	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) flow-compiler.k -d compiler/
 
 dynamic/flow-kompiled/timestamp: flow.k flow-common.k flow-syntax.k
-	$(KDISTR)/kompile --backend $(BACKEND) flow.k -d dynamic/
+	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) flow.k -d dynamic/
 
 static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-syntax.k
-	$(KDISTR)/kompile --backend $(BACKEND) flow-typecheck.k -d static/
+	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) flow-typecheck.k -d static/
 
 tests/exec/%.flow: dynamic/flow-kompiled/timestamp static/flow-typecheck-kompiled/timestamp
 	time ./flow test $(FLAGS) $@
@@ -38,4 +42,5 @@ tests/compile/%.flow: compiler/flow-compiler-kompiled/timestamp
 clean:
 	rm -rf dynamic/flow-kompiled
 	rm -rf static/flow-typecheck-kompiled
+	rm -rf compiler/flow-compiler-kompiled
 

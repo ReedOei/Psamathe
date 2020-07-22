@@ -50,7 +50,7 @@ module YUL-SYNTAX
 	syntax Leave ::= "leave"
 	syntax FunctionCall ::= Identifier "(" Expressions ")"
 	                      | Identifier "(" ")"
-	syntax Literal ::= Int | String | Bool
+	syntax Literal ::= Int | String | Bool | HexNumber
 
     syntax Object ::= "object" String "{" Code ObjDatas "}"
                     | "object" String "{" Code "}"
@@ -63,13 +63,10 @@ module YUL-SYNTAX
 
     // From the Official documentation. We can add support for these if we end up needed them.
     // For now, we only care about the syntax of Yul insofar compiling our own language.
-		/* (NumberLiteral | StringLiteral | HexLiteral | TrueLiteral | FalseLiteral) ( ':' TypeName )? */
 	/* syntax NumberLiteral = HexNumber | DecimalNumber */
 	/* syntax HexLiteral = 'hex' ('"' ([0-9a-fA-F]{2})* '"' | '\'' ([0-9a-fA-F]{2})* '\'') */
 	/* syntax StringLiteral = '"' ([^"\r\n\\] | '\\' .)* '"' */
-	/* syntax TrueLiteral = 'true' */
-	/* syntax FalseLiteral = 'false' */
-	/* syntax HexNumber = '0x' [0-9a-fA-F]+ */
+	syntax HexNumber ::= r"0x[0-9a-fA-F]+" [token]
 	/* syntax DecimalNumber = [0-9]+ */
 endmodule
 

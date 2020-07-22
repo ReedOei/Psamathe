@@ -14,7 +14,5 @@ before_install:
     - (cd "$HOME/k-framework" && mvn -B clean -DskipTests -pl "!llvm-backend" package)
 
 script:
-    - time make kompile
-    - time make exec
-    - time make typecheck
+    - time bash run_tests.sh
 

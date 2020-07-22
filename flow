@@ -14,6 +14,9 @@ directory="dynamic/"
 if [[ "$1" == "typecheck" ]]; then
     shift
     directory="static/"
+    FLAGS+=("--search")
+    FLAGS+=("--pattern")
+    FLAGS+=("<k> . </k>")
 
     if [[ "$1" == "debug" ]]; then
         shift
@@ -31,6 +34,7 @@ elif [[ "$1" == "compile" ]]; then
         FLAGS+=("(k),(#pc),#result")
     fi
 else
+    directory="dynamic/"
     if [[ "$1" == "debug" ]]; then
         shift
         FLAGS+=("--log")

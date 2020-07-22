@@ -32,6 +32,6 @@
     </freshCounter>
   </common>
   <objects>
-    ListItem ( object "Test" { code { sstore ( 0 , caller ( ) ) datacopy ( 0 , dataoffset ( "runtime" ) , datasize ( "runtime" ) ) return ( 0 , datasize ( "runtime" ) ) } } )
+    ListItem ( object "Main" { code { sstore ( 0 , caller ( ) ) datacopy ( 0 , dataoffset ( "runtime" ) , datasize ( "runtime" ) ) return ( 0 , datasize ( "runtime" ) ) } object "runtime" { code { switch selector ( ) default { revert ( 0 , 0 ) } function selector ( ) -> s { s := div ( calldataload ( 0 ) , 0x100000000000000000000000000000000000000000000000000000000 ) } } } } )
   </objects>
 </generatedTop>
