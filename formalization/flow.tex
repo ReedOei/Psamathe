@@ -144,39 +144,23 @@ We make the following contributions with \langName.
     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
 
     \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common pitfalls automatically.
-
-    % \item \reed{Optimizations? Probably don't have time for this, unfortunately.}
-    %     Some of the Solidity contracts are actually inefficient because:
-    %     \begin{enumerate}
-    %         \item They use lots of modifiers which repeat checks (see reference implementation of ERC-721).
-    %         \item They tend to use arrays to represent sets.
-    %             Maybe this is more efficient for very small sets, but checking containment is going to be much faster with a \lstinline{mapping (X => bool)} eventually.
-    %     \end{enumerate}
-
-    %     \begin{itemize}
-    %         \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
-    %     \end{itemize}
 \end{itemize}
 
-\reed{TODO (here or in related work?): The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability or uniqueness (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
-
-\reed{Potential benefits of the language to discuss.
-\begin{itemize}
-    \item Good expression of financial \assetTxt{}s: fungible, nonfungible/general uniqueness constraints, consumable vs. nonconsumable.
-        NOTE: These are things that Obsidian doesn't express automatically.
-        Emphasize the uniqueness stuff is actually not any more difficult/inefficient than existing solutions.
-    \item Maybe the language is efficient, but would need an implementation to evaluate this.
-\end{itemize}}
-
-% handled by the language; these include handling overflow/underflow, checking of balances, short address attacks \reed{Do this}, string operations, etc.
-% This conciseness is not only an improvement for a developers workflow, but also means that such issues are automatically handled, making it impossible for developers to forget them \reed{Wording}.
+% \reed{Potential benefits of the language to discuss.
 % \begin{itemize}
-%     \item We can evaluate these by comparing LOC, cyclomatic complexity, etc.
-%         Not sure what the right metric would be.
-%         \reed{Or how cyclomatic complexity would work exactly in this language.}
+%     \item Maybe the language is efficient, but would need an implementation to evaluate this.
+% \end{itemize}}
+% \reed{Optimizations? Probably don't have time for this, unfortunately.}
+%     Some of the Solidity contracts are actually inefficient because:
+%     \begin{enumerate}
+%         \item They use lots of modifiers which repeat checks (see reference implementation of ERC-721).
+%         \item They tend to use arrays to represent sets.
+%             Maybe this is more efficient for very small sets, but checking containment is going to be much faster with a \lstinline{mapping (X => bool)} eventually.
+%     \end{enumerate}
 
-%     \item We can also evaluate via a user study, but that will take a long(er) time.
-% \end{itemize}
+%     \begin{itemize}
+%         \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
+%     \end{itemize}
 
 \section{Language Description}
 
@@ -197,13 +181,13 @@ The transaction \lstinline{transfer} contains a single flow, transferring the de
     \begin{subfigure}[t]{0.5\textwidth}
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
-        \caption{Solidity implementation of ERC-20's \lstinline{transferFrom}.}
+        \caption{Solidity implementation of ERC-20's \lstinline{transfer} function.}
         \label{fig:erc20-transfer-sol}
     \end{subfigure}%
     \begin{subfigure}[t]{0.5\textwidth}
         \centering
         \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
-        \caption{\langName implementation of ERC-20's \lstinline{transferFrom}.}
+        \caption{\langName implementation of ERC-20's \lstinline{transfer} function.}
         \label{fig:erc20-transfer-flow}
     \end{subfigure}
     % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
@@ -392,6 +376,7 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 
 \section{Related Work}
 \reed{Obsidian, Scilla, Move, etc.?}
+\reed{TODO: The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability or uniqueness (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
 
 \section{Conclusion}
 
