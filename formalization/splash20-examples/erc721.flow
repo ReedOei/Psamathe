@@ -4,16 +4,15 @@ contract NFToken {
     balances : linking address <=> set Token
     approval : linking address <=> set TokenApproval
     ownerToOperators : linking address <=> set address
-    view canTransfer(_tokenId : nat) returns bool :=
-        _tokenId in balances[msg.sender] or
-        _tokenId in approval[msg.sender] or
-        msg.sender in ownerToOperators[balances.ownerOf(_tokenId)]
-    view validNFToken(_tokenId : nat) returns bool := balances.hasOwner(_tokenId)
-    transaction transferFrom(_from : address, _to : address, _tokenId : nat):
-        only when _to != 0x0 and canTransfer(_tokenId)
-        if approval.hasOwner(_tokenId) {
-            approval[approval.ownerOf(_tokenId)] --[ _tokenId ]-> consume
+    view canTransfer(tokId : nat) returns bool :=
+        tokId in balances[msg.sender] or
+        tokId in approval[msg.sender] or
+        msg.sender in ownerToOperators[balances.ownerOf(tokId)]
+    transaction transferFrom(_from : address, _to : address, tokId : nat):
+        only when _to != 0x0 and canTransfer(tokId)
+        if approval.hasOwner(tokId) {
+            approval[approval.ownerOf(tokId)] --[ tokId ]-> consume
         }
-        balances[_from] --[ _tokenId ]-> balances[_to]
+        balances[_from] --[ tokId ]-> balances[_to]
 }
 
