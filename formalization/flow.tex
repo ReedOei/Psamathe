@@ -578,15 +578,21 @@ However, it is still safe, because it is treated as its demoted type, which is a
     }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Lin-Lookup]{
+        \demote(\tau) \neq \tau
     }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
 
-    \inferrule*[right=Record-Field-Lookup]{
-        \Gamma \proves x : \curlys{\overline{y : \tau}} \flowproves \Gamma
-        \and
+    \inferrule*[right=Record-Demote-Lookup]{
         f : \sigma \in \overline{y : \tau}
-    }{ \Gamma \flowproves x.f : \sigma \flowproves \Gamma }
+    }{ \Gamma, x : \curlys{\overline{y : \tau}} \flowproves x.f : \demote(\sigma) \flowproves \Gamma, x : \curlys{\overline{y : \tau}} }
+
+    \inferrule*[right=Record-Lin-Lookup]{
+        f : \mathcal{Q}~T \in \overline{y : \tau}
+        \and
+        \demote(\sigma) \neq \sigma
+        \\
+        \overline{z : \sigma} = (\overline{y : \tau} \setminus \curlys{f : \mathcal{Q}~T}) \cup \curlys{f : \emptyq~T}
+    }{ \Gamma, x : \curlys{\overline{y : \tau}} \flowproves x.f : \mathcal{Q}~T \flowproves \Gamma, x : \curlys{\overline{z : \sigma}} }
 \end{mathpar}
-\reed{Record field lookup rule doesn't take into account that fields can store assets...}
 
 The expression $s~\varin~x$ allows checking whether a flow will succeed without the EAFP-style (``Easier to ask for forgiveness than permission''; e.g., Python).
 A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true and ``$s~\varin~B$'' is false.
@@ -652,74 +658,31 @@ In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed
     }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \pi \flowprovesout \Xi }
 \end{mathpar}
 
-% \framebox{$\elemtype(\tau) = \sigma$}
-% \begin{align*}
-%     \elemtype(\tau) =
-%     \begin{cases}
-%         \sigma & \tif \tau = \mathcal{Q}~\mathcal{C}~\sigma \\
-%         \tau & \owise
-%     \end{cases}
-% \end{align*}
+\framebox{$\elemtype(T) = \sigma$}
+\begin{align*}
+    \elemtype(T) =
+    \begin{cases}
+        \sigma & \tif T = \mathcal{C}~\sigma \\
+        !~T & \owise
+    \end{cases}
+\end{align*}
 
 \framebox{$\Gamma \proves \mathcal{S}~\provides_{\mathcal{Q}}~\tau$} \textbf{Source Typing}
-% The syntax $\tau \flowsto_{\mathcal{Q}} \sigma$ means that the storage accepts $\tau$ and provides $\sigma$; that is, you can flow $\tau$ into it, and when you flow out of it, you get $\sigma$; moreover, you get at most $\mathcal{Q}$ of them.
-% \begin{mathpar}
-%     \inferrule*[right=Store-One]{
-%     }{ \Gamma, S : \mathcal{Q}~T \proves S :: \mathcal{R}~T \flowsto_{\exactlyone} \mathcal{Q}~T }
-
-%     \inferrule*[right=Store-Col]{
-%     }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S :: \tau \flowsto_{\mathcal{Q}} \tau }
-
-%     \inferrule*[right=Store-Transformer]{
-%     }{ \Gamma, x : \mathcal{Q}~(\tau \transforms \sigma) \proves x :: \tau \flowsto_{\mathcal{Q}} \sigma }
-
-%     \inferrule*[right=Store-Consume]{
-%         \tau~\consumable
-%     }{ \Gamma \flowproves \consume :: \tau \flowsto_{\emptyq} \voidt }
-
-%     \inferrule*[right=Store-New]{
-%         (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
-%         \and
-%         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
-%     }{ \Gamma \flowproves \newc~C(\overline{y}) :: \voidt \flowsto_{\exactlyone} C }
-
-%     \inferrule*[right=Store-Source]{
-%         (\type~t~\is~\overline{M}~T) \in \decls(C)
-%     }{ \Gamma, \this : C \proves \newc~t :: \voidt \flowsto_{\every} ~ t }
-% \end{mathpar}
 \begin{mathpar}
-    % Other version of rule using elemtype. Has an issue if I have x : set nat and y : set set nat, and I want to do x --> y.
-    % \inferrule*[right=Provide-Var]{
-    % }{ \Gamma, S : \mathcal{Q}~T \proves S~\provides_{\mathcal{Q}}~\elemtype(\mathcal{Q}~T) }
-
-    \inferrule*[right=Provide-One]{
-    }{ \Gamma, S : \tau \proves S~\provides_{\exactlyone}~\tau }
-
-    \inferrule*[right=Provide-Col]{
-    }{ \Gamma, S : \mathcal{Q}~\mathcal{C}~\tau \proves S~\provides_{\mathcal{Q}}~\tau }
+    \inferrule*[right=Provide-Var]{
+    }{ \Gamma, S : \mathcal{Q}~T \proves S~\provides_{\mathcal{Q}}~\elemtype(T) }
 
     \inferrule*[right=Provide-Source]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
     }{ \Gamma, \this : C \proves (\newc~t)~\provides_{\every}~\exactlyone~t }
 \end{mathpar}
 
-\reed{Note, it will be too difficult to implement to make every kind of selector work with the sources, because the quantified selector can contain arbitrary expressions.
-It needs to be restricted somehow; the current rules only ensure you don't flow everything from a source.
-Could write special \textsc{Flow-Source} rules.}
-
 \framebox{$\Gamma \proves \mathcal{D}~\accepts~\tau$} \textbf{Destination Typing}
-\reed{Prevent variables that are supposed to store exactly one of something from receiving another?}
 Note that the \typeQuantities in \textsc{Accept-One} are different on the left and right of the turnstile.
 This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is reasonable to flow into it some $S : \any~\setq~\natt$.
 \begin{mathpar}
-    % \inferrule*[right=Accept-Var]{
-    % }{ \Gamma, S : \tau \proves S~\accepts~\elemtype(\tau) }
-
-    \inferrule*[right=Accept-One]{
-    }{ \Gamma, D : \mathcal{Q}~T \proves S~\accepts~\mathcal{R}~T }
-
-    \inferrule*[right=Accept-Col]{
-    }{ \Gamma, D : \mathcal{Q}~\mathcal{C}~\tau \proves S~\accepts~\tau }
+    \inferrule*[right=Accept-Var]{
+    }{ \Gamma, D : \mathcal{Q}~T \proves S~\accepts~\elemtype(T) }
 
     \inferrule*[right=Accept-Consume]{
         \tau~\consumable
@@ -728,17 +691,9 @@ This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is rea
 
 \framebox{$\Gamma \proves s ~\selects_\mathcal{Q}~ \tau$} \textbf{Selectors}
 \begin{mathpar}
-    % \inferrule*[right=Select-Loc]{
-    %     \Gamma \flowproves \mathcal{L} : \mathcal{Q}~T \flowprovesout \Gamma
-    % }{ \Gamma \proves \mathcal{L}~\selects_{\mathcal{Q}}~\elemtype(\mathcal{Q}~T) }
-
-    \inferrule*[right=Select-Loc]{
+    \inferrule*[right=Select-Var]{
         \Gamma \flowproves \mathcal{L} : \mathcal{Q}~T \flowprovesout \Gamma
-    }{ \Gamma \proves \mathcal{L}~\selects_{\mathcal{Q}}~\mathcal{Q}~T }
-
-    \inferrule*[right=Select-Col]{
-        \Gamma \flowproves x : \mathcal{Q}~\mathcal{C}~\tau \flowprovesout \Gamma
-    }{ \Gamma \proves x~\selects_{\mathcal{Q}}~\tau }
+    }{ \Gamma \proves \mathcal{L}~\selects_{\mathcal{Q}}~\elemtype(T) }
 
     \inferrule*[right=Select-Everything]{
     }{ \Gamma \proves \everything~\selects_{\every}~\tau }
@@ -778,18 +733,6 @@ These resources then get applied to the transformer, which is an applicative fun
 % Finally, if $s$ is $\everything$, the same argument applies---the outcome will be the same regardless of which rule we pick.
 
 \begin{mathpar}
-    % \inferrule*[right=Ok-Flow]{
-    %     \Gamma \flowproves A :: \tau \flowsto_\mathcal{Q} \sigma
-    %     \and
-    %     \Gamma \flowproves s~\selects_\mathcal{R}~\demote(\sigma)
-    %     \\
-    %     \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
-    %     \and
-    %     \Delta \proves B :: \sigma \flowsto_\mathcal{S} \pi
-    %     \and
-    %     \min(\mathcal{Q}, \mathcal{R}) < \every
-    % }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
-
     \inferrule*[right=Ok-Flow]{
         \Gamma \proves A~\provides_\mathcal{Q}~\tau
         \and
@@ -803,9 +746,9 @@ These resources then get applied to the transformer, which is an applicative fun
         \and
         \Delta \proves B~\accepts~\sigma
         \\
-        \Gamma \proves A~\immutable
+        \lnot(A~\immutable)
         \and
-        \Delta \proves B~\immutable
+        \lnot(B~\immutable)
     }{ \Gamma \flowproves (A \sends{s} f \to B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 \end{mathpar}
 

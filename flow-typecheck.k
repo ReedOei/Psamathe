@@ -254,17 +254,19 @@ module FLOW-TYPECHECK
     // =======================================
     // Storage typing
     // =======================================
-    rule <k> X accepts (_ T:BaseType) => . ... </k>
-        <typeEnv> ... X |-> _ T ... </typeEnv>
+    syntax Type ::= elemtype(BaseType) [function, functional]
 
-    rule <k> X provides {Q} T => . ... </k>
-        <typeEnv> ... X |-> Q _:Collection T ... </typeEnv>
+    rule elemtype(_:Collection T) => T
+    rule elemtype(T) => ! T [owise]
 
-    rule <k> X provides {!} T => . ... </k>
-        <typeEnv> ... X |-> T ... </typeEnv>
+    rule <k> X accepts elemtype(T) => . ... </k>
+        <typeEnv> ... X |-> _:TypeQuant T ... </typeEnv>
 
     rule consume accepts T => .
         requires isConsumable(T)
+
+    rule <k> X provides {Q} elemtype(T) => . ... </k>
+        <typeEnv> ... X |-> Q:TypeQuant T ... </typeEnv>
 
     rule <k> new C.T provides {every} ! T => . </k>
         <typeEnv> ... this |-> C ... </typeEnv>
@@ -274,8 +276,7 @@ module FLOW-TYPECHECK
     // =======================================
     rule everything selects {every} _ => .
 
-    rule E:Expr selects {Q} (Q T) => assertEnv(?Gamma) ~> E : Q T ~> assertEnv(?Gamma)
-    rule E:Expr selects {Q} T => assertEnv(?Gamma) ~> E : Q ?_:Collection T ~> assertEnv(?Gamma)
+    rule E:Expr selects {Q} T => assertEnv(?Gamma) ~> E : Q ?T2 ~> assertEnv(?Gamma) ~> typeEq(elemtype(?T2), T)
 
     rule (Q X : T such that E) selects {Q} T =>
         assertEnv(?Gamma) ~>
@@ -398,6 +399,9 @@ module FLOW-TYPECHECK
 
     syntax Stmt ::= checkThat(Bool)
     rule checkThat(true) => .
+
+    syntax Stmt ::= typeEq(Type, Type)
+    rule typeEq(T, T) => .
 
     // TODO: Maybe just store the fields like this in the first place?
     syntax Map ::= fieldEnv(Set) [function, functional]
