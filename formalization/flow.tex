@@ -768,14 +768,14 @@ The selector acts as a function that ``chooses'' part of the source's resources 
 These resources then get applied to the transformer, which is an applicative functor applied to a function type.
 \reed{Bringing back $\one$ would let us do all the collections the same way in all of these flow-related rules, which would be nice.}
 
-\paragraph{(Non)Ambiguity of Flow Rules}
-Consider the flow $A \sends{s} f \to B$.
-\reed{Actually, the type of $f$ will probably be enough to distinguish the cases, but if we want to desguar the flows into flows containing a transformer always then we would have to infer its type and run into the same issue again.}
-The only way that the choice of which Provide, Select, or Accept rules could be ambiguous \reed{I think...} is if $A$ and $B$ are both collections containing the same type, and either $s$ is a collection containing the same type or it is $\everything$.
-If $A$, $B$, and $s$ are all collections containing the same type, then we could use either version of the rules (the appropriate \textsc{One} rule or the appropriate \textsc{Col} rule).
-However, regardless of the rule we choose, the outcome will be the same.
-For example, if we use the \textsc{Select-Loc} rule, $A$ will now store the quantity $\any$ (unless $s$ is $\emptyq$), which is correct, because we don't know how many values will be transferred by $s$.
-Finally, if $s$ is $\everything$, the same argument applies---the outcome will be the same regardless of which rule we pick.
+% \paragraph{(Non)Ambiguity of Flow Rules}
+% Consider the flow $A \sends{s} f \to B$.
+% \reed{Actually, the type of $f$ will probably be enough to distinguish the cases, but if we want to desguar the flows into flows containing a transformer always then we would have to infer its type and run into the same issue again.}
+% The only way that the choice of which Provide, Select, or Accept rules could be ambiguous \reed{I think...} is if $A$ and $B$ are both collections containing the same type, and either $s$ is a collection containing the same type or it is $\everything$.
+% If $A$, $B$, and $s$ are all collections containing the same type, then we could use either version of the rules (the appropriate \textsc{One} rule or the appropriate \textsc{Col} rule).
+% However, regardless of the rule we choose, the outcome will be the same.
+% For example, if we use the \textsc{Select-Loc} rule, $A$ will now store the quantity $\any$ (unless $s$ is $\emptyq$), which is correct, because we don't know how many values will be transferred by $s$.
+% Finally, if $s$ is $\everything$, the same argument applies---the outcome will be the same regardless of which rule we pick.
 
 \begin{mathpar}
     % \inferrule*[right=Ok-Flow]{

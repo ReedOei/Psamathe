@@ -16,9 +16,7 @@ contract Bank {
     // Note: unique requires immutable, or values might not be unique (no object ids.)
     type SerialNumber is unique immutable asset string
 
-    // ====================================================
-    // A version with no explicit Bill type
-    accounts : linking address <=> map SerialNumber => DollarValue
+    accounts : linking address <=> (map SerialNumber => DollarValue)
 
     transaction mint(to : address, bill : string, amount : nat):
         // Could also imagine having a "next"/"fresh" selector that allows you pick an arbitrary new serial number.
@@ -39,7 +37,7 @@ contract Bank {
         pass
 }
 
-// Some pseudocode showing how all this might work
+// Some pseudocode showing how Fungible instances can be created
 class Fungible c where
     type Elem c
     type Selector c
