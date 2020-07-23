@@ -264,7 +264,7 @@ If a sequence of flows fails, it ``bubbles up'' like an exception, until it eith
 \section{Case Studies}
 \subsection{ERC-20}
 ERC-20 \reed{cite} is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
-Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have $n$-number of tokens.
+Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
 We focus on one core function from ERC-20, the \lstinline{transfer} function.
 ERC-20 is one of the commonly implemented standards on the Ethereum blockchain \reed{cite}.
 \reed{Cite all Solidity code}
@@ -301,7 +301,7 @@ The ERC-721 standard requires many invariants hold, including:
     we must be able to support ``operators'' who can manage all of the tokens of a user,
     among others.
 Because \langName is designed to manage \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
-A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
+
 \begin{figure*}[h]
     \centering
     \begin{subfigure}[t]{0.49\textwidth}
@@ -320,34 +320,40 @@ A \langName implementation has several benefits: because of the \assetTxt abstra
     % \caption{A Solidity and a \langName implementation of the \lstinline{transferFrom} function of the ERC-721 standard.}
     \label{fig:erc721-impl}
 \end{figure*}
+
 Figures~\ref{fig:erc721-impl-sol} and~\ref{fig:erc721-impl-flow} show implementations in Solidity and \langName, respectively, of the ERC-721 function \lstinline{transferFrom}.
 The Solidity implementation is extracted from a reference implementation of ERC-721 given on the official Ethereum EIP page.
+
+A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
 In addition to the invariants required by the specification, there are also internal invariants which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled automatically in the \langName version.
 This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the linking data structure built into the language itself.
 
 \subsection{Voting}
+One proposed use for the blockchain is for voting \reed{cite}.
+Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
+This example shows that we can also use the $\unique$ and $\immutable$ modifiers to remove certain incorrect behaviors from a voting contract, shown in Figure~\ref{fig:voting-impl}.
+
 \reed{Solidity impl. comes from ``Solidity by Example'' page}
 \begin{figure*}[h]
     \centering
     \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
-        \caption{Solidity implementation of a voting contract.}
+        \caption{Solidity}
         \label{fig:voting-impl-sol}
     \end{subfigure}%
     \hfill
     \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=flow]{splash20-examples/voting.flow}
-        \caption{\langName implementation of a voting contract.}
+        \caption{\langName}
         \label{fig:voting-impl-flow}
     \end{subfigure}
-    % \caption{A Solidity and a \langName implementation of a simple voting contract.}
+    \caption{A voting contract with a set of proposals, for which each user must first be given persmission to vote by the chairperson, assigned in the constructor of the contract (not shown)>
+    Each user can vote exactly once for exactly one proposal.
+    The proposal with the most votes wins.}
     \label{fig:voting-impl}
 \end{figure*}
-
-Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show implementations of a simple voting contract in Solidity and \langName, respectively.
-This example shows that we can also use the $\unique$ and $\immutable$ modifiers to remove certain incorrect behaviors from a voting contract, shown in Figure~\ref{fig:voting-impl}.
 
 \subsection{The DAO attack}
 One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth about \$50 million dollars at the time, to be stolen \reed{cite, verifying dollar amount}.
@@ -389,7 +395,8 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \section{Formalization}
 
 \subsection{Syntax}
-\begin{figure}[ht]
+\begin{figure*}[h]
+    \centering
 \begin{align*}
     C &\in \textsc{ContractNames} & m &\in \textsc{TransactionNames} \\
     t &\in \textsc{TypeNames} & x,y,z &\in \textsc{Identifiers} \\
@@ -432,7 +439,7 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \end{tabular}
 \caption{Abstract syntax of the core calculus of \langName.}
 \label{fig:lang-syntax}
-\end{figure}
+\end{figure*}
 
 \reed{We have public and private transactions...we could also have a public/private type?}
 

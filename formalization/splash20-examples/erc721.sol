@@ -3,6 +3,7 @@ contract NFToken {
   mapping (uint256 => address) idToApproval;
   mapping (address => uint256) ownerToNFTokenCount;
   mapping (address => mapping (address => bool)) ownerToOperators;
+
   modifier canTransfer(uint256 tokId) {
     address tokenOwner = idToOwner[tokId];
     require(tokenOwner == msg.sender ||

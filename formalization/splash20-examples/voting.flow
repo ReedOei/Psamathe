@@ -1,18 +1,33 @@
 contract Ballot {
     type Voter is nonfungible asset address
+
+
     type ProposalName is nonfungible asset string
+
+
+
+
+
+
     chairperson : address
     voters : set Voter
     proposals : linking ProposalName <=> set Voter
     winningProposalName : string
+
     transaction giveRightToVote(voter : address):
         only when msg.sender = chairperson
         new Voter(voter) --> voters
+
+
+
+
     transaction vote(proposal : string):
         voters[msg.sender] --> proposals[proposal][msg.sender]
         if total proposals[proposal] > total proposals[winningProposalName] {
             winningProposalName := proposal
         }
+
+
     view winningProposal() returns string := winningProposalName
 }
 

@@ -8,9 +8,12 @@ contract Ballot {
         bytes32 name;
         uint voteCount;
     }
+
     address public chairperson;
     mapping(address => Voter) public voters;
     Proposal[] public proposals;
+
+
     function giveRightToVote(address voter) public {
         require(msg.sender == chairperson,
             "Only chairperson can give right to vote.");
@@ -27,18 +30,14 @@ contract Ballot {
         proposals[proposal].voteCount += sender.weight;
     }
     function winningProposal() public view
-            returns (uint winningProposal_) {
+            returns (bytes32 winningProposal_) {
         uint winningVoteCount = 0;
         for (uint p = 0; p < proposals.length; p++) {
             if (proposals[p].voteCount > winningVoteCount) {
                 winningVoteCount = proposals[p].voteCount;
-                winningProposal_ = p;
+                winningProposal_ = proposals[p].name;
             }
         }
-    }
-    function winnerName() public view
-            returns (bytes32 winnerName_) {
-        winnerName_ = proposals[winningProposal()].name;
     }
 }
 
