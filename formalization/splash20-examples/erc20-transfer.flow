@@ -2,7 +2,6 @@ contract EIP20 {
     type Token is fungible asset uint256
     balances : map address => Token
     transaction transfer(dst : address, amount : uint256):
-        only when dst != 0x0
         balances[msg.sender] --[ amount ]-> balances[dst]
 }
 

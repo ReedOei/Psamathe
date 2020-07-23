@@ -48,6 +48,8 @@
 \input{flow-highlighting.tex}
 \input{macros.tex}
 
+\settopmatter{printfolios=true}
+
 \begin{document}
 
 %% The "title" command has an optional parameter,
@@ -131,9 +133,9 @@ One of the most forms of these are a variety of smart contracts that managed ass
 There are many token standards, especially on the Ethereum blockchain \reed{cite}, including \reed{ERC-20, ERC-721, ERC-777, ERC-1155}, with others in various stages of the standardization process.
 Other applications or proposed applications for smart contracts include voting, supply chain management, auctions, lotteries, and other applications which require careful management of their respective assets \reed{cite/find examples}.
 
-However, despite the many smart contracts using and defining tokens and other digital assets, Solidity \reed{cite} and Vyper, the most common languages used to write smart contracts on the Ethereum blockchain \reed{cite}, provide few \reed{none?} language features for writing such contracts \reed{cite? rephrase?}.
-To this end, we have developed \langName, a DSL for implementing programs which manage \assetTxt{}s, targeted at writing smart contracts.
-\langName provides features to mark certain values as \emph{\assetTxt{}s} as well as a special construct called a \emph{flow}, an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing many a variety of kinds of digital \assetTxt{}s.
+\langName provides features to mark certain values as \emph{\assetTxt{}s} as well as a special construct called a \emph{flow}, an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing a variety of digital \assetTxt{}s.
+These features combine to prevent common issues in smart contracts.
+Solidity \reed{cite} and Vyper \reed{cite}, the most common languages used to write smart contracts on the Ethereum blockchain \reed{cite}, being general purpose languages, do not provide analgous support for managing \assetTxt{}s.
 
 \paragraph{Contributions}
 
@@ -143,7 +145,7 @@ We make the following contributions with \langName.
 
     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
 
-    \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common pitfalls automatically.
+    \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns and pitfalls automatically.
 \end{itemize}
 
 % \reed{Potential benefits of the language to discuss.
@@ -169,22 +171,23 @@ A contract is a high-level unit of functionality, which behaves \reed{``very sim
 In \langName, we distinguish between two kinds of function: transactions, which can change the state of the contract, and views, which cannot.
 
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:case-study-erc20} for more details on ERC-20).
-The transaction \lstinline{transfer} contains a single flow, transferring the desired number of tokens from the transaction's sender to the destination account.
 \begin{figure}[h]
     \centering
     \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
-    \caption{An implementation of ERC-20's \lstinline{transfer} function in \langName.}
+    \caption{A contract with a simple \lstinline{transfer} function in \langName, which transfers \lstinline{amount} tokens from the first to the second account.
+It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
     \label{fig:erc20-transfer-flow}
 \end{figure}
 % \begin{figure*}[h]
 %     \centering
-%     \begin{subfigure}[t]{0.5\textwidth}
+%     \begin{subfigure}[t]{0.49\textwidth}
 %         \centering
 %         \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
 %         \caption{Solidity implementation of ERC-20's \lstinline{transfer} function.}
 %         \label{fig:erc20-transfer-sol}
 %     \end{subfigure}%
-%     \begin{subfigure}[t]{0.5\textwidth}
+%     \hfill
+%     \begin{subfigure}[t]{0.49\textwidth}
 %         \centering
 %         \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
 %         \caption{\langName implementation of ERC-20's \lstinline{transfer} function.}
@@ -218,7 +221,7 @@ The transaction \lstinline{transfer} contains a single flow, transferring the de
             & \bnfalt & $\ldots$ & \\
     $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
 \end{tabular}
-\caption{A fragment of the abstract syntax of the core calculus of \langName.}
+\caption{A fragment of the abstract syntax of the core calculus of \langName, a simplified form of the surface language.}
 \label{fig:lang-syntax}
 \end{figure}
 
@@ -226,11 +229,8 @@ Figure~\ref{fig:lang-syntax} shows a fragment of the syntax of the core calculus
 These simplifications are performed automatically by the compiler.
 \reed{TODO: We have formalized this core calculus (in K???).}
 
-\subsection{Flows}
-\langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
-Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
-
-There are several modifiers that can be used to control how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
+\subsection{Modifiers}
+\emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
 A \flowinline{fungible} value represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
 A \flowinline{unique} value can only exist in at most one storage; it must be \flowinline{immutable}.
@@ -242,8 +242,14 @@ For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are b
 By default, neither is \flowinline{consumable}, but one of the common extensions of both standards is to add a \flowinline{burn} function, which allows tokens to be destroyed by users with the appropriate authentication.
 In this case, it would be appropriate to add the \flowinline{consumable} modifier.
 
-It supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional mapping between keys and a collection of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens.
+It supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens).
+A linking is essentially a \flowinline{map K => C V} with extra operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
+These extra operations include querying which key owns which value, removing the need to maintain ``parallel'' data structures which separately keep track of various information about an \assetTxt; this operation is often useful (see Figure~\ref{fig:erc721-impl-flow} for some examples).
+Though one can partially implemeny linkings as a library in Solidity, using the $\unique$ feature of \langName, we can guarantee that looking up the owner of a value which has a unique type is a \textbf{well-defined} operation.
 
+\subsection{Flows}
+\langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
+Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
 The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
 All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
 For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, or if there is too much in the destination; for example, the latter may occur in the case of overflow.
@@ -259,35 +265,20 @@ If a sequence of flows fails, it ``bubbles up'' like an exception, until it eith
 \subsection{ERC-20}
 ERC-20 \reed{cite} is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have $n$-number of tokens.
-We focus on just one function from ERC-20, the \lstinline{transfer} function.
+We focus on one core function from ERC-20, the \lstinline{transfer} function.
 ERC-20 is one of the commonly implemented standards on the Ethereum blockchain \reed{cite}.
-\reed{Cite all Solidity code properly}
-% \begin{figure*}[h]
-%     \centering
-%     \begin{subfigure}[t]{0.5\textwidth}
-%         \centering
-%         \lstinputlisting[language=Solidity]{splash20-examples/erc20.sol}
-%         \caption{Solidity implementation of ERC-20's \lstinline{transferFrom}.}
-%         \label{fig:erc20-impl-sol}
-%     \end{subfigure}%
-%     \begin{subfigure}[t]{0.5\textwidth}
-%         \centering
-%         \lstinputlisting[language=flow]{splash20-examples/erc20.flow}
-%         \caption{\langName implementation of ERC-20's \lstinline{transferFrom}.}
-%         \label{fig:erc20-impl-flow}
-%     \end{subfigure}
-%     % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
-%     \label{fig:erc20-impl}
-% \end{figure*}
+\reed{Cite all Solidity code}
 \begin{figure}[h]
     \centering
     \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
-    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity.}
+    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity.
+        All preconditions are checked manually.
+        Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
     \label{fig:erc20-transfer-sol}
 \end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
 Note that event code has been omitted, because \langName handles events in the same way as Solidity.
-This contract shows several advantages of the flow abstraction:
+This example shows several advantages of the flow abstraction:
 \begin{itemize}
     \item \textbf{Precondition checking}: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
         In this case, the balance of the sender must be greater than the amount sent, and the balance of the destination must not overflow when it receives the tokens.
@@ -301,15 +292,26 @@ This contract shows several advantages of the flow abstraction:
 \end{itemize}
 
 \subsection{ERC-721}\label{sec:erc721-impl}
+ERC-721 \reed{cite}, like ERC-20, is a token standard for the Ethereum blockchain.
+ERC-721 is a standard for tokens managing \emph{nonfungible} tokens; that is, tokens that are unique.
+The ERC-721 standard requires many invariants hold, including:
+    the tokens must be unique,
+    the tokens must be owned by at most one account,
+    at most one non-owning account can have ``approval'' for a token, and only if that token has been minted,
+    we must be able to support ``operators'' who can manage all of the tokens of a user,
+    among others.
+Because \langName is designed to manage \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
+A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
 \begin{figure*}[h]
     \centering
-    \begin{subfigure}[t]{0.5\textwidth}
+    \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/erc721.sol}
-        \caption{Solidity implementation of ERC-721's \lstinline{transferFrom}.}
+        \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.}
         \label{fig:erc721-impl-sol}
     \end{subfigure}%
-    \begin{subfigure}[t]{0.5\textwidth}
+    \hfill
+    \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=flow]{splash20-examples/erc721.flow}
         \caption{\langName implementation of ERC-721's \lstinline{transferFrom}.}
@@ -318,16 +320,6 @@ This contract shows several advantages of the flow abstraction:
     % \caption{A Solidity and a \langName implementation of the \lstinline{transferFrom} function of the ERC-721 standard.}
     \label{fig:erc721-impl}
 \end{figure*}
-
-The ERC-721 standard \reed{cite} requires many invariants hold, including:
-    the tokens must be unique,
-    the tokens must be owned by at most one account,
-    at most one non-owning account can have ``approval'' for a token, and only if that token has been minted,
-    we must be able to support ``operators'' who can manage all of the tokens of a user,
-    among others.
-Because \langName is designed to manage \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
-A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
-
 Figures~\ref{fig:erc721-impl-sol} and~\ref{fig:erc721-impl-flow} show implementations in Solidity and \langName, respectively, of the ERC-721 function \lstinline{transferFrom}.
 The Solidity implementation is extracted from a reference implementation of ERC-721 given on the official Ethereum EIP page.
 In addition to the invariants required by the specification, there are also internal invariants which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled automatically in the \langName version.
@@ -337,13 +329,14 @@ This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the 
 \reed{Solidity impl. comes from ``Solidity by Example'' page}
 \begin{figure*}[h]
     \centering
-    \begin{subfigure}[t]{0.5\textwidth}
+    \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
         \caption{Solidity implementation of a voting contract.}
         \label{fig:voting-impl-sol}
     \end{subfigure}%
-    \begin{subfigure}[t]{0.5\textwidth}
+    \hfill
+    \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=flow]{splash20-examples/voting.flow}
         \caption{\langName implementation of a voting contract.}

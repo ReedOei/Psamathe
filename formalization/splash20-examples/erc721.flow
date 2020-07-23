@@ -1,10 +1,12 @@
 contract NFToken {
-    type Token is nonfungible asset nat
-    type TokenApproval is nonfungible consumable asset nat
+    type Token is unique immutable asset nat
+    type TokenApproval is unique immutable consumable asset nat
     balances : linking address <=> set Token
     approval : linking address <=> set TokenApproval
     ownerToOperators : linking address <=> set address
     view canTransfer(tokId : nat) returns bool :=
+// `A in B` is true iff we can select `A` from `B`.
+// It can be implemented efficiently if the LHS is hashable.
         tokId in balances[msg.sender] or
         tokId in approval[msg.sender] or
         msg.sender in ownerToOperators[balances.ownerOf(tokId)]
