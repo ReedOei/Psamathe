@@ -412,7 +412,7 @@ Additionally, \langName forbids any reentrant call from an external source, a si
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\some(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\single(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
         & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & \\
         & \bnfalt & $x = x$ \bnfalt $x \neq x$ \bnfalt $\total~x$ \bnfalt $\total~t$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
@@ -556,13 +556,13 @@ We begin with the rules for typing the various literal forms of values.
     \inferrule*[right=Empty-Val]{
     }{ \Gamma \flowproves \emptyval : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }
 
+    \inferrule*[right=Single]{
+        \Gamma \flowproves x : \tau \flowprovesout \Delta
+    }{ \Gamma \flowproves \single(x) : \,\,\exactlyone~\mathcal{C}~\tau \flowprovesout \Delta }
+
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
-    }{ \Gamma \flowproves (\lambda x : \tau. E) : \every~\listq~\exactlyone~(\tau \transforms \sigma) \flowprovesout \Gamma }
-
-    \inferrule*[right=Some]{
-        \Gamma \flowproves x : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves \some(x) : \,\,\exactlyone~\optionq~\tau \flowprovesout \Delta }
+    }{ \Gamma \flowproves (\lambda x : \tau. E) : \,\,\exactlyone~(\tau \transforms \sigma) \flowprovesout \Gamma }
 
     \inferrule*[right=Build-Rec]{
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
@@ -713,29 +713,18 @@ The following definition captures these restrictions.
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 
-\reed{In the new flow rule, we \textbf{always} use a transformer.
-However, that just means we desugar something like $A \sends{s} B$ into $A \sends{s} (\lambda x : \tau. x) \to B$.
-In the real compiler, this can be optimized.}
-
 Flows are the main construct for transferring resources.
 A flow has four parts: a source, a selector, a transformer, and a destination.
 The selector acts as a function that ``chooses'' part of the source's resources to flow.
 These resources then get applied to the transformer, which is an applicative functor applied to a function type.
 \reed{Bringing back $\one$ would let us do all the collections the same way in all of these flow-related rules, which would be nice.}
 
-% \paragraph{(Non)Ambiguity of Flow Rules}
-% Consider the flow $A \sends{s} f \to B$.
-% \reed{Actually, the type of $f$ will probably be enough to distinguish the cases, but if we want to desguar the flows into flows containing a transformer always then we would have to infer its type and run into the same issue again.}
-% The only way that the choice of which Provide, Select, or Accept rules could be ambiguous \reed{I think...} is if $A$ and $B$ are both collections containing the same type, and either $s$ is a collection containing the same type or it is $\everything$.
-% If $A$, $B$, and $s$ are all collections containing the same type, then we could use either version of the rules (the appropriate \textsc{One} rule or the appropriate \textsc{Col} rule).
-% However, regardless of the rule we choose, the outcome will be the same.
-% For example, if we use the \textsc{Select-Loc} rule, $A$ will now store the quantity $\any$ (unless $s$ is $\emptyq$), which is correct, because we don't know how many values will be transferred by $s$.
-% Finally, if $s$ is $\everything$, the same argument applies---the outcome will be the same regardless of which rule we pick.
-
 \begin{mathpar}
     \inferrule*[right=Ok-Flow]{
         \Gamma \proves A~\provides_\mathcal{Q}~\tau
         \and
+        \immutable \not\in \modifiers(\Gamma(A))
+        \\
         \Gamma \proves s~\selects_\mathcal{R}~\tau
         \and
         \validSelect(s, \mathcal{R}, \mathcal{Q})
@@ -743,17 +732,14 @@ These resources then get applied to the transformer, which is an applicative fun
         \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
         \and
         \Delta \flowproves f : \tau \transforms \sigma \flowprovesout \Delta
-        \and
-        \Delta \proves B~\accepts~\sigma
         \\
-        \lnot(A~\immutable)
+        \Delta \proves B~\accepts~\sigma
         \and
-        \lnot(B~\immutable)
+        \immutable \not\in \modifiers(\Delta(B))
     }{ \Gamma \flowproves (A \sends{s} f \to B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 \end{mathpar}
 
 \reed{TODO: Finish handling currying transformers.}
-\reed{TODO: Define $\Gamma \proves A~\immutable$}
 
 \begin{mathpar}
     \inferrule*[right=Ok-Var-Def]{

@@ -83,12 +83,11 @@ module FLOW-CORE-SYNTAX
 
     // TODO: Could warn if people put consumable on non-asset types, because that's redundant; however, it's not strictly **wrong**.
     // TODO: Need to ensure that only valid combinations of modifiers are given. For example, you can't have both "nonfungible" and "fungible".
-    syntax Modifier ::= "nonfungible"
-                      | "fungible"
+    syntax Modifier ::= "fungible"
+                      | "immutable"
+                      | "unique"
                       | "consumable"
                       | "asset"
-                      | "copyable"
-                      | "immutable"
     syntax Modifiers ::= List{Modifier, " "}
 
     syntax VarDef ::= Var ":" Type
