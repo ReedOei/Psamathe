@@ -32,9 +32,6 @@ contract Bank {
         accounts[msg.sender] --[ bill ]-> accounts[to]
 
     view ownerOf(bill : string) returns address := accounts.ownerOf(bill)
-
-    transaction transferAmount(to : address, amount : nat):
-        pass
 }
 
 // Some pseudocode showing how Fungible instances can be created
