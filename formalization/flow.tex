@@ -291,10 +291,9 @@ This contract shows several advantages of the flow abstraction:
     \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in more complicated implementations, such as those involving transfer fees.
         Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as consumable may be consumed.
         This restriction prevents, in this example, tokens from being consumed, and can also be used to ensure that other \assetTxt{}s, like ether, are not consumed.
-    \item \textbf{Error messages}: When a flow fails, \langName provides \reed{TODO: **will provide**} automatic, descriptive error messages, such as ``\lstinline{Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <amount> Token.}''.
-        \reed{Not sure exactly what the error message should be.}
+    \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
         The default implementation provides no error message forcing developers to write their own.
-        Flows enable the generation of the messages by encoding the semantic information of a \textbf{transfer} into the program, instead of using low-level incrementing and decrementing.
+        Flows enable the generation of the messages by encoding the semantic information of a transfer into the program, instead of using low-level operations like increment and decrement or insert and delete.
 \end{itemize}
 
 \subsection{ERC-721}\label{sec:erc721-impl}
@@ -314,18 +313,19 @@ This contract shows several advantages of the flow abstraction:
     \label{fig:erc721-impl}
 \end{figure*}
 
-The ERC-721 standard \reed{cite} requires many invariants hold:
+The ERC-721 standard \reed{cite} requires many invariants hold, including:
     the tokens must be unique,
-    at most one non-owning account can have ``approval'' for a token,
+    the tokens must be owned by at most one account,
+    at most one non-owning account can have ``approval'' for a token, and only if that token has been minted,
     we must be able to support ``operators'' who can manage all of the tokens of a user,
     among others.
-Because \langName is designed to handle \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
+Because \langName is designed to manage \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
 A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
 
 Figure~\ref{fig:erc721-impl} shows an implementation ERC-721's \lstinline{transferFrom} function in both Solidity and \langName.
-The Solidity implementation is extracted from one of the reference implementations of ERC-721 given on its official Ethereum EIP page.
-In addition to the invariant required by the specification, there are also internal invariant which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled by \langName.
-This example demonstrates the benefits of having $\unique$ \assetTxt{}s and linkings built into the language itself.
+The Solidity implementation is an extract of one of the reference implementations of ERC-721 given on the official Ethereum EIP page.
+In addition to the invariants required by the specification, there are also internal invariants which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled automatically in the \langName version.
+This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the linking datastructure built into the language itself.
 
 \subsection{Voting}
 \reed{Solidity impl. comes from ``Solidity by Example'' page}
@@ -335,23 +335,24 @@ This example demonstrates the benefits of having $\unique$ \assetTxt{}s and link
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
         \caption{Solidity implementation of a voting contract.}
+        \label{fig:voting-impl-sol}
     \end{subfigure}%
     \begin{subfigure}[t]{0.5\textwidth}
         \centering
         \lstinputlisting[language=flow]{splash20-examples/voting.flow}
         \caption{\langName implementation of a voting contract.}
+        \label{fig:voting-impl-flow}
     \end{subfigure}
     % \caption{A Solidity and a \langName implementation of a simple voting contract.}
     \label{fig:voting-impl}
 \end{figure*}
 
-\reed{Can include this section if we don't \textbf{only} want to talk about tokens...}
-% The $\nonfungible$ modifier is useful in many programs, even those not dealing with financial assets, like ERC-721 contracts.
-We can also use the $\unique$ and $\immutable$ modifiers to remove certain incorrect behaviors from a voting contract, shown in Figure~\ref{fig:voting-impl}.
+Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show implementations of a simple voting contract in Solidity and \langName, respectively.
+This example shows that we can also use the $\unique$ and $\immutable$ modifiers to remove certain incorrect behaviors from a voting contract, shown in Figure~\ref{fig:voting-impl}.
 
 \subsection{The DAO attack}
-One of the most financially impactful bugs in the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth about \$50 million dollars at the time, to be stolen \reed{cite, verifying dollar amount}.
-The bug relied on a reentrancy-unsafe function in the contract, illustrated below.
+One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth about \$50 million dollars at the time, to be stolen \reed{cite, verifying dollar amount}.
+The bug was caused by a reentrancy-unsafe function in the contract, illustrated below.
 \reed{The below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}}
 \begin{lstlisting}[language=Solidity]
 function withdrawBalance() public {
