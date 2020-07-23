@@ -170,30 +170,30 @@ In \langName, we distinguish between two kinds of function: transactions, which 
 
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaraing a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:case-study-erc20} for more details on ERC-20).
 The transaction \lstinline{transfer} contains a single flow, transferring the desired number of tokens from the transaction's sender to the destination account.
-% \begin{figure}[h]
-%     \centering
-%     \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
-%     \caption{An implementation of ERC-20's \lstinline{transfer} function in \langName.}
-%     \label{fig:erc20-transfer-flow}
-% \end{figure}
-\begin{figure*}[h]
+\begin{figure}[h]
     \centering
-    \begin{subfigure}[t]{0.5\textwidth}
-        \centering
-        \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
-        \caption{Solidity implementation of ERC-20's \lstinline{transfer} function.}
-        \label{fig:erc20-transfer-sol}
-    \end{subfigure}%
-    \begin{subfigure}[t]{0.5\textwidth}
-        \centering
-        \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
-        \caption{\langName implementation of ERC-20's \lstinline{transfer} function.}
-        \label{fig:erc20-transfer-flow}
-    \end{subfigure}
-    % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
-    \label{fig:erc20-transfer}
-\end{figure*}
-\reed{Not sure how to get the bounding box to be right in each column...}
+    \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
+    \caption{An implementation of ERC-20's \lstinline{transfer} function in \langName.}
+    \label{fig:erc20-transfer-flow}
+\end{figure}
+% \begin{figure*}[h]
+%     \centering
+%     \begin{subfigure}[t]{0.5\textwidth}
+%         \centering
+%         \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
+%         \caption{Solidity implementation of ERC-20's \lstinline{transfer} function.}
+%         \label{fig:erc20-transfer-sol}
+%     \end{subfigure}%
+%     \begin{subfigure}[t]{0.5\textwidth}
+%         \centering
+%         \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
+%         \caption{\langName implementation of ERC-20's \lstinline{transfer} function.}
+%         \label{fig:erc20-transfer-flow}
+%     \end{subfigure}
+%     % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
+%     \label{fig:erc20-transfer}
+% \end{figure*}
+% \reed{Not sure how to get the bounding box to be right in each column...}
 
 \subsection{Syntax}
 \begin{figure}[t]
@@ -279,13 +279,13 @@ ERC-20 is one of the commonly implemented standards on the Ethereum blockchain \
 %     % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
 %     \label{fig:erc20-impl}
 % \end{figure*}
-% \begin{figure}[h]
-%     \centering
-%     \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
-%     \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity.}
-%     \label{fig:erc20-transfer-sol}
-% \end{figure}
-Figures~\ref{fig:erc20-transfer-sol} and~\ref{fig:erc20-transfer-flow} show a Solidity and a \langName implementation, respectively, of the ERC-20 function \lstinline{transfer} .
+\begin{figure}[h]
+    \centering
+    \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
+    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity.}
+    \label{fig:erc20-transfer-sol}
+\end{figure}
+Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
 Note that event code has been omitted, because \langName handles events in the same way as Solidity.
 This contract shows several advantages of the flow abstraction:
 \begin{itemize}
