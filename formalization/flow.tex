@@ -168,7 +168,7 @@ A \langName program is made of many \emph{contracts}, each containing \emph{decl
 A contract is a high-level unit of functionality, which behaves \reed{``very similarly''} to a contract in Solidity.
 In \langName, we distinguish between two kinds of function: transactions, which can change the state of the contract, and views, which cannot.
 
-Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaraing a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:case-study-erc20} for more details on ERC-20).
+Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:case-study-erc20} for more details on ERC-20).
 The transaction \lstinline{transfer} contains a single flow, transferring the desired number of tokens from the transaction's sender to the destination account.
 \begin{figure}[h]
     \centering
@@ -331,7 +331,7 @@ A \langName implementation has several benefits: because of the \assetTxt abstra
 Figures~\ref{fig:erc721-impl-sol} and~\ref{fig:erc721-impl-flow} show implementations in Solidity and \langName, respectively, of the ERC-721 function \lstinline{transferFrom}.
 The Solidity implementation is extracted from a reference implementation of ERC-721 given on the official Ethereum EIP page.
 In addition to the invariants required by the specification, there are also internal invariants which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled automatically in the \langName version.
-This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the linking datastructure built into the language itself.
+This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the linking data structure built into the language itself.
 
 \subsection{Voting}
 \reed{Solidity impl. comes from ``Solidity by Example'' page}
@@ -441,7 +441,7 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \label{fig:lang-syntax}
 \end{figure}
 
-\reed{We have public and private transactons...we could also have a public/private type?}
+\reed{We have public and private transactions...we could also have a public/private type?}
 
 In the surface language, ``collection types'' (i.e., $\mathcal{Q}~\mathcal{C}~\tau$ or a transformer) are by default $\any$, but all other types, like $\natt$, are $\exactlyone$.
 
