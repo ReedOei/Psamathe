@@ -80,6 +80,7 @@ module FLOW-TYPECHECK
                   | drop(Var)
                   | update(Storage, TypeOp)
                   | assertEnv(Map)
+                  | assertPartialEnv(Map)
                   | setEnv(Map)
 
     context update(_, HOLE)
@@ -99,6 +100,9 @@ module FLOW-TYPECHECK
     // Only succeed when the type environment is exactly as expected.
     rule <k> assertEnv(Gamma) => . ... </k>
         <typeEnv> Gamma </typeEnv>
+
+    rule <k> assertPartialEnv(Gamma) => . ... </k>
+        <typeEnv> _ Gamma </typeEnv>
 
     rule <k> setEnv(Gamma) => . ... </k>
         <typeEnv> _ => Gamma </typeEnv>
@@ -347,21 +351,37 @@ module FLOW-TYPECHECK
     // =======================================
     // View calls
     // =======================================
+    rule <k> X.F(Args) : T => checkEach(Args, FormalArgs) ... </k>
+         <typeEnv> ... X |-> (! C) ... </typeEnv>
+         <functions> ... C |-> (SetItem(view(F, T, FormalArgs, _)) _) ... </functions>
 
     // =======================================
     // Internal calls
     // =======================================
+    rule <k> this.F(Args) : T => packed(C) ~> checkEach(Args, FormalArgs) ~> assertPartialEnv(this |-> C) ... </k>
+        <typeEnv> ... this |-> (! C) ... </typeEnv>
+        <functions> ... C |-> (SetItem(transaction(F, _ : T, FormalArgs, _)) _) ... </functions>
+
+    syntax Stmt ::= packed(Var)
 
     // =======================================
     // External calls
     // =======================================
 
     // =======================================
+    // Unpack
+    // =======================================
+    rule <k> unpack(F) => . ... </k>
+        <typeEnv> Gamma (this |-> (! C)) (.Map => this.F |-> T) </typeEnv>
+        <fields> ... C |-> (SetItem((F : T):VarDef) _) ... </fields>
+        requires notBool(this.F in keys(Gamma))
+
+    // =======================================
     // Pack
     // =======================================
     rule <k> pack => . ... </k>
-        <typeEnv> Gamma => removeAll(Gamma, keys(fieldEnv(Fields))) </typeEnv>
-        <fields> ... Gamma[this] |-> Fields </fields>
+        <typeEnv> ((this |-> (! C)) _) #as Gamma => removeAll(Gamma, keys(fieldEnv(Fields))) </typeEnv>
+        <fields> ... C |-> Fields </fields>
         requires restrict(Gamma, keys(fieldEnv(Fields))) <=Env fieldEnv(Fields)
 
     syntax Stmt ::= packed(Var)

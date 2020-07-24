@@ -1,0 +1,59 @@
+fth IDENTIFIED is
+    sorts Elt IdentifyingTypes .
+endfth
+
+fth FUNGIBLE is
+    protecting BOOL .
+
+    sorts Elem Selector Col .
+
+    op empty : -> Col .
+    op single : Elem -> Col .
+
+    --- `canContain` checks whether we can combine two fungible assets.
+    op canContain : Col Col -> Bool .
+    --- combine(a,b) is only guaranteed to be reasonbly defined when canContain(a,b) is true.
+    op combine : Col Col -> Col .
+
+    --- `contains` checks whether we can select some assets from another asset.
+    op contains : Col Selector -> Bool .
+    --- select(a,b) is only guaranteed to be defined when contains(a,b) is true.
+    op select : Col Selector -> Col .
+endfth
+
+fmod NATURAL is
+    protecting NAT .
+
+    vars N M : Nat .
+
+    op single : Nat -> Nat .
+    eq single(N) = N .
+
+    op canContain : Nat Nat -> Bool .
+    eq canContain(N, M) = true .
+
+    op contains : Nat Nat -> Bool .
+    eq contains(N, M) = N >= M .
+
+    op _-_ : Nat Nat -> Nat .
+    eq N - 0 = N .
+    eq 0 - N = 0 .
+    eq s(N) - s(M) = N - M .
+endfm
+
+view FungibleNat from FUNGIBLE to NATURAL is
+    sort Elem to Nat .
+    sort Selector to Nat .
+    sort Col to Nat .
+
+    op empty to 0 .
+    op combine to _+_ .
+    op select to _-_ .
+    --- etc.
+endv
+
+view FungibleList{X :: TRIV} from FUNGIBLE to LIST{X} is
+    sort Elem to X$Elt .
+    sort Selector to
+endv
+

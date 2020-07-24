@@ -1,0 +1,11 @@
+contract Main {
+    view f() returns ! string := "testing"
+}
+;
+
+var x : ! Main := new Main()
+
+if x.f() != "testing" { revert("Failure!") }
+
+x --> consume
+

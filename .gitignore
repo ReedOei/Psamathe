@@ -3,7 +3,11 @@
 .*.swp
 dynamic/*
 static/*
+compiler/*
 texput.log
 .sage_cache
 *.sagetex.*
 contract-vers.csv
+.krun*
+*.bak
+
