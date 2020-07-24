@@ -21,6 +21,22 @@ module FLOW-TYPECHECK
                   | Source "provides" "{" TypeQuant "}" Type
                   | Destination "accepts" Type
 
+    rule <k> execute ~> S => contractsOk(Cs) ~> S </k>
+        <contracts> Cs </contracts>
+
+    // =======================================
+    // Ok-ness checking
+    // =======================================
+    syntax Stmt ::= contractsOk(Set)
+                  | contractOk(Var)
+                  | fieldOk(VarDef)
+
+    rule contractsOk(.Set) => .
+    rule contractsOk(SetItem(C) Rest) => contractOk(C) ~> contractsOk(Rest)
+
+    // TODO: FINISH THIS
+    rule contractOk(C) => .
+
     // =======================================
     // Type Errors
     // =======================================

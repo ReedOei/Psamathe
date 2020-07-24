@@ -29,6 +29,7 @@ module FLOW-COMMON
 
     // Helper terms
     syntax Stmt ::= processDecls(Var, Decls)
+                  | "execute"
 
     syntax KItem ::= type(Var, Set, BaseType)
 
@@ -42,7 +43,7 @@ module FLOW-COMMON
         <types> ... .Map  => C |-> SetItem(type(C, SetItem(consumable) SetItem(asset), C)) ... </types>
         <constructors> ... .Map => C |-> constructor(.VarDefs, pass) ... </constructors>
         [structural]
-    rule .Contracts ; S => normalize(S) [structural]
+    rule .Contracts ; S => execute ~> normalize(S) [structural]
 
     syntax Set ::= modToSet(Modifiers) [function]
     rule modToSet(.Modifiers) => .Set

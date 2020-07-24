@@ -607,6 +607,7 @@ A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true an
 We distinguish between three kinds of calls: view, internal, and external.
 A view call is guaranteed to not change any state in the receiver, while both internal and external calls may do so.
 The difference between internal and external calls is that we may transfer assets to an internal call, but \textbf{not} to an external call, because we cannot be sure any external contract will properly manage the asset of our contract.
+\reed{Views should also probably check that we're packed? Or are we not concerned about it.}
 \begin{mathpar}
     \inferrule*[right=View-Call]{
         \typeof(C, m) = \curlys{\overline{a : \tau}} \transforms \sigma

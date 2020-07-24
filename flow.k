@@ -54,6 +54,8 @@ module FLOW
         <storage> loc(-1) |-> resource(Base, .Map) </storage>
         <catchStack> .List </catchStack>
 
+    rule execute => .
+
     // =================================
     // Sequence
     // =================================

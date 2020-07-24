@@ -29,9 +29,8 @@ module FLOW-COMPILER
     syntax CompileStmt ::= compile(Set)
     syntax Stmt ::= CompileStmt
 
-    rule <k> S:Stmt => compile(Contracts) </k>
+    rule <k> execute ~> _:Stmt => compile(Contracts) </k>
         <contracts> Contracts </contracts>
-        requires _:CompileStmt :/=K S
 
     rule compile(.Set) => .
     rule <k> compile(SetItem(C) Rest) => compileContract(C, Types, Fields, Funcs) ~> compile(Rest) ... </k>
