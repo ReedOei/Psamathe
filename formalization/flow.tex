@@ -564,6 +564,7 @@ Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \o
 These rules are for ensuring that expressions are well-typed, and keeping track of which variables are used throughout the expression.
 Most rules do \textbf{not} change the context, with the notable exceptions of internal calls and record-building operations.
 We begin with the rules for typing the various literal forms of values.
+\reed{TODO: Single rule should work for any fungible (or mergeable??) type}
 \begin{mathpar}
     \inferrule*[right=Empty-Val]{
     }{ \Gamma \flowproves \emptyval : \emptyq~\mathcal{C}~\tau \flowprovesout \Gamma }

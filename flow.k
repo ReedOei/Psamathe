@@ -26,7 +26,7 @@ module FLOW
     rule hasOwner(linking(T, SetItem(_ <=> Vs) L), V) => (V contained_in Vs) orBool hasOwner(linking(T, L), V)
 
     syntax Val ::= values(Linking) [function, functional]
-    rule values(linking(T, .Set)) => defaultValue(T)
+    rule values(linking(T, .Set)) => emptyValue(T)
     rule values(linking(T, SetItem(_ <=> C) L)) => combine(C, values(linking(T, L)))
 
     syntax StorageLoc ::= loc(Int)
@@ -227,9 +227,40 @@ module FLOW
 
     syntax Stmt ::= handleFlow(SelectorVal, Storage, Storage) [seqstrict]
 
+    // Consume
     rule <k> handleFlow(Sel, SourceLoc, consume) => . ... </k>
         <storage> ... (SourceLoc |-> (SV => subtract(SV, select(Sel, SV)))) ... </storage>
         requires select(Sel, SV) contained_in SV
+
+    // Type sources
+    // NOTE: The only valid selectors for a source must evaluate to a resource value.
+    rule <k> handleFlow(resource(R, V), new C.T, DestLoc) => put(combine(convert(resource(R, V), DestR), resource(DestR, Cur)), DestLoc) ... </k>
+        <lookup> ... this |-> Loc ... </lookup>
+        <storage>
+            ...
+            (Loc |-> resource(C, Storage))
+            (DestLoc |-> resource(DestR, Cur))
+            =>
+            (Loc |-> resource(C, Storage))
+            ...
+        </storage>
+        requires notBool(unique in modifiers(C.T))
+
+    // TODO: This is a bit ugly, should simplify.
+    rule <k> handleFlow(resource(R, V), new C.T, DestLoc) => put(combine(convert(resource(R, V), DestR), resource(DestR, Cur)), DestLoc) ... </k>
+        <lookup> ... this |-> Loc ... </lookup>
+        <storage>
+            ...
+            (Loc |-> resource(C, (T |-> SourceLoc) Storage))
+            (SourceLoc |-> resource(SourceR, CurVals))
+            (DestLoc |-> resource(DestR, Cur))
+            =>
+            (Loc |-> resource(C, (T |-> SourceLoc) Storage))
+            (SourceLoc |-> combine(convert(resource(R, V), SourceR), resource(SourceR, CurVals)))
+            ...
+        </storage>
+        requires (unique in modifiers(C.T))
+         andBool (notBool(convert(resource(R, V), SourceR) contained_in resource(SourceR, CurVals)))
 
     rule <k> handleFlow(Sel, SourceLoc, DestLoc) => put(combine(convert(select(Sel, SV), DestR), resource(DestR, Cur)), DestLoc) ... </k>
         <storage>
@@ -310,13 +341,13 @@ module FLOW
     rule resource(_ ~~> _, _) contained_in resource(_, _) => false
 
     // ==================================
-    // `pure` as in Haskell's Applicative's "pure : a -> f a"
+    // single : e -> c, where c is fungible and e is it's element type.
     // ==================================
-    syntax Val ::= pure(BaseType, BasicVal) [function, functional]
-    rule pure(X:Var, V) => resource(X, V)
-    rule pure(option R, V) => resource(option R, some(V))
-    rule pure(set R, V) => resource(set R, SetItem(V))
-    rule pure(list R, V) => resource(list R, ListItem(V))
+    syntax Val ::= single(BaseType, BasicVal) [function, functional]
+    rule single(X:Var, V) => resource(X, V)
+    rule single(option R, V) => resource(option R, some(V))
+    rule single(set R, V) => resource(set R, SetItem(V))
+    rule single(list R, V) => resource(list R, ListItem(V))
 
     // ==================================
     // Convert resources: Takes a resource value and converts it to be compatible with the specified type
@@ -324,18 +355,18 @@ module FLOW
     // ==================================
     syntax Val ::= convert(Resource, BaseType) [function, functional]
 
-    rule convert(resource(_, emptyval), Target) => defaultValue(Target)
-    rule convert(resource(_:Var, A), Target) => pure(Target, A)
+    rule convert(resource(_, emptyval), Target) => emptyValue(Target)
+    rule convert(resource(_:Var, A), Target) => single(Target, A)
 
-    rule convert(resource(set _, .Set), Target) => defaultValue(Target)
-    rule convert(resource(set R, SetItem(A) Rest), Target) => combine(pure(Target, A), convert(resource(set R, Rest), Target))
+    rule convert(resource(set _, .Set), Target) => emptyValue(Target)
+    rule convert(resource(set R, SetItem(A) Rest), Target) => combine(single(Target, A), convert(resource(set R, Rest), Target))
 
-    rule convert(resource(list _, .List), Target) => defaultValue(Target)
+    rule convert(resource(list _, .List), Target) => emptyValue(Target)
     // Note we do pure at the end---this is to maintain the order of lists (when it makes sense to do so)
-    rule convert(resource(list R, ListItem(A) Rest), Target) => combine(convert(resource(list R, Rest), Target), pure(Target, A))
+    rule convert(resource(list R, ListItem(A) Rest), Target) => combine(convert(resource(list R, Rest), Target), single(Target, A))
 
-    rule convert(resource(option _, none), Target) => defaultValue(Target)
-    rule convert(resource(option _, some(A)), Target) => pure(Target, A)
+    rule convert(resource(option _, none), Target) => emptyValue(Target)
+    rule convert(resource(option _, some(A)), Target) => single(Target, A)
 
     // ==================================
     // Combine resources: takes two collections of values and makes a single collection.
@@ -357,19 +388,21 @@ module FLOW
     rule combine(resource(option R, none), resource(option R, some(B))) => resource(option R, some(B))
     rule combine(resource(option R, some(_)), resource(option R, some(_))) => flowError("Destination already full!")
 
-    rule combine(resource(set R, A), resource(set R, B)) => resource(set R, A |Set B)
+    rule combine(resource(set R, SetItem(A) _), resource(set R, SetItem(A) _)) => flowError("Tried to combine two non-disjoint sets!")
+    rule combine(resource(set R, A:Set), resource(set R, B:Set)) => resource(set R, A |Set B) [owise]
+
     // Combine as `B A` instead of `A B`, because the new values should be **appended**, not prepended.
     rule combine(resource(list R, A:List), resource(list R, B:List)) => resource(list R, B A)
 
     // ==================================
     // ==================================
-    syntax Resource ::= defaultValue(BaseType) [function, functional]
-    rule defaultValue(nat) => resource(nat, 0)
-    rule defaultValue(X:Var) => resource(X, emptyval)
+    syntax Resource ::= emptyValue(BaseType) [function, functional]
+    rule emptyValue(nat) => resource(nat, 0)
+    rule emptyValue(X:Var) => resource(X, emptyval)
         requires X =/=K nat
-    rule defaultValue(option R) => resource(option R, none)
-    rule defaultValue(set R) => resource(set R, .Set)
-    rule defaultValue(list R) => resource(list R, .List)
+    rule emptyValue(option R) => resource(option R, none)
+    rule emptyValue(set R) => resource(set R, .Set)
+    rule emptyValue(list R) => resource(list R, .List)
 
     // =================================
     // Expression Statements
@@ -406,14 +439,14 @@ module FLOW
     // Transactions
     rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, insert(RetVar, loc(I)) S) ~> lookupVal(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
-        <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> defaultValue(RetType)) ... </storage>
+        <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> emptyValue(RetType)) ... </storage>
         <functions> ... C |-> (SetItem(transaction(T, RetVar : _:TypeQuant RetType, FormalArgs, S)) _) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // Views
     rule <k> X.F(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, handleFlow(everything, resolveStorage(evaluate(E)), loc(I))) ~> lookupVal(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
-        <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> defaultValue(RetType)) ... </storage>
+        <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> emptyValue(RetType)) ... </storage>
         <functions> ... C |-> (SetItem(view(F, _:TypeQuant RetType, FormalArgs, E)) _) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
@@ -429,13 +462,34 @@ module FLOW
     // ============================
     rule <k> new C(Args)
              =>
-             initFields(loc(I), Fields) ~> invoke(loc(I), Args, FormalArgs, S) ~> lookupVal(loc(I))
+             initSources(loc(I), Types) ~> initFields(loc(I), Fields) ~> invoke(loc(I), Args, FormalArgs, S) ~> lookupVal(loc(I))
              ...
          </k>
         <storage> ... .Map => loc(I) |-> resource(C, .Map) ... </storage>
         <fields> ... C |-> Fields ... </fields>
         <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
+        <types> ... C |-> Types ... </types>
         <freshCounter> I => I +Int 1 </freshCounter>
+
+    syntax Stmt ::= initSources(StorageLoc, Set)
+
+    rule initSources(_, .Set) => .
+
+    // Don't bother creating a source for the contract type itself
+    rule <k> initSources(Loc, SetItem(type(C, _, _)) Rest) => initSources(Loc, Rest) ... </k>
+        <storage> ... Loc |-> resource(C, _) ... </storage>
+
+    rule <k> initSources(Loc, SetItem(type(Name, _, _)) Rest) => initSources(Loc, Rest) ... </k>
+        <storage>
+            ...
+            (Loc |-> resource(C, Fs))
+            =>
+            (Loc |-> resource(C, (Name |-> loc(I)) Fs))
+            (loc(I) |-> resource(set ! Name, .Set))
+            ...
+        </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+        requires Name =/=K C
 
     syntax Stmt ::= initFields(StorageLoc, Set)
 
@@ -446,7 +500,7 @@ module FLOW
             (Loc |-> resource(C, Fs))
             =>
             (Loc |-> resource(C, (X |-> loc(I)) Fs))
-            (loc(I) |-> defaultValue(T))
+            (loc(I) |-> emptyValue(T))
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>

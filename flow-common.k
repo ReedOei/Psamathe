@@ -254,5 +254,11 @@ module FLOW-COMMON
     rule demote(bool) => bool
     rule demote(string) => string
     rule demote(address) => address
+
+    syntax Set ::= modifiers(BaseType) [function, functional]
+    rule [[ modifiers(C.T) => Ms ]]
+        <types> ... C |-> (SetItem(type(T, Ms, _)) _) ... </types>
+    rule [[ modifiers(T) => Ms ]]
+        <types> ... T |-> (SetItem(type(T, Ms, _)) _) ... </types>
 endmodule
 

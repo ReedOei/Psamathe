@@ -330,7 +330,7 @@ module FLOW-TYPECHECK
     rule <k> X provides {Q} elemtype(T) => . ... </k>
         <typeEnv> ... X |-> Q:TypeQuant T ... </typeEnv>
 
-    rule <k> new C.T provides {every} ! T => . </k>
+    rule <k> new C.T provides {every} ! C.T => . </k>
         <typeEnv> ... this |-> C ... </typeEnv>
 
     // =======================================
@@ -416,7 +416,7 @@ module FLOW-TYPECHECK
     // =======================================
     // View calls
     // =======================================
-    rule <k> X.F(Args) : T => checkEach(Args, FormalArgs) ... </k>
+    rule <k> X.F(Args) : T => packed(C) ~> checkEach(Args, FormalArgs) ... </k>
          <typeEnv> ... X |-> (! C) ... </typeEnv>
          <functions> ... C |-> (SetItem(view(F, T, FormalArgs, _)) _) ... </functions>
 
@@ -461,13 +461,6 @@ module FLOW-TYPECHECK
                   | isConsumable(BaseType) [function, functional]
                   | isAsset(Type) [function, functional]
                   | isAsset(BaseType) [function, functional]
-
-    syntax Set ::= modifiers(BaseType) [function, functional]
-
-    rule [[ modifiers(C.T) => Ms ]]
-        <types> ... C |-> (SetItem(type(T, Ms, _)) _) ... </types>
-    rule [[ modifiers(T) => Ms ]]
-        <types> ... T |-> (SetItem(type(T, Ms, _)) _) ... </types>
 
     // TODO: Finish this definition
     rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool (asset in modifiers(T))

@@ -43,6 +43,11 @@ else
         FLAGS+=("--log-cells")
         FLAGS+=("(k),(#pc),#result,(storage),(lookup),(localTypeEnv)")
     fi
+
+    if [[ "$1" == "test" ]]; then
+        FLAGS+=("--pattern")
+        FLAGS+=("<k> . </k>")
+    fi
 fi
 
 if [[ "$1" == "test" ]]; then
