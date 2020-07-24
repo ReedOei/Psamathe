@@ -166,9 +166,14 @@ We make the following contributions with \langName.
 
 \section{Language Description}
 
-A \langName program is made of many \emph{contracts}, each containing \emph{declarations}, such as \emph{transactions}, \emph{views}, \emph{types}, and \emph{fields}.
-A contract is a high-level unit of functionality, which behaves \reed{``very similarly''} to a contract in Solidity.
-In \langName, we distinguish between two kinds of function: transactions, which can change the state of the contract, and views, which cannot.
+A \langName program is made of many \emph{contracts}, each containing \emph{declarations}, such as \emph{fields}, \emph{types}, \emph{transactions}, and \emph{views}.
+A contract is the high-level grouping of functionality, just as in Solidity; each contract instance in \langName represents a contract on the blockchain.
+Fields function as the peristent storage of the contract, whose data is kept on the blockchain.
+Type declarations are the primary way to use the type system of \langName, providing a way of annotating values as \assetTxt{}s (as well as other modifiers, discussed in Section~\ref{sec:lang-modifiers}).
+In place of Solidity's \lstinline{function}, we have \flowinline{transaction} and \flowinline{view}.
+In \langName, a transaction can change the state of the contract, and a view cannot; it can, however, read the current state of the contract, just like the \lstinline{view} modifier in Solidity.
+\reed{Explain how things map a little bit more. Also, this explanation basically is mostly useful if you already know Solidity.
+Probably should put more effort into explanation for people who don't know Solidity (at least, if we submit to a non-blockchain venue).}
 
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:case-study-erc20} for more details on ERC-20).
 \begin{figure}[h]
@@ -229,7 +234,7 @@ Figure~\ref{fig:lang-syntax-frag} shows a fragment of the syntax of the core cal
 These simplifications are performed automatically by the compiler.
 \reed{TODO: We have formalized this core calculus (in K???).}
 
-\subsection{Modifiers}
+\subsection{Modifiers}\label{sec:lang-modifiers}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
 A \flowinline{fungible} value represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
@@ -254,6 +259,8 @@ The source of a flow \emph{provides} values, the destination of the flow \emph{a
 All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
 For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, or if there is too much in the destination; for example, the latter may occur in the case of overflow.
 Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
+
+\reed{Discuss transformers}
 
 \subsection{Error Handling}
 Computation on blockchains like the Ethereum blockchain are grouped into units called \emph{transactions}. \reed{which makes the use of the transaction keyword a little awkward, because multiple transaction calls can happen in a single transaction on the blockchain...}
@@ -329,9 +336,9 @@ In addition to the invariants required by the specification, there are also inte
 This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the linking data structure built into the language itself.
 
 \subsection{Voting}
-One proposed use for the blockchain is for voting \reed{cite}.
+One proposed use for the blockchain is smart contracts for managing voting \reed{cite}.
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
-This example shows that we can also use the $\unique$ and $\immutable$ modifiers to remove certain incorrect behaviors from a voting contract, shown in Figure~\ref{fig:voting-impl}.
+This example shows that \langName is suited for a range of applications, as we can use the $\unique$ and $\immutable$ modifiers to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
 
 \reed{Solidity impl. comes from ``Solidity by Example'' page}
 \begin{figure*}[h]
@@ -444,7 +451,9 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \label{fig:lang-syntax}
 \end{figure*}
 
-\reed{We have public and private transactions...we could also have a public/private type?}
+\reed{We have public and private transactions...we could also have a public/private type?
+The difference being that public types can be transferred between contracts.}
+\reed{Random note: We can optimize merge operations on unique types by dropping some checks.}
 
 In the surface language, ``collection types'' (i.e., $\mathcal{Q}~\mathcal{C}~\tau$ or a transformer) are by default $\any$, but all other types, like $\natt$, are $\exactlyone$.
 
@@ -564,7 +573,9 @@ We begin with the rules for typing the various literal forms of values.
     }{ \Gamma \flowproves \single(x) : \,\,\exactlyone~\mathcal{C}~\tau \flowprovesout \Delta }
 
     \inferrule*[right=Transformer]{
-        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma
+        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma, x : \pi
+        \and
+        \lnot(\pi~\asset)
     }{ \Gamma \flowproves (\lambda x : \tau. E) : \,\,\exactlyone~(\tau \transforms \sigma) \flowprovesout \Gamma }
 
     \inferrule*[right=Build-Rec]{
@@ -610,9 +621,10 @@ A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true an
 We distinguish between three kinds of calls: view, internal, and external.
 A view call is guaranteed to not change any state in the receiver, while both internal and external calls may do so.
 The difference between internal and external calls is that we may transfer assets to an internal call, but \textbf{not} to an external call, because we cannot be sure any external contract will properly manage the asset of our contract.
-\reed{Views should also probably check that we're packed? Or are we not concerned about it.}
 \begin{mathpar}
     \inferrule*[right=View-Call]{
+        \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
+        \\
         \typeof(C, m) = \curlys{\overline{a : \tau}} \transforms \sigma
         \and
         \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
@@ -620,7 +632,7 @@ The difference between internal and external calls is that we may transfer asset
 
     \inferrule*[right=Internal-Tx-Call]{
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
-        \and
+        \\
         \typeof(C, m) = \curlys{\overline{a : \tau}} \transforms \sigma
         \\
         \Gamma, \this : C \flowproves \overline{y : \tau} \flowprovesout \Delta, \this : C
@@ -628,7 +640,7 @@ The difference between internal and external calls is that we may transfer asset
 
     \inferrule*[right=External-Tx-Call]{
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
-        \and
+        \\
         (\transaction~m(\overline{a : \tau}) \to \sigma~\doC~S) \in \decls(D)
         \\
         \Gamma, \this : C, x : D \flowproves \overline{y : \tau} \flowprovesout \Gamma, \this : C, x : D

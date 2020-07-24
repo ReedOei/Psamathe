@@ -355,7 +355,7 @@ module FLOW-TYPECHECK
          checkThat(min(Q, R) <Q every) ~>
          checkThat((Q =/=K every) orBool (_:Expr :=K Sel))
 
-    // TODO: Implement transformers
+    // TODO: Implement transformer checking
     rule S --[ Sel ]-> D =>
         // TODO: These mutable checks are wrong. We don't care if the types inside the storages are mutable, but if the storages themselves are mutable.
         // TODO: We can put the checks inside the storage rules (i.e., provides and accepts) themselves.
@@ -430,6 +430,9 @@ module FLOW-TYPECHECK
     // =======================================
     // External calls
     // =======================================
+    rule <k> X.F(Args) : T => packed(C) ~> checkEach(Args, FormalArgs) ~> assertEnv(Gamma) ... </k>
+        <typeEnv> ((this |-> (! C)) (X |-> (! D)) _) #as Gamma </typeEnv>
+        <functions> ... D |-> (SetItem(transaction(F, _ : T, FormalArgs, _)) _) ... </functions>
 
     // =======================================
     // Unpack

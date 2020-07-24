@@ -12,26 +12,40 @@ contract C {
             emptyval
 }
 
-// Transformers are allowed to do flows, but no packs or unpacks
-// Maybe views should also be allowed to do this?
-// We can name a transformer with the transformer keyword
-// Alternatively: can reference ourselves via self/this. Might be confusing
+// Transformers are allowed to do flows, but no packs or unpacks (they are not considered part of a contract, so it doesn't make sense to pack or unpack).
+// Standalone transformers are typechecked in an empty environment
+// Transformers inside of transactions will be typechecked in the current environment, but are not allowed to change anything other than their parameter.
 
 // Polymorphism version
-interface fungible(c, elem, sel) {
-    empty : unit ~> c
-    single : elem ~> c
-    combine : c ~> c ~> option c
-    select : c ~> c ~> option (c, c)
+interface fungible(A) {
+    type Elem
+    type Selector
 
-    // Properties...could even automatically quickcheck these or something
+    empty : {} ~> A
+    single : Elem ~> A
+    combine : A ~> A ~> option A
+    contains : A ~> Selector ~> bool
+    select : A ~> Selector ~> option { remaining : A, selected : A }
+
+    // Properties:
     combine(x, empty) = combine(empty, x) = some(x)
-    if select(a, b) = some(x, y), then combine(x, y) = some(a)
-    select(a, a) = (empty, a)
-    select(combine(a, b), b) = some(a, b)
+
+    if select(a, b) = some(x, y) then combine(x, y) = some(a)
+
+    // Note that these only apply if Selector = A.
+    select(a, a) = some({ remaining: empty, selected: a })
+    select(combine(a, b), b) = some({ remaining: a, selected: b })
+
+    if contains(a, b) then select(a, b) = some(...)
 }
 
-default fungible(nat, nat, nat) {
+default fungible(nat) {
+    type Elem is nat
+    type Selector is nat
+
+    transformer empty(_ : unit) returns nat := 0
+    transformer single
+
     empty: \unit. 0,
     single: \e
     view empty() returns nat := 0
