@@ -44,8 +44,6 @@ class Fungible c where
     combine : c -> c -> Option c
     select : c -> Selector c -> Option (c, c)
 
-instance Fungible a => Fungible (Identified a)
-
 instance Fungible Nat where
     type Elem Nat = Nat
     type Selector Nat = Nat

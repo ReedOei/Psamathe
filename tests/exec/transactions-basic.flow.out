@@ -18,14 +18,10 @@
     <types>
       Main |-> SetItem ( type ( Main , SetItem ( asset )
       SetItem ( consumable ) , Main ) )
-      address |-> SetItem ( type ( address , SetItem ( consumable )
-      SetItem ( nonfungible ) , address ) )
-      bool |-> SetItem ( type ( bool , SetItem ( consumable )
-      SetItem ( nonfungible ) , bool ) )
-      nat |-> SetItem ( type ( nat , SetItem ( consumable )
-      SetItem ( fungible ) , nat ) )
-      string |-> SetItem ( type ( string , SetItem ( consumable )
-      SetItem ( nonfungible ) , string ) )
+      address |-> SetItem ( type ( address , .Set , address ) )
+      bool |-> SetItem ( type ( bool , .Set , bool ) )
+      nat |-> SetItem ( type ( nat , SetItem ( fungible ) , nat ) )
+      string |-> SetItem ( type ( string , .Set , string ) )
     </types>
     <freshCounter>
       7

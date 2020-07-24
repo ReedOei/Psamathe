@@ -20,14 +20,10 @@
       SetItem ( consumable ) , ERC20Bank ) )
       SetItem ( type ( Token , SetItem ( asset )
       SetItem ( fungible ) , nat ) )
-      address |-> SetItem ( type ( address , SetItem ( consumable )
-      SetItem ( nonfungible ) , address ) )
-      bool |-> SetItem ( type ( bool , SetItem ( consumable )
-      SetItem ( nonfungible ) , bool ) )
-      nat |-> SetItem ( type ( nat , SetItem ( consumable )
-      SetItem ( fungible ) , nat ) )
-      string |-> SetItem ( type ( string , SetItem ( consumable )
-      SetItem ( nonfungible ) , string ) )
+      address |-> SetItem ( type ( address , .Set , address ) )
+      bool |-> SetItem ( type ( bool , .Set , bool ) )
+      nat |-> SetItem ( type ( nat , SetItem ( fungible ) , nat ) )
+      string |-> SetItem ( type ( string , .Set , string ) )
     </types>
     <freshCounter>
       3

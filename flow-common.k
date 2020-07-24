@@ -18,10 +18,10 @@ module FLOW-COMMON
             <constructors> .Map </constructors>
             <functions> .Map </functions>
             <types>
-                nat |-> SetItem(type(nat, SetItem(consumable) SetItem(fungible), nat))
-                string |-> SetItem(type(string, SetItem(consumable) SetItem(nonfungible), string))
-                bool |-> SetItem(type(bool, SetItem(consumable) SetItem(nonfungible), bool))
-                address |-> SetItem(type(address, SetItem(consumable) SetItem(nonfungible), address))
+                nat |-> SetItem(type(nat, SetItem(fungible), nat))
+                string |-> SetItem(type(string, .Set, string))
+                bool |-> SetItem(type(bool, .Set, bool))
+                address |-> SetItem(type(address, .Set, address))
             </types>
             /* <log stream="stdout"> .List </log> */
             <freshCounter> 0 </freshCounter>
