@@ -790,7 +790,7 @@ These resources then get applied to the transformer, which is an applicative fun
 
     \inferrule*[right=Ok-Pack]{
         (\Gamma|_{\dom(\fields(C))}) \leq \fields(C)
-        \and
+        \\
         \Delta = \setbuild{x : \tau \in \Gamma}{x \not\in \dom(\fields(C))}
     }{ \Gamma, \this : C \flowproves \pack~\ok \flowprovesout \Delta, \this : C }
 \end{mathpar}
@@ -807,7 +807,7 @@ These resources then get applied to the transformer, which is an applicative fun
         \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
-        \and
+        \\
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
         \and
         \lnot(\mathcal{Q}~T~\asset)
@@ -870,7 +870,6 @@ Note that we need to have constructors, because only the contract that defines a
 \end{mathpar}
 
 \paragraph{Other Auxiliary Definitions}
-\reed{Eliminate all the locations except for $x$ and then use flows to extract and put stuff back?}
 \framebox{$\modifiers(T) = \overline{M}$} \textbf{Type Modifiers}
 \begin{align*}
     \modifiers(T) =
@@ -884,11 +883,8 @@ Note that we need to have constructors, because only the contract that defines a
 \framebox{$\demote_*(T_1) = T_2$} \textbf{Type Demotion}
 $\demote$ and $\demote_*$ take a type and ``strip'' all the asset modifiers from it, as well as unfolding named type definitions.
 This process is useful, because it allows selecting asset types without actually having a value of the desired asset type.
-% Note that demoting a transformer type changes nothing.
-% This is because a transformer is \textbf{never} an asset, regardless of the types that it operators on, because it has no storage.
-\reed{TODO: Transformer demotion?
-My current thought is we should split functions and transformers, with the latter being able to ``hold'' a resource after being partially applied, and therefore being able to be an asset.
-Alternatively, can just not allow for currying...}
+Note that demoting a transformer type changes nothing.
+This is because a transformer is \textbf{never} an asset, regardless of the types that it operators on, because it has no storage.
 
 \begin{align*}
     \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
@@ -899,8 +895,7 @@ Alternatively, can just not allow for currying...}
     \demote_*(C) &= \demote_*(\curlys{\overline{x : \tau}}) & \twhere \fields(C) = \curlys{\overline{x : \tau}} \\
     \demote_*(\mathcal{C}~\tau) &= \mathcal{C}~\demote(\tau) \\
     \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
-    % \demote_*(\tau \transforms \sigma) &= \demote(\tau) \transforms \demote(\sigma)
-    % \demote_*(\tau \transforms \sigma) &= \tau \transforms \sigma
+    \demote_*(\tau \transforms \sigma) &= \tau \transforms \sigma
 \end{align*}
 
 \framebox{$\decls(C) = \overline{\Decl}$} \textbf{Contract Declarations}

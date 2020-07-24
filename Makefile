@@ -4,7 +4,7 @@ COMPILEFLAGS :=
 # COMPILEFLAGS := --iterated -O3
 BACKEND := haskell
 
-all: exec typecheck
+all: exec typecheck compile
 
 exec: $(wildcard tests/exec/*.flow)
 
