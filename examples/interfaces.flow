@@ -1,0 +1,65 @@
+// A version with a special-cased fungible modifier which you can provide functions to
+contract C {
+    type SuffixString is fungible(myEmpty, mySingle, myCombine, mySelect) asset string
+
+    view myEmpty() returns string := ""
+    view mySingle(str : string) returns string := str
+    view myCombine(str1 : string, str2 : string) returns option string := some(str1 ++ str2)
+    view mySelect(str1 : string, str2 : string) returns option (string * string) :=
+        if str1.endswith(str2) then
+            some(str1.take(str1.length - str2.length), str2)
+        else
+            emptyval
+}
+
+// Transformers are allowed to do flows, but no packs or unpacks
+// Maybe views should also be allowed to do this?
+// We can name a transformer with the transformer keyword
+// Alternatively: can reference ourselves via self/this. Might be confusing
+
+// Polymorphism version
+interface fungible(c, elem, sel) {
+    empty : unit ~> c
+    single : elem ~> c
+    combine : c ~> c ~> option c
+    select : c ~> c ~> option (c, c)
+
+    // Properties...could even automatically quickcheck these or something
+    combine(x, empty) = combine(empty, x) = some(x)
+    if select(a, b) = some(x, y), then combine(x, y) = some(a)
+    select(a, a) = (empty, a)
+    select(combine(a, b), b) = some(a, b)
+}
+
+default fungible(nat, nat, nat) {
+    empty: \unit. 0,
+    single: \e
+    view empty() returns nat := 0
+    view single(n : nat) returns nat := n
+    view combine(n : nat, m : nat) returns nat := n + m
+}
+
+default fungible(list a, a, a + list a) {
+    view empty() returns list a := []
+    view single(x : a) returns a := [x]
+    view combine(xs : list a, ys : list a) returns list a := {
+        var temp : list a
+        xs --> temp
+        ys --> temp
+        return temp
+    }
+    view select(xs : list a,
+}
+
+default fungible(map k => v, mapitem k => v, k + (mapitem k => v) + (map k => v) + (k * v)) {
+
+}
+
+// By default we will select a fungible implementation by
+
+// Can declare a custom implementation via
+
+// Then we can declare a type matches an interface by:
+
+type Token is fungible
+

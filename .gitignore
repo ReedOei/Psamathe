@@ -10,4 +10,5 @@ texput.log
 contract-vers.csv
 .krun*
 *.bak
+formalization/*.out
 

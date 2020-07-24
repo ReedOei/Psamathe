@@ -384,6 +384,8 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \reed{Obsidian, Scilla, Move, etc.?}
 \reed{TODO: The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability or uniqueness (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
 
+\section{Future Work}
+
 \section{Conclusion}
 
 %% The next two lines define the bibliography style to be used, and
@@ -406,9 +408,10 @@ Additionally, \langName forbids any reentrant call from an external source, a si
     $\mathfrak{q}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
     $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\every$ & (\typeQuantities) \\
     $\mathcal{C}$ & \bnfdef & $\optionq$ \bnfalt $\setq$ \bnfalt $\listq$ & (collection type constructors) \\
-    % Removed product types for the moment because you don't really need them if you have records.
-    % $T$ & \bnfdef & $\voidt$ \bnfalt \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \times \tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
-    $T$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ \bnfalt $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
+    $T$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\mathcal{C}~\tau$ & \\
+        & \bnfalt & $\map~\tau \Rightarrow \tau$ \bnfalt $\mapitem~\tau \Rightarrow \tau$ & \\
+        & \bnfalt & $\linking~\tau \Leftrightarrow \tau$ \bnfalt $\link~\tau \Leftrightarrow \tau$ & \\
+        & \bnfalt & $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
@@ -571,7 +574,7 @@ We begin with the rules for typing the various literal forms of values.
 
 Next, the lookup rules.
 Notably, the \textsc{Demote-Lookup} rule allows the use of variables of an asset type in an expression without consuming the variable as \textsc{Lin-Lookup} does.
-However, it is still safe, because it is treated as its demoted type, which is always guaranteed to be a non-asset.
+However, it is still safe, because it is treated as its demoted type, which is always guaranteed to be a non-asset \reed{probably should prove this to be sure}.
 
 \begin{mathpar}
     \inferrule*[right=Demote-Lookup]{
@@ -637,10 +640,9 @@ The difference between internal and external calls is that we may transfer asset
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
     }{ \Gamma \flowproves \newc~C(\overline{y}) : C }
 \end{mathpar}
-\reed{Add method typing as transformers}
 
 Finally, the rules for If and Let expressions.
-In \textsc{Let-Expr}, we ensure that the newly bound variable is either consumed or is not an asset in the body.
+In \textsc{Let-Expr}, we must ensure that the newly bound variable is either consumed or is not an asset after the body runs.
 \begin{mathpar}
     \inferrule*[right=If-Expr]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
@@ -871,6 +873,7 @@ Note that we need to have constructors, because only the contract that defines a
 \end{mathpar}
 
 \paragraph{Other Auxiliary Definitions}
+
 \framebox{$\modifiers(T) = \overline{M}$} \textbf{Type Modifiers}
 \begin{align*}
     \modifiers(T) =

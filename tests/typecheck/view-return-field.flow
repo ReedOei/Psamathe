@@ -1,0 +1,12 @@
+contract Main {
+    x : ! nat
+    view get() returns ! nat := this.x
+}
+;
+
+var x : ! Main := new Main()
+
+if x.get() != 0 { revert("Failure!") }
+
+x --> consume
+

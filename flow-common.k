@@ -92,16 +92,16 @@ module FLOW-COMMON
 
     // TODO: It would be nice toa void inserting the unpacks if not necessary (i.e., no fields are accessed)
     syntax Stmt ::= normalizeTxBody(Var, Stmt) [function, functional]
-    rule normalizeTxBody(_, A --[ Sel ]-> B) => unpackAll(fields(varsStmt(A --[ Sel ]-> B))) (A --[ Sel ]-> B)
-    rule normalizeTxBody(RetVar, var X : T := E in S:Stmt) => unpackAll(fields(vars(E))) (var X : T := E in normalizeTxBody(RetVar, S))
+    rule normalizeTxBody(_, A --[ Sel ]-> B) => unpackAll(fieldVars(varsStmt(A --[ Sel ]-> B))) (A --[ Sel ]-> B)
+    rule normalizeTxBody(RetVar, var X : T := E in S:Stmt) => unpackAll(fieldVars(vars(E))) (var X : T := E in normalizeTxBody(RetVar, S))
     rule normalizeTxBody(_, pass) => pass
     rule normalizeTxBody(_, pack) => pack
     rule normalizeTxBody(_, unpack(F)) => unpack(F)
-    rule normalizeTxBody(RetVar, return E) => unpackAll(fields(vars(E))) (E --> RetVar) pack exit
+    rule normalizeTxBody(RetVar, return E) => unpackAll(fieldVars(vars(E))) (E --> RetVar) pack exit
     rule normalizeTxBody(_, exit) => pack exit
-    rule normalizeTxBody(_, revert(E)) => unpackAll(fields(vars(E))) revert(E) pack
-    rule normalizeTxBody(_, F:FunctionCall) => unpackAll(fields(vars(F))) F // TODO: Any other expressions we need to handle specially?
-    rule normalizeTxBody(RetVar, if E { S1 } else { S2 } ) => unpackAll(fields(vars(E))) (if E { normalizeTxBody(RetVar, S1) } else { normalizeTxBody(RetVar, S2) })
+    rule normalizeTxBody(_, revert(E)) => unpackAll(fieldVars(vars(E))) revert(E) pack
+    rule normalizeTxBody(_, F:FunctionCall) => unpackAll(fieldVars(vars(F))) F // TODO: Any other expressions we need to handle specially?
+    rule normalizeTxBody(RetVar, if E { S1 } else { S2 } ) => unpackAll(fieldVars(vars(E))) (if E { normalizeTxBody(RetVar, S1) } else { normalizeTxBody(RetVar, S2) })
     rule normalizeTxBody(RetVar, try { S1 } catch (X : T) { S2 }) => try { normalizeTxBody(RetVar, S1) } catch (X : T) { normalizeTxBody(RetVar, S2) }
     rule normalizeTxBody(RetVar, S1:Stmt S2:Stmt) => normalizeTxBody(RetVar, S1) normalizeTxBody(RetVar, S2)
 
@@ -133,11 +133,11 @@ module FLOW-COMMON
     /* rule toANormal(.Exprs, S) => S */
     /* rule toANormal((X:Var, Es):Exprs, S) => toANormal( */
 
-    syntax Set ::= fields(Set) [function, functional]
+    syntax Set ::= fieldVars(Set) [function, functional]
 
-    rule fields(.Set) => .Set
-    rule fields(SetItem(this.X) Rest) => SetItem(this.X) fields(Rest)
-    rule fields(SetItem(A) Rest) => fields(Rest)
+    rule fieldVars(.Set) => .Set
+    rule fieldVars(SetItem(this.X) Rest) => SetItem(this.X) fieldVars(Rest)
+    rule fieldVars(SetItem(A) Rest) => fieldVars(Rest)
         requires (this._) :/=K A
 
     syntax Set ::= varsStmt(Stmt) [function, functional]
@@ -218,7 +218,7 @@ module FLOW-COMMON
     rule resolveTypes(_, pass) => pass
     rule resolveTypes(_, pack) => pack
     rule resolveTypes(_, exit) => exit
-    rule resolveTypes(_, unpack(X)) => unpack(X) // TODO: Should this have a resolve types call inside of it?
+    rule resolveTypes(_, unpack(X)) => unpack(X)
 
     // Resolve selector types
     rule resolveTypes(C, Q:SelectorQuant X : T:Type such that E) => Q X : resolveType(C, T) such that resolveTypes(C, E)

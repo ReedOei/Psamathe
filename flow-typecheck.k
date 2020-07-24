@@ -23,49 +23,61 @@ module FLOW-TYPECHECK
 
     rule <k> execute ~> S => contractsOk(Cs) ~> S </k>
         <contracts> Cs </contracts>
+        [structural]
 
     // =======================================
     // Ok-ness checking
     // =======================================
+    // NOTE: This section could be a HUGE source of nondeterminism (because of all the sets) if the K framework doesn't handle structural as I expect.
+    //       Check on this for performance issues.
     syntax Stmt ::= contractsOk(Set)
                   | contractOk(Var)
 
-    rule contractsOk(.Set) => .
-    rule contractsOk(SetItem(C) Rest) => contractOk(C) ~> contractsOk(Rest)
+    rule contractsOk(.Set) => . [structural]
+    rule contractsOk(SetItem(C) Rest) => contractOk(C) ~> contractsOk(Rest) [structural]
 
     // TODO: Need to ensure that we have a unique constructor and check that too.
     // TODO: Need to check for uniqueness in naming of everything too.
-    rule <k> contractOk(C) => fieldsOk(Fields) ~> typesOk(Types) ~> functionsOk(Funcs) ... </k>
+    rule <k> contractOk(C) => fieldsOk(C, Fields) ~> typesOk(C, Types) ~> functionsOk(C, Funcs) ... </k>
         <fields> ... C |-> Fields ... </fields>
         <types> ... C |-> Types ... </types>
         <functions> ... C |-> Funcs ... </functions>
 
-    syntax Stmt ::= fieldsOk(Set)
-                  | fieldOk(VarDef)
+    syntax Stmt ::= fieldsOk(Var, Set)
+                  | fieldOk(Var, VarDef)
 
-    rule fieldsOk(.Set) => .
-    rule fieldsOk(SetItem(Field) Rest) => fieldOk(Field) ~> fieldsOk(Rest)
-
-    // TODO: Finish
-    rule fieldOk(_) => .
-
-    syntax Stmt ::= typesOk(Set)
-                  | typeOk(TypeData)
-
-    rule typesOk(.Set) => .
-    rule typesOk(SetItem(TDef) Rest) => typeOk(TDef) ~> typesOk(Rest)
+    rule fieldsOk(_, .Set) => . [structural]
+    rule fieldsOk(C, SetItem(Field) Rest) => fieldOk(C, Field) ~> fieldsOk(C, Rest) [structural]
 
     // TODO: Finish
-    rule typeOk(_) => .
+    rule fieldOk(_, _) => .
 
-    syntax Stmt ::= functionsOk(Set)
-                  | functionOk(FuncData)
+    syntax Stmt ::= typesOk(Var, Set)
+                  | typeOk(Var, TypeData)
 
-    rule functionsOk(.Set) => .
-    rule functionsOk(SetItem(Func) Rest) => functionOk(Func) ~> functionsOk(Rest)
+    rule typesOk(_, .Set) => . [structural]
+    rule typesOk(C, SetItem(TDef) Rest) => typeOk(C, TDef) ~> typesOk(C, Rest) [structural]
 
     // TODO: Finish
-    rule functionOk(_) => .
+    rule typeOk(_, _) => .
+
+    syntax Stmt ::= functionsOk(Var, Set)
+                  | functionOk(Var, FuncData)
+
+    rule functionsOk(_, .Set) => . [structural]
+    rule functionsOk(C, SetItem(Func) Rest) => functionOk(C, Func) ~> functionsOk(C, Rest) [structural]
+
+    rule <k>
+            functionOk(C, view(_, RetType, Args, Body))
+            =>
+            setEnv((this |-> C) makeEnv(varDefsToSet(Args)) fields(C)) ~>
+            assertEnv(?Gamma) ~> Body : RetType ~> assertEnv(?Gamma) ~>
+            setEnv(.Map)
+            ...
+         </k>
+
+    // TODO: Finish
+    rule functionOk(_, transaction(_, _, _, _)) => .
 
     // =======================================
     // Type Errors
@@ -336,17 +348,22 @@ module FLOW-TYPECHECK
     // =======================================
     // Flow typing
     // =======================================
+    syntax Stmt ::= validSelect(Selector, TypeQuant, TypeQuant)
+
+    rule validSelect(Sel, R, Q)
+         =>
+         checkThat(min(Q, R) <Q every) ~>
+         checkThat((Q =/=K every) orBool (_:Expr :=K Sel))
+
     // TODO: Implement transformers
-    // TODO: Deal with any potential ambiguities
     rule S --[ Sel ]-> D =>
-        S provides {?Q} ?Tau ~>
-        mutable(?Tau) ~>
+        // TODO: These mutable checks are wrong. We don't care if the types inside the storages are mutable, but if the storages themselves are mutable.
+        // TODO: We can put the checks inside the storage rules (i.e., provides and accepts) themselves.
+        S provides {?Q} ?Tau ~> mutable(?Tau) ~>
         Sel selects {?R} demote(?Tau) ~>
-        // TODO: Update this to the newer version in the rules.
-        checkThat(min(?Q, ?R) <Q every) ~>
+        validSelect(Sel, ?R, ?Q) ~>
         update(S, typeof(S) -Ty ?R)
-        D accepts ?Tau ~>
-        mutable(?Tau) ~>
+        D accepts ?Tau ~> mutable(?Tau) ~>
         update(D, typeof(D) +Ty min(?Q, ?R))
 
     // =======================================
@@ -426,15 +443,13 @@ module FLOW-TYPECHECK
     // Pack
     // =======================================
     rule <k> pack => . ... </k>
-        <typeEnv> ((this |-> (! C)) _) #as Gamma => removeAll(Gamma, keys(fieldEnv(Fields))) </typeEnv>
-        <fields> ... C |-> Fields </fields>
-        requires restrict(Gamma, keys(fieldEnv(Fields))) <=Env fieldEnv(Fields)
+        <typeEnv> ((this |-> (! C)) _) #as Gamma => removeAll(Gamma, keys(fields(C))) </typeEnv>
+        requires restrict(Gamma, keys(fields(C))) <=Env fields(C)
 
     syntax Stmt ::= packed(Var)
     rule <k> packed(C) => . ... </k>
         <typeEnv> Gamma </typeEnv>
-        <fields> C |-> Fields </fields>
-        requires intersectSet(keys(Fields), keys(Gamma)) ==K .Set
+        requires intersectSet(keys(fields(C)), keys(Gamma)) ==K .Set
 
     // =======================================
     // Type modifier checking
@@ -474,8 +489,21 @@ module FLOW-TYPECHECK
     rule typeEq(T, T) => .
 
     // TODO: Maybe just store the fields like this in the first place?
-    syntax Map ::= fieldEnv(Set) [function, functional]
-    rule fieldEnv(.Set) => .Map
-    rule fieldEnv(SetItem(X : T) Rest) => (X |-> T) fieldEnv(Rest)
+    syntax Map ::= makeEnv(Set) [function, functional]
+    rule makeEnv(.Set) => .Map
+    rule makeEnv(SetItem((X : T):VarDef) Rest) => (X |-> T) makeEnv(Rest)
+
+    syntax Map ::= fields(Var) [function, functional]
+                 | makeFieldEnv(Set) [function, functional]
+
+    rule makeFieldEnv(.Set) => .Map
+    rule makeFieldEnv(SetItem((X : T):VarDef) Rest) => (this.X |-> T) makeFieldEnv(Rest)
+
+    rule [[ fields(C) => makeFieldEnv(Fields) ]]
+        <fields> ... C |-> Fields ... </fields>
+
+    syntax Set ::= varDefsToSet(VarDefs) [function, functional]
+    rule varDefsToSet(.VarDefs) => .Set
+    rule varDefsToSet(Def, Defs) => SetItem(Def) varDefsToSet(Defs)
 endmodule
 

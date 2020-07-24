@@ -20,6 +20,7 @@ if [[ "$1" == "typecheck" ]]; then
         FLAGS+=("--log")
         FLAGS+=("--log-cells")
         FLAGS+=("(k),(#pc),#result,(typeEnv)")
+        FLAGS+=("--search")
     else
         FLAGS+=("--search")
         FLAGS+=("--pattern")
