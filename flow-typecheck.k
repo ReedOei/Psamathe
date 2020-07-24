@@ -29,13 +29,43 @@ module FLOW-TYPECHECK
     // =======================================
     syntax Stmt ::= contractsOk(Set)
                   | contractOk(Var)
-                  | fieldOk(VarDef)
 
     rule contractsOk(.Set) => .
     rule contractsOk(SetItem(C) Rest) => contractOk(C) ~> contractsOk(Rest)
 
-    // TODO: FINISH THIS
-    rule contractOk(C) => .
+    // TODO: Need to ensure that we have a unique constructor and check that too.
+    // TODO: Need to check for uniqueness in naming of everything too.
+    rule <k> contractOk(C) => fieldsOk(Fields) ~> typesOk(Types) ~> functionsOk(Funcs) ... </k>
+        <fields> ... C |-> Fields ... </fields>
+        <types> ... C |-> Types ... </types>
+        <functions> ... C |-> Funcs ... </functions>
+
+    syntax Stmt ::= fieldsOk(Set)
+                  | fieldOk(VarDef)
+
+    rule fieldsOk(.Set) => .
+    rule fieldsOk(SetItem(Field) Rest) => fieldOk(Field) ~> fieldsOk(Rest)
+
+    // TODO: Finish
+    rule fieldOk(_) => .
+
+    syntax Stmt ::= typesOk(Set)
+                  | typeOk(TypeData)
+
+    rule typesOk(.Set) => .
+    rule typesOk(SetItem(TDef) Rest) => typeOk(TDef) ~> typesOk(Rest)
+
+    // TODO: Finish
+    rule typeOk(_) => .
+
+    syntax Stmt ::= functionsOk(Set)
+                  | functionOk(FuncData)
+
+    rule functionsOk(.Set) => .
+    rule functionsOk(SetItem(Func) Rest) => functionOk(Func) ~> functionsOk(Rest)
+
+    // TODO: Finish
+    rule functionOk(_) => .
 
     // =======================================
     // Type Errors
@@ -310,11 +340,13 @@ module FLOW-TYPECHECK
     // TODO: Deal with any potential ambiguities
     rule S --[ Sel ]-> D =>
         S provides {?Q} ?Tau ~>
+        mutable(?Tau) ~>
         Sel selects {?R} demote(?Tau) ~>
         // TODO: Update this to the newer version in the rules.
         checkThat(min(?Q, ?R) <Q every) ~>
         update(S, typeof(S) -Ty ?R)
         D accepts ?Tau ~>
+        mutable(?Tau) ~>
         update(D, typeof(D) +Ty min(?Q, ?R))
 
     // =======================================
@@ -378,8 +410,6 @@ module FLOW-TYPECHECK
         <typeEnv> ... this |-> (! C) ... </typeEnv>
         <functions> ... C |-> (SetItem(transaction(F, _ : T, FormalArgs, _)) _) ... </functions>
 
-    syntax Stmt ::= packed(Var)
-
     // =======================================
     // External calls
     // =======================================
@@ -425,6 +455,10 @@ module FLOW-TYPECHECK
     rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool (asset in modifiers(T))
 
     rule isConsumable(Q:TypeQuant T) => (consumable in modifiers(T)) orBool notBool(isAsset(Q T))
+
+    syntax Stmt ::= mutable(Type)
+    rule <k> mutable(_:TypeQuant T) => . ... </k>
+        requires notBool(immutable in modifiers(T))
 
     // =======================================
     // Misc. helpers

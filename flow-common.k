@@ -31,7 +31,7 @@ module FLOW-COMMON
     syntax Stmt ::= processDecls(Var, Decls)
                   | "execute"
 
-    syntax KItem ::= type(Var, Set, BaseType)
+    syntax TypeData ::= type(Var, Set, BaseType)
 
     syntax KItem ::= constructor(VarDefs, Stmt)
 
