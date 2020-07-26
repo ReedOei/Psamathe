@@ -7,21 +7,17 @@
       SetItem ( Main )
     </contracts>
     <fields>
-      Main |-> .Set
+      Main |-> fields ( .Map )
     </fields>
     <constructors>
       Main |-> constructor ( .VarDefs , pass )
     </constructors>
     <functions>
-      Main |-> .Set
+      Main |-> functions ( .Map )
     </functions>
     <types>
-      Main |-> SetItem ( type ( Main , SetItem ( asset )
+      Main |-> types ( Main |-> type ( SetItem ( asset )
       SetItem ( consumable ) , Main ) )
-      address |-> SetItem ( type ( address , .Set , address ) )
-      bool |-> SetItem ( type ( bool , .Set , bool ) )
-      nat |-> SetItem ( type ( nat , SetItem ( fungible ) , nat ) )
-      string |-> SetItem ( type ( string , .Set , string ) )
     </types>
     <freshCounter>
       0

@@ -1,0 +1,13 @@
+contract Main {
+    type Token is fungible asset nat
+
+    transaction T():
+        var tok : empty Token
+        new Token --[ 10 ]-> tok
+        tok --> consume
+};
+
+var x : ! Main := new Main()
+x.T()
+x --> consume
+

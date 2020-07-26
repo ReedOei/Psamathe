@@ -34,9 +34,9 @@ module FLOW-COMPILER
 
     rule compile(.Set) => .
     rule <k> compile(SetItem(C) Rest) => compileContract(C, Types, Fields, Funcs) ~> compile(Rest) ... </k>
-        <types> ... C |-> Types </types>
-        <fields> ... C |-> Fields ... </fields>
-        <functions> ... C |-> Funcs </functions>
+        <types> ... C |-> types(Types) </types>
+        <fields> ... C |-> fields(Fields) ... </fields>
+        <functions> ... C |-> functions(Funcs) </functions>
 
     // Add some special Ethereum built-ins identifiers
     syntax Identifier ::= "caller"
@@ -55,7 +55,7 @@ module FLOW-COMPILER
                         | "lt"
     // Add some variable names that we want to use below
     syntax Identifier ::= "s" | "v" | "pos" | "offset"
-    syntax CompileStmt ::= compileContract(Var, Set, Set, Set)
+    syntax CompileStmt ::= compileContract(Var, Map, Map, Map)
     rule <k> compileContract(C, _, _, _) => . ... </k>
         <objects> ... .List => ListItem(
             object Var2String(C) {

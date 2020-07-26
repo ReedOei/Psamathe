@@ -1,0 +1,8 @@
+contract Main {
+
+}
+
+;
+
+var f : ! ((! nat) ~~> ! nat) := \n : ! nat . n
+

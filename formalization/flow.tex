@@ -483,7 +483,7 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
 \reed{The syntax for record ``fields'' and type environments is the same...could just use it}
 \begin{align*}
     (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
-                                                                & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
+                                                                % & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
                                                                 & (T = \mathcal{C}~\tau \tand \tau~\asset) \tor \\
                                                                 & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. (\tau~\asset)))
 \end{align*}
@@ -850,6 +850,7 @@ This isn't strictly necessary, because everything will still work, but you'll si
 
 A type declaration is okay as long as it has the $\asset$ modifier if its base type is an asset.
 Note that this restriction isn't necessary, but is intended to help users realize which types are assets without unfolding the entire type definition.
+\reed{TODO: What if the base type is a non-consumable asset, and we write consumable. Is that okay? Probably not.}
 \begin{mathpar}
     \inferrule*[right=Ok-Type]{
         T~\asset \implies \asset \in \overline{M}

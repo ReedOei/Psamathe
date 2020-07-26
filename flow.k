@@ -440,14 +440,14 @@ module FLOW
     rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, insert(RetVar, loc(I)) S) ~> lookupVal(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> emptyValue(RetType)) ... </storage>
-        <functions> ... C |-> (SetItem(transaction(T, RetVar : _:TypeQuant RetType, FormalArgs, S)) _) ... </functions>
+        <functions> ... C |-> functions((T |-> transaction(RetVar : _:TypeQuant RetType, FormalArgs, S)) _) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // Views
     rule <k> X.F(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, handleFlow(everything, resolveStorage(evaluate(E)), loc(I))) ~> lookupVal(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> emptyValue(RetType)) ... </storage>
-        <functions> ... C |-> (SetItem(view(F, _:TypeQuant RetType, FormalArgs, E)) _) ... </functions>
+        <functions> ... C |-> functions((F |-> view(_:TypeQuant RetType, FormalArgs, E)) _) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // TODO: Mabye replace this by a more efficient system (e.g., a call stack cell)
@@ -466,20 +466,20 @@ module FLOW
              ...
          </k>
         <storage> ... .Map => loc(I) |-> resource(C, .Map) ... </storage>
-        <fields> ... C |-> Fields ... </fields>
+        <fields> ... C |-> fields(Fields) ... </fields>
         <constructors> ... C |-> constructor(FormalArgs, S) ... </constructors>
-        <types> ... C |-> Types ... </types>
+        <types> ... C |-> types(Types) ... </types>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    syntax Stmt ::= initSources(StorageLoc, Set)
+    syntax Stmt ::= initSources(StorageLoc, Map)
 
-    rule initSources(_, .Set) => .
+    rule initSources(_, .Map) => .
 
     // Don't bother creating a source for the contract type itself
-    rule <k> initSources(Loc, SetItem(type(C, _, _)) Rest) => initSources(Loc, Rest) ... </k>
+    rule <k> initSources(Loc, (C |-> type(_, _)) Rest) => initSources(Loc, Rest) ... </k>
         <storage> ... Loc |-> resource(C, _) ... </storage>
 
-    rule <k> initSources(Loc, SetItem(type(Name, _, _)) Rest) => initSources(Loc, Rest) ... </k>
+    rule <k> initSources(Loc, (Name |-> type(_, _)) Rest) => initSources(Loc, Rest) ... </k>
         <storage>
             ...
             (Loc |-> resource(C, Fs))
@@ -491,10 +491,10 @@ module FLOW
         <freshCounter> I => I +Int 1 </freshCounter>
         requires Name =/=K C
 
-    syntax Stmt ::= initFields(StorageLoc, Set)
+    syntax Stmt ::= initFields(StorageLoc, Map)
 
-    rule initFields(_, .Set) => .
-    rule <k> initFields(Loc, SetItem(X : _:TypeQuant T) Rest) => initFields(Loc, Rest) ... </k>
+    rule initFields(_, .Map) => .
+    rule <k> initFields(Loc, (X |-> (_:TypeQuant T)) Rest) => initFields(Loc, Rest) ... </k>
         <storage>
             ...
             (Loc |-> resource(C, Fs))

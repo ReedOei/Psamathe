@@ -24,8 +24,6 @@ module FLOW-CORE-SYNTAX
     syntax BaseType ::= Var | Collection Type | Type "~~>" Type
                       | "(" BaseType ")" [bracket]
                       | RecordType
-                      // TODO: Will eventually want to allow multiple identifying vars.
-                      | RecordType "identified" "by" Var
     // TODO: Add syntactic sugar that allows users to not always write the type quantity.
     syntax Type ::= TypeQuant BaseType
                   | "(" Type ")" [bracket]
@@ -179,9 +177,12 @@ module FLOW-SYNTAX
 
     rule exactly one => ! [macro]
 
+    // TODO: This should probably be a fresh variable
+    syntax Var ::= "__res"
+
     rule transaction T(Args): S
          =>
-         transaction T(Args) returns ! bool: S (return true):ReturnExpr
+         transaction T(Args) returns ! bool: S (var __res : ! bool := true in return __res)
          [macro]
 endmodule
 

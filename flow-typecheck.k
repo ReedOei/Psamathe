@@ -39,45 +39,49 @@ module FLOW-TYPECHECK
     // TODO: Need to ensure that we have a unique constructor and check that too.
     // TODO: Need to check for uniqueness in naming of everything too.
     rule <k> contractOk(C) => fieldsOk(C, Fields) ~> typesOk(C, Types) ~> functionsOk(C, Funcs) ... </k>
-        <fields> ... C |-> Fields ... </fields>
-        <types> ... C |-> Types ... </types>
-        <functions> ... C |-> Funcs ... </functions>
+        <fields> ... C |-> fields(Fields) ... </fields>
+        <types> ... C |-> types(Types) ... </types>
+        <functions> ... C |-> functions(Funcs) ... </functions>
 
-    syntax Stmt ::= fieldsOk(Var, Set)
-                  | fieldOk(Var, VarDef)
+    syntax Stmt ::= fieldsOk(Var, Map)
+                  | fieldOk(Var, Type)
 
-    rule fieldsOk(_, .Set) => . [structural]
-    rule fieldsOk(C, SetItem(Field) Rest) => fieldOk(C, Field) ~> fieldsOk(C, Rest) [structural]
+    rule fieldsOk(_, .Map) => . [structural]
+    rule fieldsOk(C, (_ |-> T) Rest) => fieldOk(C, T) ~> fieldsOk(C, Rest) [structural]
 
     // TODO: Finish
     rule fieldOk(_, _) => .
 
-    syntax Stmt ::= typesOk(Var, Set)
+    syntax Stmt ::= typesOk(Var, Map)
                   | typeOk(Var, TypeData)
 
-    rule typesOk(_, .Set) => . [structural]
-    rule typesOk(C, SetItem(TDef) Rest) => typeOk(C, TDef) ~> typesOk(C, Rest) [structural]
+    rule typesOk(_, .Map) => . [structural]
+    rule typesOk(C, (_ |-> TDef) Rest) => typeOk(C, TDef) ~> typesOk(C, Rest) [structural]
 
     // TODO: Finish
     rule typeOk(_, _) => .
 
-    syntax Stmt ::= functionsOk(Var, Set)
+    syntax Stmt ::= functionsOk(Var, Map)
                   | functionOk(Var, FuncData)
 
-    rule functionsOk(_, .Set) => . [structural]
-    rule functionsOk(C, SetItem(Func) Rest) => functionOk(C, Func) ~> functionsOk(C, Rest) [structural]
+    rule functionsOk(_, .Map) => . [structural]
+    rule functionsOk(C, (_ |-> Func) Rest) => functionOk(C, Func) ~> functionsOk(C, Rest) [structural]
 
-    rule <k>
-            functionOk(C, view(_, RetType, Args, Body))
-            =>
-            setEnv((this |-> C) makeEnv(varDefsToSet(Args)) fields(C)) ~>
-            assertEnv(?Gamma) ~> Body : RetType ~> assertEnv(?Gamma) ~>
-            setEnv(.Map)
-            ...
-         </k>
+    rule functionOk(C, view(RetType, Args, Body))
+         =>
+         setEnv((this |-> (! C)) makeEnv(varDefsToSet(Args)) makeFieldEnv(fieldsOf(C))) ~>
+         assertEnv(?Gamma) ~> Body : RetType ~> assertEnv(?Gamma) ~>
+         setEnv(.Map)
 
-    // TODO: Finish
-    rule functionOk(_, transaction(_, _, _, _)) => .
+    rule functionOk(C, transaction(RetVar : Q:TypeQuant RetType, Args, Body))
+         =>
+         setEnv((this |-> (! C)) (RetVar |-> (empty RetType)) makeEnv(varDefsToSet(Args))) ~>
+         Body ~>
+         assertEnv((this |-> (! C)) (RetVar |-> (Q RetType)) ?Rest) ~>
+         checkThat(notBool(isAsset(Q RetType))) ~>
+         packed ~>
+         allNonAsset(?Rest) ~>
+         setEnv(.Map)
 
     // =======================================
     // Type Errors
@@ -202,13 +206,18 @@ module FLOW-TYPECHECK
     rule min(Q, R) => #if Q <Q R #then Q #else R #fi
     rule max(Q, R) => #if Q <Q R #then R #else Q #fi
 
-    syntax TypeQuant ::= TypeQuant "+" TypeQuant [function, functional]
+    // NOTE: comm attribute doesn't seem to work for some reason...
+    syntax TypeQuant ::= TypeQuant "+" TypeQuant [function, functional, comm, assoc]
                        | TypeQuant "-" TypeQuant [function, functional]
 
     rule Q + empty => Q
+    rule empty + R => R
     rule _ + every => every
+    rule every + _ => every
     rule nonempty + R => nonempty requires empty <Q R andBool R <Q every
+    rule Q + nonempty => nonempty requires empty <Q Q andBool Q <Q every
     rule ! + R => nonempty requires empty <Q R andBool R <Q every
+    rule Q + ! => nonempty requires empty <Q Q andBool Q <Q every
     rule any + any => any
 
     rule Q - empty => Q
@@ -338,8 +347,9 @@ module FLOW-TYPECHECK
     rule <k> X provides {Q} elemtype(T) => . ... </k>
         <typeEnv> ... X |-> Q:TypeQuant T ... </typeEnv>
 
-    rule <k> new C.T provides {every} ! C.T => . </k>
-        <typeEnv> ... this |-> C ... </typeEnv>
+    rule <k> new C.T provides {every} ! C.T => . ... </k>
+        <typeEnv> ... this |-> (! C) ... </typeEnv>
+        <types> ... C |-> types((T |-> _) _) ... </types>
 
     // =======================================
     // Selector typing
@@ -424,55 +434,78 @@ module FLOW-TYPECHECK
     // =======================================
     // View calls
     // =======================================
-    rule <k> X.F(Args) : T => packed(C) ~> checkEach(Args, FormalArgs) ... </k>
+    rule <k> X.F(Args) : T => packed ~> checkEach(Args, FormalArgs) ... </k>
          <typeEnv> ... X |-> (! C) ... </typeEnv>
-         <functions> ... C |-> (SetItem(view(F, T, FormalArgs, _)) _) ... </functions>
+         <functions> ... C |-> functions((F |-> view(T, FormalArgs, _)) _) ... </functions>
 
     // =======================================
     // Internal calls
     // =======================================
-    rule <k> this.F(Args) : T => packed(C) ~> checkEach(Args, FormalArgs) ~> assertPartialEnv(this |-> C) ... </k>
+    rule <k> this.F(Args) : T => packed ~> checkEach(Args, FormalArgs) ~> assertPartialEnv(this |-> C) ... </k>
         <typeEnv> ... this |-> (! C) ... </typeEnv>
-        <functions> ... C |-> (SetItem(transaction(F, _ : T, FormalArgs, _)) _) ... </functions>
+        <functions> ... C |-> functions((F |-> transaction(_ : T, FormalArgs, _)) _) ... </functions>
 
     // =======================================
     // External calls
     // =======================================
-    rule <k> X.F(Args) : T => packed(C) ~> checkEach(Args, FormalArgs) ~> assertEnv(Gamma) ... </k>
-        <typeEnv> ((this |-> (! C)) (X |-> (! D)) _) #as Gamma </typeEnv>
-        <functions> ... D |-> (SetItem(transaction(F, _ : T, FormalArgs, _)) _) ... </functions>
+    rule <k> X.F(Args) : T => packed ~> checkEach(Args, FormalArgs) ~> assertEnv(Gamma) ... </k>
+        <typeEnv> ((X |-> (! D)) _) #as Gamma </typeEnv>
+        <functions> ... D |-> functions((F |-> transaction(_ : T, FormalArgs, _)) _) ... </functions>
 
     // =======================================
     // Unpack
     // =======================================
     rule <k> unpack(F) => . ... </k>
         <typeEnv> Gamma (this |-> (! C)) (.Map => this.F |-> T) </typeEnv>
-        <fields> ... C |-> (SetItem((F : T):VarDef) _) ... </fields>
+        <fields> ... C |-> fields((F |-> T) _) ... </fields>
         requires notBool(this.F in keys(Gamma))
 
     // =======================================
     // Pack
     // =======================================
     rule <k> pack => . ... </k>
-        <typeEnv> ((this |-> (! C)) _) #as Gamma => removeAll(Gamma, keys(fields(C))) </typeEnv>
-        requires restrict(Gamma, keys(fields(C))) <=Env fields(C)
+        <typeEnv> ((this |-> (! C)) _) #as Gamma => removeAll(Gamma, keys(fieldsOf(C))) </typeEnv>
+        requires restrict(Gamma, keys(fieldsOf(C))) <=Env fieldsOf(C)
 
-    syntax Stmt ::= packed(Var)
-    rule <k> packed(C) => . ... </k>
+    rule <k> pack => . ... </k>
         <typeEnv> Gamma </typeEnv>
-        requires intersectSet(keys(fields(C)), keys(Gamma)) ==K .Set
+        requires notBool(this in keys(Gamma))
+
+    syntax Stmt ::= "packed"
+    rule <k> packed => . ... </k>
+        <typeEnv> (this |-> (! C)) Gamma </typeEnv>
+        requires intersectSet(keys(fieldsOf(C)), keys(Gamma)) ==K .Set
+
+    rule <k> packed => . ... </k>
+        <typeEnv> Gamma </typeEnv>
+        requires notBool(this in keys(Gamma))
+
+    rule exit => .
 
     // =======================================
     // Type modifier checking
     // =======================================
-    syntax Bool ::= isConsumable(Type) [function, functional]
-                  | isConsumable(BaseType) [function, functional]
-                  | isAsset(Type) [function, functional]
+    syntax Bool ::= isAsset(Type) [function, functional]
                   | isAsset(BaseType) [function, functional]
+                  | anyAsset(VarDefs) [function, functional]
 
     // TODO: Finish this definition
-    rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool (asset in modifiers(T))
+    rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool isAsset(T)
+    rule isAsset(T:Var) => asset in modifiers(T)
+    rule isAsset(_:Collection T) => isAsset(T)
+    rule isAsset({ Fields }) => anyAsset(Fields)
+    rule isAsset(_:BaseType) => false [owise]
 
+    rule anyAsset(.VarDefs) => false
+    rule anyAsset((_ : T), Defs) => isAsset(T) orBool anyAsset(Defs)
+
+    syntax Stmt ::= allNonAsset(Map)
+
+    rule allNonAsset(.Map) => .
+    rule allNonAsset((_ |-> T:Type) Rest) => allNonAsset(Rest)
+        requires notBool(isAsset(T))
+
+    syntax Bool ::= isConsumable(Type) [function, functional]
     rule isConsumable(Q:TypeQuant T) => (consumable in modifiers(T)) orBool notBool(isAsset(Q T))
 
     syntax Stmt ::= mutable(Type)
@@ -492,19 +525,17 @@ module FLOW-TYPECHECK
     syntax Stmt ::= typeEq(Type, Type)
     rule typeEq(T, T) => .
 
-    // TODO: Maybe just store the fields like this in the first place?
     syntax Map ::= makeEnv(Set) [function, functional]
     rule makeEnv(.Set) => .Map
     rule makeEnv(SetItem((X : T):VarDef) Rest) => (X |-> T) makeEnv(Rest)
 
-    syntax Map ::= fields(Var) [function, functional]
-                 | makeFieldEnv(Set) [function, functional]
+    syntax Map ::= makeFieldEnv(Map) [function, functional]
+    rule makeFieldEnv(.Map) => .Map
+    rule makeFieldEnv((X |-> T) Rest) => (this.X |-> T) makeFieldEnv(Rest)
 
-    rule makeFieldEnv(.Set) => .Map
-    rule makeFieldEnv(SetItem((X : T):VarDef) Rest) => (this.X |-> T) makeFieldEnv(Rest)
-
-    rule [[ fields(C) => makeFieldEnv(Fields) ]]
-        <fields> ... C |-> Fields ... </fields>
+    syntax Map ::= fieldsOf(Var) [function, functional]
+    rule [[ fieldsOf(C) => Fields ]]
+        <fields> ... C |-> fields(Fields) ... </fields>
 
     syntax Set ::= varDefsToSet(VarDefs) [function, functional]
     rule varDefsToSet(.VarDefs) => .Set

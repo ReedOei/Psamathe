@@ -17,12 +17,7 @@ module FLOW-COMMON
             <fields> .Map </fields>
             <constructors> .Map </constructors>
             <functions> .Map </functions>
-            <types>
-                nat |-> SetItem(type(nat, SetItem(fungible), nat))
-                string |-> SetItem(type(string, .Set, string))
-                bool |-> SetItem(type(bool, .Set, bool))
-                address |-> SetItem(type(address, .Set, address))
-            </types>
+            <types> .Map </types>
             /* <log stream="stdout"> .List </log> */
             <freshCounter> 0 </freshCounter>
         </common>
@@ -31,16 +26,18 @@ module FLOW-COMMON
     syntax Stmt ::= processDecls(Var, Decls)
                   | "execute"
 
-    syntax TypeData ::= type(Var, Set, BaseType)
+    syntax TypeData ::= type(Set, BaseType)
+    syntax KItem ::= types(Map)
+                   | fields(Map)
+                   | functions(Map)
 
     syntax KItem ::= constructor(VarDefs, Stmt)
 
     rule <k> contract C { Ds } Cs ; S => processDecls(C, Ds) ~> Cs ; S ... </k>
         <contracts> ... .Set => SetItem(C) ... </contracts>
-        <fields> ... .Map => C |-> .Set ... </fields>
-        <functions> ... .Map => C |-> .Set ... </functions>
-        // TODO: Create the correct base type here.
-        <types> ... .Map  => C |-> SetItem(type(C, SetItem(consumable) SetItem(asset), C)) ... </types>
+        <fields> ... .Map => C |-> fields(.Map) ... </fields>
+        <functions> ... .Map => C |-> functions(.Map) ... </functions>
+        <types> ... .Map  => C |-> types(C |-> type(SetItem(consumable) SetItem(asset), C)) ... </types>
         <constructors> ... .Map => C |-> constructor(.VarDefs, pass) ... </constructors>
         [structural]
     rule .Contracts ; S => execute ~> normalize(S) [structural]
@@ -51,14 +48,14 @@ module FLOW-COMMON
 
     rule processDecls(_, .Decls) => .
     rule <k> processDecls(C, (type T is Mods BaseType) Ds) => processDecls(C, Ds) ... </k>
-        <types> ... C |-> (Types => Types SetItem(type(T, modToSet(Mods), BaseType))) ... </types>
+        <types> ... C |-> types(Types => Types (T |-> type(modToSet(Mods), BaseType))) ... </types>
         [structural]
 
     rule <k> processDecls(C, (X : T) Ds) => processDecls(C, Ds) ... </k>
-        <fields> ... C |-> (Fields => Fields SetItem(X : resolveType(C, T))) ... </fields>
+        <fields> ... C |-> fields(Fields => Fields (X |-> resolveType(C, T))) ... </fields>
         [structural]
 
-    syntax FuncData ::= transaction(Var, VarDef, VarDefs, Stmt)
+    syntax FuncData ::= transaction(VarDef, VarDefs, Stmt)
 
     // If no return variable name was specified, generate a fresh one, then use the standard transaction processing rule.
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, (transaction T(Args) returns var(I) : RetType : S) Ds) ... </k>
@@ -67,21 +64,21 @@ module FLOW-COMMON
     rule <k> processDecls(C, (transaction T(Args) returns X : RetType : S) Ds) => processDecls(C, Ds) ... </k>
         <functions>
             ...
-            C |-> (Funcs => Funcs SetItem(transaction(T, X : resolveType(C, RetType),
+            C |-> functions(Funcs => Funcs (T |-> transaction(X : resolveType(C, RetType),
                                           resolveTypes(C, Args),
                                           resolveTypes(C, normalizeTxBody(X, normalize(S))))))
             ...
         </functions>
         [structural]
 
-    syntax FuncData ::= view(Var, Type, VarDefs, Expr)
+    syntax FuncData ::= view(Type, VarDefs, Expr)
 
     rule <k> processDecls(C, (view F(Args) returns RetType := E) Ds) => processDecls(C, Ds) ... </k>
         <functions>
             ...
-            C |-> (Funcs => Funcs SetItem(view(F, resolveType(C, RetType),
-                                               resolveTypes(C, Args),
-                                               resolveTypes(C, normalizeExpr(E)))))
+            C |-> functions(Funcs => Funcs (F |-> view(resolveType(C, RetType),
+                                              resolveTypes(C, Args),
+                                              resolveTypes(C, normalizeExpr(E)))))
             ...
         </functions>
         [structural]
@@ -145,6 +142,7 @@ module FLOW-COMMON
                  | vars(Expr) [function, functional]
                  | vars(Selector) [function, functional]
                  | vars(Exprs) [function, functional]
+                 | vars(Storage) [function, functional]
 
     rule varsStmt(A --[ Sel ]-> B) => vars(A) |Set vars(Sel) |Set vars(B)
     rule varsStmt(var _ : _ := E in S:Stmt) => vars(E) |Set varsStmt(S)
@@ -155,12 +153,16 @@ module FLOW-COMMON
     rule varsStmt(S1:Stmt S2:Stmt) => varsStmt(S1) |Set varsStmt(S2)
     rule varsStmt(if B { S1:Stmt } else { S2:Stmt } ) => vars(B) |Set varsStmt(S1) |Set varsStmt(S2)
 
+    rule vars(consume) => .Set
+    rule vars(new _) => .Set
+
+    rule vars(emptyval) => .Set
     rule vars(_:Int) => .Set
     rule vars(_:String) => .Set
     rule vars(_:Bool) => .Set
     rule vars(X:Var) => SetItem(X)
     rule vars(X.T) => SetItem(X.T)
-    rule vars(new _(Args)) => vars(Args)
+    rule vars((new _(Args)):Expr) => vars(Args)
 
     rule vars(everything) => .Set
     rule vars(_:SelectorQuant _ : _ such that E) => vars(E)
@@ -187,7 +189,8 @@ module FLOW-COMMON
     syntax VarDefs ::= resolveTypes(Var, VarDefs) [function]
     syntax Stmt ::= resolveTypes(Var, Stmt) [function]
     syntax Flow ::= resolveTypes(Var, Flow) [function]
-    syntax Storage ::= resolveTypes(Var, Storage) [function]
+    syntax Source ::= resolveTypes(Var, Source) [function]
+    syntax Destination ::= resolveTypes(Var, Destination) [function]
     syntax Selector ::= resolveTypes(Var, Selector) [function]
     syntax Expr ::= resolveTypes(Var, Expr) [function]
     syntax Var ::= resolveTypes(Var, Var) [function]
@@ -234,6 +237,13 @@ module FLOW-COMMON
     rule resolveTypes(C, X.Y) => resolveTypes(C, X) . resolveTypes(C, Y)
     // TODO: Finish all cases of resolveTypes
 
+    // Resolve Storage types
+    rule resolveTypes(_, consume) => consume
+    // TODO: Need to handle the case that they actually do write C.T already by checking if the type resolves to a proper type name or not.
+    //       Also need to put all the types into the type lookup table first, so that this function won't fail to find a declared type.
+    //       Probably should warn if a type that doesn't exist/is in the wrong contract is referenced?
+    rule resolveTypes(C, new T) => new C.T
+
     // Not sure why this isn't included in the standard library, but whatever.
     syntax List ::= remove(List, KItem) [function, functional]
     rule remove(.List, _) => .List
@@ -257,10 +267,9 @@ module FLOW-COMMON
 
     syntax Set ::= modifiers(BaseType) [function, functional]
     rule [[ modifiers(C.T) => Ms ]]
-        <types> ... C |-> (SetItem(type(T, Ms, _)) _) ... </types>
-    rule [[ modifiers(T) => Ms ]]
-        <types> ... T |-> (SetItem(type(T, Ms, _)) _) ... </types>
-
-    rule modifiers(_ ~~> _) => .Set
+        <types> ... C |-> types((T |-> type(Ms, _)) _) ... </types>
+    rule [[ modifiers(C) => Ms ]]
+        <types> ... C |-> types((C |-> type(Ms, _)) _) ... </types>
+    rule modifiers(_) => .Set [owise]
 endmodule
 
