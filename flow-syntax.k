@@ -22,12 +22,13 @@ module FLOW-CORE-SYNTAX
     syntax Collection ::= "option" | "set" | "list"
     syntax RecordType ::= "{" VarDefs "}"
     syntax BaseType ::= Var | Collection Type | Type "~~>" Type
-                      | "(" Type ")" [bracket]
+                      | "(" BaseType ")" [bracket]
                       | RecordType
                       // TODO: Will eventually want to allow multiple identifying vars.
                       | RecordType "identified" "by" Var
     // TODO: Add syntactic sugar that allows users to not always write the type quantity.
     syntax Type ::= TypeQuant BaseType
+                  | "(" Type ")" [bracket]
 
     syntax EmptyVal ::= "emptyval"
 

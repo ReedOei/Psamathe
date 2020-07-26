@@ -260,5 +260,7 @@ module FLOW-COMMON
         <types> ... C |-> (SetItem(type(T, Ms, _)) _) ... </types>
     rule [[ modifiers(T) => Ms ]]
         <types> ... T |-> (SetItem(type(T, Ms, _)) _) ... </types>
+
+    rule modifiers(_ ~~> _) => .Set
 endmodule
 

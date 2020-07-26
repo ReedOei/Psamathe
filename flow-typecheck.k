@@ -284,6 +284,14 @@ module FLOW-TYPECHECK
         requires Q =/=K empty
 
     // =======================================
+    // Transformer Types
+    // =======================================
+    rule (\ X : T . E) : ! (T ~~> S)
+         =>
+         assertEnv(?Gamma) ~> insert(X, T) ~>
+         E : S ~> drop(X) ~> assertEnv(?Gamma)
+
+    // =======================================
     // Variable definition
     // =======================================
     rule var X : T := E in S:Stmt => E : T ~> insert(X, T) ~> S ~> drop(X)
