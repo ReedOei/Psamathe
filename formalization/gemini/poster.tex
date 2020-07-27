@@ -50,7 +50,7 @@
 
 \author{Reed Oei}
 
-\institute[shortinst]{University of Illinois at Urbana-Champaign}
+\institute[shortinst]{University of Illinois}
 
 % ====================
 % Footer (optional)
@@ -83,43 +83,19 @@
 \begin{column}{\colwidth}
 
   \begin{block}{Introduction}
-      The blockchain is more and more commonly being used as a platform for \emph{smart contracts}, programs that manage ``digital assets.'' \reed{cite}
-      One such digit asset is a \emph{token}, of which there are many types, including ERC-20 and ERC-721, and many more implementations of each other on the Ethereum blockchain \reed{cite}.
+      Blockchains are becoming more commonly used as platforms for \emph{smart contracts}, programs that manage ``digital assets.'' \reed{cite}
+      One such digit asset is a \emph{token}, such as those implementing the ERC-20 or ERC-721 standards, which both have many implementing smart contracts on the Ethereum blockchain \reed{cite}.
 
-      \langName is a new programming language designed for writing smart cotnracts, providing features to mark certain values as \emph{\assetTxt{}s} as well as a special construct called a \emph{flow}, an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing a variety of digital \assetTxt{}s.
+      \langName is a new programming language designed for writing smart contracts, providing features to mark certain values as \emph{\assetTxt{}s} as well as a special construct called a \emph{flow}, an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing a variety of digital \assetTxt{}s.
+  \end{block}
 
+    \begin{alertblock}{Contributions}
       \begin{itemize}
           \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction.
           \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
           \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns and pitfalls.
       \end{itemize}
-  \end{block}
-
-  \begin{alertblock}{A highlighted block}
-
-    This block catches your eye, so \textbf{important stuff} should probably go
-    here.
-
-    Curabitur eu libero vehicula, cursus est fringilla, luctus est. Morbi
-    consectetur mauris quam, at finibus elit auctor ac. Aliquam erat volutpat.
-    Aenean at nisl ut ex ullamcorper eleifend et eu augue. Aenean quis velit
-    tristique odio convallis ultrices a ac odio.
-
-    \begin{itemize}
-      \item \textbf{Fusce dapibus tellus} vel tellus semper finibus. In
-        consequat, nibh sed mattis luctus, augue diam fermentum lectus.
-      \item \textbf{In euismod erat metus} non ex. Vestibulum luctus augue in
-        mi condimentum, at sollicitudin lorem viverra.
-      \item \textbf{Suspendisse vulputate} mauris vel placerat consectetur.
-        Mauris semper, purus ac hendrerit molestie, elit mi dignissim odio, in
-        suscipit felis sapien vel ex.
-    \end{itemize}
-
-    Aenean tincidunt risus eros, at gravida lorem sagittis vel. Vestibulum ante
-    ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae.
-
-  \end{alertblock}
-
+    \end{alertblock}
 \end{column}
 
 \separatorcolumn
@@ -129,14 +105,14 @@
   \begin{block}{Example}
     \begin{figure}[h]
         \centering
-        \lstinputlisting[language=flow]{../splash20-examples/erc20-transfer.flow}
+        \lstinputlisting[language=flow, xleftmargin=0.0ex]{../splash20-examples/erc20-transfer.flow}
         \caption{A contract with a simple \lstinline{transfer} function in \langName, which transfers \lstinline{amount} tokens from the first to the second account.
     It is implemented with a single flow, which all the preconditions to ensure the transfer is valid.}
         \label{fig:erc20-transfer-flow}
     \end{figure}
     \begin{figure}[h]
         \centering
-        \lstinputlisting[language=Solidity]{../splash20-examples/erc20-transfer.sol}
+        \lstinputlisting[language=Solidity, xleftmargin=0.0ex]{../splash20-examples/erc20-transfer.sol}
         \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity.
             All preconditions are checked manually.
             Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}

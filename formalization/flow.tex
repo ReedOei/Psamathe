@@ -64,7 +64,7 @@
 % \author{Reed Oei}
 % \email{reedoei2@illinois.edu}
 % \affiliation{%
-%   \institution{University of Illinois at Urbana-Champaign}
+%   \institution{University of Illinois}
 %   \city{Urbana}
 %   \country{USA}
 % }
@@ -126,12 +126,15 @@
 
 \section{Introduction}
 
-\reed{Blockchain intro.}
-
+Blockchains are becoming more commonly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
 Commonly proposed and implemented applications for the blockchain often revolve around the management of ``digital assets.'' \reed{cite}
 One of the most forms of these are a variety of smart contracts that managed assets called ``tokens.''
 There are many token standards, especially on the Ethereum blockchain \reed{cite}, including \reed{ERC-20, ERC-721, ERC-777, ERC-1155}, with others in various stages of the standardization process.
 Other applications or proposed applications for smart contracts include voting, supply chain management, auctions, lotteries, and other applications which require careful management of their respective assets \reed{cite/find examples}.
+
+However, smart contracts must be carefully reviewed before being deployed, as they cannot be patched if a security vulnerability is discovered.
+Despite this extra care, discoveries of vulnerabilities still occur regularly, often costing large amounts of money.
+\reed{Some examples}
 
 \langName provides features to mark certain values as \emph{\assetTxt{}s} as well as a special construct called a \emph{flow}, an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing a variety of digital \assetTxt{}s.
 These features combine to prevent common issues in smart contracts.
@@ -684,6 +687,7 @@ In \textsc{Let-Expr}, we must ensure that the newly bound variable is either con
     \end{cases}
 \end{align*}
 
+\reed{How to handle immutable properly?}
 \framebox{$\Gamma \proves \mathcal{S}~\provides_{\mathcal{Q}}~\tau$} \textbf{Source Typing}
 \begin{mathpar}
     \inferrule*[right=Provide-Var]{
