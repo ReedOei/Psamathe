@@ -240,7 +240,7 @@ These simplifications are performed automatically by the compiler.
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
 A \flowinline{fungible} value represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
 A \flowinline{unique} value can only exist in at most one storage; it must be \flowinline{immutable}.
-A \flowinline{immutable} value cannot be changed; in particular, it cannot be source or destination of a flow, the only state-changing construct in \langName \reed{this is the goal, anyway, which I think is true, but need to verify}.
+A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow, the only state-changing construct in \langName \reed{this is the goal, anyway, which I think is true, but need to verify}.
 A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes appropriate to dispose of; however, this disposal must be done via the \flowinline{consume} construct, a way of documenting that the disposal is intentional.
 All of these constraints, except for uniqueness, are enforced statically.
 
@@ -250,7 +250,7 @@ In this case, it would be appropriate to add the \flowinline{consumable} modifie
 
 It supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens).
 A linking is essentially a \flowinline{map K => C V} with extra operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
-These extra operations include querying which key owns which value, removing the need to maintain ``parallel'' data structures which separately keep track of various information about an \assetTxt; this operation is often useful (see Figure~\ref{fig:erc721-impl-flow} for some examples).
+These extra operations include querying which key owns which value, removing the need to maintain parallel data structures which separately keep track of various information about an \assetTxt; this operation is often useful (see Figure~\ref{fig:erc721-impl-flow} for some examples).
 Though one can partially implemeny linkings as a library in Solidity, using the $\unique$ feature of \langName, we can guarantee that looking up the owner of a value which has a unique type is a \textbf{well-defined} operation.
 
 \subsection{Flows}
@@ -342,7 +342,8 @@ This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the 
 \subsection{Voting}
 One proposed use for the blockchain is smart contracts for managing voting \reed{cite}.
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
-This example shows that \langName is suited for a range of applications, as we can use the $\unique$ and $\immutable$ modifiers to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
+This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
+In this application, the use of $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 
 \reed{Solidity impl. comes from ``Solidity by Example'' page}
 \begin{figure*}[h]
@@ -369,6 +370,13 @@ This example shows that \langName is suited for a range of applications, as we c
 \subsection{The DAO attack}
 One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth about \$50 million dollars at the time, to be stolen \reed{cite, verifying dollar amount}.
 The bug was caused by a reentrancy-unsafe function in the contract, illustrated below.
+
+The Solidity function shown below allows a user to withdraw their balance of ether whenever they wish.
+It does this by first transferring the ether from the contract to the user's address, then decreasing the user's balance.
+However, in Ethereum, a transfer of ether also calls a special function on the receiving address, when it is a contract address, called a \emph{fallback} function.
+In this function, arbitrary code may be executed, and because \lstinline{call.value()} was used, this call has access to all of the remaining gas of the transaction.
+A malicious contract can use this to perform a \emph{reentrant} call back into the \lstinline{withdrawBalance} function, and withdraw their balance again---the user's balance has not been decreased yet.
+The fix in this case is a simple swap of the last two lines of the function, but reentrancy issues can be more complicated than this.
 \reed{The below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}}
 \begin{lstlisting}[language=Solidity]
 function withdrawBalance() public {
