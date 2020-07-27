@@ -9,13 +9,18 @@
 
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[size=custom,width=36,height=36,scale=1.0]{beamerposter}
+\usepackage[scale=1]{beamerposter}
+\setlength{\paperwidth}{36in} % A0 width: 46.8in
+\setlength{\textwidth}{34in}
+\setlength{\paperheight}{36in} % A0 height: 33.1in
+\setlength{\textwidth}{34in}
 \usetheme{gemini}
 \usecolortheme{gemini}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{tikz}
 \usepackage{pgfplots}
+\usepackage{mathtools}
 
 % ====================
 % Lengths
@@ -30,24 +35,29 @@
 
 \newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
 
+\input{../LaTeX/macros.tex}
+\input{../solidity-latex-highlighting/solidity-highlighting.tex}
+\input{../flow-highlighting.tex}
+\input{../macros.tex}
+
 % ====================
 % Title
 % ====================
 
-\title{Some fancy title: followed by some more text}
+\title{\langName: A DSL for Safe Blockchain \AssetTxt{}s}
 
-\author{Alyssa P. Hacker \inst{1} \and Ben Bitdiddle \inst{2} \and Lem E. Tweakit \inst{2}}
+\author{Reed Oei}
 
-\institute[shortinst]{\inst{1} Some Institute \samelineand \inst{2} Another Institute}
+\institute[shortinst]{University of Illinois at Urbana-Champaign}
 
 % ====================
 % Footer (optional)
 % ====================
 
-\footercontent{%
-  \href{https://www.example.com}{https://www.example.com} \hfill
-  ABC Conference 2025, New York --- XYZ-1234 \hfill
-  \href{mailto:alyssa.p.hacker@example.com}{alyssa.p.hacker@example.com}}
+% \footercontent{%
+%   \href{https://www.example.com}{https://www.example.com} \hfill
+%   ABC Conference 2025, New York --- XYZ-1234 \hfill
+%   \href{mailto:alyssa.p.hacker@example.com}{alyssa.p.hacker@example.com}}
 % (can be left out to remove footer)
 
 % ====================
