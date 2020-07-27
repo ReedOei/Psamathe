@@ -1,7 +1,7 @@
 % Gemini theme
 % https://github.com/anishathalye/gemini
 
-\documentclass[final]{beamer}
+\documentclass[usenames, dvipsnames, final]{beamer}
 
 % ====================
 % Packages
@@ -9,18 +9,20 @@
 
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[scale=1]{beamerposter}
+\usepackage[scale=1.4]{beamerposter}
 \setlength{\paperwidth}{36in} % A0 width: 46.8in
 \setlength{\textwidth}{34in}
 \setlength{\paperheight}{36in} % A0 height: 33.1in
 \setlength{\textwidth}{34in}
 \usetheme{gemini}
-\usecolortheme{gemini}
+\usecolortheme{iolia}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{tikz}
 \usepackage{pgfplots}
 \usepackage{mathtools}
+\usepackage{mathpartir}
+% \usepackage{kpfonts}
 
 % ====================
 % Lengths
@@ -80,7 +82,7 @@
 
 \begin{column}{\colwidth}
 
-  \begin{block}{A block title}
+  \begin{block}{Introduction}
 
     Some block contents, followed by a diagram, followed by a dummy paragraph.
 
@@ -99,21 +101,6 @@
     lobortis augue, ut lobortis turpis rhoncus sed. Proin feugiat nibh a
     lacinia dignissim. Proin scelerisque, risus eget tempor fermentum, ex
     turpis condimentum urna, quis malesuada sapien arcu eu purus.
-
-  \end{block}
-
-  \begin{block}{A block containing a list}
-
-    Nam vulputate nunc felis, non condimentum lacus porta ultrices. Nullam sed
-    sagittis metus. Etiam consectetur gravida urna quis suscipit.
-
-    \begin{itemize}
-      \item \textbf{Mauris tempor} risus nulla, sed ornare
-      \item \textbf{Libero tincidunt} a duis congue vitae
-      \item \textbf{Dui ac pretium} morbi justo neque, ullamcorper
-    \end{itemize}
-
-    Eget augue porta, bibendum venenatis tortor.
 
   \end{block}
 
@@ -240,18 +227,23 @@
 
 \begin{column}{\colwidth}
 
-  \begin{block}{A block containing some math}
+  \begin{block}{Formal Typing and Semantics}
 
-    Nullam non est elit. In eu ornare justo. Maecenas porttitor sodales lacus,
-    ut cursus augue sodales ac.
+    \begin{mathpar}
+        \inferrule*{
+            \Gamma \proves A~\provides_\mathcal{Q}~\tau
+            \\
+            \Gamma \proves s~\selects_\mathcal{R}~\tau
+            \and
+            \validSelect(s, \mathcal{R}, \mathcal{Q})
+            \\
+            \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
+            \and
+            \Delta \proves B~\accepts~\tau
+        }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
-    $$
-    \int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
-    $$
-
-    Interdum et malesuada fames $\{1, 4, 9, \ldots\}$ ac ante ipsum primis in
-    faucibus. Cras eleifend dolor eu nulla suscipit suscipit. Sed lobortis non
-    felis id vulputate.
+        \large\vdots
+    \end{mathpar}
 
     \heading{A heading inside a block}
 
