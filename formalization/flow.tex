@@ -733,7 +733,8 @@ Maybe we could make it work on sets of $\mapitem$ or $\link$, and then avoid eve
 \framebox{$\Gamma \proves \mathcal{S}~\provides_{\mathcal{Q}}~\tau$} \textbf{Source Typing}
 \begin{mathpar}
     \inferrule*[right=Provide-Var]{
-    }{ \Gamma, S : \mathcal{Q}~T \proves S~\provides_{\mathcal{Q}}~\elemtype(T) }
+        \Gamma \proves S : \mathcal{Q}~T
+    }{ \Gamma \proves S~\provides_{\mathcal{Q}}~\elemtype(T) }
 
     \inferrule*[right=Provide-Source]{
         (\type~t~\is~\overline{M}~T) \in \decls(C)
@@ -745,7 +746,8 @@ Note that the \typeQuantities in \textsc{Accept-One} are different on the left a
 This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is reasonable to flow into it some $S : \any~\setq~\natt$.
 \begin{mathpar}
     \inferrule*[right=Accept-Var]{
-    }{ \Gamma, D : \mathcal{Q}~T \proves S~\accepts~\elemtype(T) }
+        \Gamma \proves D : \mathcal{Q}~T
+    }{ \Gamma \proves D~\accepts~\elemtype(T) }
 
     \inferrule*[right=Accept-Consume]{
         \tau~\consumable

@@ -1,4 +1,4 @@
-contract EIP20 {
+contract ERC20 {
   mapping (address => uint256) balances;
   function transfer(address dst, uint256 amt)
     public returns (bool) {
