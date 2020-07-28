@@ -723,7 +723,7 @@ Maybe we could make it work on sets of $\mapitem$ or $\link$, and then avoid eve
     }{ \Gamma \proves \mathcal{L}[\mathcal{M}] : \sigma }
 
     \inferrule*[right=Loc-Linking]{
-        \Gamma \proves \mathcal{L} : \mathcal{Q}~(\linking~\tau~\Rightarrow~\sigma)
+        \Gamma \proves \mathcal{L} : \mathcal{Q}~(\linking~\tau~\Leftrightarrow~\sigma)
         \and
         \Gamma \proves \mathcal{M} : \tau
     }{ \Gamma \proves \mathcal{L}[\mathcal{M}] : \sigma }
