@@ -1,13 +1,60 @@
-contract ERC20 {
+// Examples:
 
+// Current version:
+
+// An ERC-20 contract with a burn() function.
+contract ERC20 {
+    type Token is consumable fungible asset nat
+
+    accounts : map address => Token
+
+    transaction burn(amount : nat):
+        accounts[msg.sender] --[ amount ]-> consume
 }
 
-// A standard voting contract, but with a way to self-destruct.
+// A voting contract with a self-destruct.
 // Here we need to consume because a self-destruct must inherently consume all the values in the contract.
+// However, it is suboptimal, because we must globally declare the type as consumable, even though we only wish to consume it in one particular place.
 contract Voting {
     type Voter is consumable unique immutable asset address
+
     voters : set Voter
+
     transaction selfdestruct():
+        only when msg.sender = owner
+        // Self-destruct could be a special function, etc., but fundamentally will require consuming all values held by this contract.
+        this --> consume
+}
+
+// Permissions approach:
+contract ERC20 {
+    type Token is consumable fungible asset nat
+
+    accounts : map address => Token
+
+    transaction burn(amount : nat):
+        accounts[msg.sender] --[ amount ]-> consume
+}
+
+// Local consumption only:
+// Must annotate functions that may consume an asset with "consumes T"
+// This serves as both documentation and a sanity check, as we can automatically enforce it
+// It's probably most useful because we can use the call graph to ensure that other functions called by this function also do/do not consume Tokens
+contract ERC20 {
+    type Token is consumable fungible asset nat
+
+    accounts : map address => Token
+
+    transaction burn(amount : nat) consumes Token:
+        accounts[msg.sender] --[ amount ]-> consume
+}
+
+contract Voting {
+    type Voter is consumable unique immutable asset address
+
+    voters : set Voter
+
+    transaction selfdestruct() consumes Voter:
         only when msg.sender = owner
         // Self-destruct could be a special function, etc., but fundamentally will require consuming all values held by this contract.
         this --> consume

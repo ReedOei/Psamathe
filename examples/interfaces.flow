@@ -12,9 +12,8 @@ contract C {
             emptyval
 }
 
-// Transformers are allowed to do flows, but no packs or unpacks (they are not considered part of a contract, so it doesn't make sense to pack or unpack).
-// Standalone transformers are typechecked in an empty environment
-// Transformers inside of transactions will be typechecked in the current environment, but are not allowed to change anything other than their parameter.
+// Transformers are allowed to contain a mix of statements and expressions, but they
+//   cannot mutate contracts (they are typechecked in a context without a \this reference, so will be unable to unpack or pack).
 
 // Polymorphism version
 interface fungible(A) {
