@@ -127,8 +127,8 @@
 \section{Introduction}
 
 Blockchains are becoming more commonly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
-Commonly proposed and implemented applications for the blockchain often revolve around the management of ``digital assets.'' \reed{cite}
-One of the most forms of these are a variety of smart contracts that managed assets called ``tokens.''
+Commonly proposed and implemented applications for the blockchain often revolve around the management of \emph{digital assets}. \reed{cite}
+One of the most forms of these are a variety of smart contracts that managed assets called \emph{tokens}.
 There are many token standards, especially on the Ethereum blockchain \reed{cite}, including \reed{ERC-20, ERC-721, ERC-777, ERC-1155}, with others in various stages of the standardization process.
 Other applications or proposed applications for smart contracts include voting, supply chain management, auctions, lotteries, and other applications which require careful management of their respective assets \reed{cite/find examples}.
 
@@ -248,10 +248,10 @@ For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are b
 By default, neither is \flowinline{consumable}, but one of the common extensions of both standards is to add a \flowinline{burn} function, which allows tokens to be destroyed by users with the appropriate authentication.
 In this case, it would be appropriate to add the \flowinline{consumable} modifier.
 
-It supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values, with special operations to support modeling of ``token accounts'' (i.e., addresses which have a balance consisting of a set of tokens).
+It supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values, with special operations to support modeling of an \emph{account} (e.g., an address which has a balance consisting of a set of tokens).
 A linking is essentially a \flowinline{map K => C V} with extra operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
 These extra operations include querying which key owns which value, removing the need to maintain parallel data structures which separately keep track of various information about an \assetTxt; this operation is often useful (see Figure~\ref{fig:erc721-impl-flow} for some examples).
-Though one can partially implemeny linkings as a library in Solidity, using the $\unique$ feature of \langName, we can guarantee that looking up the owner of a value which has a unique type is a \textbf{well-defined} operation.
+Though one can partially implement linkings as a library in Solidity, using the $\unique$ feature of \langName, we can guarantee that looking up the owner of a value which has a unique type is a \textbf{well-defined} operation.
 
 \subsection{Flows}
 \langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
@@ -263,16 +263,18 @@ Using a transformer in a flow is like mapping a function over the collection of 
 All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
 For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, or if there is too much in the destination; for example, the latter may occur in the case of overflow.
 Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
+The former will always succeed, but the latter two may cause the flow to fail.
 
 \reed{Discuss transformers}
 
 \subsection{Error Handling}
-Computation on blockchains like the Ethereum blockchain are grouped into units called \emph{transactions}.
+Computation on blockchains like the Ethereum blockchain is grouped into units called \emph{transactions}.
 Transactions either succeed or they fail and revert all changes.
 \langName also has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
-If a sequence of flows fails, it ``bubbles up'' like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \flowinline{catch}, in which case only the changes made inside the corresponding \flowinline{try} block will be reverted, and the code inside the \flowinline{catch} block will be executed.
+If a sequence of flows fails, it ``bubbles up'', like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \flowinline{catch}, in which case only the changes made inside the corresponding \flowinline{try} block will be reverted, and the code inside the \flowinline{catch} block will be executed.
 
-\section{Case Studies}
+\section{Examples}
+\reed{section intro}
 \subsection{ERC-20}
 ERC-20 \reed{cite} is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
@@ -298,7 +300,7 @@ This example shows several advantages of the flow abstraction:
         Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as consumable may be consumed.
         This restriction prevents, in this example, tokens from being consumed, and can also be used to ensure that other \assetTxt{}s, like ether, are not consumed.
     \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
-        The default implementation provides no error message forcing developers to write their own.
+        The reference Solidity implementation provides no error message, forcing developers to write their own.
         Flows enable the generation of the messages by encoding the semantic information of a transfer into the program, instead of using low-level operations like increment and decrement or insert and delete.
 \end{itemize}
 
@@ -308,8 +310,8 @@ ERC-721 is a standard for tokens managing \emph{nonfungible} tokens; that is, to
 The ERC-721 standard requires many invariants hold, including:
     the tokens must be unique,
     the tokens must be owned by at most one account,
-    at most one non-owning account can have ``approval'' for a token, and only if that token has been minted,
-    we must be able to support ``operators'' who can manage all of the tokens of a user,
+    at most one non-owning account can have \emph{approval} for a token, and only if that token has been minted,
+    we must be able to support \emph{operators} who can manage all of the tokens of a user,
     among others.
 Because \langName is designed to manage \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
 
@@ -991,13 +993,11 @@ This is because a transformer is \textbf{never} an asset, regardless of the type
 
 \reed{What guarantees should we provide (no errors except for flowing a resource that doesn't exist in the source/already exists in the destination)?}
 
-NOTE: If we wanted to be "super pure", we can implement preconditions with just flows by doing something like:
+NOTE: We can implement preconditions (i.e., ``only when'') with just flows by doing something like:
 \begin{lstlisting}
 { contractCreator = msg.sender } --[ true ]-> consume
 \end{lstlisting}
 This works because \lstinline|{ contractCreator = msg.sender } : set bool| (specifically, a singleton), so if \lstinline{contractCreator = msg.sender} doesn't evaluate to true, then we will fail to consume true from it.
-\reed{I don't think actually doing this is a good idea; at least, not in the surface language.
-Maybe it would simplify the compiler and/or formalization, but it's interesting/entertaining.}
 
 \end{document}
 \endinput
