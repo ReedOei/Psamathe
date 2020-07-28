@@ -267,7 +267,7 @@ Flows can also fail for other reasons: a developer may specify that a certain fl
 \reed{Discuss transformers}
 
 \subsection{Error Handling}
-Computation on blockchains like the Ethereum blockchain are grouped into units called \emph{transactions}. \reed{which makes the use of the transaction keyword a little awkward, because multiple transaction calls can happen in a single transaction on the blockchain...}
+Computation on blockchains like the Ethereum blockchain are grouped into units called \emph{transactions}.
 Transactions either succeed or they fail and revert all changes.
 \langName also has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
 If a sequence of flows fails, it ``bubbles up'' like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \flowinline{catch}, in which case only the changes made inside the corresponding \flowinline{try} block will be reverted, and the code inside the \flowinline{catch} block will be executed.
@@ -433,7 +433,7 @@ Additionally, \langName forbids any reentrant call from an external source, a si
         & \bnfalt & $\tau \transforms \tau$ \bnfalt $\curlys{\overline{x : \tau}}$ \bnfalt $t$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\lambda x : \tau. E$ & (values) \\
-    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
+    $\mathcal{L}$, $\mathcal{M}$ & \bnfdef & $x$ \bnfalt $\mathcal{L}.x$ \bnfalt $\mathcal{L}[\mathcal{L}]$ & (locations) \\
     $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\single(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
         & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & \\
         & \bnfalt & $x = x$ \bnfalt $x \neq x$ \bnfalt $\total~x$ \bnfalt $\total~t$ & (expressions) \\
@@ -690,10 +690,42 @@ In \textsc{Let-Expr}, we must ensure that the newly bound variable is either con
 \begin{align*}
     \elemtype(T) =
     \begin{cases}
+        \elemtype(S) & \tif \type~T~\is~\overline{M}~S \\
         \sigma & \tif T = \mathcal{C}~\sigma \\
         !~T & \owise
     \end{cases}
 \end{align*}
+
+\framebox{$\Gamma \proves \mathcal{L} : \tau$} \textbf{Non-consuming location typing}
+This judgement is exclusively used for checking the types of the storages in a flow.
+It is safe to use because the flow rule handles updating the storages after the flow.
+\reed{Would be nice to combine the linking and map rules, and especially nice to avoid special casing them altogether.
+Could be done with a ``$\textbf{\texttt{keytype}}(T)$'' function.
+Maybe we could make it work on sets of $\mapitem$ or $\link$, and then avoid even defining maps and linkings.}
+\begin{mathpar}
+    \inferrule*[right=Loc-Var]{
+    }{ \Gamma, x : \tau \proves x : \tau }
+
+    \inferrule*[right=Loc-Member]{
+        \Gamma \proves \mathcal{L} : \mathcal{Q}~T
+        \and
+        (f : \sigma) \in \fields(T)
+        \and
+        \lnot(T~\immutable)
+    }{ \Gamma \proves \mathcal{L}.f : \sigma }
+
+    \inferrule*[right=Loc-Map]{
+        \Gamma \proves \mathcal{L} : \mathcal{Q}~(\map~\tau~\Rightarrow~\sigma)
+        \and
+        \Gamma \proves \mathcal{M} : \tau
+    }{ \Gamma \proves \mathcal{L}[\mathcal{M}] : \sigma }
+
+    \inferrule*[right=Loc-Linking]{
+        \Gamma \proves \mathcal{L} : \mathcal{Q}~(\linking~\tau~\Rightarrow~\sigma)
+        \and
+        \Gamma \proves \mathcal{M} : \tau
+    }{ \Gamma \proves \mathcal{L}[\mathcal{M}] : \sigma }
+\end{mathpar}
 
 \reed{How to handle immutable properly?}
 \framebox{$\Gamma \proves \mathcal{S}~\provides_{\mathcal{Q}}~\tau$} \textbf{Source Typing}
