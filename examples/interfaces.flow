@@ -44,13 +44,22 @@ default fungible(nat) {
     type Selector is nat
 
     transformer empty(_ : unit) returns nat := 0
-    transformer single
-
-    empty: \unit. 0,
-    single: \e
-    view empty() returns nat := 0
-    view single(n : nat) returns nat := n
-    view combine(n : nat, m : nat) returns nat := n + m
+    transformer single(e : nat) returns nat := e
+    transformer combine(a : nat, b : nat) returns option nat := {
+        var res : nat
+        a --> res
+        b --> res
+        some(res)
+    }
+    transformer select(a : nat, b : nat) returns option nat := {
+        if b <= a {
+            var selected : nat
+            a --[ b ]-> selected
+            some({ remaining: a, selected: selected })
+        } else {
+            none
+        }
+    }
 }
 
 default fungible(list a, a, a + list a) {

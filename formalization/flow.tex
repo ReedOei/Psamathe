@@ -249,9 +249,27 @@ By default, neither is \flowinline{consumable}, but one of the common extensions
 In this case, it would be appropriate to add the \flowinline{consumable} modifier.
 
 It supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values, with special operations to support modeling of an \emph{account} (e.g., an address which has a balance consisting of a set of tokens).
-A linking is essentially a \flowinline{map K => C V} with extra operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
-These extra operations include querying which key owns which value, removing the need to maintain parallel data structures which separately keep track of various information about an \assetTxt; this operation is often useful (see Figure~\ref{fig:erc721-impl-flow} for some examples).
-Though one can partially implement linkings as a library in Solidity, using the $\unique$ feature of \langName, we can guarantee that looking up the owner of a value which has a unique type is a \textbf{well-defined} operation.
+A \flowinline{linking K <=> C V} can be thought of as a \flowinline{map K => C V} with extra operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
+Specifically, a linking implements the following interface for any collection type \flowinline{C}.
+Note that the specific syntax is not allowed in an interface declaration, but is used because it is syntax used in the language to write the linking type.
+\reed{Either need to finish up the interface proposal, or write this in another way}
+\begin{lstlisting}[language=flow]
+interface linking K <=> C V where C is collection {
+    empty : linking K <=> C V
+    get : (linking K <=> C V) ~> K ~> C V
+    put : (linking K <=> C V) ~> K ~> V ~> linking K <=> C V
+    hasOwner : (linking K <=> C V) ~> V ~> bool
+    ownerOf : (linking K <=> C V) ~> V ~> K
+}
+\end{lstlisting}
+Note that some operations may result in errors. %, which we represent via $\flowError$ below.
+% It also satisfies the following laws; note that \flowinline{k : K}, \flowinline{v : V}, and \flowinline{L : linking K <=> C V}, and all variables are universally quantified.
+% \begin{lstlisting}[language=flow]
+% if v not in get(L, k) { (v in get(put(L, k, v), k)) = true } else { put(L, k, v) = $\flowError$ }
+% get(empty, k) = $\flowError$
+% \end{lstlisting}
+See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
+Note that, though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value which has a \flowinline{unique} type is a \textbf{well-defined} operation.
 
 \subsection{Flows}
 \langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
@@ -260,10 +278,19 @@ The source of a flow \emph{provides} values, the destination of the flow \emph{a
 Selectors act like filters from functional programming, or like the \lstinline{WHERE} clause of a \lstinline{SELECT} in a SQL database.
 Using a transformer in a flow is like mapping a function over the collection of values being flowed.
 
-All flows fail if the selected \assetTxt{}s are not present in the source, or if the selected \assetTxt{}s cannot be added to the destination.
-For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, or if there is too much in the destination; for example, the latter may occur in the case of overflow.
-Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
-The former will always succeed, but the latter two may cause the flow to fail.
+Using flows provides the following advantages over the typical approach \reed{come up with a clearer name for this}:
+\begin{itemize}
+    \item \textbf{Precondition checking}: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
+        For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, or if there is too much in the destination; the latter may occur because of overflow.
+        Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
+        The former will always succeed, but the latter two may cause the flow to fail.
+    \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in complicated contracts, such as those involving transfer fees.
+        Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as consumable may be consumed.
+        This restriction prevents \assetTxt{}s, such as ether from being consumed.
+    \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
+        By default, Solidity provides no error messages, forcing developers to write their own.
+        Flows enable the generation of the messages by encoding the semantic information of a transfer into the program, instead of using low-level operations like increment and decrement or insert and delete.
+\end{itemize}
 
 \reed{Discuss transformers}
 
@@ -291,18 +318,9 @@ ERC-20 is one of the commonly implemented standards on the Ethereum blockchain \
 \end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
 Note that event code has been omitted, because \langName handles events in the same way as Solidity.
-This example shows several advantages of the flow abstraction:
-\begin{itemize}
-    \item \textbf{Precondition checking}: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
-        In this case, the balance of the sender must be greater than the amount sent, and the balance of the destination must not overflow when it receives the tokens.
-        Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
-    \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in more complicated implementations, such as those involving transfer fees.
-        Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as consumable may be consumed.
-        This restriction prevents, in this example, tokens from being consumed, and can also be used to ensure that other \assetTxt{}s, like ether, are not consumed.
-    \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
-        The reference Solidity implementation provides no error message, forcing developers to write their own.
-        Flows enable the generation of the messages by encoding the semantic information of a transfer into the program, instead of using low-level operations like increment and decrement or insert and delete.
-\end{itemize}
+This example shows the advantages of the flow abstraction in precondition checking and error messages. \reed{rephrase, because you can't see the error messages, but it's still part of the advantages...}
+In this case, the balance of the sender must be at least as large as the amount sent, and the balance of the destination must not overflow when it receives the tokens.
+Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
 
 \subsection{ERC-721}\label{sec:erc721-impl}
 ERC-721 \reed{cite}, like ERC-20, is a token standard for the Ethereum blockchain.
@@ -465,6 +483,8 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \label{fig:lang-syntax}
 \end{figure*}
 
+\reed{Sets can only contain immuatble types?}
+
 \reed{We have public and private transactions...we could also have a public/private type?
 The difference being that public types can be transferred between contracts.}
 \reed{Random note: We can optimize merge operations on unique types by dropping some checks.}
@@ -505,7 +525,10 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
 
 \framebox{$\tau~\consumable$} \textbf{Consumable Types}
 \begin{align*}
-    (\mathcal{Q}~T)~\consumable &\iff \consumable \in \modifiers(T) \tor \lnot((\mathcal{Q}~T)~\asset)
+    (\mathcal{Q}~T)~\consumable \iff &\consumable \in \modifiers(T) \tor \\
+                                     &\lnot((\mathcal{Q}~T)~\asset) \tor \\
+                                     &(T = \mathcal{C}~\tau \tand \tau~\consumable) \tor \\
+                                     &(T = \curlys{\overline{y : \sigma}} \tand \forall x : \tau \in \overline{y : \sigma}. (\sigma~\consumable))
 \end{align*}
 
 $\mathcal{Q} \oplus \mathcal{R}$ represents the quantity present when flowing $\mathcal{R}$ of something to a storage already containing $\mathcal{Q}$.
