@@ -1,0 +1,12 @@
+contract ERC20 {
+
+}
+
+// A standard voting contract, but with a way to self-destruct.
+// Here we need to consume because a self-destruct must inherently consume all the values in the contract.
+contract Voting {
+    type Voter is unique immutable asset address
+    transaction selfdestruct():
+        only when msg.sender = owner
+}
+
