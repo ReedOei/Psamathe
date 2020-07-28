@@ -129,7 +129,7 @@
 Blockchains are becoming more commonly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
 Commonly proposed and implemented applications for the blockchain often revolve around the management of \emph{digital assets}. \reed{cite}
 One of the most forms of these are a variety of smart contracts that managed assets called \emph{tokens}.
-There are many token standards, especially on the Ethereum blockchain \reed{cite}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20}~\cite{erc721}~\cite{erc777}~\cite{erc1155}, with others in various stages of the standardization process.
+There are many token standards, especially on the Ethereum blockchain~\cite{wood2014ethereum}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20}~\cite{erc721}~\cite{erc777}~\cite{erc1155}, with others in various stages of the standardization process.
 Other applications or proposed applications for smart contracts include voting, supply chain management, auctions, lotteries, and other applications which require careful management of their respective assets \reed{cite/find examples}.
 
 However, smart contracts must be carefully reviewed before being deployed, as they cannot be patched if a security vulnerability is discovered.
@@ -137,7 +137,7 @@ Despite this extra care, discoveries of vulnerabilities still occur regularly, o
 \reed{Some examples}
 
 \langName provides features to mark certain values as \emph{\assetTxt{}s} as well as a special construct called a \emph{flow}, an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing a variety of digital \assetTxt{}s.
-These features combine to prevent common issues in smart contracts.
+These features combine in a novel way to prevent common issues in smart contracts.
 Solidity \reed{cite} and Vyper \reed{cite}, the most common languages used to write smart contracts on the Ethereum blockchain \reed{cite}, being general purpose languages, do not provide analgous support for managing \assetTxt{}s.
 
 \paragraph{Contributions}
@@ -145,7 +145,7 @@ Solidity \reed{cite} and Vyper \reed{cite}, the most common languages used to wr
 We make the following contributions with \langName.
 \begin{itemize}
     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
-    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed; eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction.
+    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed; eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction and a flow-sensitive type system.
     \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns and pitfalls automatically.
 \end{itemize}
 
@@ -616,7 +616,7 @@ We begin with the rules for typing the various literal forms of values.
 
     \inferrule*[right=Transformer]{
         \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma, x : \pi
-        \and
+        \\
         \lnot(\pi~\asset)
     }{ \Gamma \flowproves (\lambda x : \tau. E) : \,\,\exactlyone~(\tau \transforms \sigma) \flowprovesout \Gamma }
 
@@ -643,7 +643,7 @@ However, it is still safe, because it is treated as its demoted type, which is a
 
     \inferrule*[right=Record-Lin-Lookup]{
         f : \mathcal{Q}~T \in \overline{y : \tau}
-        \and
+        \\
         \demote(\sigma) \neq \sigma
         \\
         \overline{z : \sigma} = (\overline{y : \tau} \setminus \curlys{f : \mathcal{Q}~T}) \cup \curlys{f : \emptyq~T}
@@ -655,7 +655,7 @@ A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true an
 \begin{mathpar}
     \inferrule*[right=Check-In]{
         \Gamma \proves x~\provides_{\mathcal{Q}}~\tau
-        \and
+        \\
         \Gamma \proves s~\selects~\demote(\tau)
     }{ \Gamma \proves (s~\varin~x) : \boolt \flowprovesout \Gamma }
 \end{mathpar}
@@ -668,7 +668,7 @@ The difference between internal and external calls is that we may transfer asset
         \dom(\fields(C)) \cap \dom(\Gamma) = \emptyset
         \\
         \typeof(C, m) = \curlys{\overline{a : \tau}} \transforms \sigma
-        \and
+        \\
         \Gamma, x : C \flowproves \overline{y : \tau} \flowprovesout \Gamma, x : C
     }{ \Gamma, x : C \flowproves x.m(\overline{y}) : \sigma \flowprovesout \Gamma, x : C }
 
@@ -690,7 +690,7 @@ The difference between internal and external calls is that we may transfer asset
 
     \inferrule*[right=New-Con]{
         (\oncreate(\overline{x : \tau})~\doC~S) \in \decls(C)
-        \and
+        \\
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Gamma
     }{ \Gamma \flowproves \newc~C(\overline{y}) : C }
 \end{mathpar}
@@ -700,17 +700,17 @@ In \textsc{Let-Expr}, we must ensure that the newly bound variable is either con
 \begin{mathpar}
     \inferrule*[right=If-Expr]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
-        \and
+        \\
         \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
-        \and
+        \\
         \Gamma \flowproves E_2 : \tau \flowprovesout \Xi
     }{ \Gamma \flowproves (\ifS~x~\thenS~E_1~\elseS~E_2) : \tau \flowprovesout \Delta \sqcup \Xi }
 
     \inferrule*[right=Let-Expr]{
         \Gamma \flowproves E_1 : \tau \flowprovesout \Delta
-        \and
+        \\
         \Delta, x : \tau \flowproves E_2 : \pi \flowprovesout \Xi, x : \sigma
-        \and
+        \\
         \lnot(\sigma~\asset)
     }{ \Gamma \flowproves (\letvar~x : \tau := E_1~\varin~E_2) : \pi \flowprovesout \Xi }
 \end{mathpar}
@@ -738,21 +738,21 @@ Maybe we could make it work on sets of $\mapitem$ or $\link$, and then avoid eve
 
     \inferrule*[right=Loc-Member]{
         \Gamma \proves \mathcal{L} : \mathcal{Q}~T
-        \and
+        \\
         (f : \sigma) \in \fields(T)
-        \and
+        \\
         \lnot(T~\immutable)
     }{ \Gamma \proves \mathcal{L}.f : \sigma }
 
     \inferrule*[right=Loc-Map]{
         \Gamma \proves \mathcal{L} : \mathcal{Q}~(\map~\tau~\Rightarrow~\sigma)
-        \and
+        \\
         \Gamma \proves \mathcal{M} : \tau
     }{ \Gamma \proves \mathcal{L}[\mathcal{M}] : \sigma }
 
     \inferrule*[right=Loc-Linking]{
         \Gamma \proves \mathcal{L} : \mathcal{Q}~(\linking~\tau~\Leftrightarrow~\sigma)
-        \and
+        \\
         \Gamma \proves \mathcal{M} : \tau
     }{ \Gamma \proves \mathcal{L}[\mathcal{M}] : \sigma }
 \end{mathpar}
@@ -817,11 +817,11 @@ These resources then get applied to the transformer, which is an applicative fun
         \Gamma \proves A~\provides_\mathcal{Q}~\tau
         \\
         \Gamma \proves s~\selects_\mathcal{R}~\tau
-        \and
+        \\
         \validSelect(s, \mathcal{R}, \mathcal{Q})
         \\
         \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
-        \and
+        \\
         \Delta \flowproves f : \tau \transforms \sigma \flowprovesout \Delta
         \\
         \Delta \proves B~\accepts~\sigma
@@ -833,43 +833,43 @@ These resources then get applied to the transformer, which is an applicative fun
 \begin{mathpar}
     \inferrule*[right=Ok-Var-Def]{
         \Gamma \flowproves E : \tau \flowprovesout \Delta
-        \and
+        \\
         \Delta, x : \tau \flowproves S~\ok \flowprovesout \Xi, x : \sigma
-        \and
+        \\
         \lnot(\sigma~\asset)
     }{ \Gamma \flowproves (\var~x : \tau := E~\varin~S)~\ok \flowprovesout \Xi }
 
     \inferrule*[right=Ok-If]{
         \Gamma \flowproves x : \boolt \flowprovesout \Gamma
-        \and
+        \\
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
-        \and
+        \\
         \Gamma \flowproves S_2~\ok \flowprovesout \Xi
     }{ \Gamma \flowproves (\ifS~x~\thenS~S_1~\elseS~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
 
     \inferrule*[right=Ok-Try]{
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
-        \and
+        \\
         \Gamma, x : \tau \flowproves S_2~\ok \flowprovesout \Xi, x : \sigma
-        \and
+        \\
         \lnot(\sigma~\asset)
     }{ \Gamma \flowproves (\tryS~S_1~\catchS~(x : \tau)~S_2)~\ok \flowprovesout \Delta \sqcup \Xi }
 
     \inferrule*[right=Ok-Revert]{
         \Gamma \flowproves E : \tau \flowprovesout \Gamma
-        \and
+        \\
         \lnot(\tau~\asset)
     }{ \Gamma \flowproves \revert(E)~\ok \flowprovesout \Gamma }
 
     \inferrule*[right=Ok-Expr]{
         \Gamma \flowproves E : \tau \flowprovesout \Delta
-        \and
+        \\
         \lnot(\tau~\asset)
     }{ \Gamma \flowproves E~\ok \flowprovesout \Delta }
 
     \inferrule*[right=Ok-Seq]{
         \Gamma \flowproves S_1~\ok \flowprovesout \Delta
-        \and
+        \\
         \Delta \flowproves S_2~\ok \flowprovesout \Xi
     }{ \Gamma \flowproves (S_1 ; S_2)~\ok \flowprovesout \Xi }
 
@@ -888,7 +888,7 @@ These resources then get applied to the transformer, which is an applicative fun
 \begin{mathpar}
     \inferrule*[right=Ok-View]{
         \Gamma = \this : C, \fields(C), \overline{x : \tau}
-        \and
+        \\
         \Gamma \flowproves E : \sigma \flowprovesout \Gamma
     }{ \proves_C (\view~m(\overline{x : \tau}) \to \sigma := E)~\ok }
 
@@ -898,7 +898,7 @@ These resources then get applied to the transformer, which is an applicative fun
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
         \\
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
-        \and
+        \\
         \lnot(\mathcal{Q}~T~\asset)
     }{ \proves_C (\transaction~m(\overline{x : \tau}) \to y : \mathcal{Q}~T~\doC~S)~\ok }
 
@@ -906,7 +906,7 @@ These resources then get applied to the transformer, which is an applicative fun
         \this : C, \overline{x : \tau}, y : \emptyq~T \flowproves S~\ok \flowprovesout \Delta, \this : C, y : \mathcal{Q}~T
         \\
         \dom(\fields(C)) \cap \dom(\Delta) = \emptyset
-        \and
+        \\
         \forall x : \tau \in \Delta. \lnot(\tau~\asset)
     }{ \proves_C (\private~\transaction~m(\overline{x : \tau}) \to y : \mathcal{Q}~T~\doC~S)~\ok }
 \end{mathpar}
@@ -921,12 +921,20 @@ This isn't strictly necessary, because everything will still work, but you'll si
     }{ \proves_C (x : \mathcal{Q}~T)~\ok }
 \end{mathpar}
 
-A type declaration is okay as long as it has the $\asset$ modifier if its base type is an asset.
-Note that this restriction isn't necessary, but is intended to help users realize which types are assets without unfolding the entire type definition.
+A type declaration is okay when it's modifiers are all compatible with each other, and it has the $\asset$ modifier if its base type is an asset.
+The latter restriction isn't strictly necessary, but is intended to help developers realize which types are assets without unfolding the entire type definition.
 \reed{TODO: What if the base type is a non-consumable asset, and we write consumable. Is that okay? Probably not.}
 \begin{mathpar}
     \inferrule*[right=Ok-Type]{
         T~\asset \implies \asset \in \overline{M}
+        \\
+        \unique \in \overline{M} \implies \immutable \in \overline{M}
+        \\
+        \fungible \in \overline{M} \implies \unique \not\in \overline{M}
+        \\
+        I \in \overline{M} \implies \exists! x. I(T)~\resolvable_x
+        \\
+        I(x) \in \overline{M} \implies I(T)~\resolvable_x
     }{ \proves_C (\type~t~\is~\overline{M}~T)~\ok }
 \end{mathpar}
 
@@ -934,9 +942,9 @@ Note that we need to have constructors, because only the contract that defines a
 \begin{mathpar}
     \inferrule*[right=Ok-Constructor]{
         \fields(C) = \overline{\this.f : \mathcal{Q}~T}
-        \and
+        \\
         \this : C, \overline{x : \tau}, \overline{\this.f : \emptyq~T} \flowproves S~\ok \flowprovesout \Delta
-        \and
+        \\
         \forall y : \sigma \in \Delta. \lnot(\sigma~\asset)
     }{ \proves_C (\oncreate(\overline{x : \tau})~\doC~S)~\ok }
 \end{mathpar}
@@ -945,7 +953,7 @@ Note that we need to have constructors, because only the contract that defines a
 \begin{mathpar}
     \inferrule*[right=Ok-Con]{
         \forall d \in \overline{\Decl}. (\proves_C d~\ok)
-        \and
+        \\
         \exists! d \in \overline{\Decl}. \exists \overline{x : \tau}, S. d = \oncreate(\overline{x : \tau})~\doC~S
     }{ (\contract~C~\{ \overline{\Decl} \})~\ok }
 \end{mathpar}
@@ -954,7 +962,7 @@ Note that we need to have constructors, because only the contract that defines a
 \begin{mathpar}
     \inferrule*[right=Ok-Prog]{
         \forall C \in \overline{\Con}. C~\ok
-        \and
+        \\
         \emptyset \flowproves S \flowprovesout \emptyset
     }{ (\overline{\Con} ; S)~\ok }
 \end{mathpar}
@@ -1017,6 +1025,57 @@ This is because a transformer is \textbf{never} an asset, regardless of the type
         \Gamma & \owise
     \end{cases}
 \]
+
+\subsection{WIP ideas}
+
+\newcommand{\Impl}{\textbf{\texttt{implementation}}\xspace}
+\newcommand{\of}{\textbf{\texttt{of}}\xspace}
+\newcommand{\where}{\textbf{\texttt{where}}\xspace}
+\newcommand{\implements}{\textbf{\texttt{implements}}\xspace}
+\newcommand{\defaultImpl}{\textbf{\texttt{default}}\xspace}
+\newcommand{\return}{\textbf{\texttt{return}}\xspace}
+\newcommand{\vars}{\textbf{\texttt{vars}}\xspace}
+\newcommand{\mgu}{\textbf{\texttt{mgu}}\xspace}
+
+\begin{definition}
+    Let $\mgu(\tau, \sigma)$ denote the most general unifier of $\tau$ and $\sigma$ such that if $\mgu(\tau, \sigma) = \theta$, then $\theta(\tau) = \sigma$; if there is no unifier, then $\mgu(\tau, \sigma) = \bot$.
+\end{definition}
+
+\begin{mathpar}
+    \inferrule*[right=Init-Ok]{
+        \emptyset \flowproves S~\ok \flowprovesout \Gamma
+        \\
+        \Gamma \flowproves E : \tau \flowprovesout \Delta
+        \\
+        \forall y. \lnot(\Delta(y)~\asset)
+    }{ (x : \tau := S~\return~E)~\ok }
+
+    \inferrule*[right=Resolvable-Impl]{
+        \interface~I(\pi)~\where~\overline{t~\is~\overline{M}}~\{ \overline{\type~s}~\overline{x : \tau} \}
+        \\
+        \Impl~x~\of~I(\sigma)~\{ \ldots \}
+        \\
+        \mgu(\pi, \sigma) \after \mgu(\sigma, \tau) = \theta
+        \and
+        \theta \neq \bot
+        \\
+        \forall i. \forall N \in \overline{M_i}. \theta^{-1}(t_i)~\is~\theta(N)
+    }{ I(\tau)~\resolvable_x }
+
+    \inferrule*[right=Interface-Ok]{
+        \overline{t} \subseteq \vars(\tau)
+        \\
+        \forall z : \pi \in \overline{y : \sigma}. \vars(\pi) \subseteq \vars(\tau) \cup \overline{s}
+    }{ (\interface~I(\tau)~\where~\overline{t~\is~\overline{M}}~\{ \overline{\type~s}~\overline{y : \sigma} \})~\ok }
+
+    \inferrule*[right=Impl-Ok]{
+        \interface~I(\tau)~\where~\overline{t~\is~\overline{M}}~\{ \overline{\type~s}~\overline{x : \tau} \}
+        \\
+        \overline{x : \pi} = \overline{x : \tau}[\overline{\tau}/\overline{t}][\overline{\sigma}/\overline{s}]
+        \\
+        \forall F \in \overline{x : \rho := S~\return~E}. F~\ok
+    }{ (\Impl~x~\of~I(\sigma)~\{ \overline{\type~s~\is~\pi}~\overline{x : \rho := S~\return~E} \})~\ok }
+\end{mathpar}
 
 \reed{Asset retention theorem?}
 \reed{Resource accessiblity?}

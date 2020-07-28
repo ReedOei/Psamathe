@@ -12,7 +12,7 @@ endif
 
 let b:current_syntax = "flow"
 
-syntax keyword transaction internal transaction view returns returning event private type is
+syntax keyword transaction internal transaction view returns returning event private type is implementation of
 syntax match specialTransactions "on create"
 syntax match specialTransactions "on fail"
 syntax match specialTransactions "on success"

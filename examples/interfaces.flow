@@ -38,7 +38,8 @@ interface fungible(A) {
     if contains(a, b) then select(a, b) = some(...)
 }
 
-default fungible(nat) {
+// Example: the actual implementation will be special cased, because flows rely on these operations being implemented in the first place.
+default implementation fungible(nat) {
     type Elem is nat
     type Selector is nat
 
@@ -61,27 +62,14 @@ default fungible(nat) {
     }
 }
 
-default fungible(list a, a, a + list a) {
-    view empty() returns list a := []
-    view single(x : a) returns a := [x]
-    view combine(xs : list a, ys : list a) returns list a := {
-        var temp : list a
-        xs --> temp
-        ys --> temp
-        return temp
-    }
-    view select(xs : list a,
+// We can select write a custom implementation:
+implementation MyToken of fungible(DollarBill) {
+    // implement everything here
 }
-
-default fungible(map k => v, mapitem k => v, k + (mapitem k => v) + (map k => v) + (k * v)) {
-
-}
-
-// By default we will select a fungible implementation by
-
-// Can declare a custom implementation via
 
 // Then we can declare a type matches an interface by:
+type Token is fungible(MyToken) asset nat
 
-type Token is fungible
+// If there is no argument to fungible (or any interface modifier), we use the default implementation, if any.
+// If there isn't exactly one default implementation that matches, we throw an error.
 
