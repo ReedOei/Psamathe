@@ -130,7 +130,7 @@ Blockchains are becoming more commonly used as platforms for applications, calle
 Commonly proposed and implemented applications for the blockchain often revolve around the management of \emph{digital assets}.
 One of the most common forms of these are a variety of smart contracts that managed assets called \emph{tokens}---about 73\% of high-activity contracts, the 0.05\% of contracts that handle 80\% of all transactions, are token contracts~\cite{OlivaEtAl2019}, in addition to many more less-active token contracts.
 There are many token standards, especially on the Ethereum blockchain~\cite{wood2014ethereum}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20}~\cite{erc721}~\cite{erc777}~\cite{erc1155}, with others in various stages of the standardization process.
-Other applications or proposed applications for smart contracts include voting, supply chain management, auctions, lotteries, and other applications which require careful management of their respective assets \reed{cite/find examples}.
+Other applications or proposed applications for smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
 
 However, smart contracts must be carefully reviewed before being deployed, as they cannot be patched if a security vulnerability is discovered.
 Despite this extra care, discoveries of vulnerabilities still occur regularly, often costing large amounts of money.
@@ -320,7 +320,6 @@ In each example, we only show the fragment of the code that is necessary for spa
 \reed{Do this}
 \reed{Put online or in an appendix?}
 
-\reed{section intro}
 \subsection{ERC-20}\label{sec:erc20-impl}
 ERC-20 \reed{cite} is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
