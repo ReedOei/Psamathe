@@ -165,8 +165,7 @@ We make the following contributions with \langName.
 %         \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
 %     \end{itemize}
 
-\section{Language}
-
+\section{Language}\label{sec:lang}
 A \langName program is made of \emph{contracts}, each containing \emph{declarations}, such as \emph{fields}, \emph{types}, and \emph{functions}.
 A contract is the high-level grouping of functionality, just as in Solidity; each contract instance in \langName represents a contract on the blockchain.
 Fields function as the peristent storage of the contract, whose data is kept on the blockchain.
@@ -175,7 +174,7 @@ We distinguish between three types of function: \emph{transactions}, \emph{views
 Transactions and views are both kinds of \emph{method}, which may access the fields of a contract; a transaction can read \textbf{and} write fields, whereas a view may only read fields.
 A transformer is a \textbf{pure} function: it may contain flows and other statements, but it cannot mutate the state of any contract.
 
-Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:case-study-erc20} for more details on ERC-20).
+Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:erc20-impl} for more details on ERC-20).
 \begin{figure}[h]
     \centering
     \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
@@ -234,6 +233,27 @@ Figure~\ref{fig:lang-syntax-frag} shows a fragment of the syntax of the core cal
 These simplifications are performed automatically by the compiler.
 \reed{TODO: We have formalized this core calculus (in K???).}
 
+\subsection{Flows}
+\langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
+Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
+The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
+Selectors act like filters from functional programming, or like the \lstinline{WHERE} clause of a \lstinline{SELECT} in a SQL database.
+Using a transformer in a flow is like mapping a function over the collection of values being flowed.
+
+Using flows provides the following advantages over the typical approach \reed{come up with a clearer name for this}:
+\begin{itemize}
+    \item \textbf{Precondition checking}: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
+        For example, a flow of money would fail if there is not enough in the source, or if there is too much in the destination; the latter may occur because of overflow.
+        Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
+        The former will always succeed, but the latter two may cause the flow to fail.
+    \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in complicated contracts, such as those involving transfer fees.
+        Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
+        This restriction prevents \assetTxt{}s, such as ether from being consumed.
+    \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
+        By default, Solidity provides no error messages, forcing developers to write their own.
+        Flows enable the generation of the messages by encoding the semantic information of a transfer into the program, instead of using low-level operations like increment and decrement or insert and delete.
+\end{itemize}
+
 \subsection{Modifiers}\label{sec:lang-modifiers}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
@@ -270,27 +290,6 @@ Note that some operations may result in errors. %, which we represent via $\flow
 See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
 Note that, though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value which has a \flowinline{unique} type is a \textbf{well-defined} operation.
 
-\subsection{Flows}
-\langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
-Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
-The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
-Selectors act like filters from functional programming, or like the \lstinline{WHERE} clause of a \lstinline{SELECT} in a SQL database.
-Using a transformer in a flow is like mapping a function over the collection of values being flowed.
-
-Using flows provides the following advantages over the typical approach \reed{come up with a clearer name for this}:
-\begin{itemize}
-    \item \textbf{Precondition checking}: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
-        For example, a flow of fungible \assetTxt{}s fails if there is not enough of the \assetTxt in the source, or if there is too much in the destination; the latter may occur because of overflow.
-        Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
-        The former will always succeed, but the latter two may cause the flow to fail.
-    \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in complicated contracts, such as those involving transfer fees.
-        Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as consumable may be consumed.
-        This restriction prevents \assetTxt{}s, such as ether from being consumed.
-    \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
-        By default, Solidity provides no error messages, forcing developers to write their own.
-        Flows enable the generation of the messages by encoding the semantic information of a transfer into the program, instead of using low-level operations like increment and decrement or insert and delete.
-\end{itemize}
-
 \reed{Discuss transformers}
 
 \subsection{Error Handling}
@@ -305,9 +304,14 @@ Transactions, views, and transformers all map to the concept of \lstinline{funct
 \reed{Explain how things map a little bit more. Also, this explanation basically is mostly useful if you already know Solidity.
 Probably should put more effort into explanation for people who don't know Solidity (at least, if we submit to a non-blockchain venue).}
 
+Before version 0.6.0, Solidity did not have a try-catch construct.
+The resulting try-catch construct added behaves similarly to that of \langName, as both will revert the changes made when an exception occurs.
+However, Solidity's try-catch is structed in an atypical way, only allowing catching errors from a single expression, which must be an external call or a contract creation call.
+\reed{cite}
+
 \section{Examples}
 \reed{section intro}
-\subsection{ERC-20}
+\subsection{ERC-20}\label{sec:erc20-impl}
 ERC-20 \reed{cite} is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
 We focus on one core function from ERC-20, the \lstinline{transfer} function.
@@ -343,7 +347,8 @@ Because \langName is designed to manage \assetTxt{}s, it has features to help de
     \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/erc721.sol}
-        \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.}
+        \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.
+            Note that helper function and modifier definitions have been unfolded, and some redundant checks removed for space reasons.}
         \label{fig:erc721-impl-sol}
     \end{subfigure}%
     \hfill
@@ -375,14 +380,14 @@ In this application, the use of $\unique$ ensures that each user, represented by
     \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
-        \caption{Solidity~\cite{solidityByExample}}
+        \caption{Solidity implementation of the core voting functions~\cite{solidityByExample}.}
         \label{fig:voting-impl-sol}
     \end{subfigure}%
     \hfill
     \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=flow]{splash20-examples/voting.flow}
-        \caption{\langName}
+        \caption{\langName implementation of the core voting functions.}
         \label{fig:voting-impl-flow}
     \end{subfigure}
     \caption{A voting contract with a set of proposals, for which each user must first be given persmission to vote by the chairperson, assigned in the constructor of the contract (not shown)>
@@ -425,11 +430,15 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 
 \section{Related Work}
 \reed{Obsidian, Scilla, Move, etc.?}
-\reed{TODO: The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability or uniqueness (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
+\reed{TODO: The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability, uniqueness, or consumability (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
 
-\section{Future Work}
+\section{Conclusion and Future Work}
 
-\section{Conclusion}
+\reed{Conclusion}
+
+In the future, we plan to fully implement the \langName language, including proofs of all of its safety properties.
+We also hope to perform additional studies on the benefits of the language including conducting longer case studies and comparing the efficiency of the resulting programs.
+We would also like to perform a user study to evaluate the usability of the flow abstraction and the design of the language itself, as well as comparing it to Solidity.
 
 %% The next two lines define the bibliography style to be used, and
 %% the bibliography file.
@@ -488,6 +497,7 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \end{figure*}
 
 \reed{Sets can only contain immuatble types?}
+\reed{Note that $\unique$ is \textbf{not} allowed if the type can contain a transformer.}
 
 \reed{We have public and private transactions...we could also have a public/private type?
 The difference being that public types can be transferred between contracts.}

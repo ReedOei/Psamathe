@@ -74,6 +74,8 @@
 % Body
 % ====================
 
+\newcommand{\term}[1]{\textbf{\emph{#1}}}
+
 \begin{document}
 
 \begin{frame}[t]
@@ -83,12 +85,13 @@
 \begin{column}{\colwidth}
 
   \begin{block}{Introduction}
-      Blockchains are becoming more commonly used as platforms for \emph{smart contracts}, programs that manage ``digital assets.''
-      One such digit asset is a \emph{token}, e.g., those defined by the ERC-20 or ERC-721 standards, which have many implementing smart contracts on the Ethereum blockchain.
+      Blockchains are becoming more commonly used as platforms for programs called \term{smart contracts}, which usually manage \term{digital assets}.
+      For example, there are smart contracts for managing lotteries, auctions, games, and the most common kind of digital asset on the Ethereum blockchain, a \term{token}.
+      Tokens typically are used as a kind of digital currency, the most common kind of tokens being defined by the ERC-20 or ERC-721 standards, which account for approximately 73\% of high-activity contracts~\cite{OlivaEtAl2019} as well as many other less-used contracts.
 
-      Hacks of smart contracts regularly occur, often causing the loss of large quantities of money, such as the DAO attack in 2016, causing the loss of over \$40 million dollars worth of ether.
+      Hacks of smart contracts regularly occur, often causing the loss of large quantities of money, such as the DAO attack in 2016, which led to the loss of over 40 million dollars worth of ether~\cite{DAO}.
 
-      \langName is a new programming language designed for writing smart contracts that provides features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, as well as a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
+      \textcolor{softRed}{\textbf{\langName}} is a new programming language we are designing for writing smart contracts that provides a way to mark values as \term{\assetTxt{}s}, with various \term{modifiers} to control their use, as well as a new abstraction, called a \term{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
   \end{block}
 
     \begin{alertblock}{Contributions}
@@ -108,21 +111,21 @@
     \begin{figure}[h]
         \centering
         \lstinputlisting[language=flow, xleftmargin=0.0ex]{../splash20-examples/erc20-transfer.flow}
-        \caption{A contract with a simple \lstinline{transfer} function in \langName, which transfers \lstinline{amount} tokens from the first to the second account.
-    It is implemented with a single flow, which all the preconditions to ensure the transfer is valid.}
+        \caption{A \langName contract implementing the ERC-20 function \lstinline{transfer}, which transfers \lstinline{amount} tokens from the sender's account to the destination account.
+            It is implemented with a single flow, which checks all the preconditions to ensure the transfer is valid.}
         \label{fig:erc20-transfer-flow}
     \end{figure}
     \begin{figure}[h]
         \centering
         \lstinputlisting[language=Solidity, xleftmargin=0.0ex]{../splash20-examples/erc20-transfer.sol}
-        \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity.
+        \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity, the most commonly used smart contract language on Ethereum.
             All preconditions are checked manually.
             Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
         \label{fig:erc20-transfer-sol}
     \end{figure}
-  \end{block}
 
-  \begin{block}{Fusce aliquam magna velit}
+      In this example, we see how flows can be used to clearly express the \textbf{intent} behind the \lstinline{transfer} function, which is obscured by the Solidity code.
+      Furthermore, using \langName will provide additional safety, e.g., by ensuring that no tokens are lost or duplicated; this is particularly helpful for more complicated transactions which include more flows or more complicated flows (e.g., transfer fees).
   \end{block}
 \end{column}
 
@@ -130,36 +133,43 @@
 
 \begin{column}{\colwidth}
     \begin{block}{Formalization}
-        \begin{mathpar}
-            \inferrule*{
-                \Gamma \proves A~\provides_\mathcal{Q}~\tau
-                \\
-                \Gamma \proves s~\selects_\mathcal{R}~\tau
-                \and
-                \validSelect(s, \mathcal{R}, \mathcal{Q})
-                \\
-                \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
-                \and
-                \Delta \proves B~\accepts~\tau
-            }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+        \begin{figure}
+            \centering
+            \begin{mathpar}
+                \inferrule*{
+                    \Gamma \proves A~\provides_\mathcal{Q}~\tau
+                    \\
+                    \Gamma \proves s~\selects_\mathcal{R}~\tau
+                    \\
+                    \validSelect(s, \mathcal{R}, \mathcal{Q})
+                    \\
+                    \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
+                    \\
+                    \Delta \proves B~\accepts~\tau
+                }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+            \end{mathpar}
+            \caption{The rule checking the well-formedness of a single flow.}
+            \label{fig:ok-flow-rule}
+        \end{figure}
 
-            \large\vdots
-            \and
-            \large\vdots
-        \end{mathpar}
-
-       We are also developing a formalization of \langName.
+        We are also developing a \term{formal semantics} for \langName, i.e., mathematical definitions and proofs of
+        \begin{itemize}
+            \item the precise behavior of a program when it is executed,
+            \item which programs are well-typed,
+            \item and the guarantees that being well-typed gives, such as no accidental asset loss.
+        \end{itemize}
   \end{block}
 
-  \begin{block}{Nullam vel erat at velit convallis laoreet}
+  \begin{block}{Conclusion and Future Work}
+      \langName is a new programming language for making smart contracts managing assets safer.
+      Flows can be used to encode transfers of assets in a safe, and concise, manner.
+      In the future, we hope to fully implement the \langName language and evaluate it via longer case studies and user studies.
   \end{block}
 
-  % \begin{block}{References}
-
-  %   \nocite{*}
-  %   \footnotesize{\bibliographystyle{plain}\bibliography{poster}}
-
-  % \end{block}
+  \begin{block}{References}
+    \nocite{*}
+    \scriptsize{\bibliographystyle{plain}\bibliography{poster}}
+  \end{block}
 
 \end{column}
 
