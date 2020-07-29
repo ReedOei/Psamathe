@@ -9,11 +9,11 @@
 
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[scale=1.5]{beamerposter}
-\setlength{\paperwidth}{36in} % A0 width: 46.8in
+\usepackage[scale=1.3]{beamerposter}
+\setlength{\paperwidth}{36in}
 \setlength{\textwidth}{34in}
-\setlength{\paperheight}{36in} % A0 height: 33.1in
-\setlength{\textwidth}{34in}
+\setlength{\paperheight}{24in}
+\setlength{\textwidth}{22in}
 \usetheme{gemini}
 \usecolortheme{iolia}
 \usepackage{graphicx}
@@ -48,9 +48,9 @@
 
 \title{\langName: A DSL for Safe Blockchain \AssetTxt{}s}
 
-\author{Reed Oei}
+\author{Reed Oei \inst{1}, Michael Coblenz \inst{2}, Jonathan Aldrich \inst{2}}
 
-\institute[shortinst]{University of Illinois}
+\institute[shortinst]{\inst{1} University of Illinois \samelineand \inst{2} Carnegie Mellon University}
 
 % ====================
 % Footer (optional)
@@ -67,8 +67,8 @@
 % ====================
 
 % use this to include logos on the left and/or right side of the header:
-% \logoright{\includegraphics[height=7cm]{logo1.pdf}}
-% \logoleft{\includegraphics[height=7cm]{logo2.pdf}}
+\logoleft{\includegraphics[height=4cm]{imark.png}}
+\logoright{\includegraphics[height=4cm]{isrcmu.jpeg}}
 
 % ====================
 % Body
@@ -83,16 +83,18 @@
 \begin{column}{\colwidth}
 
   \begin{block}{Introduction}
-      Blockchains are becoming more commonly used as platforms for \emph{smart contracts}, programs that manage ``digital assets.'' \reed{cite}
-      One such digit asset is a \emph{token}, such as those implementing the ERC-20 or ERC-721 standards, which both have many implementing smart contracts on the Ethereum blockchain \reed{cite}.
+      Blockchains are becoming more commonly used as platforms for \emph{smart contracts}, programs that manage ``digital assets.''
+      One such digit asset is a \emph{token}, e.g., those defined by the ERC-20 or ERC-721 standards, which have many implementing smart contracts on the Ethereum blockchain.
 
-      \langName is a new programming language designed for writing smart contracts, providing features to mark certain values as \emph{\assetTxt{}s} as well as a special construct called a \emph{flow}, an abstraction representing an atomic transfer operation, which is widely applicable to smart contracts managing a variety of digital \assetTxt{}s.
+      Hacks of smart contracts regularly occur, often causing the loss of large quantities of money, such as the DAO attack in 2016, causing the loss of over \$40 million dollars worth of ether.
+
+      \langName is a new programming language designed for writing smart contracts that provides features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, as well as a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
   \end{block}
 
     \begin{alertblock}{Contributions}
       \begin{itemize}
-          \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction.
-          \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
+          \item \textbf{Flow abstraction}: \langName uses the new flow abstraction to encode semantic information about the flow of \assetTxt{}s into the code.
+          \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, eliminating reuse, \assetTxt-loss, and duplication bugs through the flow abstraction.
           \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns and pitfalls.
       \end{itemize}
     \end{alertblock}
@@ -121,115 +123,43 @@
   \end{block}
 
   \begin{block}{Fusce aliquam magna velit}
-
-    Et rutrum ex euismod vel. Pellentesque ultricies, velit in fermentum
-    vestibulum, lectus nisi pretium nibh, sit amet aliquam lectus augue vel
-    velit. Suspendisse rhoncus massa porttitor augue feugiat molestie. Sed
-    molestie ut orci nec malesuada. Sed ultricies feugiat est fringilla
-    posuere.
-
-    \begin{figure}
-      \centering
-      \begin{tikzpicture}
-        \begin{axis}[
-            scale only axis,
-            no markers,
-            domain=0:2*pi,
-            samples=100,
-            axis lines=center,
-            axis line style={-},
-            ticks=none]
-          \addplot[red] {sin(deg(x))};
-          \addplot[blue] {cos(deg(x))};
-        \end{axis}
-      \end{tikzpicture}
-      \caption{Another figure caption.}
-    \end{figure}
-
   \end{block}
 \end{column}
 
 \separatorcolumn
 
 \begin{column}{\colwidth}
-   \begin{block}{Formalization}
-    \begin{mathpar}
-        \inferrule*{
-            \Gamma \proves A~\provides_\mathcal{Q}~\tau
-            \\
-            \Gamma \proves s~\selects_\mathcal{R}~\tau
+    \begin{block}{Formalization}
+        \begin{mathpar}
+            \inferrule*{
+                \Gamma \proves A~\provides_\mathcal{Q}~\tau
+                \\
+                \Gamma \proves s~\selects_\mathcal{R}~\tau
+                \and
+                \validSelect(s, \mathcal{R}, \mathcal{Q})
+                \\
+                \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
+                \and
+                \Delta \proves B~\accepts~\tau
+            }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+
+            \large\vdots
             \and
-            \validSelect(s, \mathcal{R}, \mathcal{Q})
-            \\
-            \Delta = \update(\Gamma, A, \Gamma(A) \ominus \mathcal{R})
-            \and
-            \Delta \proves B~\accepts~\tau
-        }{ \Gamma \flowproves (A \sends{s} B)~\ok \flowprovesout \update(\Delta, B, \Delta(B) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+            \large\vdots
+        \end{mathpar}
 
-        \large\vdots
-        \and
-        \large\vdots
-    \end{mathpar}
-
-    \heading{A heading inside a block}
-
-    Praesent consectetur mi $x^2 + y^2$ metus, nec vestibulum justo viverra
-    nec. Proin eget nulla pretium, egestas magna aliquam, mollis neque. Vivamus
-    dictum $\mathbf{u}^\intercal\mathbf{v}$ sagittis odio, vel porta erat
-    congue sed. Maecenas ut dolor quis arcu auctor porttitor.
-
-    \heading{Another heading inside a block}
-
-    Sed augue erat, scelerisque a purus ultricies, placerat porttitor neque.
-    Donec $P(y \mid x)$ fermentum consectetur $\nabla_x P(y \mid x)$ sapien
-    sagittis egestas. Duis eget leo euismod nunc viverra imperdiet nec id
-    justo.
-
+       We are also developing a formalization of \langName.
   \end{block}
 
   \begin{block}{Nullam vel erat at velit convallis laoreet}
-
-    Class aptent taciti sociosqu ad litora torquent per conubia nostra, per
-    inceptos himenaeos. Phasellus libero enim, gravida sed erat sit amet,
-    scelerisque congue diam. Fusce dapibus dui ut augue pulvinar iaculis.
-
-    \begin{table}
-      \centering
-      \begin{tabular}{l r r c}
-        \toprule
-        \textbf{First column} & \textbf{Second column} & \textbf{Third column} & \textbf{Fourth} \\
-        \midrule
-        Foo & 13.37 & 384,394 & $\alpha$ \\
-        Bar & 2.17 & 1,392 & $\beta$ \\
-        Baz & 3.14 & 83,742 & $\delta$ \\
-        Qux & 7.59 & 974 & $\gamma$ \\
-        \bottomrule
-      \end{tabular}
-      \caption{A table caption.}
-    \end{table}
-
-    Donec quis posuere ligula. Nunc feugiat elit a mi malesuada consequat. Sed
-    imperdiet augue ac nibh aliquet tristique. Aenean eu tortor vulputate,
-    eleifend lorem in, dictum urna. Proin auctor ante in augue tincidunt
-    tempor. Proin pellentesque vulputate odio, ac gravida nulla posuere
-    efficitur. Aenean at velit vel dolor blandit molestie. Mauris laoreet
-    commodo quam, non luctus nibh ullamcorper in. Class aptent taciti sociosqu
-    ad litora torquent per conubia nostra, per inceptos himenaeos.
-
-    Nulla varius finibus volutpat. Mauris molestie lorem tincidunt, iaculis
-    libero at, gravida ante. Phasellus at felis eu neque suscipit suscipit.
-    Integer ullamcorper, dui nec pretium ornare, urna dolor consequat libero,
-    in feugiat elit lorem euismod lacus. Pellentesque sit amet dolor mollis,
-    auctor urna non, tempus sem.
-
   \end{block}
 
-  \begin{block}{References}
+  % \begin{block}{References}
 
-    \nocite{*}
-    \footnotesize{\bibliographystyle{plain}\bibliography{poster}}
+  %   \nocite{*}
+  %   \footnotesize{\bibliographystyle{plain}\bibliography{poster}}
 
-  \end{block}
+  % \end{block}
 
 \end{column}
 
