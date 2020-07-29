@@ -140,7 +140,7 @@ Some estimates suggest that as much as 46\% of smart contracts may be vulnerable
 
 \langName is a new programming language that we are designing, which is designed around a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
 It will also provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make certain classes of bugs impossible.
-Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain \reed{cite}, being a general purpose language, does not provide analgous support for managing \assetTxt{}s.
+Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain \reed{cite}, being a general purpose language, does not provide analogous support for managing \assetTxt{}s.
 
 \paragraph{Contributions}
 
@@ -170,7 +170,7 @@ We make the following contributions with \langName.
 \section{Language}\label{sec:lang}
 A \langName program is made of \emph{contracts}, each containing \emph{declarations}, such as \emph{fields}, \emph{types}, and \emph{functions}.
 A contract is the high-level grouping of functionality, just as in Solidity; each contract instance in \langName represents a contract on the blockchain.
-Fields function as the peristent storage of the contract, whose data is kept on the blockchain.
+Fields function as the persistent storage of the contract, whose data is kept on the blockchain.
 Type declarations are the primary way to use the type system of \langName, providing a way of annotating values as \assetTxt{}s (as well as other modifiers, discussed in Section~\ref{sec:lang-modifiers}).
 We distinguish between three types of function: \emph{transactions}, \emph{views}, and \emph{transformers}.
 Transactions and views are both kinds of \emph{method}, which may access the fields of a contract; a transaction can read \textbf{and} write fields, whereas a view may only read fields.
@@ -256,6 +256,19 @@ Using a \emph{flow-based} approach provides the following advantages over the ty
         Flows enable the generation of the messages by encoding the semantic information of a transfer into the program, instead of using low-level operations like increment and decrement or insert and delete.
 \end{itemize}
 
+\subsection{Type Quantities}
+When a \langName program is type checked, each variable has an associated \emph{type quantity} at every point in the program, which provides an approximation of the number of values the variable holds.
+The list of allowed type quantities is: $\emptyq, \any, \exactlyone, \nonempty, \every$ (note ``$\exactlyone$'' means ``exactly one'').
+Only $\emptyq$ \assetTxt variables may be dropped, ensuring that unused \assetTxt{}s not dropped.
+Type quantities are \textbf{not} required in the surface language, and they will be added automatically; for example, \flowinline{var toks : set Token := \{\}} is inferred to be an \flowinline{empty set Token}, whereas \flowinline{var C : Bank := new Bank()} is inferred to be \flowinline{! Bank}.
+
+Type quantities are primarily updated by flows.
+For example, after checking the flow \flowinline{a --[ everything ]-> b}, we now know that \flowinline{a} is empty, and depending on the type quantity that \flowinline{a} used to have, we may now know that \flowinline{b} is also empty (if \flowinline{a} was empty), nonempty, or any other type quantity (other than $\every$).
+Type quantities can also be updated by expressions, which can move values to other variables.
+For example, after checking \flowinline{var x : (Token, Token) := (a, b)}, creating a new pair, both \flowinline{a} and \flowinline{b} are $\emptyq$, as the assets they used to hold are now in \flowinline{x}.
+\reed{Need to think more in depth about the differences between this and linear types.
+I personally find it more intuitive.}
+
 \subsection{Modifiers}\label{sec:lang-modifiers}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
@@ -317,7 +330,7 @@ This leads to ad-hoc workarounds, like those shown in Sections~\ref{sec:erc721-i
 
 Before version 0.6.0, for the first four years since its release five years ago, Solidity did not have a try-catch construct~\cite{SolidityTryCatch}.
 The newly-added try-catch construct behaves similarly to that of \langName, as both will revert the changes made when an exception occurs.
-However, Solidity's try-catch is structed in an atypical way, only allowing catching errors from a single expression, which must be an external call or a contract creation call.
+However, Solidity's try-catch is structured in an atypical way, only allowing catching errors from a single expression, which must be an external call or a contract creation call.
 
 \section{Examples}
 In this section, we show several example smart contracts, with a Solidity version and a \langName version, and discuss the benefits of each version.
@@ -409,7 +422,7 @@ In this example, the declaration of the \lstinline{weight} and \lstinline{voted}
         \caption{\langName implementation of the core voting functions.}
         \label{fig:voting-impl-flow}
     \end{subfigure}
-    \caption{A voting contract with a set of proposals, for which each user must first be given persmission to vote by the chairperson, assigned in the constructor of the contract (not shown).
+    \caption{A voting contract with a set of proposals, for which each user must first be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
     Each user can vote exactly once for exactly one proposal.
     The proposal with the most votes wins.}
     \label{fig:voting-impl}
@@ -522,7 +535,7 @@ We would also like to perform a user study to evaluate the usability of the flow
 \label{fig:lang-syntax}
 \end{figure*}
 
-\reed{Sets can only contain immuatble types?}
+\reed{Sets can only contain immutable types?}
 \reed{Note that $\unique$ is \textbf{not} allowed if the type can contain a transformer.}
 
 \reed{We have public and private transactions...we could also have a public/private type?
@@ -762,7 +775,7 @@ In \textsc{Let-Expr}, we must ensure that the newly bound variable is either con
 \end{align*}
 
 \framebox{$\Gamma \proves \mathcal{L} : \tau$} \textbf{Non-consuming location typing}
-This judgement is exclusively used for checking the types of the storages in a flow.
+This judgment is exclusively used for checking the types of the storages in a flow.
 It is safe to use because the flow rule handles updating the storages after the flow.
 \reed{Would be nice to combine the linking and map rules, and especially nice to avoid special casing them altogether.
 Could be done with a ``$\textbf{\texttt{keytype}}(T)$'' function.
