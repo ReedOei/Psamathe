@@ -11,12 +11,11 @@ contract NFToken {
     tokId in balances[msg.sender] or
     tokId in approval[msg.sender] or
     msg.sender in ownerToOperators[balances.ownerOf(tokId)]
-
-  transaction transferFrom(_from : address, _to : address, tokId : uint256):
+  transaction transferFrom(src : address, dst : address, tokId : uint256):
     only when _to != 0x0 and canTransfer(tokId)
     if approval.hasOwner(tokId) {
       approval[approval.ownerOf(tokId)] --[ tokId ]-> consume
     }
-    balances[_from] --[ tokId ]-> balances[_to]
+    balances[src] --[ tokId ]-> balances[dst]
 }
 

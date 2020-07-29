@@ -127,16 +127,18 @@
 \section{Introduction}
 
 Blockchains are becoming more commonly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
-Commonly proposed and implemented applications for the blockchain often revolve around the management of \emph{digital assets}. \reed{cite}
-One of the most forms of these are a variety of smart contracts that managed assets called \emph{tokens}.
+Commonly proposed and implemented applications for the blockchain often revolve around the management of \emph{digital assets}.
+One of the most common forms of these are a variety of smart contracts that managed assets called \emph{tokens}---about 73\% of high-activity contracts, the 0.05\% of contracts that handle 80\% of all transactions, are token contracts~\cite{OlivaEtAl2019}, in addition to many more less-active token contracts.
 There are many token standards, especially on the Ethereum blockchain~\cite{wood2014ethereum}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20}~\cite{erc721}~\cite{erc777}~\cite{erc1155}, with others in various stages of the standardization process.
 Other applications or proposed applications for smart contracts include voting, supply chain management, auctions, lotteries, and other applications which require careful management of their respective assets \reed{cite/find examples}.
 
 However, smart contracts must be carefully reviewed before being deployed, as they cannot be patched if a security vulnerability is discovered.
 Despite this extra care, discoveries of vulnerabilities still occur regularly, often costing large amounts of money.
-\reed{Some examples}
+The well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars, and was due to a reentrancy issue.
+The DAO attack is discussed in more depth in Section~\ref{sec:ex-dao-attack}.
+Some estimates suggest that as much as 46\% of smart contracts may be vulnerable~\cite{luuOyente}.
 
-\langName provides features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, as well as a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
+\langName is a new programming language that we are designing, which will provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, as well as a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
 These features combine in a novel way to prevent common issues in smart contracts.
 Solidity \reed{cite} and Vyper \reed{cite}, the most common languages used to write smart contracts on the Ethereum blockchain \reed{cite}, being general purpose languages, do not provide analgous support for managing \assetTxt{}s.
 
@@ -145,7 +147,7 @@ Solidity \reed{cite} and Vyper \reed{cite}, the most common languages used to wr
 We make the following contributions with \langName.
 \begin{itemize}
     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
-    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed; eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction and a flow-sensitive type system.
+    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed; eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction and a type system tracking \emph{type quantities}.
     \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns and pitfalls automatically.
 \end{itemize}
 
@@ -240,7 +242,7 @@ The source of a flow \emph{provides} values, the destination of the flow \emph{a
 Selectors act like filters from functional programming, or like the \lstinline{WHERE} clause of a \lstinline{SELECT} in a SQL database.
 Using a transformer in a flow is like mapping a function over the collection of values being flowed.
 
-Using flows provides the following advantages over the typical approach \reed{come up with a clearer name for this}:
+Using flows provides the following advantages over the typical approach of performing a transfer in two or more operations (e.g., increment, then decrement):
 \begin{itemize}
     \item \textbf{Precondition checking}: For a flow to succeed, the source must have enough \assetTxt{}s and the destination must be capable of receiving the \assetTxt{}s flowed.
         For example, a flow of money would fail if there is not enough in the source, or if there is too much in the destination; the latter may occur because of overflow.
@@ -259,7 +261,7 @@ Using flows provides the following advantages over the typical approach \reed{co
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
 A \flowinline{fungible} value represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
 A \flowinline{unique} value can only exist in at most one storage; it must be \flowinline{immutable}.
-A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow, the only state-changing construct in \langName \reed{this is the goal, anyway, which I think is true, but need to verify}.
+A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow, the only state-changing construct in \langName.
 A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes appropriate to dispose of; however, this disposal must be done via the \flowinline{consume} construct, a way of documenting that the disposal is intentional.
 All of these constraints, except for uniqueness, are enforced statically.
 
@@ -267,30 +269,34 @@ For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are b
 By default, neither is \flowinline{consumable}, but one of the common extensions of both standards is to add a \flowinline{burn} function, which allows tokens to be destroyed by users with the appropriate authentication.
 In this case, it would be appropriate to add the \flowinline{consumable} modifier.
 
-\langName also supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values, with special operations to support modeling of an \emph{account} holding a collection of \assetTxt{}s.
-A \flowinline{linking K <=> C V} can be thought of as a \flowinline{map K => C V} with extra operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
-Specifically, a linking implements the following interface for any collection type \flowinline{C}.
-Note that the specific syntax is not allowed in an interface declaration, but is used because it is syntax used in the language to write the linking type.
-\reed{Either need to finish up the interface proposal, or write this in another way}
-\begin{lstlisting}[language=flow]
-interface linking K <=> C V where C is collection {
-    empty : linking K <=> C V
-    get : (linking K <=> C V) ~> K ~> C V
-    put : (linking K <=> C V) ~> K ~> V ~> linking K <=> C V
-    hasOwner : (linking K <=> C V) ~> V ~> bool
-    ownerOf : (linking K <=> C V) ~> V ~> K
-}
-\end{lstlisting}
-Note that some operations may result in errors. %, which we represent via $\flowError$ below.
+\langName also supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values to support modeling of an \emph{account} holding a collection of \assetTxt{}s.
+A \flowinline{linking K <=> C V} is a \flowinline{map K => C V} with additional operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
+The additional operations supported are \flowinline{L.hasOwner(v)} and \flowinline{L.ownerOf(v)}, where \flowinline{L : linking K <=> C V} and \flowinline{v : V}.
+\flowinline{L.hasOwner(v)} returns true if and only if there is some \flowinline{k : K} such that \flowinline{v in L[k]} is true.
+\flowinline{L.ownerOf(v)} returns some \flowinline{k : K} such that \flowinline{v in L[k]}, if it exists.
+If it does not, it throws an error.
+\reed{Alternate implementation could be to return an \flowinline{option}.}
+\reed{I have some ideas about adding interfaces to the language, which I would love to do but it would complicate things.}
+% Specifically, a linking implements the following interface for any collection type \flowinline{C}.
+% Note that the specific syntax is not allowed in an interface declaration, but is used because it is syntax used in the language to write the linking type.
+% \reed{Either need to finish up the interface proposal, or write this in another way}
+% \begin{lstlisting}[language=flow]
+% interface linking K <=> C V where C is collection {
+%     empty : linking K <=> C V
+%     get : (linking K <=> C V) ~> K ~> C V
+%     put : (linking K <=> C V) ~> K ~> V ~> linking K <=> C V
+%     hasOwner : (linking K <=> C V) ~> V ~> bool
+%     ownerOf : (linking K <=> C V) ~> V ~> K
+% }
+% \end{lstlisting}
+% Note that some operations may result in errors. %, which we represent via $\flowError$ below.
 % It also satisfies the following laws; note that \flowinline{k : K}, \flowinline{v : V}, and \flowinline{L : linking K <=> C V}, and all variables are universally quantified.
 % \begin{lstlisting}[language=flow]
 % if v not in get(L, k) { (v in get(put(L, k, v), k)) = true } else { put(L, k, v) = $\flowError$ }
 % get(empty, k) = $\flowError$
 % \end{lstlisting}
 See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
-Note that, though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value which has a \flowinline{unique} type is a \textbf{well-defined} operation.
-
-\reed{Discuss transformers}
+Note that, though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value when the owner type is \flowinline{unique} is a \textbf{well-defined} operation.
 
 \subsection{Error Handling}
 Computation on blockchains like the Ethereum blockchain is grouped into units called \emph{transactions}.
@@ -301,8 +307,7 @@ If a sequence of flows fails, it ``bubbles up'', like an exception, until it eit
 \subsection{Comparison with Solidity}
 Contracts in \langName map directly to contracts in Solidity.
 Transactions, views, and transformers all map to the concept of \lstinline{function} in Solidity: a transaction is a function that is public by default, a view is a function with the \lstinline{view} modifier, and a transformer is a function with the \lstinline{pure} modifier.
-\reed{Explain how things map a little bit more. Also, this explanation basically is mostly useful if you already know Solidity.
-Probably should put more effort into explanation for people who don't know Solidity (at least, if we submit to a non-blockchain venue).}
+\reed{Probably should put more effort into explanation for people who don't know Solidity (at least, if we submit to a non-blockchain venue).}
 
 Before version 0.6.0, Solidity did not have a try-catch construct.
 The resulting try-catch construct added behaves similarly to that of \langName, as both will revert the changes made when an exception occurs.
@@ -310,6 +315,11 @@ However, Solidity's try-catch is structed in an atypical way, only allowing catc
 \reed{cite}
 
 \section{Examples}
+In this section, we show several example smart contracts, with a Solidity version and a \langName version, and discuss the benefits of each version.
+In each example, we only show the fragment of the code that is necessary for space reasons, but both the fully Solidity and \langName implementations can be found in our repository.
+\reed{Do this}
+\reed{Put online or in an appendix?}
+
 \reed{section intro}
 \subsection{ERC-20}\label{sec:erc20-impl}
 ERC-20 \reed{cite} is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
@@ -348,7 +358,7 @@ Because \langName is designed to manage \assetTxt{}s, it has features to help de
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/erc721.sol}
         \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.
-            Note that helper function and modifier definitions have been unfolded, and some redundant checks removed for space reasons.}
+            Note that some helper functions and modifiers have been unfolded, and some redundant checks have been removed for space reasons.}
         \label{fig:erc721-impl-sol}
     \end{subfigure}%
     \hfill
@@ -358,7 +368,8 @@ Because \langName is designed to manage \assetTxt{}s, it has features to help de
         \caption{\langName implementation of ERC-721's \lstinline{transferFrom}.}
         \label{fig:erc721-impl-flow}
     \end{subfigure}
-    % \caption{A Solidity and a \langName implementation of the \lstinline{transferFrom} function of the ERC-721 standard.}
+    \caption{Implementation of ERC-721's \lstinline{transferFrom} function, which sends a specific token from the \lstinline{src} account to the \lstinline{dst} account.
+        It also must clear the approval of the token, if any.}
     \label{fig:erc721-impl}
 \end{figure*}
 
@@ -396,8 +407,8 @@ In this application, the use of $\unique$ ensures that each user, represented by
     \label{fig:voting-impl}
 \end{figure*}
 
-\subsection{The DAO attack}
-One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth about \$50 million dollars at the time, to be stolen \reed{cite, verifying dollar amount}.
+\subsection{The DAO attack}\label{sec:ex-dao-attack}
+One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth over 40 million dollars at the time, to be stolen~\cite{OlivaEtAl2019}.
 The bug was caused by a reentrancy-unsafe function in the contract, illustrated below.
 
 The Solidity function shown below allows a user to withdraw their balance of ether whenever they wish.
@@ -424,7 +435,7 @@ transaction withdrawBalance():
     userBalances[msg.sender] --> msg.sender.balance
 \end{lstlisting}
 Because of the additional information encoded in the flow construct, the compiler can output the safe version of the above code---reducing the balance before performing the external call---without any developer intervention.
-Additionally, \langName forbids any reentrant call from an external source, a similar approach to the Obsidian language \reed{cite}, which would also prevent more complicated reentrancy attacks.
+Additionally, \langName forbids any reentrant call from an external source, a similar approach to the Obsidian language~\cite{coblenz2019obsidian}, which would also prevent more complicated reentrancy attacks.
 
 \section{Discussion}
 
