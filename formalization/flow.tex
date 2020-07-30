@@ -126,11 +126,11 @@
 
 \section{Introduction}
 
-Blockchains are becoming more commonly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
-Commonly proposed and implemented applications for the blockchain often revolve around the management of \emph{digital assets}.
-One of the most common forms of these are a variety of smart contracts that managed assets called \emph{tokens}---about 73\% of high-activity contracts
+Blockchains are increasingly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
+Commonly proposed and implemented applications for the blockchain often revolve around managing \emph{digital assets}.
+One common application is a \emph{token}---about 73\% of high-activity contracts
 %, the 0.05\% of contracts that handle 80\% of all transactions,
-are token contracts~\cite{OlivaEtAl2019}, in addition to many more less-active token contracts.
+are token contracts~\cite{OlivaEtAl2019}. % in addition to many more less-active token contracts.
 There are many token standards, especially on the Ethereum blockchain~\cite{wood2014ethereum}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20}~\cite{erc721}~\cite{erc777}~\cite{erc1155}, with others in various stages of the standardization process.
 Other applications or proposed applications for smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
 
@@ -151,7 +151,7 @@ We make the following contributions with \langName.
 \begin{itemize}
     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
     \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed; eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction and a type system tracking \emph{type quantities}.
-    \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns and pitfalls automatically.
+    \item \textbf{Conciseness}: \langName makes writing typical smart contracts more concise by handling common patterns and pitfalls automatically.
 \end{itemize}
 
 % \reed{Potential benefits of the language to discuss.
@@ -176,14 +176,14 @@ A contract is the high-level grouping of functionality, just as in Solidity; eac
 Fields function as the persistent storage of the contract, whose data is kept on the blockchain.
 Type declarations are the primary way to use the type system of \langName, providing a way of annotating values as \assetTxt{}s (as well as other modifiers, discussed in Section~\ref{sec:lang-modifiers}).
 We distinguish between three types of function: \emph{transactions}, \emph{views}, and \emph{transformers}.
-Transactions and views are both kinds of \emph{method}, which may access the fields of a contract; a transaction can read \textbf{and} write fields, whereas a view may only read fields.
-A transformer is a \textbf{pure} function: it may contain flows and other statements, but it cannot mutate the state of any contract.
+Transactions and views are both \emph{methods}, which may access the fields of a contract; a transaction can read \textbf{and} write fields, whereas a view may only read fields.
+A transformer is a \textbf{pure} function, which is not part of any contract: it may contain flows and other statements, and it may mutate \textbf{local} state, but it cannot mutate the state of any contract.
 
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:erc20-impl} for more details on ERC-20).
 \begin{figure}[h]
     \centering
     \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
-    \caption{A contract with a simple \lstinline{transfer} function in \langName, which transfers \lstinline{amount} tokens from the first to the second account.
+    \caption{A contract with a simple \lstinline{transfer} function in \langName, which transfers \lstinline{amount} tokens from the sender's account to the destination account.
 It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
     \label{fig:erc20-transfer-flow}
 \end{figure}
