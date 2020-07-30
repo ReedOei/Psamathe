@@ -1,6 +1,6 @@
 contract Main {
-    x : ! nat
-    view get() returns ! nat := this.x
+    x : any nat
+    view get() returns any nat := this.x
 }
 ;
 

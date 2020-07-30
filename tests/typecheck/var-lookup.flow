@@ -1,6 +1,6 @@
 contract Main {}
 ;
 
-var x : ! nat := 0
-var y : ! nat := x
+var x : any nat := 0
+var y : any nat := x
 

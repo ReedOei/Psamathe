@@ -70,7 +70,7 @@ module FLOW-TYPECHECK
 
     rule functionOk(C, view(RetType, Args, Body))
          =>
-         setEnv((this |-> (! C)) makeEnv(varDefsToSet(Args)) makeFieldEnv(fieldsOf(C))) ~>
+         setEnv((this |-> (! C)) makeEnv(varDefsToSet(Args)) fieldsOf(C)) ~>
          assertEnv(?Gamma) ~> Body : RetType ~> assertEnv(?Gamma) ~>
          setEnv(.Map)
 
@@ -93,32 +93,44 @@ module FLOW-TYPECHECK
     // =======================================
     // Boolean Expressions
     // =======================================
-    rule (E1 = E2) : ! bool
-         =>
-         assertEnv(?Gamma) ~>
-         E1 : ?Tau ~> assertEnv(?Gamma) ~>
-         E2 : ?Tau ~> assertEnv(?Gamma)
+
+    // Note that none of these expressions are allowed to consume values because if they did,
+    //  they would lead to asset loss: the values they consume aren't stored anywhere.
+    rule <k> (E1 = E2) : ! bool
+             =>
+             E1 : ?Tau ~> assertEnv(Gamma) ~>
+             E2 : ?Tau ~> assertEnv(Gamma)
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
     rule (S in X) : ! bool
          =>
          X provides {?_} ?Tau ~>
          S selects {?_} demote(?Tau)
 
-    rule (A and B) : ! bool
-         =>
-         assertEnv(?Gamma) ~>
-         A : ! bool ~> assertEnv(?Gamma) ~>
-         B : ! bool ~> assertEnv(?Gamma)
+    rule <k> (A and B) : ! bool
+             =>
+             A : ! bool ~> assertEnv(Gamma) ~>
+             B : ! bool ~> assertEnv(Gamma)
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
-    rule (A or B) : ! bool
-         =>
-         assertEnv(?Gamma) ~>
-         A : ! bool ~> assertEnv(?Gamma) ~>
-         B : ! bool ~> assertEnv(?Gamma)
+    rule <k> (A or B) : ! bool
+             =>
+             A : ! bool ~> assertEnv(Gamma) ~>
+             B : ! bool ~> assertEnv(Gamma)
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
-    rule (not A) : ! bool
-         =>
-         assertEnv(?Gamma) ~> A : ! bool ~> assertEnv(?Gamma)
+    rule <k> (not A) : ! bool
+             =>
+             A : ! bool ~> assertEnv(Gamma)
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
     // =======================================
     // Let Expr
@@ -251,7 +263,7 @@ module FLOW-TYPECHECK
     rule Q [= R => Q [ R orBool Q ==K R
     rule Q:TypeQuant TQ <=Ty R:TypeQuant TR => (TQ ==K TR) andBool (Q [= R)
     rule .Map <=Env _ => true
-    rule ((X |-> T) As) <=Env B => (typeof(B, X) <=Ty T) andBool As <=Env B
+    rule ((X |-> T) As) <=Env B => (T <=Ty typeof(B, X)) andBool As <=Env B
 
     syntax TypeQuant ::= join(TypeQuant, TypeQuant) [function, functional]
     rule join(Q:TypeQuant, Q) => Q
@@ -275,11 +287,15 @@ module FLOW-TYPECHECK
     // =======================================
     // Primitive types
     // =======================================
-    rule I:Int : ! nat => .
+    /* rule 0 : empty nat => . */
+    /* rule 1 : ! nat => . */
+    /* rule I:Int : nonempty nat => . */
+    /*     requires I >Int 1 */
+    rule I:Int : any nat => .
         requires I >=Int 0
 
     rule I:Int : T => typeError(I : T)
-        requires T =/=K (! nat) orBool I <Int 0
+        requires (_:TypeQuant nat) :/=K T orBool I <Int 0
 
     rule _:Bool : ! bool => .
     rule B:Bool : T => typeError(B : T)
@@ -296,10 +312,13 @@ module FLOW-TYPECHECK
     // =======================================
     // Transformer Types
     // =======================================
-    rule (\ X : T . E) : ! (T ~~> S)
-         =>
-         assertEnv(?Gamma) ~> insert(X, T) ~>
-         E : S ~> drop(X) ~> assertEnv(?Gamma)
+    rule <k> (\ X : T . E) : ! (T ~~> S)
+             =>
+             insert(X, T) ~> E : S ~> drop(X) ~>
+             assertEnv(Gamma)
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
     // =======================================
     // Variable definition
@@ -357,12 +376,20 @@ module FLOW-TYPECHECK
     // =======================================
     rule everything selects {every} _ => .
 
-    rule E:Expr selects {Q} T => assertEnv(?Gamma) ~> E : Q ?T2 ~> assertEnv(?Gamma) ~> typeEq(elemtype(?T2), T)
+    rule <k> E:Expr selects {Q} T
+             =>
+             E : Q ?T2 ~> assertEnv(Gamma) ~> typeEq(elemtype(?T2), T)
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
-    rule (Q X : T such that E) selects {Q} T =>
-        assertEnv(?Gamma) ~>
-        insert(X, T) ~> E : ! bool ~> drop(X) ~>
-        assertEnv(?Gamma)
+    rule <k> (Q X : T such that E) selects {Q} T
+             =>
+             insert(X, T) ~> E : ! bool ~> drop(X) ~>
+             assertEnv(Gamma)
+             ...
+         </k>
+         <typeEnv> Gamma </typeEnv>
 
     // =======================================
     // Flow typing
@@ -388,44 +415,53 @@ module FLOW-TYPECHECK
     // =======================================
     // If Statement, Expr
     // =======================================
-    rule if E { S1:Stmt } else { S2:Stmt }
-         =>
-         assertEnv(?Gamma) ~>
-         E : ! bool ~> assertEnv(?Gamma) ~>
-         S1 ~> assertEnv(?Delta) ~>
-         setEnv(?Gamma) ~>
-         S2 ~> assertEnv(?Xi) ~>
-         setEnv(join(?Delta, ?Xi))
+    rule <k> if E { S1:Stmt } else { S2:Stmt }
+             =>
+             E : ! bool ~> assertEnv(Gamma) ~>
+             S1 ~> assertEnv(?Delta) ~>
+             setEnv(Gamma) ~>
+             S2 ~> assertEnv(?Xi) ~>
+             setEnv(join(?Delta, ?Xi))
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
-    rule (if E { E1 } else { E2 }) : Tau
-         =>
-         assertEnv(?Gamma) ~>
-         E : ! bool ~> assertEnv(?Gamma) ~>
-         E1 : Tau ~> assertEnv(?Delta) ~>
-         setEnv(?Gamma) ~>
-         E2 : Tau ~> assertEnv(?Xi) ~>
-         setEnv(join(?Delta, ?Xi))
+    rule <k> (if E { E1 } else { E2 }) : Tau
+             =>
+             E : ! bool ~> assertEnv(Gamma) ~>
+             E1 : Tau ~> assertEnv(?Delta) ~>
+             setEnv(Gamma) ~>
+             E2 : Tau ~> assertEnv(?Xi) ~>
+             setEnv(join(?Delta, ?Xi))
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
     // =======================================
     // Try-Catch
     // =======================================
-    rule try { S1 } catch (X : T) { S2 }
-         =>
-         assertEnv(?Gamma) ~>
-         S1 ~> assertEnv(?Delta) ~>
-         setEnv(?Gamma) ~>
-         insert(X, T) ~> S2 ~> drop(X) ~> assertEnv(?Xi) ~>
-         setEnv(join(?Delta, ?Xi))
+    rule <k> try { S1 } catch (X : T) { S2 }
+             =>
+             S1 ~> assertEnv(?Delta) ~>
+             setEnv(Gamma) ~>
+             insert(X, T) ~> S2 ~> drop(X) ~> assertEnv(?Xi) ~>
+             setEnv(join(?Delta, ?Xi))
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
 
     // =======================================
     // Revert
     // =======================================
-    rule revert(E)
-         =>
-         assertEnv(?Gamma) ~>
-         E : ?Tau ~>
-         checkThat(notBool(isAsset(?Tau))) ~>
-         assertEnv(?Gamma)
+    rule <k> revert(E)
+             =>
+             E : ?Tau ~>
+             checkThat(notBool(isAsset(?Tau))) ~>
+             assertEnv(Gamma)
+             ...
+         </k>
+        <typeEnv> Gamma </typeEnv>
+
 
     // =======================================
     // Expression statement
@@ -534,7 +570,7 @@ module FLOW-TYPECHECK
     rule makeFieldEnv((X |-> T) Rest) => (this.X |-> T) makeFieldEnv(Rest)
 
     syntax Map ::= fieldsOf(Var) [function, functional]
-    rule [[ fieldsOf(C) => Fields ]]
+    rule [[ fieldsOf(C) => makeFieldEnv(Fields) ]]
         <fields> ... C |-> fields(Fields) ... </fields>
 
     syntax Set ::= varDefsToSet(VarDefs) [function, functional]

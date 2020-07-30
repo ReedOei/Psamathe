@@ -1,8 +1,8 @@
 contract Main {};
 
-var x : ! nat := 10
-var s : ! nat := 5
-var dest : ! nat := 0
+var x : any nat := 10
+var s : any nat := 5
+var dest : any nat := 0
 
 x --[ s ]-> dest
 

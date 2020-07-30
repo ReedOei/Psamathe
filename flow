@@ -25,6 +25,8 @@ if [[ "$1" == "typecheck" ]]; then
         FLAGS+=("--search")
         FLAGS+=("--pattern")
         FLAGS+=("<k> . </k>")
+        FLAGS+=("--bound")
+        FLAGS+=("1")
     fi
 elif [[ "$1" == "compile" ]]; then
     shift
