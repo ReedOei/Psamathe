@@ -128,11 +128,14 @@
 
 Blockchains are becoming more commonly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
 Commonly proposed and implemented applications for the blockchain often revolve around the management of \emph{digital assets}.
-One of the most common forms of these are a variety of smart contracts that managed assets called \emph{tokens}---about 73\% of high-activity contracts, the 0.05\% of contracts that handle 80\% of all transactions, are token contracts~\cite{OlivaEtAl2019}, in addition to many more less-active token contracts.
+One of the most common forms of these are a variety of smart contracts that managed assets called \emph{tokens}---about 73\% of high-activity contracts
+%, the 0.05\% of contracts that handle 80\% of all transactions,
+are token contracts~\cite{OlivaEtAl2019}, in addition to many more less-active token contracts.
 There are many token standards, especially on the Ethereum blockchain~\cite{wood2014ethereum}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20}~\cite{erc721}~\cite{erc777}~\cite{erc1155}, with others in various stages of the standardization process.
 Other applications or proposed applications for smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
 
-However, smart contracts must be carefully reviewed before being deployed, as they cannot be patched if a security vulnerability is discovered.
+Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
+Therefore, developers must carefully review contracts before deployment, and some use an independent auditing service to help with this process.
 Despite this extra care, discoveries of vulnerabilities still occur regularly, often costing large amounts of money.
 The well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars, and was due to a reentrancy issue.
 The DAO attack is discussed in more depth in Section~\ref{sec:ex-dao-attack}.
