@@ -131,7 +131,7 @@ Commonly proposed and implemented applications for the blockchain often revolve 
 One common application is a \emph{token}---about 73\% of high-activity contracts
 %, the 0.05\% of contracts that handle 80\% of all transactions,
 are token contracts~\cite{OlivaEtAl2019}. % in addition to many more less-active token contracts.
-There are many token standards, especially on the Ethereum blockchain~\cite{wood2014ethereum}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20}~\cite{erc721}~\cite{erc777}~\cite{erc1155}, with others in various stages of the standardization process.
+There are many token standards, especially on the Ethereum blockchain~\cite{wood2014ethereum}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20,erc721,erc777,erc155}, with others in various stages of the standardization process.
 Other applications or proposed applications for smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
 
 Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
@@ -244,7 +244,7 @@ Each flow has a \emph{source} and a \emph{destination}; they may optionally have
 The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
 The source and destination of a flow are \emph{storages}, which are either variables or one of the special storages $\newc~t$ or $\consume$.
 A selector is a function that takes as input the current value of the storage, and outputs the value(s) to select.
-Selectors act like filters from functional programming, or like a \lstinline{WHERE} in SQL.
+Selectors act can be used like a filter in functional programming, or like a \lstinline{WHERE} in SQL.
 Using a transformer in a flow is like mapping a function over the collection of values being flowed.
 
 Using a \emph{flow-based} approach provides the following advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):
@@ -471,7 +471,7 @@ Some of these languages, such as Scilla and Move, were proposed as intermediate-
 
 Several of these languages, such as Obsidian, Move, Nomos, and Flint use \emph{linear types} to provide guarantees about \assetTxt{}s, like those provided by the type quantities of \langName.
 However, none of these languages provide similar support for all the modifiers that \langName does.\reed{should check this to be sure...}
-Furthermore, none of the languages have flows.
+Furthermore, none of the languages have flows \reed{desribe why flows are a good alternative to whatever mechanisms these languages provide}
 \reed{Obsidian, Scilla, Move, Nomos, etc.?}
 \reed{TODO: The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability, uniqueness, or consumability (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
 
