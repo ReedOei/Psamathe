@@ -85,11 +85,11 @@
 \begin{column}{\colwidth}
 
   \begin{block}{Introduction}
-      Blockchains are becoming more commonly used as platforms for programs called \term{smart contracts}, which usually manage \term{digital assets}.
-      For example, there are smart contracts for managing lotteries, auctions, games, and the most common kind of digital asset on the Ethereum blockchain, a \term{token}.
-      Tokens typically are used as a kind of digital currency, the most common kind of tokens being defined by the ERC-20 or ERC-721 standards, which account for approximately 73\% of high-activity contracts~\cite{OlivaEtAl2019} as well as many other less-used contracts.
+      Blockchains are increasingly used as platforms for programs called \term{smart contracts}, which often manage \term{digital assets}.
+      For example, there are smart contracts for managing lotteries, auctions, games, and the most digital asset on the Ethereum blockchain, a \term{token}.
+      Tokens are a kind of digital currency, the most common kind being defined by the ERC-20 and ERC-721 standards, which account for approximately 73\% of high-activity contracts~\cite{OlivaEtAl2019}.
 
-      Hacks of smart contracts regularly occur, often causing the loss of large quantities of money, such as the DAO attack in 2016, which led to the loss of over 40 million dollars worth of ether~\cite{DAO}.
+      Hacks of smart contracts are common and cause the loss of large quantities of money, such as the DAO attack in 2016, which led to the loss of over 40 million dollars worth of ether~\cite{DAO}.
 
       \textcolor{softRed}{\textbf{\langName}} is a new programming language we are designing for writing smart contracts that provides a way to mark values as \term{\assetTxt{}s}, with various \term{modifiers} to control their use, as well as a new abstraction, called a \term{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
   \end{block}
@@ -124,8 +124,8 @@
         \label{fig:erc20-transfer-sol}
     \end{figure}
 
-      In this example, we see how flows can be used to clearly express the \textbf{intent} behind the \lstinline{transfer} function, which is obscured by the Solidity code.
-      Furthermore, using \langName will provide additional safety, e.g., by ensuring that no tokens are lost or duplicated; this is particularly helpful for more complicated transactions which include more flows or more complicated flows (e.g., transfer fees).
+      This examples shows how flows can clearly express the \textbf{intent} behind the \lstinline{transfer} function, which is obscured by the Solidity code.
+      Using \langName will even provide additional safety, e.g., by ensuring that no tokens are lost or duplicated---something particularly helpful for more complicated transactions which include more flows or more complicated flows (e.g., transfer fees).
   \end{block}
 \end{column}
 
