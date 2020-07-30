@@ -58,11 +58,9 @@ module FLOW-TYPECHECK
     rule typesOk(C, (_ |-> TDef) Rest) => typeOk(C, TDef) ~> typesOk(C, Rest) [structural]
 
     // TODO: Finish encoding the various constraints
-    rule typeOk(C, type(Ms, BaseT)) => .
+    rule typeOk(_, type(Ms, BaseT)) => .
         requires (notBool(consumable in Ms) orBool (asset in Ms))
          andBool (notBool(isAsset(BaseT)) orBool (asset in Ms))
-         andBool (notBool(
-
 
     syntax Stmt ::= functionsOk(Var, Map)
                   | functionOk(Var, FuncData)
