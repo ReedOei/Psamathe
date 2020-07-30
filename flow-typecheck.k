@@ -37,7 +37,6 @@ module FLOW-TYPECHECK
     rule contractsOk(SetItem(C) Rest) => contractOk(C) ~> contractsOk(Rest) [structural]
 
     // TODO: Need to ensure that we have a unique constructor and check that too.
-    // TODO: Need to check for uniqueness in naming of everything too.
     rule <k> contractOk(C) => fieldsOk(C, Fields) ~> typesOk(C, Types) ~> functionsOk(C, Funcs) ... </k>
         <fields> ... C |-> fields(Fields) ... </fields>
         <types> ... C |-> types(Types) ... </types>
@@ -58,8 +57,12 @@ module FLOW-TYPECHECK
     rule typesOk(_, .Map) => . [structural]
     rule typesOk(C, (_ |-> TDef) Rest) => typeOk(C, TDef) ~> typesOk(C, Rest) [structural]
 
-    // TODO: Finish
-    rule typeOk(_, _) => .
+    // TODO: Finish encoding the various constraints
+    rule typeOk(C, type(Ms, BaseT)) => .
+        requires (notBool(consumable in Ms) orBool (asset in Ms))
+         andBool (notBool(isAsset(BaseT)) orBool (asset in Ms))
+         andBool (notBool(
+
 
     syntax Stmt ::= functionsOk(Var, Map)
                   | functionOk(Var, FuncData)
@@ -489,7 +492,6 @@ module FLOW-TYPECHECK
                   | isAsset(BaseType) [function, functional]
                   | anyAsset(VarDefs) [function, functional]
 
-    // TODO: Finish this definition
     rule isAsset(Q:TypeQuant T) => Q =/=K empty andBool isAsset(T)
     rule isAsset(T:Var) => asset in modifiers(T)
     rule isAsset(_:Collection T) => isAsset(T)
