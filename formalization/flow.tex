@@ -138,7 +138,7 @@ The well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars,
 The DAO attack is discussed in more depth in Section~\ref{sec:ex-dao-attack}.
 Some estimates suggest that as much as 46\% of smart contracts may be vulnerable~\cite{luuOyente}.
 
-\langName is a new programming language that we are designing, which is designed around a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
+\langName is a new programming language we are designing around a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
 It will also provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make certain classes of bugs impossible.
 Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain \reed{cite}, being a general purpose language, does not provide analogous support for managing \assetTxt{}s.
 
@@ -359,23 +359,12 @@ In this case, the balance of the sender must be at least as large as the amount 
 Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
 
 \subsection{ERC-721}\label{sec:erc721-impl}
-ERC-721, like ERC-20, is a token standard for the Ethereum blockchain.
-ERC-721 is a standard for tokens managing \emph{nonfungible} tokens; that is, tokens that are unique.
-The ERC-721 standard requires many invariants hold, including:
-    the tokens must be unique,
-    the tokens must be owned by at most one account,
-    at most one non-owning account can have \emph{approval} for a token, and only if that token has been minted,
-    we must be able to support \emph{operators} who can manage all of the tokens of a user,
-    among others.
-Because \langName is designed to manage \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
-
-\begin{figure*}[h]
+\begin{figure*}
     \centering
     \begin{subfigure}[t]{0.49\textwidth}
         \centering
         \lstinputlisting[language=Solidity]{splash20-examples/erc721.sol}
-        \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.
-            Note that some helper functions and modifiers have been unfolded, and some redundant checks have been removed for space reasons.}
+        \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.}
         \label{fig:erc721-impl-sol}
     \end{subfigure}%
     \hfill
@@ -390,23 +379,25 @@ Because \langName is designed to manage \assetTxt{}s, it has features to help de
     \label{fig:erc721-impl}
 \end{figure*}
 
+ERC-721, like ERC-20, is a token standard for the Ethereum blockchain.
+ERC-721 is a standard for tokens managing \emph{nonfungible} tokens; that is, tokens that are unique.
+The ERC-721 standard requires many invariants hold, including:
+    the tokens must be unique,
+    the tokens must be owned by at most one account,
+    at most one non-owning account can have \emph{approval} for a token, and only if that token has been minted,
+    we must be able to support \emph{operators} who can manage all of the tokens of a user,
+    among others.
+Because \langName is designed to manage \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
+
 Figures~\ref{fig:erc721-impl-sol} and~\ref{fig:erc721-impl-flow} show implementations in Solidity and \langName, respectively, of the ERC-721 function \lstinline{transferFrom}.
 The Solidity implementation is extracted from a reference implementation of ERC-721 given on the official Ethereum EIP page.
+Note that all helper functions and modifiers have been unfolded, and some redundant code, present in the original implementation, has been removed for space reasons.
 
 A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
 In addition to the invariants required by the specification, there are also internal invariants which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled automatically in the \langName version.
 This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the linking data structure built into the language itself.
 
 \subsection{Voting}\label{sec:voting-impl}
-One proposed use for the blockchain is smart contracts for managing voting \reed{cite}.
-The voting scheme we implement here is a standard
-
-Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
-This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
-In this application, the use of $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
-We also see that the Solidity implementation is more verbose than the \langName implementation because it must work around Solidity's limitations regarding mappings.
-In this example, the declaration of the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values or was actually authorized to vote/has already voted.
-
 \begin{figure*}[h]
     \centering
     \begin{subfigure}[t]{0.49\textwidth}
@@ -427,6 +418,14 @@ In this example, the declaration of the \lstinline{weight} and \lstinline{voted}
     The proposal with the most votes wins.}
     \label{fig:voting-impl}
 \end{figure*}
+One proposed use for the blockchain is smart contracts for managing voting \reed{cite}.
+The voting scheme we implement here is a standard
+
+Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
+This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
+In this application, the use of $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
+% We also see that the Solidity implementation is more verbose than the \langName implementation because it must work around Solidity's limitations regarding mappings.
+% In this example, the declaration of the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values or was actually authorized to vote/has already voted.
 
 \subsection{The DAO attack}\label{sec:ex-dao-attack}
 One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth over 40 million dollars at the time, to be stolen~\cite{OlivaEtAl2019}.
@@ -476,7 +475,7 @@ Furthermore, none of the languages have flows.
 \reed{Conclusion}
 
 In the future, we plan to fully implement the \langName language, including proofs of all of its safety properties.
-We also hope to perform additional studies on the benefits of the language including conducting longer case studies and comparing the efficiency of the resulting programs.
+We also hope to perform additional studies on the benefits of the language including conducting case studies, comparing the efficiency of the resulting programs, and exploring the applicability of flows to other domains where careful asset management is important, outside of the blockchain.
 We would also like to perform a user study to evaluate the usability of the flow abstraction and the design of the language itself, as well as comparing it to Solidity.
 
 %% The next two lines define the bibliography style to be used, and
