@@ -60,6 +60,7 @@ module FLOW-COMMON
     // If no return variable name was specified, generate a fresh one, then use the standard transaction processing rule.
     rule <k> processDecls(C, (transaction T(Args) returns RetType : S) Ds) => processDecls(C, (transaction T(Args) returns var(I) : RetType : S) Ds) ... </k>
         <freshCounter> I => I +Int 1 </freshCounter>
+        [structural]
 
     rule <k> processDecls(C, (transaction T(Args) returns X : RetType : S) Ds) => processDecls(C, Ds) ... </k>
         <functions>
@@ -118,17 +119,23 @@ module FLOW-COMMON
     rule normalize(return E) => return E
     rule normalize(revert(E)) => revert(E)
     // TODO: Pretty ugly...not sure if there's a better way to write this.
-    rule normalize(((_:Var(Args)):FunctionCall #as FCall):FunctionCall) => pack toANormal(Args, expr(FCall))
+    rule normalize((F:Var(Args)):FunctionCall) => pack toANormal(Args, .Exprs, F)
     rule normalize( if E { S1 } else { S2 } ) => if E { normalize(S1) } else { normalize(S2) }
     rule normalize(try { S1 } catch (X : T) { S2 }) => try { normalize(S1) } catch (X : T) { normalize(S2) }
     rule normalize(S1:Stmt S2:Stmt) => normalize(S1) normalize(S2)
         requires (var _ : _ := _) :/=K S1
 
-    // TODO: Implement this, or something like it. It should take something like
-    syntax Stmt ::= toANormal(Exprs, Stmt) [function, functional]
-    rule toANormal(_, S) => S
-    /* rule toANormal(.Exprs, S) => S */
-    /* rule toANormal((X:Var, Es):Exprs, S) => toANormal( */
+    syntax Stmt ::= toANormal(Exprs, Exprs, Var) [function, functional]
+    rule toANormal(Args, _, F) => expr(F(Args))
+    // TODO: This is basically right, except we need to be able to generate fresh variables in this function somehow.
+    //     - Could make it an anywhere rule (probably bad for performance)
+    //     - Could write some evaluation contexts (probably do this, even though it requires some restructuring)
+    /* rule toANormal(.Exprs, Args, F) => expr(F(Args)) */
+    /* // If it's a variable already, we don't need to change anything */
+    /* rule toANormal((X:Var, Es):Exprs, Args, F) => toANormal(Es, (X, Args), F) */
+    /* // If it's not a variable, generate a new variable for it. */
+    /* rule toANormal((E, Es):Exprs, Args, F) => var X : ?_ := E in toANormal(Es, (X, Args), F) */
+    /*     requires _:Var :/=K E */
 
     syntax Set ::= fieldVars(Set) [function, functional]
 

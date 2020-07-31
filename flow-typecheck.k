@@ -48,17 +48,36 @@ module FLOW-TYPECHECK
     rule fieldsOk(_, .Map) => . [structural]
     rule fieldsOk(C, (_ |-> T) Rest) => fieldOk(C, T) ~> fieldsOk(C, Rest) [structural]
 
-    // TODO: Finish
-    rule fieldOk(_, _) => .
+    rule fieldOk(C, T) => typeOk(C, T)
 
     syntax Stmt ::= typesOk(Var, Map)
-                  | typeOk(Var, TypeData)
+                  | typeDefOk(Var, TypeData)
+                  | typeOk(Var, Type)
+                  | typeOk(Var, BaseType)
 
     rule typesOk(_, .Map) => . [structural]
-    rule typesOk(C, (_ |-> TDef) Rest) => typeOk(C, TDef) ~> typesOk(C, Rest) [structural]
+    rule typesOk(C, (_ |-> TDef) Rest) => typeDefOk(C, TDef) ~> typesOk(C, Rest) [structural]
+
+    // Type formation rule checking
+    // TODO: Check for things like set of fungible, which is not okay (auto-fold??)
+    rule typeOk(C, Q:TypeQuant T) => typeOk(C, T)
+        requires Q =/=K every
+
+    // TODO: Finish the rest of these rules
+    rule <k> typeOk(C, C.T) => . ... </k>
+        <types> ... C |-> types(TypeDefs) ... </types>
+        requires T in keys(TypeDefs)
+
+    rule typeOk(C, _:Collection T) => typeOk(C, T)
+
+    // Built-in types
+    rule typeOk(_, bool) => .
+    rule typeOk(_, nat) => .
+    rule typeOk(_, string) => .
+    rule typeOk(_, address) => .
 
     // TODO: Finish encoding the various constraints
-    rule typeOk(_, type(Ms, BaseT)) => .
+    rule typeDefOk(_, type(Ms, BaseT)) => .
         requires (notBool(consumable in Ms) orBool (asset in Ms))
          andBool (notBool(isAsset(BaseT)) orBool (asset in Ms))
 
@@ -70,12 +89,14 @@ module FLOW-TYPECHECK
 
     rule functionOk(C, view(RetType, Args, Body))
          =>
+         typeOk(C, RetType) ~>
          setEnv((this |-> (! C)) makeEnv(varDefsToSet(Args)) fieldsOf(C)) ~>
          assertEnv(?Gamma) ~> Body : RetType ~> assertEnv(?Gamma) ~>
          setEnv(.Map)
 
     rule functionOk(C, transaction(RetVar : Q:TypeQuant RetType, Args, Body))
          =>
+         typeOk(C, Q RetType) ~>
          setEnv((this |-> (! C)) (RetVar |-> (empty RetType)) makeEnv(varDefsToSet(Args))) ~>
          Body ~>
          assertEnv((this |-> (! C)) (RetVar |-> (Q RetType)) ?Rest) ~>
@@ -287,6 +308,7 @@ module FLOW-TYPECHECK
     // =======================================
     // Primitive types
     // =======================================
+    // TODO: Probably want this more fine-grained analysis back, and then allow some compatibility between type quantities.
     /* rule 0 : empty nat => . */
     /* rule 1 : ! nat => . */
     /* rule I:Int : nonempty nat => . */
@@ -403,8 +425,6 @@ module FLOW-TYPECHECK
 
     // TODO: Implement transformer checking
     rule S --[ Sel ]-> D =>
-        // TODO: These mutable checks are wrong. We don't care if the types inside the storages are mutable, but if the storages themselves are mutable.
-        // TODO: We can put the checks inside the storage rules (i.e., provides and accepts) themselves.
         S provides {?Q} ?Tau ~> mutable(?Tau) ~>
         Sel selects {?R} demote(?Tau) ~>
         validSelect(Sel, ?R, ?Q) ~>
