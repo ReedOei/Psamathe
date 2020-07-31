@@ -332,6 +332,13 @@ module FLOW-TYPECHECK
         requires Q =/=K empty
 
     // =======================================
+    // Record Types
+    // =======================================
+    rule { .RecordMemberExprs } : ! { .VarDefs } => .
+    // TODO: Should probably allow this to work in any order for the type (the expression should be checked in written order, though)
+    rule { X : T |-> E, Members } : ! { X : T, Rest } => E : T ~> { Members } : ! { Rest }
+
+    // =======================================
     // Transformer Types
     // =======================================
     rule <k> (\ X : T . E) : ! (T ~~> S)

@@ -1,0 +1,5 @@
+contract Main {}
+;
+
+var x : ! { id : any nat, name : ! string } := { id : any nat |-> 1, name : ! string |-> "foo" }
+

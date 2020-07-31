@@ -427,7 +427,6 @@ One proposed use for the blockchain is smart contracts for managing voting \reed
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
 This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
 In this application, the use of $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
-\reed{This is not really a benefit that is due to some special design choice in \langName, but due to a quirk of Solidity. Keep?}
 Additionally, the Solidity implementation is more verbose than the \langName implementation because it must work around the limitations of Solidity's mappings.
 In this example, the declaration of the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
 
@@ -678,6 +677,8 @@ We begin with the rules for typing the various literal forms of values.
         \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
     }{ \Gamma \flowproves \curlys{\overline{x : \tau \mapsto y}} \flowprovesout \Delta }
 \end{mathpar}
+\reed{In implementation, we could implement records as a map from strings (the field name) to the values; the advantage being that we can make use of structural subtyping with no additional implementation issues.
+I imagine it's probably somewhat less efficient that doing a more standard offset-based approach though.}
 
 Next, the lookup rules.
 Notably, the \textsc{Demote-Lookup} rule allows the use of variables of an asset type in an expression without consuming the variable as \textsc{Lin-Lookup} does.
@@ -705,7 +706,7 @@ However, it is still safe, because it is treated as its demoted type, which is a
 \end{mathpar}
 
 The expression $s~\varin~x$ allows checking whether a flow will succeed without the EAFP-style (``Easier to ask for forgiveness than permission''; e.g., Python).
-A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true and ``$s~\varin~B$'' is false.
+% A flow $A \sends{s} B$ is guaranteed to succeed when ``$s~\varin~A$'' is true and ``$s~\varin~B$'' is false.
 \begin{mathpar}
     \inferrule*[right=Check-In]{
         \Gamma \proves x~\provides_{\mathcal{Q}}~\tau
