@@ -136,13 +136,12 @@ On the Ethereum blockchain~\cite{wood2014ethereum}, there are many token standar
 Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
 Therefore, developers must carefully review contracts before deployment, and some use an independent auditing service to help with this process.
 Despite this extra care, discoveries of vulnerabilities still occur regularly, often costing large amounts of money.
-The well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars, and was due to a reentrancy issue.
-The DAO attack is discussed in more depth in Section~\ref{sec:ex-dao-attack}.
-Some estimates suggest that as much as 46\% of smart contracts may be vulnerable~\cite{luuOyente}.
+The well-known DAO attack~\cite{DAO}, discussed in Section~\ref{sec:ex-dao-attack}, caused the loss of over 40 million dollars, and was due to a reentrancy issue.
+Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
 
 \langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
 It will also provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make certain classes of bugs impossible.
-Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain \reed{cite}, being a general purpose language, does not provide analogous support for managing \assetTxt{}s.
+Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain~\cite{EthereumForDevs}, does not make any effort to provide analogous support for managing \assetTxt{}s.
 
 \paragraph{Contributions}
 
@@ -153,17 +152,11 @@ We make the following contributions with \langName.
     \item \textbf{Conciseness}: \langName makes writing typical smart contracts more concise by handling common patterns and pitfalls automatically.
 \end{itemize}
 
-% \reed{Optimizations? Probably don't have time for this, unfortunately.}
-%     Some of the Solidity contracts are actually inefficient because:
-%     \begin{enumerate}
-%         \item They use lots of modifiers which repeat checks (see reference implementation of ERC-721).
-%         \item They tend to use arrays to represent sets.
-%             Maybe this is more efficient for very small sets, but checking containment is going to be much faster with a \lstinline{mapping (X => bool)} eventually.
-%     \end{enumerate}
-
-%     \begin{itemize}
-%         \item We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
-%     \end{itemize}
+% \reed{Optimizations? Need an implementation to evaluate.}
+%     ALso, Some of the Solidity contracts are actually inefficient because:
+%     They use lots of modifiers which repeat checks (see reference implementation of ERC-721).
+%     They tend to use arrays to represent sets.
+%  We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
 
 \section{Language}\label{sec:lang}
 A \langName program is made of \emph{contracts}, each containing \emph{declarations}, such as \emph{fields}, \emph{types}, and \emph{functions}.
@@ -253,7 +246,7 @@ Using a \emph{flow-based} approach provides the following advantages over the ty
         This restriction prevents \assetTxt{}s, such as ether from being consumed.
     \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
         By default, Solidity provides no error messages, forcing developers to write their own.
-        Flows enable the generation of the messages by encoding the semantic information of a transfer into the program, instead of using low-level operations like increment and decrement or insert and delete.
+        Flows enable creating such messages by encoding the necessary semantic information into the program, instead of using low-level operations like increment and decrement or insert and delete.
 \end{itemize}
 
 \subsection{Type Quantities}
@@ -336,7 +329,7 @@ The newly-added try-catch construct behaves similarly to that of \langName, as b
 However, Solidity's try-catch is structured in an atypical way, only allowing catching errors from a single expression, which must be an external call or a contract creation call.
 
 \section{Examples}
-In this section, we show several example smart contracts, with a Solidity version and a \langName version, and discuss the benefits of each version.
+In this section, we show several example smart contracts, with a Solidity implementation and a \langName implementation, and discuss the benefits of each implementation.
 In each example, we only show the fragment of the code that is necessary for space reasons, but the full Solidity and \langName implementations can be found in our repository.
 \reed{Do this}
 
@@ -397,7 +390,7 @@ Note that all helper functions and modifiers have been unfolded, and some redund
 
 A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
 In addition to the invariants required by the specification, there are also internal invariants which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled automatically in the \langName version.
-This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the linking data structure built into the language itself.
+This example demonstrates the benefits of having $\unique$ \assetTxt{}s and having the linking data structure built into the language.
 
 \subsection{Voting}\label{sec:voting-impl}
 \begin{figure*}[ht]
@@ -455,22 +448,21 @@ Consider the following implementation of the same function in \langName given be
 transaction withdrawBalance():
     userBalances[msg.sender] --> msg.sender.balance
 \end{lstlisting}
-Because of the additional information encoded in the flow construct, the compiler can output the safe version of the above code---reducing the balance before performing the external call---without any developer intervention.
+Because of the additional information encoded in the flow construct, we expect that our compiler should be able output the safe version of the above code---reducing the balance before performing the external call---without any developer intervention.
 Additionally, \langName forbids any reentrant call from an external source, a similar approach to the Obsidian language~\cite{coblenz2019obsidian}, which would also prevent more complicated reentrancy attacks.
 
 \section{Discussion}
 
 \section{Related Work}
-There have been many new blockchain languages proposed, such as Obsidian~\cite{coblenz2019obsidian}, Scilla \reed{cite}, Move \reed{cite}, Nomos \reed{cite}, Flint \reed{cite}.
+There have been many new blockchain languages proposed, such as Obsidian~\cite{coblenz2019obsidian}, Scilla \reed{cite}, Move \reed{cite}, Nomos \reed{cite}, Flint \reed{cite}. \reed{Others?}
 
 Some of these languages, such as Scilla and Move, were proposed as intermediate-level languages, whereas \langName is intended to be a high-level language.
 
-Several of these languages, such as Obsidian, Move, Nomos, and Flint use \emph{linear types} to provide guarantees about \assetTxt{}s, like those provided by the type quantities of \langName.
+Several, such as Obsidian, Move, Nomos, and Flint, use \emph{linear types} to manage \assetTxt{}s similarly to how \langName uses type quantities.
 None of the these languages have flows \reed{desribe why flows are a good alternative to whatever mechanisms these languages provide}.
 \reed{I would like to make an argument that flows are more intuitive than ownership, but can't really do that.}
-However, none of these languages provide similar support for all the modifiers that \langName does.\reed{should check this to be sure...}
-\reed{Obsidian, Scilla, Move, Nomos, etc.?}
-\reed{TODO: The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability, uniqueness, or consumability (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
+Additionally, none of these languages provide support for all the modifiers that \langName does.\reed{should check this to be sure...}
+\reed{reentrancy}
 
 \section{Conclusion and Future Work}
 
