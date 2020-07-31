@@ -256,11 +256,20 @@ Only $\emptyq$ \assetTxt variables may be dropped, ensuring that unused \assetTx
 Type quantities are \textbf{not} required in the surface language, and they will be added automatically; for example, \flowinline{var toks : set Token := \{\}} is inferred to be an \flowinline{empty set Token}, whereas \flowinline{var C : Bank := new Bank()} is inferred to be \flowinline{! Bank}.
 
 Type quantities are primarily updated by flows.
-For example, after checking the flow \flowinline{a --[ everything ]-> b}, we now know that \flowinline{a} is empty, and depending on the type quantity that \flowinline{a} used to have, we may now know that \flowinline{b} is also empty (if \flowinline{a} was empty), nonempty, or any other type quantity (other than $\every$).
+For example, after checking the flow \flowinline{A --[ everything ]-> B}, we now know that \flowinline{A} is empty, and depending on the type quantity that \flowinline{A} used to have, we may now know that \flowinline{B} is also empty (if \flowinline{A} was empty), nonempty, or any other type quantity (other than $\every$).
 Type quantities can also be updated by expressions, which can move values to other variables.
 For example, after checking \flowinline{var x : (Token, Token) := (a, b)}, creating a new pair, both \flowinline{a} and \flowinline{b} are $\emptyq$, as the assets they used to hold are now in \flowinline{x}.
-\reed{Need to think more in depth about the differences between this and linear types.
-I personally find it more intuitive.}
+
+The type quantity system provides the benefits of \emph{linear types}, but gives a more precise analysis of the flow of values in a program.
+Many variables are supposed to hold exactly one value; this corresponds to being non-null in languages like Java.
+The type quantity system allows us temporarily ``empty out'' the variable, while statically ensuring that it contains exactly one value before we finish.
+We can also use it to specify more precise types for our variables, such as declaring an argument to a transaction must be a \flowinline{nonempty list}.
+Finally, we can use type quantities to specify our \textbf{expectations} about program behavior in a way that can be automatically checked.
+For example, suppose that \flowinline{A : set address} and \flowinline{B : empty address}, and consider the following flow
+\begin{flow}
+A --[ ! account such that isAdmin(account) ]-> B
+\end{flow}
+We know that B must be \flowinline{! address} if the flow was successful, and we have made it clear to the program and the reader that there should be exactly one admin address in \flowinline{A}.
 
 \subsection{Modifiers}\label{sec:lang-modifiers}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
@@ -334,10 +343,10 @@ In each example, we only show the fragment of the code that is necessary for spa
 \reed{Do this}
 
 \subsection{ERC-20}\label{sec:erc20-impl}
-ERC-20 \reed{cite} is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
+ERC-20 is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
+ERC-20 is one of the commonly implemented standards on the Ethereum blockchain.
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
 We focus on one core function from ERC-20, the \lstinline{transfer} function.
-ERC-20 is one of the commonly implemented standards on the Ethereum blockchain \reed{cite}.
 \reed{Cite all Solidity code}
 \begin{figure}[ht]
     \centering
@@ -458,7 +467,7 @@ There have been many new blockchain languages proposed, such as Obsidian~\cite{c
 
 Some of these languages, such as Scilla and Move, were proposed as intermediate-level languages, whereas \langName is intended to be a high-level language.
 
-Several, such as Obsidian, Move, Nomos, and Flint, use \emph{linear types} to manage \assetTxt{}s similarly to how \langName uses type quantities.
+Several, such as Obsidian, Move, Nomos, and Flint, use linear types to manage \assetTxt{}s similarly to how \langName uses type quantities.
 None of the these languages have flows \reed{desribe why flows are a good alternative to whatever mechanisms these languages provide}.
 \reed{I would like to make an argument that flows are more intuitive than ownership, but can't really do that.}
 Additionally, none of these languages provide support for all the modifiers that \langName does.\reed{should check this to be sure...}
