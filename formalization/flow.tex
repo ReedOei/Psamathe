@@ -341,6 +341,46 @@ However, Solidity's try-catch is structured in an atypical way, only allowing ca
 In this section, we show several example smart contracts, with a Solidity implementation and a \langName implementation, and discuss the benefits of each implementation.
 In each example, we only show the fragment of the code that is necessary for space reasons, but the full Solidity and \langName implementations can be found in our repository.
 \reed{Do this}
+% These figures are actually discussed in later sections, but putting them here seems to give me the best placement results...
+\begin{figure*}
+    \centering
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \lstinputlisting[language=Solidity]{splash20-examples/erc721.sol}
+        \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.}
+        \label{fig:erc721-impl-sol}
+    \end{subfigure}%
+    \hfill
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \lstinputlisting[language=flow]{splash20-examples/erc721.flow}
+        \caption{\langName implementation of ERC-721's \lstinline{transferFrom}.}
+        \label{fig:erc721-impl-flow}
+    \end{subfigure}
+    \caption{Implementation of ERC-721's \lstinline{transferFrom} function, which sends a specific token from the \lstinline{src} account to the \lstinline{dst} account.
+        It also must clear the approval of the token, if any.}
+    \label{fig:erc721-impl}
+\end{figure*}
+\begin{figure*}[ht]
+    \centering
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
+        \caption{Solidity implementation of the core voting functions~\cite{solidityByExample}.}
+        \label{fig:voting-impl-sol}
+    \end{subfigure}%
+    \hfill
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \lstinputlisting[language=flow]{splash20-examples/voting.flow}
+        \caption{\langName implementation of the core voting functions.}
+        \label{fig:voting-impl-flow}
+    \end{subfigure}
+    \caption{A voting contract with a set of proposals, for which each user must first be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
+    Each user can vote exactly once for exactly one proposal.
+    The proposal with the most votes wins.}
+    \label{fig:voting-impl}
+\end{figure*}
 
 \subsection{ERC-20}\label{sec:erc20-impl}
 ERC-20 is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
@@ -363,25 +403,6 @@ In this case, the balance of the sender must be at least as large as the amount 
 Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
 
 \subsection{ERC-721}\label{sec:erc721-impl}
-\begin{figure*}
-    \centering
-    \begin{subfigure}[t]{0.49\textwidth}
-        \centering
-        \lstinputlisting[language=Solidity]{splash20-examples/erc721.sol}
-        \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.}
-        \label{fig:erc721-impl-sol}
-    \end{subfigure}%
-    \hfill
-    \begin{subfigure}[t]{0.49\textwidth}
-        \centering
-        \lstinputlisting[language=flow]{splash20-examples/erc721.flow}
-        \caption{\langName implementation of ERC-721's \lstinline{transferFrom}.}
-        \label{fig:erc721-impl-flow}
-    \end{subfigure}
-    \caption{Implementation of ERC-721's \lstinline{transferFrom} function, which sends a specific token from the \lstinline{src} account to the \lstinline{dst} account.
-        It also must clear the approval of the token, if any.}
-    \label{fig:erc721-impl}
-\end{figure*}
 
 ERC-721, like ERC-20, is a token standard for the Ethereum blockchain.
 ERC-721 is a standard for tokens managing \emph{nonfungible} tokens; that is, tokens that are unique.
@@ -402,26 +423,6 @@ In addition to the invariants required by the specification, there are also inte
 This example demonstrates the benefits of having $\unique$ \assetTxt{}s and having the linking data structure built into the language.
 
 \subsection{Voting}\label{sec:voting-impl}
-\begin{figure*}[ht]
-    \centering
-    \begin{subfigure}[t]{0.49\textwidth}
-        \centering
-        \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
-        \caption{Solidity implementation of the core voting functions~\cite{solidityByExample}.}
-        \label{fig:voting-impl-sol}
-    \end{subfigure}%
-    \hfill
-    \begin{subfigure}[t]{0.49\textwidth}
-        \centering
-        \lstinputlisting[language=flow]{splash20-examples/voting.flow}
-        \caption{\langName implementation of the core voting functions.}
-        \label{fig:voting-impl-flow}
-    \end{subfigure}
-    \caption{A voting contract with a set of proposals, for which each user must first be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
-    Each user can vote exactly once for exactly one proposal.
-    The proposal with the most votes wins.}
-    \label{fig:voting-impl}
-\end{figure*}
 One proposed use for the blockchain is smart contracts for managing voting \reed{cite}.
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
 This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
@@ -475,7 +476,9 @@ Additionally, none of these languages provide support for all the modifiers that
 
 \section{Conclusion and Future Work}
 
-\reed{Conclusion}
+We have presented the \langName langauge for writing safer smart contracts.
+\langName uses the new flow abstraction, \assetTxt{}s, and modifiers to provide safety guarantees for smart contracts.
+We showed several examples of smart contracts in both Solidity and \langName, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 
 In the future, we plan to fully implement the \langName language, and complete proofs of all of its safety properties.
 We also hope to perform additional studies on the benefits of the language including conducting case studies, comparing the efficiency of the resulting programs, and exploring the applicability of flows to other domains where careful asset management is important, outside of the blockchain.
