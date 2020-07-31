@@ -129,12 +129,9 @@
 \section{Introduction}
 
 Blockchains are increasingly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
-Commonly proposed and implemented applications for the blockchain often revolve around managing \emph{digital assets}.
-One common application is a \emph{token}---about 73\% of high-activity contracts
-%, the 0.05\% of contracts that handle 80\% of all transactions,
-are token contracts~\cite{OlivaEtAl2019}. % in addition to many more less-active token contracts.
-There are many token standards, especially on the Ethereum blockchain~\cite{wood2014ethereum}, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20,erc721,erc777,erc1155}, with others in various stages of the standardization process.
-Other applications or proposed applications for smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
+Commonly proposed and implemented applications for the blockchain often revolve around managing \emph{digital assets}, such as smart contracts for supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
+One of the most common is a \emph{token contract}---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
+On the Ethereum blockchain~\cite{wood2014ethereum}, there are many token standards, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20,erc721,erc777,erc1155}.
 
 Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
 Therefore, developers must carefully review contracts before deployment, and some use an independent auditing service to help with this process.
@@ -156,10 +153,6 @@ We make the following contributions with \langName.
     \item \textbf{Conciseness}: \langName makes writing typical smart contracts more concise by handling common patterns and pitfalls automatically.
 \end{itemize}
 
-% \reed{Potential benefits of the language to discuss.
-% \begin{itemize}
-%     \item Maybe the language is efficient, but would need an implementation to evaluate this.
-% \end{itemize}}
 % \reed{Optimizations? Probably don't have time for this, unfortunately.}
 %     Some of the Solidity contracts are actually inefficient because:
 %     \begin{enumerate}
@@ -241,7 +234,7 @@ These simplifications are performed automatically by the compiler.
 \reed{TODO: We have formalized this core calculus (in K???).}
 
 \subsection{Flows}
-\langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of a \assetTxt.
+\langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of values.
 Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
 The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
 The source and destination of a flow are \emph{storages}, which are either variables or one of the special storages $\newc~t$ or $\consume$.
@@ -473,8 +466,9 @@ There have been many new blockchain languages proposed, such as Obsidian~\cite{c
 Some of these languages, such as Scilla and Move, were proposed as intermediate-level languages, whereas \langName is intended to be a high-level language.
 
 Several of these languages, such as Obsidian, Move, Nomos, and Flint use \emph{linear types} to provide guarantees about \assetTxt{}s, like those provided by the type quantities of \langName.
+None of the these languages have flows \reed{desribe why flows are a good alternative to whatever mechanisms these languages provide}.
+\reed{I would like to make an argument that flows are more intuitive than ownership, but can't really do that.}
 However, none of these languages provide similar support for all the modifiers that \langName does.\reed{should check this to be sure...}
-Furthermore, none of the languages have flows \reed{desribe why flows are a good alternative to whatever mechanisms these languages provide}
 \reed{Obsidian, Scilla, Move, Nomos, etc.?}
 \reed{TODO: The safety guarantees provided by \langName differ from those provided by other languages because...Obsidian has similar concept of assets, but doesn't allow expressing immutability, uniqueness, or consumability (could do fungibility via an interface, I suppose); this is probably going to be similar to other languages built around linear type systems. Obsidian's reentrancy scheme is slightly different, Nomos has a similar global lock, it seems.}
 
