@@ -1,0 +1,7 @@
+contract C {
+    evens : set nat
+
+    transaction T():
+        new nat --[ any x : nat such that x % 2 == 0 ]-> evens
+}
+
