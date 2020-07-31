@@ -316,20 +316,20 @@ module FLOW-TYPECHECK
     rule I:Int : any nat => .
         requires I >=Int 0
 
-    rule I:Int : T => typeError(I : T)
-        requires (_:TypeQuant nat) :/=K T orBool I <Int 0
+    /* rule I:Int : T => typeError(I : T) */
+    /*     requires (_:TypeQuant nat) :/=K T orBool I <Int 0 */
 
     rule _:Bool : ! bool => .
-    rule B:Bool : T => typeError(B : T)
-        requires T =/=K (! bool)
+    /* rule B:Bool : T => typeError(B : T) */
+    /*     requires T =/=K (! bool) */
 
     rule _:String : ! string => .
-    rule S:String : T => typeError(S : T)
-        requires T =/=K (! string)
+    /* rule S:String : T => typeError(S : T) */
+    /*     requires T =/=K (! string) */
 
     rule emptyval : empty _ => .
-    rule emptyval : Q:TypeQuant T => typeError(emptyval : Q T)
-        requires Q =/=K empty
+    /* rule emptyval : Q:TypeQuant T => typeError(emptyval : Q T) */
+    /*     requires Q =/=K empty */
 
     // =======================================
     // Record Types
@@ -374,10 +374,10 @@ module FLOW-TYPECHECK
         <typeEnv> ... X |-> (Q:TypeQuant T => empty T) ... </typeEnv>
         requires isAsset(Q T)
 
-    rule <k> X : T:Type => typeError(X : T) ... </k>
-        <typeEnv> ... X |-> S:Type ... </typeEnv>
-        requires (demote(S) =/=K T)
-         andBool (notBool(isAsset(T)) orBool S =/=K T)
+    /* rule <k> X : T:Type => typeError(X : T) ... </k> */
+    /*     <typeEnv> ... X |-> S:Type ... </typeEnv> */
+    /*     requires (demote(S) =/=K T) */
+    /*      andBool (notBool(isAsset(T)) orBool S =/=K T) */
 
     // =======================================
     // Storage typing
@@ -405,7 +405,7 @@ module FLOW-TYPECHECK
     // =======================================
     rule everything selects {every} _ => .
 
-    rule <k> E:Expr selects {Q} T
+    rule <k> E selects {Q} T
              =>
              E : Q ?T2 ~> assertEnv(Gamma) ~> typeEq(elemtype(?T2), T)
              ...

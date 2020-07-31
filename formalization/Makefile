@@ -1,7 +1,7 @@
 all: paper
 
-# Build twice to generate cross-refs.
-# Not sure if there's a better way to do this.
+# Build a bunch of times to generate cross-refs.
+# Is there'a better way to do this?
 paper: flow.tex
 	pdflatex flow.tex
 	bibtex flow
