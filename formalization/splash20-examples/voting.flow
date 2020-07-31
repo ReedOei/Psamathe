@@ -10,8 +10,6 @@ contract Ballot {
         only when msg.sender = chairperson
         new Voter(voter) --> voters
 
-
-
     transaction vote(proposal : string):
         voters --[ msg.sender ]-> proposals[proposal]
 }

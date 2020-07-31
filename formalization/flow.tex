@@ -280,10 +280,14 @@ I personally find it more intuitive.}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
 A \flowinline{fungible} value represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
-A \flowinline{unique} value can only exist in at most one storage; it must be \flowinline{immutable}.
+A \flowinline{unique} value can only exist in at most one storage; it must be \flowinline{immutable} and an \flowinline{asset} to ensure it is not duplicated.
 A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow, the only state-changing construct in \langName.
 A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes appropriate to dispose of; however, this disposal must be done via the \flowinline{consume} construct, a way of documenting that the disposal is intentional.
+
 All of these constraints, except for uniqueness, are enforced statically.
+Uniqueness is enforced at creation time by dynamically checking that the new value has never been created before.
+After this initial check, we can be sure that the values are unique because the type system will not allow an existing unique value to be duplicated.
+\reed{What if someone passes us an argument of a unique type in a public transaction? Is that even possible?}
 
 For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are best modeled as being both \flowinline{unique} and \flowinline{immutable}.
 By default, neither is \flowinline{consumable}, but one of the common extensions of both standards is to add a \flowinline{burn} function, which allows tokens to be destroyed by users with the appropriate authentication.
@@ -295,7 +299,6 @@ The additional operations supported are \flowinline{L.hasOwner(v)} and \flowinli
 \flowinline{L.hasOwner(v)} returns true if and only if there is some \flowinline{k : K} such that \flowinline{v in L[k]} is true.
 \flowinline{L.ownerOf(v)} returns some \flowinline{k : K} such that \flowinline{v in L[k]}, if it exists.
 If it does not, it throws an error.
-\reed{Alternate implementation could be to return an \flowinline{option}.}
 \reed{I have some ideas about adding interfaces to the language, which I would love to do but it would complicate things.}
 % Specifically, a linking implements the following interface for any collection type \flowinline{C}.
 % Note that the specific syntax is not allowed in an interface declaration, but is used because it is syntax used in the language to write the linking type.
@@ -316,7 +319,7 @@ If it does not, it throws an error.
 % get(empty, k) = $\flowError$
 % \end{lstlisting}
 See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
-Note that, though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value when the owner type is \flowinline{unique} is a \textbf{well-defined} operation.
+Though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value in linking, if it has a \flowinline{unique} type, is a \textbf{well-defined} operation.
 
 \subsection{Error Handling}
 Computation on blockchains like the Ethereum blockchain is grouped into units called \emph{transactions}.
@@ -341,9 +344,8 @@ However, Solidity's try-catch is structured in an atypical way, only allowing ca
 
 \section{Examples}
 In this section, we show several example smart contracts, with a Solidity version and a \langName version, and discuss the benefits of each version.
-In each example, we only show the fragment of the code that is necessary for space reasons, but both the fully Solidity and \langName implementations can be found in our repository.
+In each example, we only show the fragment of the code that is necessary for space reasons, but the full Solidity and \langName implementations can be found in our repository.
 \reed{Do this}
-\reed{Put online or in an appendix?}
 
 \subsection{ERC-20}\label{sec:erc20-impl}
 ERC-20 \reed{cite} is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
@@ -426,13 +428,12 @@ This example demonstrates the benefits of having $\unique$ \assetTxt{}s and the 
     \label{fig:voting-impl}
 \end{figure*}
 One proposed use for the blockchain is smart contracts for managing voting \reed{cite}.
-The voting scheme we implement here is a standard
-
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
 This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
 In this application, the use of $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
-% We also see that the Solidity implementation is more verbose than the \langName implementation because it must work around Solidity's limitations regarding mappings.
-% In this example, the declaration of the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values or was actually authorized to vote/has already voted.
+\reed{This is not really a benefit that is due to some special design choice in \langName, but due to a quirk of Solidity. Keep?}
+Additionally, the Solidity implementation is more verbose than the \langName implementation because it must work around the limitations of Solidity's mappings.
+In this example, the declaration of the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
 
 \subsection{The DAO attack}\label{sec:ex-dao-attack}
 One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth over 40 million dollars at the time, to be stolen~\cite{OlivaEtAl2019}.

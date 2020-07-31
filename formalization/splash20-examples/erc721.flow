@@ -2,6 +2,7 @@ contract NFToken {
   type Token is unique immutable asset uint256
   type Approval is unique immutable consumable asset uint256
   balances : linking address <=> set Token
+  approval : linking address <=> set Approval
   ownerToOperators : linking address <=> set address
 
   transaction transferFrom(src : address, dst : address, tokId : uint256):
