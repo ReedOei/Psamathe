@@ -16,10 +16,17 @@ module FLOW-TYPECHECK
         <common />
         <typeEnv> .Map </typeEnv>
 
+    // The syntax for all the judgements we need
     syntax Stmt ::= Selector "selects" "{" TypeQuant "}" Type
                   | Expr ":" Type
                   | Source "provides" "{" TypeQuant "}" Type
                   | Destination "accepts" Type
+
+    /* syntax Stmt ::= "success" */
+
+    // Note that this should **only** occur as the very last statement, so there is not "..." at the end of the k cell.
+    /* rule <k> success => . </k> */
+    /*     <log> ... .List => ListItem("Type checking succeeded.") </log> */
 
     rule <k> execute ~> S => contractsOk(Cs) ~> S </k>
         <contracts> Cs </contracts>

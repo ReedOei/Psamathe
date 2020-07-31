@@ -22,6 +22,8 @@ if [[ "$1" == "typecheck" ]]; then
         FLAGS+=("(k),(#pc),#result,(typeEnv)")
         # FLAGS+=("--search")
     else
+        # FLAGS+=("--output")
+        # FLAGS+=("none")
         FLAGS+=("--search")
         FLAGS+=("--pattern")
         FLAGS+=("<k> . </k>")

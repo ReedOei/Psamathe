@@ -19,11 +19,6 @@
       Main |-> types ( Main |-> type ( SetItem ( asset )
       SetItem ( consumable ) , Main ) )
     </types>
-    <log>
-      ListItem ( #ostream ( 1 ) )
-      ListItem ( "on" )
-      ListItem ( #buffer ( "" ~> . ) )
-    </log>
     <freshCounter>
       0
     </freshCounter>

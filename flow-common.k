@@ -18,7 +18,7 @@ module FLOW-COMMON
             <constructors> .Map </constructors>
             <functions> .Map </functions>
             <types> .Map </types>
-            <log stream="stdout"> .List </log>
+            /* <log stream="stdout"> .List </log> */
             <freshCounter> 0 </freshCounter>
         </common>
 
