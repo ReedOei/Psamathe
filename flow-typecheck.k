@@ -19,6 +19,9 @@ module FLOW-TYPECHECK
     // The syntax for all the judgements we need
     syntax Stmt ::= Selector "selects" "{" TypeQuant "}" Type
                   | Expr ":" Type
+                  // Non-consuming location typing
+                  // Use this because we want to syntactically distinguish it from expression typing
+                  | loc(Var, Type)
                   | Source "provides" "{" TypeQuant "}" Type
                   | Destination "accepts" Type
 
@@ -82,6 +85,9 @@ module FLOW-TYPECHECK
     rule typeOk(_, nat) => .
     rule typeOk(_, string) => .
     rule typeOk(_, address) => .
+    rule typeOk(C, map T1 ==> T2) => typeOk(C, T1) ~> typeOk(C, T2)
+    // TODO: Need to ensure that the second type is a collection...is that the only condition we need to consider?
+    // rule typeOk(C, linking T1 <=> T2) => typeOk(C, T1) ~> typeOk(C, T2)
 
     // TODO: Finish encoding the various constraints
     rule typeDefOk(_, type(Ms, BaseT)) => .
@@ -97,14 +103,14 @@ module FLOW-TYPECHECK
     rule functionOk(C, view(RetType, Args, Body))
          =>
          typeOk(C, RetType) ~>
-         setEnv((this |-> (! C)) makeEnv(varDefsToSet(Args)) fieldsOf(C)) ~>
+         setEnv((this |-> (! C)) makeEnv(varDefsToSet(Args)) (msg |-> ! { sender : ! address }) fieldsOf(C)) ~>
          assertEnv(?Gamma) ~> Body : RetType ~> assertEnv(?Gamma) ~>
          setEnv(.Map)
 
     rule functionOk(C, transaction(RetVar : Q:TypeQuant RetType, Args, Body))
          =>
          typeOk(C, Q RetType) ~>
-         setEnv((this |-> (! C)) (RetVar |-> (empty RetType)) makeEnv(varDefsToSet(Args))) ~>
+         setEnv((this |-> (! C)) (RetVar |-> (empty RetType)) (msg |-> ! { sender : ! address }) makeEnv(varDefsToSet(Args))) ~>
          Body ~>
          assertEnv((this |-> (! C)) (RetVar |-> (Q RetType)) ?Rest) ~>
          checkThat(notBool(isAsset(Q RetType))) ~>
@@ -367,8 +373,8 @@ module FLOW-TYPECHECK
     rule <k> new C(Args) : ! C => checkEach(Args, FormalArgs) ... </k>
         <constructors> ... C |-> constructor(FormalArgs, _) ... </constructors>
 
-    rule new C(Args) : T => typeError(new C(Args) : T)
-        requires T =/=K (! C)
+    /* rule new C(Args) : T => typeError(new C(Args) : T) */
+    /*     requires T =/=K (! C) */
 
     // =======================================
     // Variable Lookup
@@ -387,6 +393,28 @@ module FLOW-TYPECHECK
     /*      andBool (notBool(isAsset(T)) orBool S =/=K T) */
 
     // =======================================
+    // Non-consuming location types
+    // =======================================
+    // TODO: HANDLE IMMUTABLE VARIABLES
+    rule <k> loc(X, T) => . ... </k>
+        <typeEnv> ... X |-> T ... </typeEnv>
+
+    // TODO: Are there conditions on the type quantity of S? This definitely won't work if Q = empty, but what if Q = any? Must Q be exactly one?
+    rule loc(L.F, Tau) => loc(L, ?T) ~> isField(F : Tau, ?T) ~> mutable(?T)
+
+    rule loc(L[M], Sigma) => loc(L, ?_:TypeQuant (map ?Tau ==> Sigma)) ~> loc(M, ?Tau)
+    rule loc(L[M], Sigma) => loc(L, ?_:TypeQuant (linking ?Tau <=> Sigma)) ~> loc(M, ?Tau)
+
+    syntax Stmt ::= isField(VarDef, Type)
+
+    // TODO: What if the quantity is not exactly one?
+    rule <k> isField(F : Tau, ! C) => . ... </k>
+        <fields> ... C |-> fields((F |-> Tau) _) ... </fields>
+
+    rule isField(F : Tau, ! { Fields }) => .
+        requires makeEnv(varDefsToSet(Fields))[F] ==K Tau
+
+    // =======================================
     // Storage typing
     // =======================================
     syntax Type ::= elemtype(BaseType) [function, functional]
@@ -394,14 +422,12 @@ module FLOW-TYPECHECK
     rule elemtype(_:Collection T) => T
     rule elemtype(T) => ! T [owise]
 
-    rule <k> X accepts elemtype(T) => . ... </k>
-        <typeEnv> ... X |-> _:TypeQuant T ... </typeEnv>
+    rule X accepts T => loc(X, ?_:TypeQuant ?S) ~> typeEq(elemtype(?S), T)
 
     rule consume accepts T => .
         requires isConsumable(T)
 
-    rule <k> X provides {Q} elemtype(T) => . ... </k>
-        <typeEnv> ... X |-> Q:TypeQuant T ... </typeEnv>
+    rule X provides {Q} T => loc(X, Q ?S) ~> typeEq(elemtype(?S), T)
 
     rule <k> new C.T provides {every} ! C.T => . ... </k>
         <typeEnv> ... this |-> (! C) ... </typeEnv>
@@ -439,11 +465,11 @@ module FLOW-TYPECHECK
 
     // TODO: Implement transformer checking
     rule S --[ Sel ]-> D =>
-        S provides {?Q} ?Tau ~> mutable(?Tau) ~>
+        S provides {?Q} ?Tau ~>
         Sel selects {?R} demote(?Tau) ~>
         validSelect(Sel, ?R, ?Q) ~>
         update(S, typeof(S) -Ty ?R)
-        D accepts ?Tau ~> mutable(?Tau) ~>
+        D accepts ?Tau ~>
         update(D, typeof(D) +Ty min(?Q, ?R))
 
     // =======================================
@@ -578,6 +604,7 @@ module FLOW-TYPECHECK
     syntax Bool ::= isConsumable(Type) [function, functional]
     rule isConsumable(Q:TypeQuant T) => (consumable in modifiers(T)) orBool notBool(isAsset(Q T))
 
+    // TODO: Is this right?
     syntax Stmt ::= mutable(Type)
     rule <k> mutable(_:TypeQuant T) => . ... </k>
         requires notBool(immutable in modifiers(T))

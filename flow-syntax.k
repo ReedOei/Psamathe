@@ -4,6 +4,7 @@ module FLOW-CORE-SYNTAX
 
     syntax Var ::= Id
                  | Var "." Var [left]
+                 > Var "[" Var "]"
 
     // Add the built-in types to the Var sort so we can reference them in the rules
     syntax Var ::= "nat"
@@ -12,8 +13,8 @@ module FLOW-CORE-SYNTAX
                 | "address"
                 | "unit"
                 | "void"
-    // Special reserved Ids
-    syntax Var ::= "this"
+    // Special Ids
+    syntax Var ::= "this" | "msg" | "sender"
     // For generated Vars
     syntax Var ::= var(Int)
 
@@ -24,7 +25,9 @@ module FLOW-CORE-SYNTAX
     syntax BaseType ::= Var | Collection Type | Type "~~>" Type
                       | "(" BaseType ")" [bracket]
                       | RecordType
-    // TODO: Add syntactic sugar that allows users to not always write the type quantity.
+                      | "map" Type "==>" Type
+                      | "linking" Type "<=>" Type
+    // TODO: Add desguaring stage that allows users to not always write the type quantity.
     syntax Type ::= TypeQuant BaseType
                   | "(" Type ")" [bracket]
 

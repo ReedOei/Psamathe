@@ -1,0 +1,11 @@
+contract ERC20 {
+  type Token is fungible asset nat
+  balances : any map (! address) ==> (any Token)
+  transaction transfer(dst : ! address, amt : any nat):
+    this.balances[msg.sender] --[ amt ]-> this.balances[dst]
+}
+
+;
+
+pass
+

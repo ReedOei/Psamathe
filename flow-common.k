@@ -212,6 +212,8 @@ module FLOW-COMMON
     rule resolveType(C, T:Var) => C.T
         requires T =/=K nat andBool T =/=K bool andBool T =/=K address andBool T =/=K string
     rule resolveType(_, X.T) => X.T
+    rule resolveType(C, map K ==> V) => map resolveType(C, K) ==> resolveType(C, V)
+    rule resolveType(C, linking K <=> V) => linking resolveType(C, K) <=> resolveType(C, V)
     rule resolveType(C, T1 ~~> T2) => resolveType(C, T1) ~~> resolveType(C, T2)
     rule resolveType(C, Q:TypeQuant T) => Q resolveType(C, T)
 
