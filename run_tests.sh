@@ -9,9 +9,9 @@ fi
 
 kserver="$HOME/k-framework/k-distribution/bin/kserver"
 
-set -ex
-
 pkill -f "kserver"
+
+set -ex
 
 "$kserver" &> /dev/null &
 kserver_pid=$!
