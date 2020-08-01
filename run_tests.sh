@@ -9,7 +9,7 @@ fi
 
 kserver="$HOME/k-framework/k-distribution/bin/kserver"
 
-set -x
+set -ex
 
 pkill -f "kserver"
 
