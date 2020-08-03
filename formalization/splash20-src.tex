@@ -173,56 +173,6 @@ Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a
 It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
     \label{fig:erc20-transfer-flow}
 \end{figure}
-% \begin{figure*}[h]
-%     \centering
-%     \begin{subfigure}[t]{0.49\textwidth}
-%         \centering
-%         \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
-%         \caption{Solidity implementation of ERC-20's \lstinline{transfer} function.}
-%         \label{fig:erc20-transfer-sol}
-%     \end{subfigure}%
-%     \hfill
-%     \begin{subfigure}[t]{0.49\textwidth}
-%         \centering
-%         \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
-%         \caption{\langName implementation of ERC-20's \lstinline{transfer} function.}
-%         \label{fig:erc20-transfer-flow}
-%     \end{subfigure}
-%     % \caption{A Solidity and a \langName implementation of the core functions of the ERC-20 standard.}
-%     \label{fig:erc20-transfer}
-% \end{figure*}
-% \reed{Not sure how to get the bounding box to be right in each column...}
-
-\subsection{Syntax}
-\begin{figure}[t]
-\setlength{\tabcolsep}{1pt}
-\begin{tabular}{l r l l}
-    $\mathfrak{q}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ & (selector quantifiers) \\
-    $\mathcal{Q}$ & \bnfdef & $\mathfrak{q}$ \bnfalt $\emptyq$ \bnfalt $\every$ & (\typeQuantities) \\
-    $T$ & \bnfdef & \boolt \bnfalt $\natt$ \bnfalt $\map~\tau~\Rightarrow~\sigma$ \bnfalt $t$ \bnfalt $\ldots$ & (base types) \\
-    $\tau$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
-    $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\ldots$ & (values) \\
-    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $x.x$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $\total~t$ \bnfalt $\ldots$ & (expressions) \\
-    $s$ & \bnfdef & $\mathcal{L}$ \bnfalt $\everything$ \bnfalt $\mathfrak{q}~x : \tau~\suchthat~E$ & (selector) \\
-    $\mathcal{S}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\newc~t$ & (sources) \\
-    $\mathcal{D}$ & \bnfdef & $\mathcal{L}$ \bnfalt $\consume$ & (destinations) \\
-    $F$ & \bnfdef & $\mathcal{S} \sends{s} \mathcal{D}$ & (flows) \\
-    $\Stmt$ & \bnfdef & $F$ \bnfalt $\Stmt ; \Stmt$ \bnfalt $\ldots$ & (statements) \\
-    $M$ & \bnfdef & \fungible \bnfalt \immutable \bnfalt \unique & \\
-        & \bnfalt & \consumable \bnfalt \asset & (type modifiers) \\
-    $\Decl$ & \bnfdef & $\type~t~\is~\overline{M}~T$ & (type declaration) \\
-            & \bnfalt & $\transaction~m(\overline{x : \tau}) \to x : \tau~\doC~\Stmt$ & (transactions) \\
-            & \bnfalt & $\ldots$ & \\
-    $\Con$ & \bnfdef & $\contract~C~\{~\overline{\Decl}~\}$ & (contracts) \\
-\end{tabular}
-\caption{A fragment of the abstract syntax of the core calculus of \langName, a simplified form of the surface language.}
-\label{fig:lang-syntax-frag}
-\end{figure}
-
-Figure~\ref{fig:lang-syntax-frag} shows a fragment of the syntax of the core calculus of \langName, which uses A-normal form and makes several other simplifications to the surface \langName language.
-These simplifications are performed automatically by the compiler.
-\reed{TODO: We have formalized this core calculus (in K???).}
 
 \subsection{Flows}
 \langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of values.
@@ -267,7 +217,7 @@ For example, suppose that \flowinline{A : set address} and \flowinline{B : empty
 \begin{flow}
 A --[ ! account such that isAdmin(account) ]-> B
 \end{flow}
-We know that B must be \flowinline{! address} if the flow was successful, and we have made it clear to the program and the reader that there should be exactly one admin address in \flowinline{A}.
+We know that B must be \flowinline{! address} if the flow was successful, and we have made it clear to the program and the reader that there should be exactly one admin in \flowinline{A}.
 
 \subsection{Modifiers}\label{sec:lang-modifiers}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
@@ -277,42 +227,23 @@ A \flowinline{unique} value can only exist in at most one storage; it must be \f
 A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow, the only state-changing construct in \langName.
 A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes appropriate to dispose of; however, this disposal must be done via the \flowinline{consume} construct, a way of documenting that the disposal is intentional.
 
-All of these constraints, except for uniqueness, are enforced statically.
-Uniqueness is enforced at creation time by dynamically checking that the new value has never been created before.
-After this initial check, we can be sure that the values are unique because the type system will not allow an existing unique value to be duplicated.
-\reed{What if someone passes us an argument of a unique type in a public transaction? Is that even possible?}
+% All of these constraints, except for uniqueness, are enforced statically.
+% Uniqueness is enforced at creation time by dynamically checking that the new value has never been created before.
+% After this initial check, we can be sure that the values are unique because the type system will not allow an existing unique value to be duplicated.
+% \reed{What if someone passes us an argument of a unique type in a public transaction? Is that even possible?}
 
 For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are best modeled as being both \flowinline{unique} and \flowinline{immutable}.
 By default, neither is \flowinline{consumable}, but one of the common extensions of both standards is to add a \flowinline{burn} function, which allows tokens to be destroyed by users with the appropriate authentication.
 In this case, it would be appropriate to add the \flowinline{consumable} modifier.
 
-\langName also supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values to support modeling of an \emph{account} holding a collection of \assetTxt{}s.
-A \flowinline{linking K <=> C V} is a \flowinline{map K => C V} with additional operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
-The additional operations supported are \flowinline{L.hasOwner(v)} and \flowinline{L.ownerOf(v)}, where \flowinline{L : linking K <=> C V} and \flowinline{v : V}.
-\flowinline{L.hasOwner(v)} returns true if and only if there is some \flowinline{k : K} such that \flowinline{v in L[k]} is true.
-\flowinline{L.ownerOf(v)} returns some \flowinline{k : K} such that \flowinline{v in L[k]}, if it exists.
-If it does not, it throws an error.
-\reed{I have some ideas about adding interfaces to the language, which I would love to do but it would complicate things.}
-% Specifically, a linking implements the following interface for any collection type \flowinline{C}.
-% Note that the specific syntax is not allowed in an interface declaration, but is used because it is syntax used in the language to write the linking type.
-% \reed{Either need to finish up the interface proposal, or write this in another way}
-% \begin{lstlisting}[language=flow]
-% interface linking K <=> C V where C is collection {
-%     empty : linking K <=> C V
-%     get : (linking K <=> C V) ~> K ~> C V
-%     put : (linking K <=> C V) ~> K ~> V ~> linking K <=> C V
-%     hasOwner : (linking K <=> C V) ~> V ~> bool
-%     ownerOf : (linking K <=> C V) ~> V ~> K
-% }
-% \end{lstlisting}
-% Note that some operations may result in errors. %, which we represent via $\flowError$ below.
-% It also satisfies the following laws; note that \flowinline{k : K}, \flowinline{v : V}, and \flowinline{L : linking K <=> C V}, and all variables are universally quantified.
-% \begin{lstlisting}[language=flow]
-% if v not in get(L, k) { (v in get(put(L, k, v), k)) = true } else { put(L, k, v) = $\flowError$ }
-% get(empty, k) = $\flowError$
-% \end{lstlisting}
-See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
-Though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value in linking, if it has a \flowinline{unique} type, is a \textbf{well-defined} operation.
+% \langName also supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values to support modeling of an \emph{account} holding a collection of \assetTxt{}s.
+% A \flowinline{linking K <=> C V} is a \flowinline{map K => C V} with additional operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
+% The additional operations supported are \flowinline{L.hasOwner(v)} and \flowinline{L.ownerOf(v)}, where \flowinline{L : linking K <=> C V} and \flowinline{v : V}.
+% \flowinline{L.hasOwner(v)} returns true if and only if there is some \flowinline{k : K} such that \flowinline{v in L[k]} is true.
+% \flowinline{L.ownerOf(v)} returns some \flowinline{k : K} such that \flowinline{v in L[k]}, if it exists.
+% If it does not, it throws an error.
+% See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
+% Though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value in linking, if it has a \flowinline{unique} type, is a \textbf{well-defined} operation.
 
 \subsection{Error Handling}
 Computation on blockchains like the Ethereum blockchain is grouped into units called \emph{transactions}.
@@ -380,26 +311,6 @@ This example shows the advantages of the flow abstraction in precondition checki
 In this case, the balance of the sender must be at least as large as the amount sent, and the balance of the destination must not overflow when it receives the tokens.
 Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
 
-\subsection{ERC-721}\label{sec:erc721-impl}
-
-ERC-721, like ERC-20, is a token standard for the Ethereum blockchain.
-ERC-721 is a standard for tokens managing \emph{nonfungible} tokens; that is, tokens that are unique.
-The ERC-721 standard requires many invariants hold, including:
-    the tokens must be unique,
-    the tokens must be owned by at most one account,
-    at most one non-owning account can have \emph{approval} for a token, and only if that token has been minted,
-    we must be able to support \emph{operators} who can manage all of the tokens of a user,
-    among others.
-Because \langName is designed to manage \assetTxt{}s, it has features to help developers ensure that these correctness properties hold.
-
-Figures~\ref{fig:erc721-impl-sol} and~\ref{fig:erc721-impl-flow} show implementations in Solidity and \langName, respectively, of the ERC-721 function \lstinline{transferFrom}.
-The Solidity implementation is extracted from a reference implementation of ERC-721 given on the official Ethereum EIP page.
-Note that all helper functions and modifiers have been unfolded, and some redundant code, present in the original implementation, has been removed for space reasons.
-
-A \langName implementation has several benefits: because of the \assetTxt abstraction, we can be sure that token references will not be duplicated or lost; because \lstinline{Token} has been declared as $\unique$, we can be sure that we will not mint two of the same token.
-In addition to the invariants required by the specification, there are also internal invariants which the contract must maintain, such as the connection between \lstinline{idToOwner} and \lstinline{ownerToNFTokenCount}, which are handled automatically in the \langName version.
-This example demonstrates the benefits of having $\unique$ \assetTxt{}s and having the linking data structure built into the language.
-
 \subsection{Voting}\label{sec:voting-impl}
 One proposed use for the blockchain is smart contracts for managing voting \reed{cite}.
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
@@ -408,35 +319,35 @@ In this application, the use of $\unique$ ensures that each user, represented by
 Additionally, the Solidity implementation is more verbose than the \langName implementation because it must work around the limitations of Solidity's mappings.
 In this example, the declaration of the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
 
-\subsection{The DAO attack}\label{sec:ex-dao-attack}
-One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth over 40 million dollars at the time, to be stolen~\cite{OlivaEtAl2019}.
-The bug was caused by a reentrancy-unsafe function in the contract, illustrated below.
+% \subsection{The DAO attack}\label{sec:ex-dao-attack}
+% One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth over 40 million dollars at the time, to be stolen~\cite{OlivaEtAl2019}.
+% The bug was caused by a reentrancy-unsafe function in the contract, illustrated below.
 
-The Solidity function shown below allows a user to withdraw their balance of ether whenever they wish.
-It does this by first transferring the ether from the contract to the user's address, then decreasing the user's balance.
-However, in Ethereum, a transfer of ether also calls a special function on the receiving address, when it is a contract address, called a \emph{fallback} function.
-In this function, arbitrary code may be executed, and because \lstinline{call.value()} was used, this call has access to all of the remaining gas of the transaction.
-A malicious contract can use this to perform a \emph{reentrant} call back into the \lstinline{withdrawBalance} function, and withdraw their balance again---the user's balance has not been decreased yet.
-The fix in this case is a simple swap of the last two lines of the function, but reentrancy issues can be more complicated than this.
-\reed{The below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}}
-\begin{lstlisting}[language=Solidity]
-function withdrawBalance() public {
-    uint amountToWithdraw = userBalances[msg.sender];
-    // At this point, the caller's code is executed, and
-    // can call withdrawBalance again
-    require(msg.sender.call.value(amountToWithdraw)(""));
-    userBalances[msg.sender] = 0;
-}
-\end{lstlisting}
+% The Solidity function shown below allows a user to withdraw their balance of ether whenever they wish.
+% It does this by first transferring the ether from the contract to the user's address, then decreasing the user's balance.
+% However, in Ethereum, a transfer of ether also calls a special function on the receiving address, when it is a contract address, called a \emph{fallback} function.
+% In this function, arbitrary code may be executed, and because \lstinline{call.value()} was used, this call has access to all of the remaining gas of the transaction.
+% A malicious contract can use this to perform a \emph{reentrant} call back into the \lstinline{withdrawBalance} function, and withdraw their balance again---the user's balance has not been decreased yet.
+% The fix in this case is a simple swap of the last two lines of the function, but reentrancy issues can be more complicated than this.
+% \reed{The below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}}
+% \begin{lstlisting}[language=Solidity]
+% function withdrawBalance() public {
+%     uint amountToWithdraw = userBalances[msg.sender];
+%     // At this point, the caller's code is executed, and
+%     // can call withdrawBalance again
+%     require(msg.sender.call.value(amountToWithdraw)(""));
+%     userBalances[msg.sender] = 0;
+% }
+% \end{lstlisting}
 
-In \langName, this attack could not have occurred for several reasons.
-Consider the following implementation of the same function in \langName given below.
-\begin{lstlisting}[language=flow]
-transaction withdrawBalance():
-    userBalances[msg.sender] --> msg.sender.balance
-\end{lstlisting}
-Because of the additional information encoded in the flow construct, we expect that our compiler should be able output the safe version of the above code---reducing the balance before performing the external call---without any developer intervention.
-Additionally, \langName forbids any reentrant call from an external source, a similar approach to the Obsidian language~\cite{coblenz2019obsidian}, which would also prevent more complicated reentrancy attacks.
+% In \langName, this attack could not have occurred for several reasons.
+% Consider the following implementation of the same function in \langName given below.
+% \begin{lstlisting}[language=flow]
+% transaction withdrawBalance():
+%     userBalances[msg.sender] --> msg.sender.balance
+% \end{lstlisting}
+% Because of the additional information encoded in the flow construct, we expect that our compiler should be able output the safe version of the above code---reducing the balance before performing the external call---without any developer intervention.
+% Additionally, \langName forbids any reentrant call from an external source, a similar approach to the Obsidian language~\cite{coblenz2019obsidian}, which would also prevent more complicated reentrancy attacks.
 
 \section{Discussion}
 

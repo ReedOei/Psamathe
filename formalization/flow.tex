@@ -267,7 +267,7 @@ For example, suppose that \flowinline{A : set address} and \flowinline{B : empty
 \begin{flow}
 A --[ ! account such that isAdmin(account) ]-> B
 \end{flow}
-We know that B must be \flowinline{! address} if the flow was successful, and we have made it clear to the program and the reader that there should be exactly one admin address in \flowinline{A}.
+We know that B must be \flowinline{! address} if the flow was successful, and we have made it clear to the program and the reader that there should be exactly one admin in \flowinline{A}.
 
 \subsection{Modifiers}\label{sec:lang-modifiers}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
