@@ -199,7 +199,7 @@ Using a \emph{flow-based} approach provides the following advantages over the ty
 
 % \subsection{Type Quantities}
 Each variable in \langName has a \emph{type quantity} at every point in the program, providing an approximation of the number of values in the variable.
-The list of allowed type quantities is: $\emptyq, \any, \exactlyone, \nonempty, \every$ (``$\exactlyone$'' means ``exactly one'').
+The list of allowed type quantities is: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
 Only $\emptyq$ \assetTxt variables may be dropped. % ensuring that unused \assetTxt{}s not dropped.
 Type quantities are \textbf{not} required in the surface language, and they will be added automatically if omitted. % for example, \flowinline{var toks : set Token := \{\}} is inferred to be an \flowinline{empty set Token}, whereas \flowinline{var C : Bank := new Bank()} is inferred to be \flowinline{! Bank}.
 % Type quantities are primarily updated by flows.
