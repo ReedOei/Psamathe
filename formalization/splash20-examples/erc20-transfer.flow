@@ -2,6 +2,6 @@ contract ERC20 {
   type Token is fungible asset uint256
   balances : map address => Token
   transaction transfer(dst : address, amt : uint256):
-    balances[msg.sender] --[ amt ]-> balances[dst]
+    balances[msg.sender] --[ amt ]-> balances[dst] |\label{line:erc20-flow-ex}|
 }
 

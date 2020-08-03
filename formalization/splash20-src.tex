@@ -12,9 +12,8 @@
 \usepackage{float}
 \usepackage{subcaption}
 \usepackage{xcolor}
-% \usepackage[utf8x]{inputenc}
 \usepackage[safe]{tipa}
-% \usepackage[inline]{enumitem}
+\usepackage[inline]{enumitem}
 
 %% \BibTeX command to typeset BibTeX logo in the docs
 % \AtBeginDocument{%
@@ -138,17 +137,23 @@ The well-known DAO attack~\cite{DAO}, discussed in Section~\ref{sec:ex-dao-attac
 Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
 
 \langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
-It will also provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make certain classes of bugs impossible.
+Flows allow the encoding of semantic information about the flow of \assetTxt{}s into the code.
+The \langName language will also provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make certain classes of bugs impossible.
 Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain~\cite{EthereumForDevs}, does not make any effort to provide analogous support for managing \assetTxt{}s.
+Additionally, typical smart contracts are more \textbf{concise} in \langName because it handles common patterns and pitfalls automatically.
 
-\paragraph{Contributions}
+% \langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
+% It will also provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make certain classes of bugs impossible.
+% Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain~\cite{EthereumForDevs}, does not make any effort to provide analogous support for managing \assetTxt{}s.
 
-We make the following contributions with \langName.
-\begin{itemize}
-    \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
-    \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed; eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction and a type system tracking \emph{type quantities}.
-    \item \textbf{Conciseness}: \langName makes writing typical smart contracts more concise by handling common patterns and pitfalls automatically.
-\end{itemize}
+% \paragraph{Contributions}
+
+% We make the following contributions with \langName.
+% \begin{itemize}
+%     \item \textbf{Flow abstraction}: \langName uses a new abstraction called a \emph{flow} to encode semantic information about the flow of \assetTxt{}s into the code.
+%     \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed; eliminating reuse, \assetTxt-loss, and duplication bugs through the use of the flow abstraction and a type system tracking \emph{type quantities}.
+%     \item \textbf{Conciseness}: \langName makes writing typical smart contracts more concise by handling common patterns and pitfalls automatically.
+% \end{itemize}
 
 % \reed{Optimizations? Need an implementation to evaluate.}
 %     ALso, Some of the Solidity contracts are actually inefficient because:
@@ -256,7 +261,6 @@ If a sequence of flows fails, it ``bubbles up'', like an exception, until it eit
 The concept of contracts in \langName maps directly Solidity's concept of contracts.
 Transactions, views, and transformers all map to the concept of \lstinline{function} in Solidity: a transaction is a function that is public by default, a view is a function with the \lstinline{view} modifier, and a transformer is a function with the \lstinline{pure} modifier.
 A type declaration in \langName is best modeled by a \lstinline{struct} in Solidity, although type declarations are more flexible: Solidity has does not support any of the modifiers that \langName does (note Solidity has its own concept of modifiers that is unrelated).
-\reed{Probably should put more effort into explanation for people who don't know Solidity (at least, if we submit to a non-blockchain venue).}
 
 The \langName language provides all of the primitive types that Solidity does, with additional support for types such as linkings, explained above.
 Solidity also exhibits several atypical behaviors, such as acting as those all keys in a mapping exist, and providing the default value whenever a new key is used.
@@ -264,11 +268,11 @@ This leads to ad-hoc workarounds, like those shown in Sections~\ref{sec:erc721-i
 
 Before version 0.6.0, for the first four years since its release five years ago, Solidity did not have a try-catch construct~\cite{SolidityTryCatch}.
 The newly-added try-catch construct behaves similarly to that of \langName, as both will revert the changes made when an exception occurs.
-However, Solidity's try-catch is structured in an atypical way, only allowing catching errors from a single expression, which must be an external call or a contract creation call.
+However, Solidity's try-catch is structured in an atypical way, only allowing catching errors from a single expression, which must be an external call or a contract creation call, whereas \langName behaves in a more standard way, allowing catching all errors from the try-block.
 
 \section{Examples}
 In this section, we show several example smart contracts, with a Solidity implementation and a \langName implementation, and discuss the benefits of each implementation.
-In each example, we only show the fragment of the code that is necessary for space reasons, but the full Solidity and \langName implementations can be found in our repository.
+In each example, we only show the fragment of the code that is necessary for space reasons, but the full Solidity and \langName implementations can be found in our repository~\cite{psamatheRepo}.
 \reed{Do this}
 \begin{figure*}[ht]
     \centering
@@ -293,21 +297,19 @@ In each example, we only show the fragment of the code that is necessary for spa
 
 \subsection{ERC-20}\label{sec:erc20-impl}
 ERC-20 is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
-ERC-20 is one of the commonly implemented standards on the Ethereum blockchain.
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
-We focus on one core function from ERC-20, the \lstinline{transfer} function.
-\reed{Cite all Solidity code}
+% We focus on one core function from ERC-20, the \lstinline{transfer} function.
 \begin{figure}[ht]
     \centering
     \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
-    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity.
+    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
         All preconditions are checked manually.
         Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
     \label{fig:erc20-transfer-sol}
 \end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
 Note that event code has been omitted, because \langName handles events in the same way as Solidity.
-This example shows the advantages of the flow abstraction in precondition checking and error messages. \reed{rephrase, because you can't see the error messages, but it's still part of the advantages...}
+This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
 In this case, the balance of the sender must be at least as large as the amount sent, and the balance of the destination must not overflow when it receives the tokens.
 Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
 

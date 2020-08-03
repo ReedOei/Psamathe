@@ -7,10 +7,12 @@ paper: flow.tex
 	bibtex flow
 	pdflatex flow.tex
 	pdflatex flow.tex
+	xdg-open flow.pdf
 
 splash20-src: splash20-src.tex
 	pdflatex splash20-src.tex
 	bibtex splash20-src
 	pdflatex splash20-src.tex
 	pdflatex splash20-src.tex
+	xdg-open splash20-src.pdf
 
