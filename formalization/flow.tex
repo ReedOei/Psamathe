@@ -158,7 +158,7 @@ Additionally, typical smart contracts are more \textbf{concise} in \langName bec
 %  We can evaluate this by profiling or a simple opcode count (which is not only a proxy for performance, but also means that deploying the contract will be cheaper).
 
 \section{Language}\label{sec:lang}
-A \langName program is made of \emph{contracts}, each containing \emph{declarations}, such as \emph{fields}, \emph{types}, and \emph{functions}.
+A \langName program is made of \emph{contracts}, each containing \emph{declarations}: \emph{fields}, \emph{types}, and \emph{functions}.
 A contract is the high-level grouping of functionality, just as in Solidity; each contract instance in \langName represents a contract on the blockchain.
 Fields function as the persistent storage of the contract, whose data is kept on the blockchain.
 Type declarations are the primary way to use the type system of \langName, providing a way of annotating values as \assetTxt{}s (as well as other modifiers, discussed in Section~\ref{sec:lang-modifiers}).
@@ -264,21 +264,21 @@ The list of allowed type quantities is: $\emptyq, \any, \exactlyone, \nonempty, 
 Only $\emptyq$ \assetTxt variables may be dropped, ensuring that unused \assetTxt{}s not dropped.
 Type quantities are \textbf{not} required in the surface language, and they will be added automatically; for example, \flowinline{var toks : set Token := \{\}} is inferred to be an \flowinline{empty set Token}, whereas \flowinline{var C : Bank := new Bank()} is inferred to be \flowinline{! Bank}.
 
-Type quantities are primarily updated by flows.
-For example, after checking the flow \flowinline{A --[ everything ]-> B}, we now know that \flowinline{A} is empty, and depending on the type quantity that \flowinline{A} used to have, we may now know that \flowinline{B} is also empty (if \flowinline{A} was empty), nonempty, or any other type quantity (other than $\every$).
+Flows are the primary method of updating type quantities.
+For example, after checking the flow \flowinline{A --[ everything ]-> B}, it must be that \flowinline{A} is empty, and depending on the type quantity that \flowinline{A} used to have, it may now be that \flowinline{B} is also empty (if \flowinline{A} was empty), nonempty, or any other type quantity (other than $\every$).
 Type quantities can also be updated by expressions, which can move values to other variables.
 For example, after checking \flowinline{var x : (Token, Token) := (a, b)}, creating a new pair, both \flowinline{a} and \flowinline{b} are $\emptyq$, as the assets they used to hold are now in \flowinline{x}.
 
 The type quantity system provides the benefits of \emph{linear types}, but gives a more precise analysis of the flow of values in a program.
-Many variables are supposed to hold exactly one value; this corresponds to being non-null in languages like Java.
-The type quantity system allows us temporarily ``empty out'' the variable, while statically ensuring that it contains exactly one value before we finish.
-We can also use it to specify more precise types for our variables, such as declaring an argument to a transaction must be a \flowinline{nonempty list}.
-Finally, we can use type quantities to specify our \textbf{expectations} about program behavior in a way that can be automatically checked.
+Many variables are supposed to hold exactly one value; corresponding to being non-null in languages with nulls, like Java.
+The type quantity system allow temporarily ``emptying out'' a variable, while statically ensuring that it contains exactly one value before the transaction exits.
+Type quantities can also specify more precise types for variables, such as declaring an argument to a transaction must be a \flowinline{nonempty list}.
+Finally, type quantities can specify \textbf{expectations} about program behavior in a way that can be automatically checked.
 For example, suppose that \flowinline{A : set address} and \flowinline{B : empty address}, and consider the following flow
 \begin{flow}
 A --[ ! addr such that isAdmin(addr) ]-> B
 \end{flow}
-We know that B must be \flowinline{! address} if the flow was successful, and we have made it clear to the program and the reader that there should be exactly one admin in \flowinline{A}.
+It must now be that \flowinline{B} is \flowinline{! address} if the flow was successful, and we have made it clear to the program and the reader that there should be exactly one admin in \flowinline{A}.
 
 \subsection{Modifiers}\label{sec:lang-modifiers}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
@@ -327,7 +327,7 @@ Though it is possible to partially implement linkings as a library in Solidity, 
 
 \subsection{Error Handling}
 Computation on blockchains like the Ethereum blockchain is grouped into units called \emph{transactions}.
-Transactions in the same \emph{block} are executed in a nondeterministic, but sequential, order.
+Transactions in the same \emph{block} are executed in a sequential order, but may be nondeterministically ordered within the block, at the discretion of the miner.
 Transactions either succeed or they fail and revert all changes.
 \langName also has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
 If a sequence of flows fails, it ``bubbles up'', like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \flowinline{catch}, in which case only the changes made inside the corresponding \flowinline{try} block will be reverted, and the code inside the \flowinline{catch} block will be executed.
@@ -430,7 +430,7 @@ In addition to the invariants required by the specification, there are also inte
 This example demonstrates the benefits of having $\unique$ \assetTxt{}s and having the linking data structure built into the language.
 
 \subsection{Voting}\label{sec:voting-impl}
-One proposed use for the blockchain is smart contracts for managing voting \reed{cite}.
+One proposed use for the blockchain is smart contracts for managing voting~\cite{Elsden18:Making}.
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
 This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
 In this application, the use of $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
@@ -470,15 +470,19 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \section{Discussion}
 
 \section{Related Work}
-There have been many new blockchain languages proposed, such as Obsidian~\cite{coblenz2019obsidian}, Scilla \reed{cite}, Move \reed{cite}, Nomos \reed{cite}, Flint \reed{cite}. \reed{Others?}
+There have been many new blockchain languages proposed, such as Flint~\cite{schrans2018flint}, Move~\cite{blackshear2019move}, Nomos~\cite{das2019nomos}, Obsidian~\cite{coblenz2019obsidian}, and Scilla~\cite{sergey2018scilla}.
 
-Some of these languages, such as Scilla and Move, were proposed as intermediate-level languages, whereas \langName is intended to be a high-level language.
+Scilla and Move were proposed as intermediate-level languages, whereas \langName is a high-level language.
 
-Several, such as Obsidian, Move, Nomos, and Flint, use linear types to manage \assetTxt{}s similarly to how \langName uses type quantities.
-None of the these languages have flows \reed{desribe why flows are a good alternative to whatever mechanisms these languages provide}.
+Obsidian, Move, Nomos, and Flint use linear types to manage \assetTxt{}s, similarly to how \langName uses type quantities.
+None of the these languages have flows, which encode the semantics of the transfer into the code itself. \reed{Not really satisfied with this explanation...} \reed{desribe why flows are a good alternative to whatever mechanisms these languages provide}.
 \reed{I would like to make an argument that flows are more intuitive than ownership, but can't really do that.}
-Additionally, none of these languages provide support for all the modifiers that \langName does.\reed{should check this to be sure...}
-\reed{reentrancy}
+Additionally, none of these languages provide support for all the modifiers that \langName does.
+Type quantities provide a more precise analysis of the behavior of a program than linear types.
+
+Obsidian and Nomos provide reentrancy protection via locking, as \langName does.
+Scilla requires that all external calls occur at the end of a transition, but this restriction makes it impossible to implement some ERC standards.
+Move requires that the module dependency graph be acyclic, which is unenforceable on Ethereum, our target blockchain.
 
 \section{Conclusion and Future Work}
 
