@@ -125,20 +125,20 @@
 
 \section{Introduction}
 
-Blockchains are increasingly used as platforms for applications, called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
-Commonly proposed and implemented applications for the blockchain often revolve around managing \emph{digital assets}, such as smart contracts for supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
+Blockchains are increasingly used as platforms for applications called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
+Commonly proposed and implemented contracts often manage \emph{digital assets}, such as smart contracts for supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
 One of the most common is a \emph{token contract}---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
 % On the Ethereum blockchain~\cite{wood2014ethereum}, there are many token standards, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20,erc721,erc777,erc1155}.
 
 Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
-Therefore, developers must carefully review contracts before deployment, and some use an independent auditing service to help with this process.
+Developers must carefully review contracts, and some use an independent auditing service to help with this process.
 Despite this extra care, discoveries of vulnerabilities still occur regularly, often costing large amounts of money.
 The well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars, and was due to a reentrancy issue.
 Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
 
-\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
+\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation, which is useful in smart contracts managing digital \assetTxt{}s.
 Flows allow the encoding of semantic information about the flow of \assetTxt{}s into the code.
-The \langName language will also provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make certain classes of bugs impossible.
+The \langName language will also provide features to mark types as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make some classes of bugs impossible.
 Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain~\cite{EthereumForDevs}, does not make any effort to provide analogous support for managing \assetTxt{}s.
 Additionally, typical smart contracts are more \textbf{concise} in \langName because it handles common patterns and pitfalls automatically.
 
