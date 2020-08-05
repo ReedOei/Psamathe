@@ -291,18 +291,19 @@ A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes ap
 All of these constraints, except for uniqueness, are enforced statically.
 Uniqueness is enforced at creation time by dynamically checking that the new value has never been created before.
 After this initial check, we can be sure that the values are unique because the type system will not allow an existing unique value to be duplicated.
-\reed{What if someone passes us an argument of a unique type in a public transaction? Is that even possible?}
 
 For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are best modeled as being both \flowinline{unique} and \flowinline{immutable}.
 By default, neither is \flowinline{consumable}, but one of the common extensions of both standards is to add a \flowinline{burn} function, which allows tokens to be destroyed by users with the appropriate authentication.
 In this case, it would be appropriate to add the \flowinline{consumable} modifier.
 
 \langName also supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values to support modeling of an \emph{account} holding a collection of \assetTxt{}s.
-A \flowinline{linking K <=> C V} is a \flowinline{map K => C V} with additional operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
-The additional operations supported are \flowinline{L.hasOwner(v)} and \flowinline{L.ownerOf(v)}, where \flowinline{L : linking K <=> C V} and \flowinline{v : V}.
-\flowinline{L.hasOwner(v)} returns true if and only if there is some \flowinline{k : K} such that \flowinline{v in L[k]} is true.
-\flowinline{L.ownerOf(v)} returns some \flowinline{k : K} such that \flowinline{v in L[k]}, if it exists.
-If it does not, it throws an error.
+A variable \flowinline{L : linking K <=> C V} is a \flowinline{map K => C V} with additional operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
+The additional operations supported are
+\begin{itemize} % \flowinline{L.hasOwner(v)} and \flowinline{L.ownerOf(v)}, where \flowinline{v : V}.
+    \item \flowinline{L.hasOwner(v)}, which returns true if and only if there is some \flowinline{k : K} such that \flowinline{v in L[k]} is true.
+    \item \flowinline{L.ownerOf(v)}, which returns some \flowinline{k' : demote(K)} such that \flowinline{v in L[k']}, if it exists.
+        If it does not, it throws an error.
+\end{itemize}
 \reed{I have some ideas about adding interfaces to the language, which I would love to do but it would complicate things.}
 % Specifically, a linking implements the following interface for any collection type \flowinline{C}.
 % Note that the specific syntax is not allowed in an interface declaration, but is used because it is syntax used in the language to write the linking type.
@@ -520,7 +521,7 @@ Finally, we would also like to perform a user study to evaluate the usability of
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{V}$ & \bnfdef & $n$ \bnfalt \true \bnfalt \false \bnfalt $\emptyval$ \bnfalt $\lambda x : \tau. E$ & (values) \\
     $\mathcal{L}$, $\mathcal{M}$ & \bnfdef & $x$ \bnfalt $\mathcal{L}.x$ \bnfalt $\mathcal{L}[\mathcal{L}]$ & (locations) \\
-    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\single(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
+    $E$ & \bnfdef & $\mathcal{V}$ \bnfalt $\demote(\mathcal{L})$ \bnfalt $\mathcal{L}$ \bnfalt $x.m(\overline{x})$ \bnfalt $\single(x)$ \bnfalt $s~\varin~x$ \bnfalt $\curlys{\overline{x : \tau \mapsto x}}$ & \\
         & \bnfalt & $\letvar~x:\tau := E~\varin~E$ \bnfalt $\ifS~x~\thenS~E~\elseS~E$ & \\
         & \bnfalt & $x = x$ \bnfalt $x \neq x$ \bnfalt $\total~x$ \bnfalt $\total~t$ & (expressions) \\
     % For the moment, removed these, but maybe put them back: $x \%$ \bnfalt $\min(f, f)$ \bnfalt $\max(f, f)$
@@ -581,7 +582,6 @@ Would actually be even nicer if we allowed any type quantity to appear in the qu
 
 \framebox{$\tau~\asset$} \textbf{Asset Types}
 
-\reed{The syntax for record ``fields'' and type environments is the same...could just use it}
 \begin{align*}
     (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
                                                                 % & (T = \tau \transforms \sigma \tand \sigma~\asset) \tor \\
@@ -796,6 +796,7 @@ It is safe to use because the flow rule handles updating the storages after the 
 \reed{Would be nice to combine the linking and map rules, and especially nice to avoid special casing them altogether.
 Could be done with a ``$\textbf{\texttt{keytype}}(T)$'' function.
 Maybe we could make it work on sets of $\mapitem$ or $\link$, and then avoid even defining maps and linkings.}
+\reed{We kind of need two sets of these rules, one for the destination and one for the source, because the destination one lets you add a new key to the map/linking...}
 \begin{mathpar}
     \inferrule*[right=Loc-Var]{
         (x~\immutable) \not\in \Gamma
@@ -862,6 +863,7 @@ This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is rea
 \end{mathpar}
 
 \framebox{$\validSelect(s, \mathcal{R}, \mathcal{Q})$}
+
 We need to ensure that the resources to be selected are easily computable.
 In particular, we wish to enforce that we never select $\everything$ from a source containing $\every$ of something, nor do we use a selector like $\mathfrak{q} x : \tau \tsuchthat E$ on a source contianing $\every$ of something.
 The following definition captures these restrictions.
@@ -875,8 +877,6 @@ Flows are the main construct for transferring resources.
 A flow has four parts: a source, a selector, a transformer, and a destination.
 The selector acts as a function that ``chooses'' part of the source's resources to flow.
 These resources then get applied to the transformer, which is an applicative functor applied to a function type.
-\reed{Bringing back $\one$ would let us do all the collections the same way in all of these flow-related rules, which would be nice.}
-
 \begin{mathpar}
     \inferrule*[right=Ok-Flow]{
         \Gamma \proves A~\provides_\mathcal{Q}~\tau
