@@ -73,6 +73,9 @@ mod FLOW is
 
     crl { E1 } => { E2 } if E1 => E2 /\ E1 =/= E2 .
 
+    crl E1 U E2 => E U E2 if E1 => E /\ E1 =/= E .
+    crl E1 U E2 => E1 U E if E2 => E /\ E2 =/= E .
+
     crl E1 E => E2 E if E1 => E2 /\ E1 =/= E2 .
     rl (\ X : Tau . Body) E => Body[E / X] .
 

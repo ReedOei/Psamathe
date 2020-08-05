@@ -163,12 +163,11 @@ Additionally, typical smart contracts are more \textbf{concise} in \langName bec
 
 \section{Language}\label{sec:lang}
 A \langName program is made of \emph{contracts}, each containing \emph{fields}, \emph{types}, and \emph{functions}.
-Each contract instance in \langName represents a contract on the blockchain, whose storage is represented by the fields.
+Each contract instance in \langName represents a contract on the blockchain, and the fields provide persistent storage.
 % Type declarations allow annotating values with modifiers, such as $\asset$.
 % We distinguish between three types of function: \emph{transactions}, \emph{views}, and \emph{transformers}.
 % Transactions and views are both \emph{methods}, which may access the fields of a contract; a transaction can read \textbf{and} write fields, whereas a view may only read fields.
 % A transformer is a \textbf{pure} function, which is not part of any contract: it may contain flows and other statements, and it may mutate \textbf{local} state, but it cannot mutate the state of any contract.
-
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:erc20-impl} for more details on ERC-20).
 \begin{figure}[ht]
     \centering
@@ -179,22 +178,21 @@ It is implemented with a single flow, which automatically checks all the precond
 \end{figure}
 
 % \subsection{Flows}
-\langName is built around the concept of a \emph{flow}, an atomic, state-changing operation describing the transfer of values.
+\langName is built around the concept of a \emph{flow}.%, an atomic, state-changing operation describing the transfer of values.
 % Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
 % The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
 % The source and destination of a flow are \emph{storages}, which are either variables or one of the special storages $\newc~t$ or $\consume$.
 % A selector is a function that takes as input the current value of the storage, and outputs the value(s) to select.
 % Selectors act can be used like a filter in functional programming, or like a \lstinline{WHERE} in SQL.
 % Using a transformer in a flow is like mapping a function over the collection of values being flowed.
-
-Using a \emph{flow-based} approach provides the following advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):
+Using a \emph{flow-based} approach provides the several advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):
 \begin{itemize}
     \item \textbf{Precondition checking}: \langName automatically checks that a flow is valid; e.g., a flow of money would fail if there is not enough in the source, or if there is too much in the destination (e.g., due to overflow).
         % Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
-    \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in complicated contracts, such as those involving transfer fees.
-        Furthermore, developers must explicitly mark all times that \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
+    \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in complicated contracts. %such as those involving transfer fees.
+        Furthermore, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
     \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
-        Flows enable these messages by encoding the necessary information, instead of using low-level operations like increment and decrement.
+        Flows enable these messages by encoding all the necessary information into the program.%, instead of using low-level operations like increment and decrement.
 \end{itemize}
 
 % \subsection{Type Quantities}
@@ -214,8 +212,8 @@ Type quantities provide the benefits of \emph{linear types}, but give a more pre
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
 A \flowinline{fungible} value represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
-A \flowinline{unique} value can only exist in at most one storage; it must be \flowinline{immutable} and an \flowinline{asset} to ensure it is not duplicated.
-A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow, the only state-changing construct in \langName.
+A \flowinline{unique} value only exists in at most one variable; it must be \flowinline{immutable} and an \flowinline{asset} to ensure it is not duplicated.
+A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow.
 A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes appropriate to dispose of, done via the \flowinline{consume} construct, documenting that the disposal is intentional.
 % All of these constraints, except for uniqueness, are enforced statically.
 % Uniqueness is enforced at creation time by dynamically checking that the new value has never been created before.
@@ -238,7 +236,7 @@ For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are \
 % Transactions in the same \emph{block} are executed in a sequential order, but may be nondeterministically ordered within the block, at the discretion of the miner.
 % Transactions either succeed or they fail and revert all changes.
 \langName has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
-If a sequence of flows fails, it ``bubbles up'', like an exception, until it either: a) reaches the top level, at which point the entire transaction fails; or b) reaches a \flowinline{catch}, in which case only the changes made inside the corresponding \flowinline{try} block will be reverted, and the code inside the \flowinline{catch} block will be executed.
+If a sequence of flows fails, the error ``bubbles up'', like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.
 
 % \subsection{Comparison with Solidity}
 % The concept of contracts in \langName maps directly Solidity's concept of contracts.
@@ -254,7 +252,7 @@ If a sequence of flows fails, it ``bubbles up'', like an exception, until it eit
 % However, Solidity's try-catch is structured in an atypical way, only allowing catching errors from a single expression, which must be an external call or a contract creation call, whereas \langName behaves in a more standard way, allowing catching all errors from the try-block.
 
 \section{Examples}
-The full Solidity and \langName implementations can be found in our repository~\cite{psamatheRepo}.
+The complete Solidity and \langName code is in our repository~\cite{psamatheRepo}.
 % \begin{figure*}
 %     \centering
 %     \begin{subfigure}[t]{0.49\textwidth}
@@ -299,7 +297,7 @@ The full Solidity and \langName implementations can be found in our repository~\
 ERC-20 is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
 % We focus on one core function from ERC-20, the \lstinline{transfer} function.
-\begin{figure}[H]
+\begin{figure}
     \centering
     \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
     \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
@@ -308,16 +306,16 @@ Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping t
     \label{fig:erc20-transfer-sol}
 \end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
-Note that event code has been omitted, because \langName handles events in the same way as Solidity.
+% Note that event code has been omitted, because \langName handles events in the same way as Solidity.
 This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
-In this case, the balance of the sender must be at least as large as the amount sent, and the balance of the destination must not overflow when it receives the tokens.
-Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
+In this case, the sender's balance must be at least as large as \flowinline{amt}, and the destination's balance must not overflow when it receives the tokens.
+Code checking these two conditions is automatically inserted, ensuring that the checks are not forgotten.
 
 \subsection{Voting}\label{sec:voting-impl}
 \begin{figure}
     \centering
     \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
-    \caption{A simple voting contract in Solidity~\cite{solidityByExample}.}
+    \caption{A simple voting contract in Solidity.}
     \label{fig:voting-impl-sol}
 \end{figure}%
 \begin{figure}
@@ -326,16 +324,16 @@ Code checking these two conditions is automatically inserted, ensuring that the 
     \caption{A simple voting contract in \langName.}
     \label{fig:voting-impl-flow}
 \end{figure}
-One proposed use for the blockchain is smart contracts for managing voting~\cite{Elsden18:Making}.
-Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
-The voting contract has several proposals, and each user must first be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
+One proposed use for blockchains is smart contracts for voting~\cite{Elsden18:Making}.
+Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a voting contract in Solidity and \langName, respectively, based on the Solidity by Example tutorial~\cite{solidityByExample}.
+An instance of the contract has several proposals, and each user must be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
 Each user can vote exactly once for exactly one proposal.
 The proposal with the most votes wins.
 
-This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
-In this application, the use of $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
-Additionally, the Solidity implementation is more verbose than the \langName implementation because it must work around the limitations of Solidity's mappings.
-In this example, the declaration of the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
+This example shows \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors.
+In this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
+The Solidity implementation is also more verbose than the \langName implementation because it must work around the limitations of the mapping structure.
+In this example, the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
 
 % \subsection{The DAO attack}\label{sec:ex-dao-attack}
 % One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth over 40 million dollars at the time, to be stolen~\cite{OlivaEtAl2019}.
@@ -368,13 +366,12 @@ In this example, the declaration of the \lstinline{weight} and \lstinline{voted}
 % Additionally, \langName forbids any reentrant call from an external source, a similar approach to the Obsidian language~\cite{coblenz2019obsidian}, which would also prevent more complicated reentrancy attacks.
 
 \section{Related Work}
-There have been many new blockchain languages proposed, such as Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2018scilla}.
-Scilla and Move were proposed as intermediate-level languages, whereas \langName is a high-level language.
-Obsidian, Move, Nomos, and Flint use linear types to manage \assetTxt{}s, similarly to how \langName uses type quantities.
-None of the these languages have flows, and none provide support for all the modifiers that \langName does.
-Type quantities provide a more precise analysis of the behavior of a program than linear types.
-
-Solidity is the most common blockchain language, but does not have any features for managing \assetTxt{}s.
+% Solidity is the most common blockchain language, but does not have any features for managing \assetTxt{}s.
+There are many newly-proposed blockchain languages, such as Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2018scilla}.
+Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
+Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s, similarly to how \langName uses type quantities.
+% Type quantities provide a more precise analysis of the behavior of a program than linear types.
+None of the these languages have flows or provide support for all the modifiers that \langName does.
 
 \section{Conclusion and Future Work}
 
@@ -382,9 +379,9 @@ We have presented the \langName langauge for writing safer smart contracts.
 \langName uses the new flow abstraction, \assetTxt{}s, and modifiers to provide safety guarantees for smart contracts.
 We showed several examples of smart contracts in both Solidity and \langName, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 
-In the future, we plan to fully implement the \langName language, and complete proofs of all of its safety properties.
-We also hope to perform studies on the benefits of the language such as case studies, evaluating its efficiency, and exploring the applicability of flows to other domains.
-Finally, we would also like to perform a user study to evaluate the usability of the flow abstraction and the design of the language, as well as comparing it to Solidity.
+In the future, we plan to fully implement the \langName language, and complete proofs of its safety properties.
+We also hope study the benefits of the language via case studies, performance evaluation, and exploration of applying flows to other domains.
+Finally, we would also like to perform a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity.
 
 %% The next two lines define the bibliography style to be used, and
 %% the bibliography file.
