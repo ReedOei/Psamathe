@@ -881,7 +881,7 @@ These resources then get applied to the transformer, which is an applicative fun
     \inferrule*[right=Ok-Flow]{
         \Gamma \proves A~\provides_\mathcal{Q}~\tau
         \\
-        \Gamma \proves s~\selects_\mathcal{R}~\tau
+        \Gamma \proves s~\selects_\mathcal{R}~\demote(\tau)
         \\
         \validSelect(s, \mathcal{R}, \mathcal{Q})
         \\
