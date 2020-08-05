@@ -1,3 +1,4 @@
+:qa
 theory Psamathe
   imports Main
 begin
@@ -46,17 +47,17 @@ fun tySubs :: "string \<Rightarrow> BaseType \<Rightarrow> BaseType \<Rightarrow
 | "tySubs y newTy (Func (qA, a) (qB, b)) = Func (qA, tySubs y newTy a) (qB, tySubs y newTy b)"
 | "tySubs y newTy (Forall v (q, ty)) = Forall v (q, tySubs y newTy ty)"
 
-inductive expr_type :: "TypeEnv \<Rightarrow> Expr \<Rightarrow> Type \<Rightarrow> TypeEnv \<Rightarrow> bool" where
-  DemoteLookup: "expr_type env (Var x) (demote (env x)) env"
-| LinLookup: "\<lbrakk> env x = (q, t); demote (env x) \<noteq> env x \<rbrakk> \<Longrightarrow> expr_type env (Var x) (q, t) (env (x := (empty, t)))"
+inductive expr_type :: "TypeEnv \<Rightarrow> Expr \<Rightarrow> Type \<Rightarrow> TypeEnv \<Rightarrow> bool" ("_ \<turnstile> _ : _ \<stileturn> _") where
+  DemoteLookup: "expr_type \<Gamma> (Var x) (demote (\<Gamma> x)) \<Gamma>"
+| LinLookup: "\<lbrakk> \<Gamma> x = (q, t); demote (\<Gamma> x) \<noteq> \<Gamma> x \<rbrakk> \<Longrightarrow> expr_type \<Gamma> (Var x) (q, t) (\<Gamma> (x := (empty, t)))"
 | EmptySet: "expr_type env EmptySet (empty, Set t) env"
-| SingletonSet: "\<lbrakk> expr_type gamma e t delta \<rbrakk> \<Longrightarrow> expr_type gamma (Single e) (one, Set t) delta"
-| Abs: "\<lbrakk> expr_type (gamma (x := ty)) body codom (gamma (x := final)); 
-          \<not>(isAsset final) \<rbrakk> \<Longrightarrow> expr_type gamma (Lambda x ty body) (one, Func ty codom) gamma"
-| App: "\<lbrakk> expr_type gamma f (q, Func a b) delta;
-          expr_type delta e a xi \<rbrakk> \<Longrightarrow> expr_type gamma (App f e) b xi"
-| TyAbs: "\<lbrakk> expr_type gamma body t delta \<rbrakk> \<Longrightarrow> expr_type gamma (TyLambda alpha body) (one, Forall alpha t) delta"
-| TyApp: "\<lbrakk> expr_type gamma f (_, Forall alpha (q, ty)) delta \<rbrakk> \<Longrightarrow> expr_type gamma (TyApp f tyArg) (q, tySubs alpha tyArg ty) delta"
+| SingletonSet: "\<lbrakk> expr_type \<Gamma> e t \<Delta> \<rbrakk> \<Longrightarrow> expr_type \<Gamma> (Single e) (one, Set t) \<Delta>"
+| Abs: "\<lbrakk> expr_type (\<Gamma> (x := ty)) body codom (\<Gamma> (x := final)); 
+          \<not>(isAsset final) \<rbrakk> \<Longrightarrow> expr_type \<Gamma> (Lambda x ty body) (one, Func ty codom) \<Gamma>"
+| App: "\<lbrakk> expr_type \<Gamma> f (q, Func a b) \<Delta>;
+          expr_type \<Delta> e a \<Xi> \<rbrakk> \<Longrightarrow> expr_type \<Gamma> (App f e) b \<Xi>"
+| TyAbs: "\<lbrakk> expr_type \<Gamma> body t \<Delta> \<rbrakk> \<Longrightarrow> expr_type \<Gamma> (TyLambda \<alpha> body) (one, Forall \<alpha> t) \<Delta>"
+| TyApp: "\<lbrakk> expr_type \<Gamma> f (_, Forall \<alpha> (q, ty)) \<Delta> \<rbrakk> \<Longrightarrow> expr_type \<Gamma> (TyApp f tyArg) (q, tySubs \<alpha> tyArg ty) \<Delta>"
 
 (* TODO: Do flow typing... *)
 
@@ -92,6 +93,66 @@ inductive eval :: "Expr \<Rightarrow> Expr \<Rightarrow> bool" (infix "\<rightar
 | BetaRed: "App (Lambda x _ body) arg \<rightarrow> substitute x arg body"
 | TyAppCongr: "\<lbrakk> f1 \<rightarrow> f2 \<rbrakk> \<Longrightarrow> TyApp f1 tyArg \<rightarrow> TyApp f2 tyArg"
 | TyAppBetaRed: "TyApp (TyLambda alpha body) tyArg \<rightarrow> tySubsExpr alpha tyArg body"
-| FlowCongr: "\<lbrakk> 
+(* | FlowCongr: "\<lbrakk> *)
+
+fun free_vars :: "Expr \<Rightarrow> string list" where
+  "free_vars EmptySet = Nil"
+| "free_vars (Single a) = free_vars a"
+| "free_vars (Var x) = [x]"
+| "free_vars (Lambda x _ body) = filter (\<lambda>y. x \<noteq> y) (free_vars body)"
+| "free_vars (App f arg) = (free_vars f @ free_vars arg)"
+| "free_vars (TyLambda _ body) = free_vars body"
+| "free_vars (TyApp f _) = free_vars f"
+| "free_vars (Flow src sel) = free_vars src @ free_vars sel"
+
+definition closed :: "Expr \<Rightarrow> bool" where "closed x = (free_vars x = [])"
+declare closed_def[simp]
+
+lemma closed_single[simp]: "closed e \<longleftrightarrow> closed (Single e)"
+  by simp
+
+thm eval.cases
+thm expr_type.induct
+
+theorem progress: "\<lbrakk> closed e; \<Gamma> \<turnstile> e : t \<stileturn> \<Delta> \<rbrakk> \<Longrightarrow> is_val e \<or> (\<exists>e'. e \<rightarrow> e')"
+  (*  e :: Expr and gamma :: TypeEnv and t :: Type and delta :: TypeEnv
+  assumes closed: "closed e"
+  assumes well_typed: "expr_type gamma e t delta"
+  shows "is_val e \<or> (\<exists>e'. e \<rightarrow> e')"
+  using closed and well_typed *)
+proof(induct e arbitrary: \<Gamma> t \<Delta>)
+  case EmptySet then show ?case
+    apply clarsimp
+    apply (rule EmptyVal)
+    done
+next
+  case (Single e)
+  have "closed (Single e)" using this by auto
+  have "closed e" sorry
+  have "is_val e \<or> (\<exists>e'. e \<rightarrow> e')" sorry
+  then show ?case
+    apply clarsimp
+    apply (rule SingletonVal)
+    apply (frule expr_type.cases)
+    apply auto
+next
+  case (Var x)
+  then show ?case sorry
+next
+  case (Lambda x1 x2a x3a)
+  then show ?case sorry
+next
+  case (TyLambda x1 x2a)
+  then show ?case sorry
+next
+  case (App x1 x2a)
+  then show ?case sorry
+next
+  case (TyApp x1 x2a)
+  then show ?case sorry
+next
+  case (Flow x1 x2a)
+  then show ?case sorry
+qed
 
 end
