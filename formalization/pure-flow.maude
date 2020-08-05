@@ -1,0 +1,87 @@
+--- System F(low); haha, get it?
+
+mod FLOW is
+    protecting QID .
+
+    sorts TyQuant BaseTy Ty Val Expr Mod Mods .
+
+    subsort Mod < Mods .
+    subsort Val < Expr .
+    subsort Qid < Expr . --- Variable
+
+    op mt : -> Mods [ctor] .
+    op __ : Mods Mods -> Mods [ctor comm assoc id: mt] .
+
+    ops empty any one nonempty every : -> TyQuant [ctor] .
+    op v : Qid -> BaseTy [ctor] .
+    op t : Qid Mods BaseTy -> BaseTy [ctor] .
+    op set : Ty -> BaseTy [ctor] .
+    op _->_ : Ty Ty -> BaseTy [ctor] .
+    op forall_._ : Qid Ty -> BaseTy [ctor] .
+    op __ : TyQuant BaseTy -> Ty [ctor] .
+
+    op emptyset : -> Val [ctor] .
+    op {_} : Val -> Val [ctor] .
+    op {_} : Expr -> Expr [ctor] .
+    op _U_ : Val Val -> Val [ctor] .
+    op _U_ : Expr Expr -> Expr [ctor] .
+    op \_:_._ : Qid Ty Expr -> Val [ctor] .
+    op /\_._ : Qid Expr -> Val [ctor] .
+    op __ : Expr Expr -> Expr [ctor] .
+    op _[_] : Expr BaseTy -> Expr [ctor] .
+    op _--[_]-> : Expr Expr -> Expr [ctor] .
+
+    vars V W V1 V2 : Val .
+    vars E F E1 E2 Sel Body : Expr .
+    vars T S T1 T2 : BaseTy .
+    vars Tau Sigma Pi : Ty .
+    vars Q R : TyQuant .
+    vars X Y Z Alpha Beta : Qid .
+    var M : Mod .
+    var Ms : Mods .
+
+    op _[_/_] : Expr Expr Qid -> Expr .
+    eq emptyset[E / X] = emptyset .
+    eq Y[E / X] = if X == Y then E else Y fi .
+    eq { E1 }[E2 / X] = { E1[E2 / X] } .
+    eq (E1 U E2)[E / X] = (E1[E / X]) U (E2[E / X]) .
+    eq (\ Y : Tau . Body)[E / X] = \ Y : Tau . (Body[E / X]) .
+    eq (/\ Alpha . Body)[E / X] = /\ Alpha . (Body[E / X]) .
+    eq (E1 E2)[E / X] = (E1[E / X]) (E2[E / X]) .
+    eq (E[T])[E1 / X] = (E[E1 / X])[T] .
+    eq (E --[ Sel ]->)[E1 / X] = (E[E1 / X]) --[ Sel[E1 / X] ]-> .
+
+    op _[_/_] : Ty BaseTy Qid -> Ty .
+    eq (Q T1)[T2 / X] = Q (T1[T2 / X]) .
+    op _[_/_] : BaseTy BaseTy Qid -> BaseTy .
+    eq v(Alpha)[T / X] = if X == Alpha then T else v(Alpha) fi .
+    eq t(Y, Ms, T1)[T2 / X] = t(Y, Ms, T1[T2 / X]) .
+    eq set(Tau)[T / X] = set(Tau[T / X]) .
+    eq (Tau -> Sigma)[T / X] = (Tau[T / X]) -> (Sigma[T / X]) .
+    eq (forall Alpha . Tau) [T / X] = forall Alpha . (Tau[T / X]) .
+
+    op _[_/_] : Expr BaseTy Qid -> Expr .
+    eq emptyset[T / X] = emptyset .
+    eq Y[T / X] = Y .
+    eq { E }[T / X] = { E[T / X] } .
+    eq (E1 U E2)[T / X] = (E1[T / X]) U (E2[T / X]) .
+    eq (\ Y : Tau . Body)[T / X] = \ Y : Tau[T / X] . (Body[T / X]) .
+    eq (/\ Alpha . Body)[T / X] = /\ Alpha . (Body[T / X]) .
+    eq (E1 E2)[T / X] = (E1[T / X]) (E2[T / X]) .
+    eq (E[T1])[T2 / X] = (E[T2 / X])[ T1[T2 / X] ] .
+    eq (E --[ Sel ]->)[T / X] = (E[T / X]) --[ Sel[T / X] ]-> .
+
+    crl { E1 } => { E2 } if E1 => E2 /\ E1 =/= E2 .
+
+    crl E1 U E2 => E U E2 if E1 => E /\ E1 =/= E .
+    crl E1 U E2 => E1 U E if E2 => E /\ E2 =/= E .
+
+    crl E1 E => E2 E if E1 => E2 /\ E1 =/= E2 .
+    rl (\ X : Tau . Body) E => Body[E / X] .
+
+    crl E1[T] => E2[T] if E1 => E2 /\ E1 =/= E2 .
+    rl (/\ Alpha . Body)[T] => Body[T / Alpha] .
+endm
+
+rew ( /\ 'alpha . \ 'x : any v('alpha) . 'x ) [ set(any v('nat)) ] emptyset .
+
