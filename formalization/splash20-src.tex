@@ -232,7 +232,7 @@ For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are \
 % \flowinline{L.ownerOf(v)} returns some \flowinline{k : K} such that \flowinline{v in L[k]}, if it exists.
 % If it does not, it throws an error.
 % See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
-% Though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value in linking, if it has a \flowinline{unique} type, is a \textbf{well-defined} operation.
+% Though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value in a linking, if it has a \flowinline{unique} type, is a \textbf{well-defined} operation.
 
 % Computation on blockchains like the Ethereum blockchain is grouped into units called \emph{transactions}.
 % Transactions in the same \emph{block} are executed in a sequential order, but may be nondeterministically ordered within the block, at the discretion of the miner.

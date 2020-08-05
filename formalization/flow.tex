@@ -323,7 +323,7 @@ If it does not, it throws an error.
 % get(empty, k) = $\flowError$
 % \end{lstlisting}
 See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
-Though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value in linking, if it has a \flowinline{unique} type, is a \textbf{well-defined} operation.
+Though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value in a linking, if it has a \flowinline{unique} type, is a \textbf{well-defined} operation.
 
 \subsection{Error Handling}
 Computation on blockchains like the Ethereum blockchain is grouped into units called \emph{transactions}.
