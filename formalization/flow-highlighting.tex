@@ -13,7 +13,7 @@
     keywordstyle=[5]\color{Cerulean}\bfseries,
     keepspaces=true,
 	% backgroundcolor=\color{verylightgray},
-    columns=fullflexible,
+    % columns=fullflexible,
     % literate=*
     %     {(}{{{\color{red}(}}}1
     %     {)}{{{\color{red})}}}1
@@ -43,15 +43,16 @@
     showstringspaces=false,
     xleftmargin=5.0ex,
     mathescape=true,
-    escapechar=|
+    escapechar=|,
+    basicstyle=\small\ttfamily
 }
 
 \lstnewenvironment{flow}
 {%
-    \lstset{language=flow, basicstyle=\normalsize\ttfamily, mathescape=true}%
+    \lstset{language=flow, basicstyle=\small\ttfamily, mathescape=true}%
 }
 {
 }
 
-\newcommand{\flowinline}[1]{\lstinline[language=flow,basicstyle=\normalsize\ttfamily,mathescape]{#1}}
+\newcommand{\flowinline}[1]{\lstinline[language=flow,basicstyle=\small\ttfamily,mathescape]{#1}}
 

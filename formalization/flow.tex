@@ -234,14 +234,14 @@ A selector is a function that takes as input the current value of the storage, a
 Selectors act can be used like a filter in functional programming, or like a \lstinline{WHERE} in SQL.
 Using a transformer in a flow is like mapping a function over the collection of values being flowed.
 
-The example in Figure~\ref{fig:erc20-transfer-flow} contains a single flow, on line~\ref{line:erc20-flow-ex}; the source is \flowinline{balances[msg.sender]}, the selector is \flowinline{amt}, and the destination is \flowinline{balances[dst]}.
+The example in Figure~\ref{fig:erc20-transfer-flow} contains a single flow, on line~\ref{line:erc20-flow-ex}; the source is \flowinline{balances[msg.sender]}, the selector is \flowinline{amount}, and the destination is \flowinline{balances[dst]}.
 Because the type of assets being flowed is \flowinline{Token}, defined as a \flowinline{fungible asset uint256}, the actual computation will use the \flowinline{uint256} type.
 When the transaction is executed, it will
 \begin{enumerate*}
-    \item check that \flowinline{balances[msg.sender] >= amt},
-    \item check that adding \flowinline{amt} to \flowinline{balances[dst]} will not overflow it,
-    \item subtract \flowinline{amt} from \flowinline{balances[msg.sender]},
-    \item and add \flowinline{amt} to \flowinline{balances[dst]}.
+    \item check that \flowinline{balances[msg.sender] >= amount},
+    \item check that adding \flowinline{amount} to \flowinline{balances[dst]} will not overflow it,
+    \item subtract \flowinline{amount} from \flowinline{balances[msg.sender]},
+    \item and add \flowinline{amount} to \flowinline{balances[dst]}.
 \end{enumerate*}
 
 Using a \emph{flow-based} approach provides the following advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):

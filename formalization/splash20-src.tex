@@ -1,4 +1,4 @@
-\documentclass[nonacm, dvipsnames, usenames, sigconf]{acmart}
+\documentclass[nonacm, dvipsnames, sigconf]{acmart}
 
 \usepackage{listings}
 \usepackage{hyperref}
@@ -185,19 +185,23 @@ It is implemented with a single flow, which automatically checks all the precond
 % A selector is a function that takes as input the current value of the storage, and outputs the value(s) to select.
 % Selectors act can be used like a filter in functional programming, or like a \lstinline{WHERE} in SQL.
 % Using a transformer in a flow is like mapping a function over the collection of values being flowed.
-Using \reed{the more declarative, \emph{flow-based}; don't name other approach} a \emph{flow-based} approach provides the several advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):
-\reed{Use a word other than assignment-based.}
+% Using \reed{the more declarative, \emph{flow-based}; don't name other approach} a \emph{flow-based} approach provides the several advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):
+Using the more declarative, \emph{flow-based} approach provides the following advantages:
 \begin{itemize}
     \item \textbf{Precondition checking}: \langName automatically checks that a flow is valid; e.g., a flow of money would fail if there is not enough in the source, or if there is too much in the destination (e.g., due to overflow).
         % Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
     \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in complicated contracts. %such as those involving transfer fees.
         Furthermore, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
-    \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as \lstinline{"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]: source only has <balance> Token."}.
+    \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as
+\begin{lstlisting}
+"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]:
+    source only has <balance> Token."
+\end{lstlisting}
         Flows enable these messages by encoding all the necessary information into the program.%, instead of using low-level operations like increment and decrement.
 \end{itemize}
 
 % \subsection{Type Quantities}
-Each variable in \langName has a \emph{type quantity} at every step, approximating the number of values in the variable, which is one of: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
+Each variable in \langName has a \emph{type quantity}, approximating the number of values in the variable, which is one of: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
 % The list of allowed type quantities is: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
 Only $\emptyq$ \assetTxt variables may be dropped. % ensuring that unused \assetTxt{}s not dropped.
 Type quantities are \textbf{not} required in the surface language, and they will be added automatically if omitted. % for example, \flowinline{var toks : set Token := \{\}} is inferred to be an \flowinline{empty set Token}, whereas \flowinline{var C : Bank := new Bank()} is inferred to be \flowinline{! Bank}.
@@ -308,7 +312,7 @@ Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping t
 \end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
 This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
-In this case, the sender's balance must be at least as large as \flowinline{amt}, and the destination's balance must not overflow when it receives the tokens.
+In this case, the sender's balance must be at least as large as \flowinline{amount}, and the destination's balance must not overflow when it receives the tokens.
 Code checking these two conditions is automatically inserted, ensuring that the checks are not forgotten.
 
 \subsection{Voting}\label{sec:voting-impl}
@@ -332,9 +336,8 @@ The proposal with the most votes wins.
 
 This example shows \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors.
 In this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
-\reed{Probably delete these}
-The Solidity implementation is also more verbose than the \langName implementation because it must work around the limitations of the mapping structure.
-In this example, the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
+% The Solidity implementation is also more verbose than the \langName implementation because it must work around the limitations of the mapping structure.
+% In this example, the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
 
 \section{Related Work}
 % Solidity is the most common blockchain language, but does not have any features for managing \assetTxt{}s.
