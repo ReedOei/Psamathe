@@ -3,7 +3,8 @@ contract ERC20 {
   function transfer(address dst, uint256 amount)
     public returns (bool) {
     require(amount <= balances[msg.sender]);
-    balances[msg.sender] = balances[msg.sender].sub(amount);
+    balances[msg.sender] =
+      balances[msg.sender].sub(amount);
     balances[dst] = balances[dst].add(amount);
     return true;
   }

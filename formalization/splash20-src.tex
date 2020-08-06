@@ -62,13 +62,13 @@
 %% Of note is the shared affiliation of the first two authors, and the
 %% "authornote" and "authornotemark" commands
 %% used to denote shared contribution to the research.
-% \author{Reed Oei}
-% \email{reedoei2@illinois.edu}
-% \affiliation{%
-%   \institution{University of Illinois}
-%   \city{Urbana}
-%   \country{USA}
-% }
+\author{Reed Oei}
+\affiliation{%
+    \institution{University of Illinois}
+  % \city{Urbana}
+  % \country{USA}
+}
+\email{reedoei2@illinois.edu}
 
 %% By default, the full list of authors will be used in the page
 %% headers. Often, this list is too long, and will overlap
@@ -334,8 +334,8 @@ An instance of the contract has several proposals, and each user must be given p
 Each user can vote exactly once for exactly one proposal.
 The proposal with the most votes wins.
 
-This example shows \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors.
-In this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
+This example shows \langName is suited for a range of applications.
+It also shows that some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 % The Solidity implementation is also more verbose than the \langName implementation because it must work around the limitations of the mapping structure.
 % In this example, the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
 
