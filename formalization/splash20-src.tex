@@ -178,14 +178,15 @@ It is implemented with a single flow, which automatically checks all the precond
 \end{figure}
 
 % \subsection{Flows}
-\langName is built around the concept of a \emph{flow}.%, an atomic, state-changing operation describing the transfer of values.
+\langName is built around the concept of a \emph{flow}. %, an atomic, state-changing operation describing the transfer of values.
 % Each flow has a \emph{source} and a \emph{destination}; they may optionally have a \emph{selector} or a \emph{transformer}, which default to $\everything$ and the identity transformer, respectively.
 % The source of a flow \emph{provides} values, the destination of the flow \emph{accepts} these values, and the selector describes which subpart of the value(s) in the source should be transferred to the destination.
 % The source and destination of a flow are \emph{storages}, which are either variables or one of the special storages $\newc~t$ or $\consume$.
 % A selector is a function that takes as input the current value of the storage, and outputs the value(s) to select.
 % Selectors act can be used like a filter in functional programming, or like a \lstinline{WHERE} in SQL.
 % Using a transformer in a flow is like mapping a function over the collection of values being flowed.
-Using a \emph{flow-based} approach provides the several advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):
+Using \reed{the more declarative, \emph{flow-based}; don't name other approach} a \emph{flow-based} approach provides the several advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):
+\reed{Use a word other than assignment-based.}
 \begin{itemize}
     \item \textbf{Precondition checking}: \langName automatically checks that a flow is valid; e.g., a flow of money would fail if there is not enough in the source, or if there is too much in the destination (e.g., due to overflow).
         % Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
@@ -306,7 +307,6 @@ Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping t
     \label{fig:erc20-transfer-sol}
 \end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
-% Note that event code has been omitted, because \langName handles events in the same way as Solidity.
 This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
 In this case, the sender's balance must be at least as large as \flowinline{amt}, and the destination's balance must not overflow when it receives the tokens.
 Code checking these two conditions is automatically inserted, ensuring that the checks are not forgotten.
@@ -324,7 +324,7 @@ Code checking these two conditions is automatically inserted, ensuring that the 
     \caption{A simple voting contract in \langName.}
     \label{fig:voting-impl-flow}
 \end{figure}
-One proposed use for blockchains is smart contracts for voting~\cite{Elsden18:Making}.
+One proposed use for blockchains is for voting~\cite{Elsden18:Making}.
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a voting contract in Solidity and \langName, respectively, based on the Solidity by Example tutorial~\cite{solidityByExample}.
 An instance of the contract has several proposals, and each user must be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
 Each user can vote exactly once for exactly one proposal.
@@ -332,38 +332,9 @@ The proposal with the most votes wins.
 
 This example shows \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors.
 In this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
+\reed{Probably delete these}
 The Solidity implementation is also more verbose than the \langName implementation because it must work around the limitations of the mapping structure.
 In this example, the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
-
-% \subsection{The DAO attack}\label{sec:ex-dao-attack}
-% One of the most financially impactful bugs in a smart contract on the Ethereum blockchain was the bug in the DAO contract which allowed a large quantity of ether, worth over 40 million dollars at the time, to be stolen~\cite{OlivaEtAl2019}.
-% The bug was caused by a reentrancy-unsafe function in the contract, illustrated below.
-
-% The Solidity function shown below allows a user to withdraw their balance of ether whenever they wish.
-% It does this by first transferring the ether from the contract to the user's address, then decreasing the user's balance.
-% However, in Ethereum, a transfer of ether also calls a special function on the receiving address, when it is a contract address, called a \emph{fallback} function.
-% In this function, arbitrary code may be executed, and because \lstinline{call.value()} was used, this call has access to all of the remaining gas of the transaction.
-% A malicious contract can use this to perform a \emph{reentrant} call back into the \lstinline{withdrawBalance} function, and withdraw their balance again---the user's balance has not been decreased yet.
-% The fix in this case is a simple swap of the last two lines of the function, but reentrancy issues can be more complicated than this.
-% \reed{The below is from \url{https://consensys.github.io/smart-contract-best-practices/known_attacks/}}
-% \begin{lstlisting}[language=Solidity]
-% function withdrawBalance() public {
-%     uint amountToWithdraw = userBalances[msg.sender];
-%     // At this point, the caller's code is executed, and
-%     // can call withdrawBalance again
-%     require(msg.sender.call.value(amountToWithdraw)(""));
-%     userBalances[msg.sender] = 0;
-% }
-% \end{lstlisting}
-
-% In \langName, this attack could not have occurred for several reasons.
-% Consider the following implementation of the same function in \langName given below.
-% \begin{lstlisting}[language=flow]
-% transaction withdrawBalance():
-%     userBalances[msg.sender] --> msg.sender.balance
-% \end{lstlisting}
-% Because of the additional information encoded in the flow construct, we expect that our compiler should be able output the safe version of the above code---reducing the balance before performing the external call---without any developer intervention.
-% Additionally, \langName forbids any reentrant call from an external source, a similar approach to the Obsidian language~\cite{coblenz2019obsidian}, which would also prevent more complicated reentrancy attacks.
 
 \section{Related Work}
 % Solidity is the most common blockchain language, but does not have any features for managing \assetTxt{}s.
@@ -379,9 +350,9 @@ We have presented the \langName langauge for writing safer smart contracts.
 \langName uses the new flow abstraction, \assetTxt{}s, and modifiers to provide safety guarantees for smart contracts.
 We showed several examples of smart contracts in both Solidity and \langName, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 
-In the future, we plan to fully implement the \langName language, and complete proofs of its safety properties.
-We also hope study the benefits of the language via case studies, performance evaluation, and exploration of applying flows to other domains.
-Finally, we would also like to perform a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity.
+In the future, we plan to implement the \langName language, and prove its safety properties.
+We also hope to study the benefits of the language via case studies, performance evaluation, and the application of flows to other domains.
+Finally, we would also like to conduct a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity.
 
 %% The next two lines define the bibliography style to be used, and
 %% the bibliography file.

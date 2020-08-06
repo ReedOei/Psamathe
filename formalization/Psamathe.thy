@@ -115,14 +115,18 @@ thm eval.cases
 thm expr_type.induct
 
 theorem progress: "\<lbrakk> closed e; \<Gamma> \<turnstile> e : t \<stileturn> \<Delta> \<rbrakk> \<Longrightarrow> is_val e \<or> (\<exists>e'. e \<rightarrow> e')"
-  (*  e :: Expr and gamma :: TypeEnv and t :: Type and delta :: TypeEnv
-  assumes closed: "closed e"
-  assumes well_typed: "expr_type gamma e t delta"
-  shows "is_val e \<or> (\<exists>e'. e \<rightarrow> e')"
-  using closed and well_typed *)
   apply (erule expr_type.induct)
-  apply simp
-proof(induction arbitrary: \<Gamma> e t \<Delta>)
+
+(*
+  fixes \<Gamma> :: TypeEnv and e :: Expr and t :: Type and \<Delta> :: TypeEnv
+  assumes closed: "closed e"
+  assumes well_typed: "\<Gamma> \<turnstile> e : t \<stileturn> \<Delta>"
+  shows "is_val e \<or> (\<exists>e'. e \<rightarrow> e')"
+  using closed and well_typed
+proof(erule expr_type.induct)
+  (* using closed and well_typed *)
+(* proof(rule expr_type.induct) *)
+(* proof(induction rule: expr_type.induct) *)
   case EmptySet then show ?case
     apply clarsimp
     apply (rule EmptyVal)
@@ -158,3 +162,4 @@ next
 qed
 
 end
+*)
