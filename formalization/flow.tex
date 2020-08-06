@@ -298,6 +298,7 @@ In this case, it would be appropriate to add the \flowinline{consumable} modifie
 
 \langName also supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values to support modeling of an \emph{account} holding a collection of \assetTxt{}s.
 A variable \flowinline{L : linking K <=> C V} is a \flowinline{map K => C V} with additional operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
+\reed{Discuss demote() somewhere}
 The additional operations supported are
 \begin{itemize} % \flowinline{L.hasOwner(v)} and \flowinline{L.ownerOf(v)}, where \flowinline{v : V}.
     \item \flowinline{L.hasOwner(v)}, which returns true if and only if there is some \flowinline{k : K} such that \flowinline{v in L[k]} is true.

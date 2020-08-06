@@ -120,7 +120,9 @@ theorem progress: "\<lbrakk> closed e; \<Gamma> \<turnstile> e : t \<stileturn> 
   assumes well_typed: "expr_type gamma e t delta"
   shows "is_val e \<or> (\<exists>e'. e \<rightarrow> e')"
   using closed and well_typed *)
-proof(induct e arbitrary: \<Gamma> t \<Delta>)
+  apply (erule expr_type.induct)
+  apply simp
+proof(induction arbitrary: \<Gamma> e t \<Delta>)
   case EmptySet then show ?case
     apply clarsimp
     apply (rule EmptyVal)
