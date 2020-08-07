@@ -395,7 +395,7 @@ In each example, we only show the fragment of the code that is necessary for spa
 \subsection{ERC-20}\label{sec:erc20-impl}
 ERC-20 is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 ERC-20 is one of the commonly implemented standards on the Ethereum blockchain.
-Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
+Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of how many tokens each user has; users are represented by addresses.
 We focus on one core function from ERC-20, the \lstinline{transfer} function.
 \begin{figure}[ht]
     \centering

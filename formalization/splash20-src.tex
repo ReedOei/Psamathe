@@ -126,8 +126,9 @@
 \section{Introduction}
 
 Blockchains are increasingly used as platforms for applications called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
-Commonly proposed and implemented contracts often manage \emph{digital assets}, such as smart contracts for supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
-One of the most common is a \emph{token contract}---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
+Commonly proposed and implemented applications of smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, \emph{token contracts}, a contract implementing a \emph{token standard}, such as ERC-20~\cite{erc20}, voting, crowdfunding, auctions, and more~\cite{Elsden18:Making}.
+Smart contracts often manage \emph{digital assets}, such as cryptocurrencies, or, depending on the application, bids in an auction, votes in an election, and so on.
+Token contracts are extremely common on Ethereum---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
 % On the Ethereum blockchain~\cite{wood2014ethereum}, there are many token standards, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20,erc721,erc777,erc1155}.
 Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
 % Developers must carefully review contracts, and some use an independent auditing service to help with this process.
@@ -139,8 +140,14 @@ Some estimates suggest that as much as 46\% of smart contracts may have some vul
 \langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation, which is useful in smart contracts managing digital \assetTxt{}s.
 Flows allow the encoding of semantic information about the flow of \assetTxt{}s into the code.
 The \langName language will also provide features to mark types as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make some classes of bugs impossible.
-Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain~\cite{EthereumForDevs}, does not make any effort to provide analogous support for managing \assetTxt{}s.
 Additionally, typical smart contracts are more \textbf{concise} in \langName because it handles common patterns and pitfalls automatically.
+Solidity, the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, does not provide analogous support for managing \assetTxt{}s.
+
+There are also many newly-proposed blockchain languages, such as Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
+Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
+Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s, similarly to how \langName uses \emph{type quantities}.
+% Type quantities provide a more precise analysis of the behavior of a program than linear types.
+None of the these languages have flows or provide support for all the modifiers that \langName does.
 
 % \langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, called a \emph{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
 % It will also provide features to mark certain values as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make certain classes of bugs impossible.
@@ -168,7 +175,8 @@ Each contract instance in \langName represents a contract on the blockchain, and
 % We distinguish between three types of function: \emph{transactions}, \emph{views}, and \emph{transformers}.
 % Transactions and views are both \emph{methods}, which may access the fields of a contract; a transaction can read \textbf{and} write fields, whereas a view may only read fields.
 % A transformer is a \textbf{pure} function, which is not part of any contract: it may contain flows and other statements, and it may mutate \textbf{local} state, but it cannot mutate the state of any contract.
-Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function (see Section~\ref{sec:erc20-impl} for more details on ERC-20).
+Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function.
+ERC-20 is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 \begin{figure}[ht]
     \centering
     \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
@@ -190,8 +198,8 @@ Using the more declarative, \emph{flow-based} approach provides the following ad
 \begin{itemize}
     \item \textbf{Precondition checking}: \langName automatically checks that a flow is valid; e.g., a flow of money would fail if there is not enough in the source, or if there is too much in the destination (e.g., due to overflow).
         % Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
-    \item \textbf{Data-flow tracking}: It is clear where the resources are flowing from the code itself, which may not be apparent in complicated contracts. %such as those involving transfer fees.
-        Furthermore, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
+    \item \textbf{Data-flow tracking}: We hypothesize that flows provide a clearer way of specifying how resources flow in the code itself, which may be less apparent using other approaches, especially in complicated contracts. %such as those involving transfer fees.
+        Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed. % , which we hypothesize leads to fewer accidental asset loss bugs.
     \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as
 \begin{lstlisting}
 "Cannot flow '<amount>' Token from account[<src>] to account[<dst>]:
@@ -202,17 +210,9 @@ Using the more declarative, \emph{flow-based} approach provides the following ad
 
 % \subsection{Type Quantities}
 Each variable in \langName has a \emph{type quantity}, approximating the number of values in the variable, which is one of: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
-% The list of allowed type quantities is: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
-Only $\emptyq$ \assetTxt variables may be dropped. % ensuring that unused \assetTxt{}s not dropped.
-Type quantities are \textbf{not} required in the surface language, and they will be added automatically if omitted. % for example, \flowinline{var toks : set Token := \{\}} is inferred to be an \flowinline{empty set Token}, whereas \flowinline{var C : Bank := new Bank()} is inferred to be \flowinline{! Bank}.
-% Type quantities are primarily updated by flows.
-% For example, after checking the flow \flowinline{A --[ everything ]-> B}, it must be that \flowinline{A} is empty, and depending on the type quantity that \flowinline{A} used to have, it may now be that \flowinline{B} is also empty (if \flowinline{A} was empty), nonempty, or any other type quantity (other than $\every$).
-% Type quantities can also be updated by expressions, which can move values to other variables.
-% For example, after checking \flowinline{var x : (Token, Token) := (a, b)}, creating a new pair, both \flowinline{a} and \flowinline{b} are $\emptyq$, as the assets they used to hold are now in \flowinline{x}.
+Only $\emptyq$ \assetTxt variables may be dropped.
+Type quantities are inferred if omitted.
 Type quantities provide the benefits of \emph{linear types}, but give a more precise analysis of the flow of values in a program.
-% Many variables are supposed to hold exactly one value; corresponding to being non-null in languages with nulls, like Java.
-% The type quantity system allow temporarily ``emptying out'' a variable, while statically ensuring that it contains exactly one value before the transaction exits.
-% Type quantities can also specify more precise types for variables, such as declaring an argument to a transaction must be a \flowinline{nonempty list}.
 
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 A \flowinline{asset} is a value that must not be reused or accidentally lost.
@@ -220,41 +220,10 @@ A \flowinline{fungible} value represents a quantity which can be \textbf{merged}
 A \flowinline{unique} value only exists in at most one variable; it must be \flowinline{immutable} and an \flowinline{asset} to ensure it is not duplicated.
 A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow.
 A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes appropriate to dispose of, done via the \flowinline{consume} construct, documenting that the disposal is intentional.
-% All of these constraints, except for uniqueness, are enforced statically.
-% Uniqueness is enforced at creation time by dynamically checking that the new value has never been created before.
-% After this initial check, we can be sure that the values are unique because the type system will not allow an existing unique value to be duplicated.
-% \reed{What if someone passes us an argument of a unique type in a public transaction? Is that even possible?}
 For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are \flowinline{unique} and \flowinline{immutable}.
-% By default, neither is \flowinline{consumable}, but one of the common extensions of both standards is to add a \flowinline{burn} function, which allows tokens to be destroyed by users with the appropriate authentication.
-% In this case, it would be appropriate to add the \flowinline{consumable} modifier.
-%
-% \langName also supports data structures that make working with \assetTxt{}s easier, such as \emph{linkings}, a bidirectional map between keys and collections of values to support modeling of an \emph{account} holding a collection of \assetTxt{}s.
-% A \flowinline{linking K <=> C V} is a \flowinline{map K => C V} with additional operations, where \flowinline{K} is the key type, \flowinline{V} is the value type, and \flowinline{C} is some collection type constructor, such as \flowinline{list} or \flowinline{set}.
-% The additional operations supported are \flowinline{L.hasOwner(v)} and \flowinline{L.ownerOf(v)}, where \flowinline{L : linking K <=> C V} and \flowinline{v : V}.
-% \flowinline{L.hasOwner(v)} returns true if and only if there is some \flowinline{k : K} such that \flowinline{v in L[k]} is true.
-% \flowinline{L.ownerOf(v)} returns some \flowinline{k : K} such that \flowinline{v in L[k]}, if it exists.
-% If it does not, it throws an error.
-% See Figure~\ref{fig:erc721-impl-flow} for some example uses of this structure.
-% Though it is possible to partially implement linkings as a library in Solidity, in \langName, we can guarantee that looking up the owner of a value in a linking, if it has a \flowinline{unique} type, is a \textbf{well-defined} operation.
 
-% Computation on blockchains like the Ethereum blockchain is grouped into units called \emph{transactions}.
-% Transactions in the same \emph{block} are executed in a sequential order, but may be nondeterministically ordered within the block, at the discretion of the miner.
-% Transactions either succeed or they fail and revert all changes.
 \langName has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
 If a sequence of flows fails, the error ``bubbles up'', like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.
-
-% \subsection{Comparison with Solidity}
-% The concept of contracts in \langName maps directly Solidity's concept of contracts.
-% Transactions, views, and transformers all map to the concept of \lstinline{function} in Solidity: a transaction is a function that is public by default, a view is a function with the \lstinline{view} modifier, and a transformer is a function with the \lstinline{pure} modifier.
-% A type declaration in \langName is best modeled by a \lstinline{struct} in Solidity, although type declarations are more flexible: Solidity has does not support any of the modifiers that \langName does (note Solidity has its own concept of modifiers that is unrelated).
-
-% The \langName language provides all of the primitive types that Solidity does, with additional support for types such as linkings, explained above.
-% Solidity also exhibits several atypical behaviors, such as acting as those all keys in a mapping exist, and providing the default value whenever a new key is used.
-% This leads to ad-hoc workarounds, like those shown in Sections~\ref{sec:erc721-impl} and~\ref{sec:voting-impl}.
-
-% Before version 0.6.0, for the first four years since its release five years ago, Solidity did not have a try-catch construct~\cite{SolidityTryCatch}.
-% The newly-added try-catch construct behaves similarly to that of \langName, as both will revert the changes made when an exception occurs.
-% However, Solidity's try-catch is structured in an atypical way, only allowing catching errors from a single expression, which must be an external call or a contract creation call, whereas \langName behaves in a more standard way, allowing catching all errors from the try-block.
 
 \section{Examples}
 The complete Solidity and \langName code is in our repository~\cite{psamatheRepo}.
@@ -299,9 +268,6 @@ The complete Solidity and \langName code is in our repository~\cite{psamatheRepo
 % \end{figure*}
 
 \subsection{ERC-20}\label{sec:erc20-impl}
-ERC-20 is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
-Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of which users, identified by addresses, have some number of tokens.
-% We focus on one core function from ERC-20, the \lstinline{transfer} function.
 \begin{figure}
     \centering
     \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
@@ -311,6 +277,7 @@ Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping t
     \label{fig:erc20-transfer-sol}
 \end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
+Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of how many tokens each user has; users are represented by addresses.
 This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
 In this case, the sender's balance must be at least as large as \flowinline{amount}, and the destination's balance must not overflow when it receives the tokens.
 Code checking these two conditions is automatically inserted, ensuring that the checks are not forgotten.
@@ -338,14 +305,6 @@ This example shows \langName is suited for a range of applications.
 It also shows that some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 % The Solidity implementation is also more verbose than the \langName implementation because it must work around the limitations of the mapping structure.
 % In this example, the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
-
-\section{Related Work}
-% Solidity is the most common blockchain language, but does not have any features for managing \assetTxt{}s.
-There are many newly-proposed blockchain languages, such as Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
-Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
-Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s, similarly to how \langName uses type quantities.
-% Type quantities provide a more precise analysis of the behavior of a program than linear types.
-None of the these languages have flows or provide support for all the modifiers that \langName does.
 
 \section{Conclusion and Future Work}
 
