@@ -124,10 +124,10 @@
 \maketitle
 
 \section{Introduction}
-
 Blockchains are increasingly used as platforms for applications called \emph{smart contracts}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
-Commonly proposed and implemented applications often manage \emph{digital assets}, such as smart contracts for supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, and other applications which require careful management of their respective assets such as voting, crowdfunding, or auctions~\cite{Elsden18:Making}.
-One of the most common kinds of contract is a \emph{token contract}---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
+Commonly proposed and implemented applications of smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, \emph{token contracts}, a contract implementing a \emph{token standard}, such as ERC-20~\cite{erc20}, voting, crowdfunding, auctions, and more~\cite{Elsden18:Making}.
+Smart contracts often manage \emph{digital assets}, such as cryptocurrencies, or, depending on the application, bids in an auction, votes in an election, and so on.
+Token contracts are common on Ethereum---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
 On the Ethereum blockchain~\cite{wood2014ethereum}, there are many token standards, including ERC-20, ERC-721, ERC-777, ERC-1155~\cite{erc20,erc721,erc777,erc1155}.
 
 Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
@@ -837,8 +837,6 @@ Maybe we could make it work on sets of $\mapitem$ or $\link$, and then avoid eve
 \end{mathpar}
 
 \framebox{$\Gamma \proves \mathcal{D}~\accepts~\tau$} \textbf{Destination Typing}
-Note that the \typeQuantities in \textsc{Accept-One} are different on the left and right of the turnstile.
-This is because, for example, when I have $D : \nonempty~\setq~\natt$, it is reasonable to flow into it some $S : \any~\setq~\natt$.
 \begin{mathpar}
     \inferrule*[right=Accept-Var]{
         \Gamma \proves D : \mathcal{Q}~T
