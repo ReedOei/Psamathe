@@ -1,4 +1,4 @@
-all: paper splash20-src
+all: paper splash20-src reuse20-poster
 
 # Build a bunch of times to generate cross-refs.
 # Is there'a better way to do this?
@@ -15,4 +15,7 @@ splash20-src: splash20-src.tex
 	pdflatex splash20-src.tex
 	pdflatex splash20-src.tex
 	xdg-open splash20-src.pdf
+
+reuse20-poster: reuse20-poster/poster.tex
+	( cd reuse20-poster && make )
 
