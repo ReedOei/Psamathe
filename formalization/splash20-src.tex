@@ -2,6 +2,7 @@
 
 \usepackage{listings}
 \usepackage{hyperref}
+\usepackage{dblfloatfix}
 \usepackage{tikz-cd}
 % \usepackage{amssymb}
 \usepackage{amsthm}
@@ -135,6 +136,14 @@ Smart contracts cannot be patched after being deployed, even if a security vulne
 % Vulnerabilities still occur regularly, often costing large amounts of money.
 % The well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars.
 Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
+\begin{figure}[!b]
+    \centering
+    \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
+    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
+        All preconditions are checked manually.
+        Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
+    \label{fig:erc20-transfer-sol}
+\end{figure}
 
 \langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation, which is useful in smart contracts managing digital \assetTxt{}s.
 Flows allow the encoding of semantic information about the flow of \assetTxt{}s into the code.
@@ -174,9 +183,9 @@ Each contract instance in \langName represents a contract on the blockchain, and
 % We distinguish between three types of function: \emph{transactions}, \emph{views}, and \emph{transformers}.
 % Transactions and views are both \emph{methods}, which may access the fields of a contract; a transaction can read \textbf{and} write fields, whereas a view may only read fields.
 % A transformer is a \textbf{pure} function, which is not part of any contract: it may contain flows and other statements, and it may mutate \textbf{local} state, but it cannot mutate the state of any contract.
-Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core functionality of ERC-20's \lstinline{transfer} function.
-ERC-20 is a standard for smart contracts that manage \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
-\begin{figure}[ht]
+Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core of ERC-20's \lstinline{transfer} function.
+ERC-20 is a standard for token contracts managing \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
+\begin{figure}[!b]
     \centering
     \lstinputlisting[language=flow]{splash20-examples/erc20-transfer.flow}
     \caption{A contract with a simple \lstinline{transfer} function in \langName, which transfers \lstinline{amount} tokens from the sender's account to the destination account.
@@ -201,8 +210,7 @@ Using the more declarative, \emph{flow-based} approach provides the following ad
         Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed. % , which we hypothesize leads to fewer accidental asset loss bugs.
     \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as
 \begin{lstlisting}
-"Cannot flow '<amount>' Token from account[<src>] to account[<dst>]:
-    source only has <balance> Token."
+"Cannot flow <amount> Token from account[<src>] to account[<dst>]: source only has <balance> Token."
 \end{lstlisting}
         Flows enable these messages by encoding all the necessary information into the program.%, instead of using low-level operations like increment and decrement.
 \end{itemize}
@@ -225,6 +233,12 @@ For example, ERC-20 tokens are \flowinline{fungible}, while ERC-721 tokens are \
 If a sequence of flows fails, the error ``bubbles up'', like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.
 
 \section{Examples}
+\begin{figure}[!b]
+    \centering
+    \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
+    \caption{A simple voting contract in Solidity.}
+    \label{fig:voting-impl-sol}
+\end{figure}
 The complete Solidity and \langName code is in our repository~\cite{psamatheRepo}.
 % \begin{figure*}
 %     \centering
@@ -267,14 +281,6 @@ The complete Solidity and \langName code is in our repository~\cite{psamatheRepo
 % \end{figure*}
 
 \subsection{ERC-20}\label{sec:erc20-impl}
-\begin{figure}
-    \centering
-    \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
-    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
-        All preconditions are checked manually.
-        Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
-    \label{fig:erc20-transfer-sol}
-\end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of how many tokens each user has; users are represented by addresses.
 This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
@@ -282,13 +288,7 @@ In this case, the sender's balance must be at least as large as \flowinline{amou
 Code checking these two conditions is automatically inserted, ensuring that the checks are not forgotten.
 
 \subsection{Voting}\label{sec:voting-impl}
-\begin{figure}
-    \centering
-    \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
-    \caption{A simple voting contract in Solidity.}
-    \label{fig:voting-impl-sol}
-\end{figure}%
-\begin{figure}
+\begin{figure}[!b]
     \centering
     \lstinputlisting[language=flow]{splash20-examples/voting.flow}
     \caption{A simple voting contract in \langName.}
