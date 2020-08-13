@@ -140,7 +140,7 @@ Some estimates suggest that as much as 46\% of smart contracts may have some vul
 Flows allow encoding semantic information about the flow of \assetTxt{}s into the code.
 The \langName language will also provide features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible.
 Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain~\cite{EthereumForDevs}, does not make any effort to provide analogous support for managing \assetTxt{}s.
-Additionally, typical smart contracts are more \textbf{concise} in \langName because it handles common patterns and pitfalls automatically.
+Additionally, typical smart contracts are more \textbf{concise} in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
 
 % \paragraph{Contributions}
 
@@ -282,8 +282,8 @@ It must now be that \flowinline{B} is \flowinline{! address} if the flow was suc
 
 \subsection{Modifiers}\label{sec:lang-modifiers}
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
-A \flowinline{asset} is a value that must not be reused or accidentally lost.
-A \flowinline{fungible} value represents a quantity which can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
+An \flowinline{asset} is a value that must not be reused or accidentally lost.
+A \flowinline{fungible} value represents a quantity that can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
 A \flowinline{unique} value can only exist in at most one storage; it must be \flowinline{immutable} and an \flowinline{asset} to ensure it is not duplicated.
 A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow, the only state-changing construct in \langName.
 A \flowinline{consumable} value is an \flowinline{asset} that it is sometimes appropriate to dispose of; however, this disposal must be done via the \flowinline{consume} construct, a way of documenting that the disposal is intentional.
@@ -434,8 +434,9 @@ This example demonstrates the benefits of having $\unique$ \assetTxt{}s and havi
 \subsection{Voting}\label{sec:voting-impl}
 One proposed use for the blockchain is smart contracts for managing voting~\cite{Elsden18:Making}.
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a simple voting contract in Solidity and \langName, respectively.
-This example shows that \langName is suited for a range of applications, as we can use the $\unique$ modifier to remove certain incorrect behaviors, shown in Figure~\ref{fig:voting-impl}.
-In this application, the use of $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
+This example shows \langName is suited for a range of applications.
+It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
+\reed{Removed this next part in the SRC, but we have more space so maybe keep?}
 Additionally, the Solidity implementation is more verbose than the \langName implementation because it must work around the limitations of Solidity's mappings.
 In this example, the declaration of the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
 
