@@ -136,9 +136,9 @@ Despite this extra care, discoveries of vulnerabilities still occur regularly, o
 The well-known DAO attack~\cite{DAO}, discussed in Section~\ref{sec:ex-dao-attack}, caused the loss of over 40 million dollars, and was due to a reentrancy issue.
 Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
 
-\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation, which is useful in smart contracts managing digital \assetTxt{}s.
-Flows allow the encoding of semantic information about the flow of \assetTxt{}s into the code.
-The \langName language will also provide features to mark types as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make some classes of bugs impossible.
+\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation. %, which is useful in smart contracts managing digital \assetTxt{}s.
+Flows allow encoding semantic information about the flow of \assetTxt{}s into the code.
+The \langName language will also provide features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible.
 Solidity, the most commonly-used language for writing smart contracts on the Ethereum blockchain~\cite{EthereumForDevs}, does not make any effort to provide analogous support for managing \assetTxt{}s.
 Additionally, typical smart contracts are more \textbf{concise} in \langName because it handles common patterns and pitfalls automatically.
 
@@ -409,7 +409,7 @@ Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-2
 Note that event code has been omitted, because \langName handles events in the same way as Solidity.
 This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
 In this case, the balance of the sender must be at least as large as the amount sent, and the balance of the destination must not overflow when it receives the tokens.
-Code checking these two conditions is automatically inserted, ensuring that the checks cannot be forgotten.
+Psamathe automatically inserts code checking these two conditions, ensuring that the checks are not forgotten.
 
 \subsection{ERC-721}\label{sec:erc721-impl}
 
@@ -472,7 +472,7 @@ Additionally, \langName forbids any reentrant call from an external source, a si
 \section{Discussion}
 
 \section{Related Work}
-There have been many new blockchain languages proposed, such as Flint~\cite{schrans2018flint}, Move~\cite{blackshear2019move}, Nomos~\cite{das2019nomos}, Obsidian~\cite{coblenz2019obsidian}, and Scilla~\cite{sergey2019scilla}.
+Other many newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
 
 Scilla and Move were proposed as intermediate-level languages, whereas \langName is a high-level language.
 

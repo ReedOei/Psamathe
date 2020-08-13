@@ -145,15 +145,17 @@ Some estimates suggest that as much as 46\% of smart contracts may have some vul
     \label{fig:erc20-transfer-sol}
 \end{figure}
 
-\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation, which is useful in smart contracts managing digital \assetTxt{}s.
-Flows allow the encoding of semantic information about the flow of \assetTxt{}s into the code.
-The \langName language will also provide features to mark types as \emph{\assetTxt{}s}, with various \emph{modifiers} to control their use, which combine with flows to make some classes of bugs impossible.
+\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation.
+% which is useful in smart contracts managing digital \assetTxt{}s.
+Flows allow encoding semantic information about the flow of \assetTxt{}s into the code.
+The \langName language will also provide features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible.
+
 Additionally, typical smart contracts are more \textbf{concise} in \langName because it handles common patterns and pitfalls automatically.
 Solidity, the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, does not provide analogous support for managing \assetTxt{}s.
 
-There are also many newly-proposed blockchain languages, such as Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
+Other many newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
-Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s, similarly to how \langName uses \emph{type quantities}.
+Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s, similar to how \langName uses \emph{type quantities}.
 % Type quantities provide a more precise analysis of the behavior of a program than linear types.
 None of the these languages have flows or provide support for all the modifiers that \langName does.
 
@@ -204,15 +206,15 @@ It is implemented with a single flow, which automatically checks all the precond
 % Using \reed{the more declarative, \emph{flow-based}; don't name other approach} a \emph{flow-based} approach provides the several advantages over the typical \emph{assignment-based} approach most languages use (e.g., incrementing, then decrementing):
 Using the more declarative, \emph{flow-based} approach provides the following advantages:
 \begin{itemize}
-    \item \textbf{Precondition checking}: \langName automatically checks that a flow is valid; e.g., a flow of money would fail if there is not enough in the source, or if there is too much in the destination (e.g., due to overflow).
+    \item \textbf{Precondition checking}: \langName automatically inserts dynamic checks of a flow's validity; e.g., a flow of money would fail if there is not enough in the source, or if there is too much in the destination (e.g., due to overflow).
         % Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
     \item \textbf{Data-flow tracking}: We hypothesize that flows provide a clearer way of specifying how resources flow in the code itself, which may be less apparent using other approaches, especially in complicated contracts. %such as those involving transfer fees.
         Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed. % , which we hypothesize leads to fewer accidental asset loss bugs.
     \item \textbf{Error messages}: When a flow fails, \langName provides automatic, descriptive error messages, such as
-\begin{lstlisting}
-"Cannot flow <amount> Token from account[<src>] to account[<dst>]: source only has <balance> Token."
+\begin{lstlisting}[numbers=none, xleftmargin=-5.0ex]
+Cannot flow <amount> Token from account[<src>] to account[<dst>]: source only has <balance> Token.
 \end{lstlisting}
-        Flows enable these messages by encoding all the necessary information into the program.%, instead of using low-level operations like increment and decrement.
+        Flows enable such messages by encoding all the necessary information into the program.%, instead of using low-level operations like increment and decrement.
 \end{itemize}
 
 % \subsection{Type Quantities}
@@ -285,7 +287,7 @@ Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-2
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of how many tokens each user has; users are represented by addresses.
 This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
 In this case, the sender's balance must be at least as large as \flowinline{amount}, and the destination's balance must not overflow when it receives the tokens.
-Code checking these two conditions is automatically inserted, ensuring that the checks are not forgotten.
+Psamathe automatically inserts code checking these two conditions, ensuring that the checks are not forgotten.
 
 \subsection{Voting}\label{sec:voting-impl}
 \begin{figure}[!b]
