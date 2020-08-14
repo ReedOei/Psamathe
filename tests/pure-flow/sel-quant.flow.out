@@ -1,0 +1,40 @@
+<generatedTop>
+  <k>
+    .
+  </k>
+  <functions>
+    idBool |-> transformer ( res : ! bool , a : ! bool , .VarDefs , a --> res  .Stmts )
+  </functions>
+  <freshCounter>
+    15
+  </freshCounter>
+  <lookup>
+    b |-> loc ( 0 )
+    var ( 9 ) |-> loc ( 9 )
+    var ( 11 ) |-> loc ( 11 )
+    var ( 13 ) |-> loc ( 13 )
+    x |-> loc ( 2 )
+    y |-> loc ( 8 )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( bool , .List )
+    loc ( 1 ) |-> resource ( bool , .List )
+    loc ( 2 ) |-> resource ( list ! bool , ListItem ( false ) )
+    loc ( 3 ) |-> resource ( list ! bool , .List )
+    loc ( 4 ) |-> resource ( bool , .List )
+    loc ( 5 ) |-> resource ( list ! bool , .List )
+    loc ( 6 ) |-> resource ( bool , .List )
+    loc ( 7 ) |-> resource ( list ! bool , .List )
+    loc ( 8 ) |-> resource ( list ! bool , ListItem ( true )
+    ListItem ( true ) )
+    loc ( 9 ) |-> resource ( bool , .List )
+    loc ( 10 ) |-> resource ( bool , ListItem ( true ) )
+    loc ( 11 ) |-> resource ( bool , .List )
+    loc ( 12 ) |-> resource ( bool , ListItem ( true ) )
+    loc ( 13 ) |-> resource ( bool , .List )
+    loc ( 14 ) |-> resource ( bool , ListItem ( false ) )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

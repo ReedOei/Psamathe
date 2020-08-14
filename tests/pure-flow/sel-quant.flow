@@ -1,0 +1,13 @@
+true --> var b : ! bool
+[ b ] --> var x : any list ! bool
+true --> b
+[ b ] --> x
+false --> b
+[ b ] --> x
+
+transformer idBool(a : ! bool) -> res : ! bool {
+    a --> res
+}
+
+x --[ any such that idBool() ]-> var y : any list ! bool
+
