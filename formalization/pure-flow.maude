@@ -39,6 +39,7 @@ mod FLOW is
     sort Selector .
     op __:_st_(_) : TyQuant Qid Ty Qid Locs -> Selector [ctor] .
 
+    op _-->_ : Source Dest -> Stmt [ctor] .
     op _--[_]->_ : Source Selector Dest -> Stmt [ctor] .
     op _--[_]->_(_)-->_ : Source Selector Qid Locs Dest -> Stmt [ctor] .
     op done : -> Stmt [ctor] .
@@ -55,14 +56,16 @@ mod FLOW is
 
     op select : Vals Selector -> Result .
 
-    sorts Env Config .
+    sorts Lookup Env Config .
     op mt : -> Env [ctor] .
-    op _|->_ : Loc Vals -> Env [ctor] .
+    op _|->_ : Nat Vals -> Env [ctor] .
     op _,_ : Env Env -> Env [ctor comm assoc id: mt] .
 
-    op [_,_] : Env Stmt -> Config [ctor] .
+    op mt : -> Lookup [ctor] .
+    op _|->_ : Loc Nat -> Lookup [ctor] .
+    op _,_ : Lookup Lookup -> Lookup [ctor comm assoc id: mt] .
 
-    op call : Qid Locs -> Result .
+    op [_,_,_,_] : Nat Lookup Env Stmt -> Config [ctor] .
 
     vars T T1 T2 : BaseTy .
     vars Tau Sigma Pi : Ty .
@@ -80,19 +83,29 @@ mod FLOW is
 
     var Sel : Selector .
 
+    var Lookup : Lookup .
     var Store : Env .
 
-    rl [ Store, select(nil, one X : Tau st F(Ls)) ] => [ Store, error ] .
-    rl [ Store, select(nil, nonempty X : Tau st F(Ls)) ] => [ Store, error ] .
-    crl [ Store, select(nil, Q X : Tau st F(Ls)) ] => [ Store, nil ]
-        if Q =/= one /\ Q =/= nonempty .
+    vars Counter N : Nat .
 
-    crl [ Store, select(Vs V Ws, one X : Tau st F(Ls)) ] => [ Store, V ]
-        if NewLoc := freshLoc(Store) /\
-           call(F, (Ls, NewLoc)) => Res /\ Res =/= error /\
-           --- We should not be able to select any more values.
-           select(Vs Ws, one X : Tau st F(Ls)) => error .
+    op resolve : Lookup Env Source -> Nat .
+    op resolve : Dest -> Dest .
+
+    crl [ Counter, Lookup, Store, S --> D] =>
+        if resolve(Lookup, Store, S) => Vs .
+
+    --- rl [ Store, select(nil, one X : Tau st F(Ls)) ] => [ Store, error ] .
+    --- rl [ Store, select(nil, nonempty X : Tau st F(Ls)) ] => [ Store, error ] .
+    --- crl [ Store, select(nil, Q X : Tau st F(Ls)) ] => [ Store, nil ]
+    ---     if Q =/= one /\ Q =/= nonempty .
+
+    --- crl [ Store, select(Vs V Ws, one X : Tau st F(Ls)) ] => [ Store, V ]
+    ---     if NewLoc := freshLoc(Store) /\
+    ---        call(F, (Ls, NewLoc)) => Res /\ Res =/= error /\
+    ---        --- We should not be able to select any more values.
+    ---        select(Vs Ws, one X : Tau st F(Ls)) => error .
 endm
 
-rew (True --[ one 'x : one bool st 'idBool(nil) ]-> var 'b : one bool) .
+rew (True --> var 'b : one bool) .
+--- rew (True --[ one 'x : one bool st 'idBool(nil) ]-> var 'b : one bool) .
 

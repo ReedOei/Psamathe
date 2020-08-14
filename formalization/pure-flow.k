@@ -35,16 +35,13 @@ module PURE-FLOW-SYNTAX
                   | "{" RecordMembers "}"
                   | "(" Expr ")"        [bracket]
 
-    syntax SourceVal ::= "new" Var
-    syntax Source ::= Expr | SourceVal
-    syntax DestinationVal ::= "consume" | "var" VarDef
-    syntax Destination ::= Expr | DestinationVal
-    syntax StorageVal ::= SourceVal | DestinationVal
-    syntax Storage ::= Source | Destination | StorageVal
+    syntax StorageVal ::= new(Var, Modifiers, BaseType) | "consume"
+    syntax Storage ::= StorageVal | "var" VarDef | Expr
     syntax Selector ::= TypeQuant VarDef "such" "that" FunctionCall
 
-    syntax Stmt ::= Source "--[" Selector "]->" Destination
-                  | Source "--[" Selector "]->" Var "-->" Destination
+    syntax Stmt ::= Storage "-->" Storage
+                  | Storage "--[" Selector "]->" Storage
+                  | Storage "--[" Selector "]->" Var "-->" Storage
                   | "pass"
                   | "try" "{" Stmt "}" "catch" "(" VarDef ")" "{" Stmt "}"
     syntax Stmts ::= List{Stmt, ""}
@@ -97,7 +94,7 @@ module PURE-FLOW
     // =================================
     // Sequence
     // =================================
-    rule S1:Stmt S2:Stmt => S1 ~> S2 [structural]
+    rule S1:Stmt Rest:Stmts => S1 ~> Rest [structural]
 
     // =================================
     // Pass
@@ -129,7 +126,7 @@ module PURE-FLOW
     // =================================
     // Variable lookup
     // =================================
-    syntax Expr ::= resolveStorage(Storage)
+    syntax StorageVal ::= resolveStorage(Storage)
 
     rule resolveStorage(B:Bool) => resolveStorage(resource(bool, ListItem(B)))
     rule <k> resolveStorage(resource(R, V)) => loc(I) ... </k>
@@ -171,39 +168,45 @@ module PURE-FLOW
     // =================================
     // Flows:
     // =================================
-    rule S --[ Sel ]-> D => handleFlow(Sel, resolveStorage(S), resolveStorage(D))
+    syntax Stmt ::= split(Resource, StorageLoc, StorageLoc)
+                  | put(Val, StorageVal)
 
-    syntax Stmt ::= handleFlow(Selector, Storage, Storage) [seqstrict]
+    context (HOLE => resolveStorage(HOLE)) --> _
+    context _ --> (HOLE => resolveStorage(HOLE))
 
-    // Consume
-    rule <k> handleFlow(Sel, SourceLoc, consume) => . ... </k>
-        <storage> ... (SourceLoc |-> (SV => subtract(SV, select(Sel, SV)))) ... </storage>
-        requires select(Sel, SV) contained_in SV
+    rule <k> Loc --> D => put(resource(R, Vs), D) ... </k>
+        <storage> ... Loc |-> resource(R, Vs) => Loc |-> resource(R, .List) ... </storage>
 
-    rule <k> handleFlow(Sel, SourceLoc, DestLoc) => put(combine(convert(select(Sel, SV), DestR), resource(DestR, Cur)), DestLoc) ... </k>
-        <storage>
-            ...
-            (SourceLoc |-> SV)
-            (DestLoc |-> resource(DestR, Cur))
-            =>
-            (SourceLoc |-> subtract(SV, select(Sel, SV)))
-            ...
-        </storage>
-        requires select(Sel, SV) contained_in SV
+    /* rule S --[ Sel ]-> D => handleFlow(Sel, resolveStorage(S), resolveStorage(D)) */
 
-    syntax Stmt ::= put(Val, StorageLoc)
+    /* syntax Stmt ::= handleFlow(Selector, Storage, Storage) [seqstrict] */
 
+    /* rule <k> handleFlow(Sel, SourceLoc, DestLoc) => put(combine(convert(select(Sel, SV), DestR), resource(DestR, Cur)), DestLoc) ... </k> */
+    /*     <storage> */
+    /*         ... */
+    /*         (SourceLoc |-> SV) */
+    /*         (DestLoc |-> resource(DestR, Cur)) */
+    /*         => */
+    /*         (SourceLoc |-> subtract(SV, select(Sel, SV))) */
+    /*         ... */
+    /*     </storage> */
+    /*     requires select(Sel, SV) contained_in SV */
+
+    rule put(_, consume) => .
     /* rule put(flowError(Err), _) => revert(flowError(Err)) */
-    rule <k> put(R:Resource, Loc) => . ... </k>
-        <storage> ... .Map => Loc |-> R ... </storage>
+    /* rule <k> put(R:Resource, Loc) => . ... </k> */
+    /*     <storage> ... .Map => Loc |-> R ... </storage> */
 
     // ==================================
     // Select
     // ==================================
-    syntax Resource ::= select(Selector, Resource)
+    syntax Resource ::= select(Selector, Resource, Resource)
+    /* syntax Stmt ::= check */
     // TODO: Handle TypeQuant assertions
-    rule select(_, resource(R, .List)) => resource(R, .List)
-    rule select(_ X : _ such that F[Ls], resource(R, ListItem(A) Rest)) => resource(R, .List)
+    rule select(_, resource(_, .List), Res) => Res
+    /* rule select(_ X : _ such that F[Ls], resource(R, ListItem(A) Rest), resource(R, CurVals)) */
+    /*      => */
+    /*      resource(R, .List) */
 
     // ==================================
     // Subtract
@@ -229,12 +232,6 @@ module PURE-FLOW
          (A in B) andBool (resource(R, Rest) contained_in resource(R, remove(B, A)))
 
     // ==================================
-    // single
-    // ==================================
-    syntax Val ::= single(BaseType, KItem) [function, functional]
-    rule single(R, V) => resource(R, ListItem(V))
-
-    // ==================================
     // Convert resources: Takes a resource value and converts it to be compatible with the specified type
     // ==================================
     syntax Val ::= convert(Resource, BaseType) [function, functional]
@@ -254,31 +251,31 @@ module PURE-FLOW
     // =================================
     // Linear Lookup Value Helper
     // =================================
-    syntax Expr ::= lookupVal(StorageLoc)
-    rule <k> lookupVal(Loc) => V ... </k>
-        <storage> ... Loc |-> V => .Map ... </storage>
+    syntax Resource ::= lookupVal(StorageLoc)
+    rule <k> lookupVal(Loc) => R ... </k>
+        <storage> ... Loc |-> R => .Map ... </storage>
 
     // =================================
     // Function calls:
     // =================================
-    /* syntax Stmt ::= setupArgs(Vars, VarDefs, Stmt) */
-    /*               | cleanEnv(Set) */
-    /*               | invoke(StorageLoc, Vars, VarDefs, Stmt) */
+    syntax Stmt ::= setupArgs(Vars, VarDefs, Stmts)
+                  | cleanEnv(Set)
+                  | invoke(Vars, VarDefs, Stmts)
 
-    /* rule setupArgs(.Vars, .VarDefs, S) => S */
-    /* rule setupArgs((E, Es):Vars, (Y : T, Defs2), S) => var Y : T := E in setupArgs(Es, Defs2, S) */
+    rule setupArgs(.Vars, .VarDefs, S) => S
+    rule setupArgs((E, Es):Vars, (Y : T, Defs2), S) => (E --> var Y : T) ~> setupArgs(Es, Defs2, S)
 
-    /* rule <k> cleanEnv(ToRemove) => . ... </k> */
-    /*     <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup> */
+    syntax TransformerDef ::= transformer(VarDef, VarDefs, Stmts)
 
-    /* rule <k> invoke(Loc, Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Lookup)) insert(this, Loc) Body) ~> resetEnv(Lookup) ... </k> */
-    /*     <lookup> Lookup </lookup> */
+    rule <k> cleanEnv(ToRemove) => . ... </k>
+        <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
 
-    /* // Transactions */
-    /* rule <k> X.T(ActualArgs) => invoke(Loc, ActualArgs, FormalArgs, insert(RetVar, loc(I)) S) ~> lookupVal(loc(I)) ... </k> */
-    /*     <lookup> ... X |-> Loc ... </lookup> */
-    /*     <storage> ... (Loc |-> resource(C, _)) (.Map => loc(I) |-> resource(RetType, .List)) ... </storage> */
-    /*     <functions> ... C |-> functions((T |-> transaction(RetVar : _:TypeQuant RetType, FormalArgs, S)) _) ... </functions> */
-    /*     <freshCounter> I => I +Int 1 </freshCounter> */
+    rule <k> invoke(Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Lookup)) Body) ~> resetEnv(Lookup) ... </k>
+        <lookup> Lookup </lookup>
+
+    rule <k> (F[ActualArgs]):FunctionCall => invoke(ActualArgs, FormalArgs, insert(RetVar, loc(I)) Body) ~> lookupVal(loc(I)) ... </k>
+        <storage> ... .Map => loc(I) |-> resource(RetType, .List) ... </storage>
+        <functions> ... F |-> transformer(RetVar : _:TypeQuant RetType, FormalArgs, Body) ... </functions>
+        <freshCounter> I => I +Int 1 </freshCounter>
 endmodule
 
