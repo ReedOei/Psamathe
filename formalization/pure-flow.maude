@@ -91,7 +91,7 @@ mod FLOW is
     op resolve : Lookup Env Source -> Nat .
     op resolve : Dest -> Dest .
 
-    crl [ Counter, Lookup, Store, S --> D] =>
+    crl [ Counter, Lookup, Store, S --> D ] =>
         if resolve(Lookup, Store, S) => Vs .
 
     --- rl [ Store, select(nil, one X : Tau st F(Ls)) ] => [ Store, error ] .

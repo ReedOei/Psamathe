@@ -39,6 +39,13 @@ elif [[ "$1" == "compile" ]]; then
         FLAGS+=("--log-cells")
         FLAGS+=("(k),(#pc),#result")
     fi
+elif [[ "$1" == "pure" ]]; then
+    shift
+    directory="pure-flow/"
+    if [[ "$1" == "test" ]]; then
+        FLAGS+=("--pattern")
+        FLAGS+=("<k> . </k>")
+    fi
 else
     directory="dynamic/"
     if [[ "$1" == "debug" ]]; then

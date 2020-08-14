@@ -89,11 +89,12 @@ module PURE-FLOW
     syntax FlowError ::= flowError(String)
     syntax Val ::= Resource | FlowError
     syntax Storage ::= Val
-    syntax KResult ::= Val | StorageVal
+    syntax KResult ::= StorageVal
 
     // =================================
     // Sequence
     // =================================
+    rule .Stmts => . [structural]
     rule S1:Stmt Rest:Stmts => S1 ~> Rest [structural]
 
     // =================================
@@ -129,20 +130,30 @@ module PURE-FLOW
     syntax StorageVal ::= resolveStorage(Storage)
 
     rule resolveStorage(B:Bool) => resolveStorage(resource(bool, ListItem(B)))
-    rule <k> resolveStorage(resource(R, V)) => loc(I) ... </k>
+    rule <k> resolveStorage([ X ]) => resolveStorage(loc(I)) ... </k>
+        <lookup> ... X |-> Loc ... </lookup>
+        <storage>
+            ...
+            (Loc |-> resource(R, Vs))
+            =>
+            (Loc |-> resource(R, .List))
+            (loc(I) |-> resource(list ! R, ListItem(Vs)))
+            ...
+        </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> resolveStorage(resource(R, V)) => resolveStorage(loc(I)) ... </k>
         <storage> ... .Map => loc(I) |-> resource(R, V) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
-    rule resolveStorage(consume) => consume
-    rule <k> resolveStorage(X) => Loc ... </k>
+    rule resolveStorage(consume) => resolveStorage(consume)
+    rule <k> resolveStorage(X) => resolveStorage(Loc) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
     /* rule <k> resolveStorage(X . F) => Loc ... </k> */
     /*     <lookup> ... X |-> XLoc ... </lookup> */
     /*     <storage> ... XLoc |-> resource(_, (F |-> Loc) _) ... </storage> */
-    rule <k> resolveStorage(var X : _:TypeQuant T) => loc(I) ... </k>
+    rule <k> resolveStorage(var X : _:TypeQuant T) => resolveStorage(loc(I)) ... </k>
         <lookup> ... .Map => X |-> loc(I) ... </lookup>
         <storage> ... .Map => loc(I) |-> resource(T, .List) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
-    rule resolveStorage(loc(I)) => loc(I)
 
     // NOTE: All types are always stored as their demoted value, so we simply need to demote the type.
     syntax Resource ::= demoteVal(Resource) [function, functional]
@@ -177,7 +188,15 @@ module PURE-FLOW
     rule <k> Loc --> D => put(resource(R, Vs), D) ... </k>
         <storage> ... Loc |-> resource(R, Vs) => Loc |-> resource(R, .List) ... </storage>
 
-    /* rule S --[ Sel ]-> D => handleFlow(Sel, resolveStorage(S), resolveStorage(D)) */
+    context (HOLE => resolveStorage(HOLE)) --[ _ ]-> _
+    context _ --[ _ ]-> (HOLE => resolveStorage(HOLE))
+
+    rule <k> SourceLoc:StorageLoc --[ Sel ]-> Dest:StorageVal
+             =>
+             select(Sel, resource(R, Vs), resource(R, .List), resource(R, .List), SourceLoc, Dest)
+             ...
+         </k>
+        <storage> ... SourceLoc |-> resource(R, Vs => .List) ... </storage>
 
     /* syntax Stmt ::= handleFlow(Selector, Storage, Storage) [seqstrict] */
 
@@ -193,17 +212,16 @@ module PURE-FLOW
     /*     requires select(Sel, SV) contained_in SV */
 
     rule put(_, consume) => .
-    /* rule put(flowError(Err), _) => revert(flowError(Err)) */
-    /* rule <k> put(R:Resource, Loc) => . ... </k> */
-    /*     <storage> ... .Map => Loc |-> R ... </storage> */
+    rule <k> put(resource(R, Vs), Loc) => . ... </k>
+        <storage> ... Loc |-> resource(R, Ws => Ws Vs) ... </storage>
 
     // ==================================
     // Select
     // ==================================
-    syntax Resource ::= select(Selector, Resource, Resource)
+    syntax Resource ::= select(Selector, Resource, Resource, Resource, StorageVal, StorageVal)
     /* syntax Stmt ::= check */
     // TODO: Handle TypeQuant assertions
-    rule select(_, resource(_, .List), Res) => Res
+    rule select(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst)
     /* rule select(_ X : _ such that F[Ls], resource(R, ListItem(A) Rest), resource(R, CurVals)) */
     /*      => */
     /*      resource(R, .List) */
