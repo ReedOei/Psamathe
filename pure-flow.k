@@ -41,7 +41,7 @@ module PURE-FLOW-SYNTAX
                   | Storage "--[" Selector "]->" Storage
                   | Storage "--[" Selector "]->" Var "-->" Storage
                   | "pass"
-                  | "try" "{" Stmt "}" "catch" "(" VarDef ")" "{" Stmt "}"
+                  | "try" "{" Stmts "}" "catch" "{" Stmts "}"
                   | "transformer" Var "(" VarDefs ")" "->" VarDef "{" Stmts "}"
     syntax Stmts ::= List{Stmt, ""}
 
@@ -149,15 +149,16 @@ module PURE-FLOW
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
+    /* rule <k> resolveStorage([]) => resolveStorage(loc(I)) ... </k> */
+    /*     // TODO: How to get the type right? */
+    /*     <storage> ...  .Map => loc(I) |-> resource(list ! bool, ListItem(Vs)) ... </storage> */
+    /*     <freshCounter> I => I +Int 1 </freshCounter> */
     rule <k> resolveStorage(resource(R, V)) => resolveStorage(loc(I)) ... </k>
         <storage> ... .Map => loc(I) |-> resource(R, V) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
     rule resolveStorage(consume) => resolveStorage(consume)
     rule <k> resolveStorage(X) => resolveStorage(Loc) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
-    /* rule <k> resolveStorage(X . F) => Loc ... </k> */
-    /*     <lookup> ... X |-> XLoc ... </lookup> */
-    /*     <storage> ... XLoc |-> resource(_, (F |-> Loc) _) ... </storage> */
     rule <k> resolveStorage(var X : _:TypeQuant T) => resolveStorage(loc(I)) ... </k>
         <lookup> ... .Map => X |-> loc(I) ... </lookup>
         <storage> ... .Map => loc(I) |-> resource(T, .List) ... </storage>
@@ -171,18 +172,18 @@ module PURE-FLOW
     // Try-Catch:
     // =================================
     // Stores the variable/type to catch, the handler, the lookup table, the storage to restore to, and the continuation.
-    syntax Stmt ::= catch(Var, Type, Stmt, Map, Map, K)
-    /* syntax Stmt ::= "revert" "(" Var ")" */
+    syntax Stmt ::= catch(Stmts, Map, Map, K)
+                  | "revert"
 
-    /* rule <k> try { S1 } catch (X : T) { S2 } ~> K => S1 ~> dropCatch </k> */
-    /*     <lookup> Lookup </lookup> */
-    /*     <storage> Storage </storage> */
-    /*     <catchStack> .List => ListItem(catch(X, T, S2, Lookup, Storage, K)) ... </catchStack> */
+    rule <k> try { S1 } catch { S2 } ~> K => S1 ~> dropCatch </k>
+        <lookup> Lookup </lookup>
+        <storage> Storage </storage>
+        <catchStack> .List => ListItem(catch(S2, Lookup, Storage, K)) ... </catchStack>
 
-    /* rule <k> revert(V:Var) ~> _ => var X : T := V in S ~> K </k> */
-    /*     <lookup> _ => Lookup </lookup> */
-    /*     <storage> _ => Storage </storage> */
-    /*     <catchStack> ListItem(catch(X, T, S, Lookup, Storage, K)) => .List ... </catchStack> */
+    rule <k> revert ~> _ => S ~> K </k>
+        <lookup> _ => Lookup </lookup>
+        <storage> _ => Storage </storage>
+        <catchStack> ListItem(catch(S, Lookup, Storage, K)) => .List ... </catchStack>
 
     // =================================
     // Flows:
@@ -214,24 +215,32 @@ module PURE-FLOW
     // Select
     // ==================================
     syntax BaseType ::= elemtype(BaseType) [function, functional]
-
     rule elemtype(list _:TypeQuant T) => T
     rule elemtype(T) => T [owise]
+
+    syntax List ::= elem(List) [function, functional]
+    rule elem(ListItem(L:List)) => L
+    rule elem(L) => L [owise]
 
     syntax Resource ::= select(Selector, Resource, Resource, Resource, StorageVal, StorageVal)
     syntax FunctionCallResult ::= Var "(" Vars ")" | StorageLoc
     syntax Stmt ::= check(FunctionCallResult, KItem)
-    // TODO: Handle TypeQuant assertions
-    rule select(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst)
+    rule select(! such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
+        requires size(DVals) =/=Int 1
+    rule select(nonempty such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
+        requires size(DVals) ==Int 0
+    rule select(empty such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
+        requires size(DVals) =/=Int 0
+    rule select(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst) [owise]
     // TODO: Need to do some elemtype thing probably
     rule <k> select(Q such that F(Vs), resource(R, ListItem(A) Rest), SRes, DRes, Src, Dst)
              =>
-             check(F(addArg(Vs, var(I))), A) ~>
+             check(F(addArg(Vs, var(I))), elem(ListItem(A))) ~>
              select(Q such that F(Vs), resource(R, Rest), SRes, DRes, Src, Dst)
              ...
          </k>
         <lookup> ... .Map => var(I) |-> loc(I) ... </lookup>
-        <storage> ... .Map => loc(I) |-> resource(elemtype(R), A) ... </storage>
+        <storage> ... .Map => loc(I) |-> resource(elemtype(R), elem(ListItem(A))) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // Ugh, for some reason I can't just write (Vs, V), so this function does that...
@@ -255,17 +264,22 @@ module PURE-FLOW
                   | invoke(Vars, VarDefs, Stmts)
 
     rule setupArgs(.Vars, .VarDefs, S) => S
-    rule setupArgs((E, Es):Vars, (Y : T, Defs2), S) => (E --> var Y : T) ~> setupArgs(Es, Defs2, S)
+    rule <k> setupArgs((E, Es):Vars, (Y : _, Defs2), S) => setupArgs(Es, Defs2, S) ... </k>
+        <lookup> Lookup => Lookup[Y <- Lookup[E]] </lookup>
 
     rule <k> cleanEnv(ToRemove) => . ... </k>
         <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
 
-    rule <k> invoke(Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Lookup)) Body) ~> resetEnv(Lookup) ... </k>
+    rule <k> invoke(Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Lookup) -Set keys(makeEnv(FormalArgs))) Body) ~> resetEnv(Lookup) ... </k>
         <lookup> Lookup </lookup>
 
     rule <k> F(ActualArgs) => invoke(ActualArgs, FormalArgs, insert(RetVar, loc(I)) Body) ~> loc(I) ... </k>
         <storage> ... .Map => loc(I) |-> resource(RetType, .List) ... </storage>
         <functions> ... F |-> transformer(RetVar : _:TypeQuant RetType, FormalArgs, Body) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
+
+    syntax Map ::= makeEnv(VarDefs) [function, functional]
+    rule makeEnv(.VarDefs) => .Map
+    rule makeEnv(X : T, Rest) => (X |-> T) makeEnv(Rest)
 endmodule
 
