@@ -14,11 +14,12 @@ pure-flow: $(wildcard tests/pure-flow/*.flow)
 common: flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --backend $(BACKEND) flow-common.k
 
-kompile: dynamic static compiler
+kompile: dynamic static compiler pure-flow-dynamic
 
 dynamic: dynamic/flow-kompiled/timestamp
 static: static/flow-typecheck-kompiled/timestamp
 compiler: compiler/flow-compiler-kompiled/timestamp
+pure-flow-dynamic: pure-flow/pure-flow-kompiled/timestamp
 
 compiler/flow-compiler-kompiled/timestamp: flow-compiler.k yul-syntax.k flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --hook-namespaces KRYPTO $(COMPILEFLAGS) --backend $(BACKEND) flow-compiler.k -d compiler/

@@ -4,8 +4,7 @@ module PURE-FLOW-SYNTAX
 
     syntax Var ::= Id
                  | Var "." Id
-
-    syntax Var ::= var(Int) // For generated Vars
+                 | var(Int) // For generated Vars
     syntax Vars ::= List{Var, ","}
 
     syntax Modifier ::= "fungible"
@@ -30,20 +29,20 @@ module PURE-FLOW-SYNTAX
     syntax RecordMember ::= Var ":" Type "|->" Var
     syntax RecordMembers ::= List{RecordMember, ","}
 
-    syntax FunctionCall ::= Var "[" Vars "]"
     syntax Expr ::= Bool | Var | "[" "]" | "[" Var "]"
                   | "{" RecordMembers "}"
                   | "(" Expr ")"        [bracket]
 
     syntax StorageVal ::= new(Var, Modifiers, BaseType) | "consume"
     syntax Storage ::= StorageVal | "var" VarDef | Expr
-    syntax Selector ::= TypeQuant VarDef "such" "that" FunctionCall
+    syntax Selector ::= TypeQuant "such" "that" Var "(" Vars ")"
 
     syntax Stmt ::= Storage "-->" Storage
                   | Storage "--[" Selector "]->" Storage
                   | Storage "--[" Selector "]->" Var "-->" Storage
                   | "pass"
                   | "try" "{" Stmt "}" "catch" "(" VarDef ")" "{" Stmt "}"
+                  | "transformer" Var "(" VarDefs ")" "->" VarDef "{" Stmts "}"
     syntax Stmts ::= List{Stmt, ""}
 
     syntax Program ::= Stmts
@@ -101,6 +100,15 @@ module PURE-FLOW
     // Pass
     // =================================
     rule pass => . [structural]
+
+    // =================================
+    // Transformer Definition
+    // =================================
+    syntax KItem ::= transformer(VarDef, VarDefs, Stmts)
+
+    rule <k> transformer F(FormalArgs) -> Ret { Body } => . ... </k>
+        <functions> ... .Map => F |-> transformer(Ret, FormalArgs, Body) ... </functions>
+        [structural]
 
     // =================================
     // Environment Helpers
@@ -198,19 +206,6 @@ module PURE-FLOW
          </k>
         <storage> ... SourceLoc |-> resource(R, Vs => .List) ... </storage>
 
-    /* syntax Stmt ::= handleFlow(Selector, Storage, Storage) [seqstrict] */
-
-    /* rule <k> handleFlow(Sel, SourceLoc, DestLoc) => put(combine(convert(select(Sel, SV), DestR), resource(DestR, Cur)), DestLoc) ... </k> */
-    /*     <storage> */
-    /*         ... */
-    /*         (SourceLoc |-> SV) */
-    /*         (DestLoc |-> resource(DestR, Cur)) */
-    /*         => */
-    /*         (SourceLoc |-> subtract(SV, select(Sel, SV))) */
-    /*         ... */
-    /*     </storage> */
-    /*     requires select(Sel, SV) contained_in SV */
-
     rule put(_, consume) => .
     rule <k> put(resource(R, Vs), Loc) => . ... </k>
         <storage> ... Loc |-> resource(R, Ws => Ws Vs) ... </storage>
@@ -218,72 +213,49 @@ module PURE-FLOW
     // ==================================
     // Select
     // ==================================
+    syntax BaseType ::= elemtype(BaseType) [function, functional]
+
+    rule elemtype(list _:TypeQuant T) => T
+    rule elemtype(T) => T [owise]
+
     syntax Resource ::= select(Selector, Resource, Resource, Resource, StorageVal, StorageVal)
-    /* syntax Stmt ::= check */
+    syntax FunctionCallResult ::= Var "(" Vars ")" | StorageLoc
+    syntax Stmt ::= check(FunctionCallResult, KItem)
     // TODO: Handle TypeQuant assertions
     rule select(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst)
-    /* rule select(_ X : _ such that F[Ls], resource(R, ListItem(A) Rest), resource(R, CurVals)) */
-    /*      => */
-    /*      resource(R, .List) */
+    // TODO: Need to do some elemtype thing probably
+    rule <k> select(Q such that F(Vs), resource(R, ListItem(A) Rest), SRes, DRes, Src, Dst)
+             =>
+             check(F(addArg(Vs, var(I))), A) ~>
+             select(Q such that F(Vs), resource(R, Rest), SRes, DRes, Src, Dst)
+             ...
+         </k>
+        <lookup> ... .Map => var(I) |-> loc(I) ... </lookup>
+        <storage> ... .Map => loc(I) |-> resource(elemtype(R), A) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
 
-    // ==================================
-    // Subtract
-    // ==================================
-    syntax Resource ::= subtract(Resource, Resource) [function, functional]
-    rule subtract(resource(X, A), resource(X, A)) => resource(X, .List)
+    // Ugh, for some reason I can't just write (Vs, V), so this function does that...
+    syntax Vars ::= addArg(Vars, Var) [function, functional]
+    rule addArg(.Vars, V) => V
+    rule addArg((X, Xs), V) => X, addArg(Xs, V)
 
-    rule subtract(resource(list R, A), resource(list R, .List)) => resource(list R, A)
-    rule subtract(resource(list R, A), resource(list R, ListItem(B) Rest))
-         => subtract(resource(list R, remove(A, B)), resource(list R, Rest))
-
-    rule subtract(resource(R, A), resource(S, _)) => resource(R, A)
-        requires R =/=K S
-
-    // ==================================
-    // contained_in
-    // ==================================
-    syntax Bool ::= Val "contained_in" Val [function, functional]
-    rule resource(R, .List) contained_in resource(R, _) => true
-    rule resource(R, ListItem(_) _) contained_in resource(R, .List) => false
-    rule resource(R, ListItem(A) Rest) contained_in resource(R, B)
-         =>
-         (A in B) andBool (resource(R, Rest) contained_in resource(R, remove(B, A)))
-
-    // ==================================
-    // Convert resources: Takes a resource value and converts it to be compatible with the specified type
-    // ==================================
-    syntax Val ::= convert(Resource, BaseType) [function, functional]
-
-    // ==================================
-    // Combine resources: takes two collections of values and makes a single collection.
-    // ==================================
-    syntax Val ::= combine(Val, Val) [function, functional]
-
-    // Error propagation
-    rule combine(flowError(E), _) => flowError(E)
-    rule combine(_, flowError(E)) => flowError(E)
-
-    // Combine as `B A` instead of `A B`, because the new values should be **appended**, not prepended.
-    rule combine(resource(R, A:List), resource(R, B:List)) => resource(R, B A)
-
-    // =================================
-    // Linear Lookup Value Helper
-    // =================================
-    syntax Resource ::= lookupVal(StorageLoc)
-    rule <k> lookupVal(Loc) => R ... </k>
-        <storage> ... Loc |-> R => .Map ... </storage>
+    context check(HOLE, _)
+    rule <k> check(Loc, V) ~> select(Sel, ToCheck, resource(R, Vs), DRes, Src, Dst)
+             => select(Sel, ToCheck, resource(R, Vs V), DRes, Src, Dst) ... </k>
+        <storage> ... Loc |-> resource(bool, ListItem(false)) ... </storage>
+    rule <k> check(Loc, V) ~> select(Sel, ToCheck, SRes, resource(R, Vs), Src, Dst)
+             => select(Sel, ToCheck, SRes, resource(R, Vs V), Src, Dst) ... </k>
+        <storage> ... Loc |-> resource(bool, ListItem(true)) ... </storage>
 
     // =================================
     // Function calls:
     // =================================
-    syntax Stmt ::= setupArgs(Vars, VarDefs, Stmts)
-                  | cleanEnv(Set)
+    syntax Stmt ::= cleanEnv(Set)
+    syntax Stmts ::= setupArgs(Vars, VarDefs, Stmts)
                   | invoke(Vars, VarDefs, Stmts)
 
     rule setupArgs(.Vars, .VarDefs, S) => S
     rule setupArgs((E, Es):Vars, (Y : T, Defs2), S) => (E --> var Y : T) ~> setupArgs(Es, Defs2, S)
-
-    syntax TransformerDef ::= transformer(VarDef, VarDefs, Stmts)
 
     rule <k> cleanEnv(ToRemove) => . ... </k>
         <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
@@ -291,7 +263,7 @@ module PURE-FLOW
     rule <k> invoke(Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Lookup)) Body) ~> resetEnv(Lookup) ... </k>
         <lookup> Lookup </lookup>
 
-    rule <k> (F[ActualArgs]):FunctionCall => invoke(ActualArgs, FormalArgs, insert(RetVar, loc(I)) Body) ~> lookupVal(loc(I)) ... </k>
+    rule <k> F(ActualArgs) => invoke(ActualArgs, FormalArgs, insert(RetVar, loc(I)) Body) ~> loc(I) ... </k>
         <storage> ... .Map => loc(I) |-> resource(RetType, .List) ... </storage>
         <functions> ... F |-> transformer(RetVar : _:TypeQuant RetType, FormalArgs, Body) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
