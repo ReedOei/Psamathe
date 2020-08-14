@@ -13,6 +13,7 @@ mod FLOW is
 
     op _._ : Loc Qid -> Loc [ctor] .
     ops True False : -> Loc [ctor] .
+    op loc : Nat -> Loc [ctor] .
 
     op nil : -> Locs [ctor] .
     op _,_ : Locs Locs -> Locs [ctor assoc id: nil] .
@@ -35,18 +36,63 @@ mod FLOW is
     op consume : -> Dest [ctor] .
     op var_:_ : Qid Ty -> Dest [ctor] .
 
-    op _--[__:_st_(_)]->_ : Source TyQuant Qid Ty Qid Locs Dest -> Stmt [ctor] .
-    op _--[__:_st_(_)]->_(_)-->_ : Source TyQuant Qid Ty Qid Locs Qid Locs Dest -> Stmt [ctor] .
+    sort Selector .
+    op __:_st_(_) : TyQuant Qid Ty Qid Locs -> Selector [ctor] .
+
+    op _--[_]->_ : Source Selector Dest -> Stmt [ctor] .
+    op _--[_]->_(_)-->_ : Source Selector Qid Locs Dest -> Stmt [ctor] .
+    op done : -> Stmt [ctor] .
+
+    sort Val Vals .
+    subsort Bool < Val < Vals .
+
+    op nil : -> Val [ctor] .
+    op __ : Vals Vals -> Vals [ctor assoc id: nil] .
+
+    sort Result .
+    subsort Vals < Result < Stmt .
+    op error : -> Result [ctor] .
+
+    op select : Vals Selector -> Result .
+
+    sorts Env Config .
+    op mt : -> Env [ctor] .
+    op _|->_ : Loc Vals -> Env [ctor] .
+    op _,_ : Env Env -> Env [ctor comm assoc id: mt] .
+
+    op [_,_] : Env Stmt -> Config [ctor] .
+
+    op call : Qid Locs -> Result .
 
     vars T T1 T2 : BaseTy .
     vars Tau Sigma Pi : Ty .
     vars Q R : TyQuant .
-    vars X Y Z Alpha Beta : Qid .
+    vars X Y Z F Alpha Beta : Qid .
     var M : Mod .
     var Ms : Mods .
-    var A S : Source .
-    var B D : Dest .
+    vars A S : Source .
+    vars B D : Dest .
+    vars L L1 L2 : Loc .
+    var Ls : Locs .
+    vars V W V1 V2 : Val .
+    vars Vs Ws : Vals .
+    var Res : Result .
+
+    var Sel : Selector .
+
+    var Store : Env .
+
+    rl [ Store, select(nil, one X : Tau st F(Ls)) ] => [ Store, error ] .
+    rl [ Store, select(nil, nonempty X : Tau st F(Ls)) ] => [ Store, error ] .
+    crl [ Store, select(nil, Q X : Tau st F(Ls)) ] => [ Store, nil ]
+        if Q =/= one /\ Q =/= nonempty .
+
+    crl [ Store, select(Vs V Ws, one X : Tau st F(Ls)) ] => [ Store, V ]
+        if NewLoc := freshLoc(Store) /\
+           call(F, (Ls, NewLoc)) => Res /\ Res =/= error /\
+           --- We should not be able to select any more values.
+           select(Vs Ws, one X : Tau st F(Ls)) => error .
 endm
 
-red (True --[ one 'x : one bool st 'idBool(nil) ]-> var 'b : one bool) .
+rew (True --[ one 'x : one bool st 'idBool(nil) ]-> var 'b : one bool) .
 
