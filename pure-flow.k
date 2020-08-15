@@ -64,17 +64,6 @@ module PURE-FLOW
         <storage> .Map </storage>
         <catchStack> .List </catchStack>
 
-    // Not sure why this isn't included in the standard library, but whatever.
-    syntax List ::= remove(List, KItem) [function, functional]
-    rule remove(.List, _) => .List
-    rule remove(ListItem(X) Rest, X) => Rest
-    rule remove(ListItem(Y) Rest, X) => remove(Rest, X)
-        requires X =/=K Y
-
-    syntax Bool ::= Set "is_subset_of" Set [function, functional]
-    rule .Set is_subset_of _ => true
-    rule (SetItem(A) As) is_subset_of Bs => (A in Bs) andBool (As is_subset_of Bs)
-
     syntax Type ::= demote(Type) [function, functional]
     rule demote(Q:TypeQuant T) => Q demote(T)
 

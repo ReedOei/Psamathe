@@ -256,9 +256,7 @@ module FLOW-COMMON
     // Not sure why this isn't included in the standard library, but whatever.
     syntax List ::= remove(List, KItem) [function, functional]
     rule remove(.List, _) => .List
-    rule remove(ListItem(X) Rest, X) => Rest
-    rule remove(ListItem(Y) Rest, X) => remove(Rest, X)
-        requires X =/=K Y
+    rule remove(ListItem(Y) Rest, X) => #if X ==K Y #then Rest #else ListItem(Y) remove(Rest, X)
 
     syntax Bool ::= Set "is_subset_of" Set [function, functional]
     rule .Set is_subset_of _ => true
