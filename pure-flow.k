@@ -81,13 +81,18 @@ module PURE-FLOW
     syntax BaseType ::= demote(BaseType) [function, functional]
     // TODO: Write the rest of these rules
     rule demote(bool) => bool
+    rule demote(type _ is _ BaseT) => BaseT
+    rule demote(list T) => list demote(T)
+    rule demote({ Members }) => { demoteEach(Members) }
+
+    syntax VarDefs ::= demoteEach(VarDefs) [function, functional]
+    rule demoteEach(.VarDefs) => .VarDefs
+    rule demoteEach(X : T, Defs) => X : demote(T), demoteEach(Defs)
 
     syntax StorageLoc ::= loc(Int)
     syntax StorageVal ::= StorageLoc
     syntax Resource ::= resource(BaseType, List)
-    syntax FlowError ::= flowError(String)
-    syntax Val ::= Resource | FlowError
-    syntax Storage ::= Val
+    syntax Storage ::= Resource
     syntax KResult ::= StorageVal
 
     // =================================
@@ -189,7 +194,7 @@ module PURE-FLOW
     // Flows:
     // =================================
     syntax Stmt ::= split(Resource, StorageLoc, StorageLoc)
-                  | put(Val, StorageVal)
+                  | put(Resource, StorageVal)
 
     context (HOLE => resolveStorage(HOLE)) --> _
     context _ --> (HOLE => resolveStorage(HOLE))
