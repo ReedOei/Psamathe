@@ -35,8 +35,8 @@
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $T$ & \bnfdef & $\boolt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $[]$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
-    $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $\var~x:\tau$ \bnfalt $\consume$ \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
+    $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $\var~x:T$ \bnfalt $\consume$ \\
     $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & \\
     $\Stmt$ & \bnfdef & $\pass$ & \\
             & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x}))} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{X}) \to \mathcal{D}$ & \\
@@ -46,6 +46,47 @@
 \end{tabular}
 
 \subsection{Statics}
+
+\framebox{$\Gamma \flowproves \mathcal{S} : \tau \flowprovesout \Delta$}
+\framebox{$\Gamma \flowproves \mathcal{D} : \tau \flowprovesout \Delta$} \textbf{Storage Typing}
+
+A \emph{storage} is either a source or a destination.
+
+\begin{mathpar}
+    \inferrule*[right=Bool]{
+        b \in \{ \true, \false \}
+    }{ \Gamma \flowproves b : \,\,\exactlyone~\boolt \flowprovesout \Gamma }
+
+    \inferrule*[right=Var]{
+    }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
+
+    \inferrule*[right=Field]{
+        \Gamma \flowproves x : \tau \flowprovesout \Delta
+        \\
+        \lnot(\tau~\immutable)
+        \\
+        \fields(\tau) = \overline{y : \sigma}
+        \\
+        f : \mathcal{R}~T \in \overline{y : \sigma}
+    }{ \Gamma \flowproves x.f : \mathcal{R}~T \flowprovesout \update(\Gamma, x.f, \empty~T) }
+
+    \inferrule*[right=Singleton]{
+    }{ \Gamma, x : \mathcal{Q}~T \flowproves [x] : \,\,\exactlyone~\listq~\mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
+
+    \inferrule*[right=Record]{
+        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
+    }{ \Gamma \flowproves \{ \overline{x : \tau \mapsto y} \} : \,\,\exactlyone~\{ \overline{x : \tau} \} \flowprovesout \Delta }
+
+    \inferrule*[right=New]{
+    }{ \Gamma \flowproves \newc(t, \overline{M}, T) : \every~(\type~t~\is~\overline{M}~T) \flowprovesout \Gamma }
+
+    \inferrule*[right=VarDef]{
+    }{ \Gamma \flowproves (\var~x : T) : \emptyq~T \flowprovesout \Gamma, x : \emptyq~T }
+
+    \inferrule*[right=Consume]{
+        \tau~\consumable
+    }{ \Gamma \flowproves \consume : \tau \flowprovesout \Gamma }
+\end{mathpar}
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
@@ -86,6 +127,17 @@
         \Gamma \flowproves \overline{S_2}~\ok \flowprovesout \Xi
     }{ \Gamma \flowproves (\tryS~\{ \overline{S_1} \}~\catchS~\{ \overline{S_2} \}~\ok \flowprovesout \Delta \sqcup \Xi }
 \end{mathpar}
+
+\framebox{$\proves \Decl~\ok$} \textbf{Declaration Well-formedness}
+\begin{mathpar}
+    \inferrule*[right=Ok-Transformer]{
+        \overline{x : \tau} \flowproves \overline{\Stmt}~\ok \flowprovesout \Gamma, y : \sigma
+        \\
+        \forall \pi \in \img(\Gamma). \lnot(\pi~\asset)
+    }{ \proves (\transformer~f(\overline{x : \tau}) \to y : \sigma \{ \overline{\Stmt} \})~\ok }
+\end{mathpar}
+
+\subsection{Auxiliaries for Statics}
 
 \subsection{Dynamics}
 \begin{tabular}{l r l l}
