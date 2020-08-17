@@ -239,11 +239,16 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
 \framebox{$\resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)$} \textbf{Storage Resolution}
 
 We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of $\mathcal{S}$, which returns a new environment because it may need to allocate new memory (e.g., in the case of $[x]$).
+\reed{TODO: Finish the rest of the cases}
 
 \begin{mathpar}
     \inferrule*[right=Resolve-Var]{
         \mu(\mathcal{S}) = \ell
     }{ \resolve(\Sigma, \mathcal{S}) = (\Sigma, \ell) }
+
+    \inferrule*[right=Resolve-Singleton]{
+        \ell \not\in \dom(\rho)
+    }{ \resolve(\Sigma, [ x ]) = (\Sigma[\rho \leftarrow \rho[\ell \leftarrow \rho(\mu(x)), \mu(x) \leftarrow []]], \ell) }
 \end{mathpar}
 
 \subsection{Auxiliaries}
