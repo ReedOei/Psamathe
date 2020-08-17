@@ -145,7 +145,7 @@ A \emph{storage} is either a source or a destination.
 \subsection{Dynamics}
 \begin{tabular}{l r l l}
     $\mathcal{V}$ & \bnfdef & $\overline{V}$ & \\
-    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{S})$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ & \\
+    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{S})$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{S}, \overline{S})$ & \\
 \end{tabular}
 
 \begin{definition}
@@ -160,6 +160,9 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
     \inferrule*[right=Seq]{
         \angles{\Sigma, S_1 } \to \angles{\Sigma', \overline{S_3}}
     }{ \angles{\Sigma, S_1 \overline{S_2}} \to \angles{\Sigma', \overline{S_3}~\overline{S_2}} }
+
+    \inferrule*[right=Revert]{
+    }{ \angles{ \Sigma, \revert~\overline{S} } \to \angles{ \Sigma, \revert } }
 
     \inferrule*[right=Pass]{
     }{ \angles{ \Sigma, \pass } \evaluates \Sigma }
@@ -189,6 +192,16 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
         \compatQuan(|\mathcal{U}|, \mathcal{Q})
     }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma'[\rho' \leftarrow \rho'[\ell \leftarrow \rho'(\ell) \setminus \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
 
+    \inferrule*[right=Flow-Filter-Fail]{
+        \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
+        \\
+        \rho'(\ell) = \mathcal{V}
+        \\
+        \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
+        \\
+        \lnot \compatQuan(|\mathcal{U}|, \mathcal{Q})
+    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma, \revert } }
+
     \inferrule*[right=Flow-Transformer]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
         \\
@@ -208,6 +221,19 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
         \\
         \transformer~f(\overline{y : \tau}) \to z : \sigma~\doC~\overline{S}
     }{ \angles{ \Sigma, f(\overline{x}) } \evaluates \angles{ \Sigma'[\mu \leftarrow \mu[\overline{y \leftarrow \mu(x)}, z \leftarrow \ell], \rho \leftarrow \rho[\ell \leftarrow []]], \overline{S}~\ell } }
+
+    \inferrule*[right=Try-Start]{
+    }{ \angles{ \Sigma, \tryS~\{ \overline{S_1} \}~\catchS~\{ \overline{S_2} \} } \evaluates \angles{ \Sigma, \tryS(\Sigma, \overline{S_1}, \overline{S_2}) } }
+
+    \inferrule*[right=Try-Step]{
+        \angles{ \Sigma, \overline{S_1} } \evaluates \angles{ \Sigma'', \overline{S_1'} }
+    }{ \angles{ \Sigma, \tryS(\Sigma', \overline{S_1}, \overline{S_2}) } \evaluates \angles{ \Sigma'', \tryS(\Sigma', \overline{S_1'}, \overline{S_2}) } }
+
+    \inferrule*[right=Try-Revert]{
+    }{ \angles{ \Sigma, \tryS(\Sigma', \revert, \overline{S_2}) } \evaluates \angles{ \Sigma', \overline{S_2}} }
+
+    \inferrule*[right=Try-Done]{
+    }{ \angles{ \Sigma, \tryS(\Sigma', \cdot, \overline{S_2}) } \evaluates \Sigma }
 \end{mathpar}
 
 \framebox{$\resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)$} \textbf{Storage Resolution}
