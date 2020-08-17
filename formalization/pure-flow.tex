@@ -77,7 +77,7 @@ A \emph{storage} is either a source or a destination.
         f : \mathcal{R}~T \in \overline{y : \sigma}
     }{ \Gamma \flowproves x.f : \mathcal{R}~T \flowprovesout \update(\Gamma, x.f, \empty~T) }
 
-    \inferrule*[right=Singleton]{
+    \inferrule*[right=Single]{
     }{ \Gamma, x : \mathcal{Q}~T \flowproves [x] : \,\,\exactlyone~\listq~\mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
 
     \inferrule*[right=Record]{
@@ -162,7 +162,7 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
     }{ \angles{\Sigma, S_1 \overline{S_2}} \to \angles{\Sigma', \overline{S_3}~\overline{S_2}} }
 
     \inferrule*[right=Revert]{
-    }{ \angles{ \Sigma, \revert~\overline{S} } \to \angles{ \Sigma, \revert } }
+    }{ \angles{ \Sigma, (\revert)~\overline{S} } \to \angles{ \Sigma, \revert } }
 
     \inferrule*[right=Pass]{
     }{ \angles{ \Sigma, \pass } \evaluates \Sigma }
@@ -246,7 +246,7 @@ We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of
         \mu(\mathcal{S}) = \ell
     }{ \resolve(\Sigma, \mathcal{S}) = (\Sigma, \ell) }
 
-    \inferrule*[right=Resolve-Singleton]{
+    \inferrule*[right=Resolve-Single]{
         \ell \not\in \dom(\rho)
     }{ \resolve(\Sigma, [ x ]) = (\Sigma[\rho \leftarrow \rho[\ell \leftarrow \rho(\mu(x)), \mu(x) \leftarrow []]], \ell) }
 \end{mathpar}
