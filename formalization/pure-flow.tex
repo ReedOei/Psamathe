@@ -25,6 +25,7 @@
 \newcommand{\putS}{\textbf{\texttt{put}}\xspace}
 \newcommand{\evaluates}{\to}
 \newcommand{\compatQuan}{\textbf{\texttt{compat}}\xspace}
+\newcommand{\resolve}{\textbf{\texttt{resolve}}\xspace}
 
 \begin{document}
 
@@ -108,9 +109,9 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Filter]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \elemtype(T)) \to z : \,\,!~\boolt ~\doC~ \overline{\Stmt}
+        \transformer~f(\overline{x : \sigma}, y : \demote(\elemtype(T))) \to z : \,\,!~\boolt ~\doC~ \overline{\Stmt}
         \\
-        \forall i. \Gamma(a_i) = \sigma_i
+        \forall i. \demote(\Gamma(a_i)) = \sigma_i
         \\
         \Delta[\mathcal{S} \leftarrow \Delta(\mathcal{S}) \ominus \mathcal{Q}] \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
     }{ \Gamma \flowproves (\mathcal{S} \sends{\mathcal{R}~\suchthat~f(\overline{a})} \mathcal{D})~\ok \flowprovesout \Xi[\mathcal{D} \leftarrow \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})] }
@@ -118,11 +119,9 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Transformer]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T_1 \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \elemtype(T_1)) \to z : \mathcal{R}~T_2~\doC~ \overline{\Stmt}
+        \transformer~f(\overline{x : \sigma}, y : \demote(\elemtype(T_1))) \to z : \mathcal{R}~T_2~\doC~ \overline{\Stmt}
         \\
-        \forall i. \Gamma(x_i) = \sigma_i
-        \\
-        \forall v \in \overline{x}. \lnot(\Gamma(v)~\asset)
+        \forall i. \demote(\Gamma(x_i)) = \sigma_i
         \\
         \Delta[\mathcal{S} \leftarrow \Delta(\mathcal{S}) \ominus \mathcal{Q}] \flowproves \mathcal{D} : \mathcal{S}~T_2 \flowprovesout \Xi
     }{ \Gamma \flowproves (\mathcal{S} \to f(\overline{x}) \to \mathcal{D})~\ok \flowprovesout \Xi[\mathcal{D} \leftarrow \Xi(\mathcal{D}) \oplus \mathcal{Q}] }
@@ -149,51 +148,76 @@ A \emph{storage} is either a source or a destination.
     $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{S})$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ & \\
 \end{tabular}
 
+\begin{definition}
+    An environment $\Sigma$ is a tuple $(\mathcal{T}, \mu, \rho)$ where $\mathcal{T} : \textsc{TypeNames} \partialfunc \mathcal{V}$ is the \emph{source environment}, $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N}$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc \mathcal{V}$ is the \emph{storage environment}.
+\end{definition}
+
 \framebox{$\angles{\Sigma, \overline{\Stmt}} \to \angles{\Sigma, \overline{\Stmt}}$}
 
 Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the end of evaluation.
 
 \begin{mathpar}
     \inferrule*[right=Seq]{
-        \angles{\Sigma, S_1 } \to \angles{\Sigma, \overline{S_3}}
-    }{ \angles{\Sigma, S_1 \overline{S_2}} \to \angles{\Sigma, \overline{S_3}~\overline{S_2}} }
+        \angles{\Sigma, S_1 } \to \angles{\Sigma', \overline{S_3}}
+    }{ \angles{\Sigma, S_1 \overline{S_2}} \to \angles{\Sigma', \overline{S_3}~\overline{S_2}} }
 
     \inferrule*[right=Pass]{
     }{ \angles{ \Sigma, \pass } \evaluates \Sigma }
 
     \inferrule*[right=Put-Consume]{
-    }{ \Sigma, \putS(\mathcal{V}, \consume) \evaluates \Sigma }
+    }{ \angles{\Sigma, \putS(\mathcal{V}, \consume)} \evaluates \Sigma }
 
     \inferrule*[right=Put-Var]{
-        \Sigma(A) = \mathcal{W}
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \Sigma[A \leftarrow \mathcal{V} \mathcal{W}] }
+        \rho(\mu(A)) = \mathcal{W}
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \Sigma[\rho \leftarrow \rho[\mu(A) \leftarrow \mathcal{W}\mathcal{V}]] }
 
     \inferrule*[right=Put-VarDef]{
-    }{ \Sigma, \putS(\mathcal{V}, \var~A : T) \evaluates \Sigma[A \leftarrow \mathcal{V}] }
+        \ell \not\in \dom(\rho)
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, \var~A : T) } \evaluates \Sigma[\mu \leftarrow \mu[A \leftarrow \ell], \rho \leftarrow \rho[\ell \leftarrow \mathcal{V}]] }
 
     \inferrule*[right=Flow-Every]{
-        \Sigma(\mathcal{S}) = \mathcal{V}
-        \\
-        \Sigma(\mathcal{D}) = \mathcal{W}
-    }{ \angles{\Sigma, \mathcal{S} \to \mathcal{D}} \evaluates \angles{\Sigma[\mathcal{S} \leftarrow []], \putS(\mathcal{V}, \mathcal{D}) } }
+        \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
+    }{ \angles{\Sigma, \mathcal{S} \to \mathcal{D}} \evaluates \angles{\Sigma'[\rho \leftarrow \rho'[\ell \leftarrow []]], \putS(\rho'(\ell), \mathcal{D}) } }
 
     \inferrule*[right=Flow-Filter]{
-        \Sigma(\mathcal{S}) = \mathcal{V}
+        \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
         \\
-        \Sigma(\mathcal{D}) = \mathcal{W}
+        \rho'(\ell) = \mathcal{V}
         \\
-        \mathcal{U} = [ v \in \mathcal{V} ~|~ \parens{\Sigma, f(\overline{x}, v) \to^* \Sigma', \ell} \tand \Sigma'(\ell) = \true ]
+        \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
         \compatQuan(|\mathcal{U}|, \mathcal{Q})
-    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \Sigma[\mathcal{S} \leftarrow \mathcal{V} \setminus \mathcal{U}, \mathcal{D} \leftarrow \mathcal{W} \mathcal{U}] }
+    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma'[\rho' \leftarrow \rho'[\ell \leftarrow \rho'(\ell) \setminus \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
+
+    \inferrule*[right=Flow-Transformer]{
+        \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
+        \\
+        \rho'(\ell) = v, \mathcal{V}
+        \\
+        \angles{ \Sigma'[\rho \leftarrow \rho'[\ell \leftarrow \mathcal{V}]], f(\overline{x}, v) } \to^* \angles{ \Sigma'', k }
+    }{ \angles{\Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D}} \evaluates \angles{ \Sigma'', \putS(\rho(k), \mathcal{D}) ~ (\mathcal{S} \to f(\overline{x}) \to \mathcal{D}) } }
+
+    \inferrule*[right=Flow-Transformer-Done]{
+        \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
+        \\
+        \rho'(\ell) = []
+    }{ \angles{ \Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D} } \evaluates \Sigma }
 
     \inferrule*[right=Call]{
-        \ell \not\in \dom(\Sigma)
+        \ell \not\in \dom(\rho)
         \\
-        \transformer~f(\overline{y : \tau}) \to z : \sigma~\doC~S
-        \\
-        \Sigma[y \leftarrow \ell, \overline{y \leftarrow \Sigma(x)}], f(\overline{x}) \to^* \Sigma'
-    }{ \Sigma, f(\overline{x}) \to \Sigma'[\ell \leftarrow \Sigma'(z)], \ell }
+        \transformer~f(\overline{y : \tau}) \to z : \sigma~\doC~\overline{S}
+    }{ \angles{ \Sigma, f(\overline{x}) } \evaluates \angles{ \Sigma'[\mu \leftarrow \mu[\overline{y \leftarrow \mu(x)}, z \leftarrow \ell], \rho \leftarrow \rho[\ell \leftarrow []]], \overline{S}~\ell } }
+\end{mathpar}
+
+\framebox{$\resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)$} \textbf{Storage Resolution}
+
+We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of $\mathcal{S}$, which returns a new environment because it may need to allocate new memory (e.g., in the case of $[x]$).
+
+\begin{mathpar}
+    \inferrule*[right=Resolve-Var]{
+        \mu(\mathcal{S}) = \ell
+    }{ \resolve(\Sigma, \mathcal{S}) = (\Sigma, \ell) }
 \end{mathpar}
 
 \subsection{Auxiliaries}
