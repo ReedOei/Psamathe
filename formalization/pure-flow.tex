@@ -41,8 +41,8 @@
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $T$ & \bnfdef & $\boolt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
-    $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $\var~x:T$ \bnfalt $\consume$ \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
+    $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ \\
     $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & \\
     $\Stmt$ & \bnfdef & $\pass$ & \\
             & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x}))} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{X}) \to \mathcal{D}$ & \\
@@ -65,24 +65,23 @@ A \emph{storage} is either a source or a destination.
 
     \inferrule*[right=Var]{
         \lnot(T~\immutable)
-    }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
+    }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Field]{
         \Gamma \flowproves x : \tau \flowprovesout \Delta
         \\
         \lnot(\tau~\immutable)
         \\
-        \fields(\tau) = \overline{y : \sigma}
+        \fields(\tau) = \overline{z : \sigma}
         \\
-        f : \mathcal{R}~T \in \overline{y : \sigma}
-    }{ \Gamma \flowproves x.f : \mathcal{R}~T \flowprovesout \update(\Gamma, x.f, \empty~T) }
+        y : \mathcal{R}~T \in \overline{z : \sigma}
+    }{ \Gamma \flowproves x.y : \mathcal{R}~T \flowprovesout \Gamma }
 
     \inferrule*[right=Single]{
     }{ \Gamma, x : \mathcal{Q}~T \flowproves [x] : \,\,\exactlyone~\listq~\mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
 
     \inferrule*[right=Record]{
-        \Gamma \flowproves \overline{y : \tau} \flowprovesout \Delta
-    }{ \Gamma \flowproves \{ \overline{x : \tau \mapsto y} \} : \,\,\exactlyone~\{ \overline{x : \tau} \} \flowprovesout \Delta }
+    }{ \Gamma, \overline{y : \mathcal{Q}~T} \flowproves \{ \overline{x : \mathcal{Q}~T \mapsto y} \} : \,\,\exactlyone~\{ \overline{x : \mathcal{Q}~T} \} \flowprovesout \Gamma, \overline{y : \emptyq~T} }
 
     \inferrule*[right=New]{
     }{ \Gamma \flowproves \newc(t, \overline{M}, T) : \every~\listq~\exactlyone~(\type~t~\is~\overline{M}~T) \flowprovesout \Gamma }
@@ -144,8 +143,10 @@ A \emph{storage} is either a source or a destination.
 
 \subsection{Dynamics}
 \begin{tabular}{l r l l}
+    % $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\{ x : \tau \mapsto V \}$ & \\
+    $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $\{ x : \tau \mapsto V \}$ & \\
     $\mathcal{V}$ & \bnfdef & $\overline{V}$ & \\
-    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{S})$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{S}, \overline{S})$ & \\
+    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{S}, \overline{S})$ & \\
 \end{tabular}
 
 \begin{definition}
@@ -189,7 +190,7 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
         \\
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
-        \compatQuan(|\mathcal{U}|, \mathcal{Q})
+        \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
     }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma'[\rho' \leftarrow \rho'[\ell \leftarrow \rho'(\ell) \setminus \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
 
     \inferrule*[right=Flow-Filter-Fail]{
@@ -199,7 +200,7 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
         \\
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
-        \lnot \compatQuan(|\mathcal{U}|, \mathcal{Q})
+        \lnot \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
     }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma, \revert } }
 
     \inferrule*[right=Flow-Transformer]{
@@ -246,9 +247,29 @@ We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of
         \mu(\mathcal{S}) = \ell
     }{ \resolve(\Sigma, \mathcal{S}) = (\Sigma, \ell) }
 
+    \inferrule*[right=Resolve-Field]{
+        \rho(\mu(x)) = \{ \overline{z : \tau \mapsto \ell} \}
+        \\
+        (y : \sigma \mapsto k) \in \overline{z : \tau \mapsto \ell}
+    }{ \resolve(\Sigma, x.y) = (\Sigma, k) }
+
     \inferrule*[right=Resolve-Single]{
         \ell \not\in \dom(\rho)
     }{ \resolve(\Sigma, [ x ]) = (\Sigma[\rho \leftarrow \rho[\ell \leftarrow \rho(\mu(x)), \mu(x) \leftarrow []]], \ell) }
+
+    \inferrule*[right=Resolve-Record]{
+        \overline{\ell \not\in \dom(\rho)}
+        \\
+        k \not\in \dom(\rho) \cup \overline{\ell}
+        \\
+        \Sigma' = \Sigma[\rho \leftarrow \rho[\overline{\mu(y) \leftarrow []}, \overline{\ell \leftarrow \rho(\mu(y))}, k \leftarrow \{ \overline{x : \tau \mapsto \ell} \} ]]
+    }{ \resolve(\Sigma, \{ \overline{x : \tau \mapsto y} \}) = (\Sigma', k) }
+
+    \inferrule*[right=Resolve-Bool]{
+        b \in \{ \true, \false \}
+        \\
+        \ell \not\in \dom(\rho)
+    }{ \resolve(\Sigma, b) = (\Sigma[\rho \leftarrow \rho[\ell \leftarrow b]], \ell) }
 \end{mathpar}
 
 \subsection{Auxiliaries}
@@ -368,6 +389,7 @@ This is because a transformer is \textbf{never} an asset, regardless of the type
 \begin{align*}
     \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
     \demote_*(\boolt) &= \boolt \\
+    % \demote_*(\natt) &= \natt \\
     \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
     \demote_*(\type~t~\is~\overline{M}~T) &= \demote_*(T)
 \end{align*}
@@ -391,12 +413,13 @@ This is because a transformer is \textbf{never} an asset, regardless of the type
     \end{cases}
 \]
 
-\framebox{$\compatQuan(\mathbb{N} \cup \{ \infty \}, \mathcal{Q})$}
+\framebox{$\compatQuan(n, m, \mathcal{Q})$}
 \begin{align*}
-    \compatQuan(n, \mathcal{Q}) \iff & (\mathcal{Q} = \nonempty \tand n \geq 1) \tor \\
+    \compatQuan(n, m, \mathcal{Q}) \iff & (\mathcal{Q} = \nonempty \tand n \geq 1) \tor \\
                                      & (\mathcal{Q} = \,\,\exactlyone \tand n = 1) \tor \\
                                      & (\mathcal{Q} = \emptyq \tand n = 0) \tor \\
-                                     & (\mathcal{Q} \not\in \curlys{\nonempty, \exactlyone, \emptyq})
+                                     & (\mathcal{Q} = \every \tand n = m) \tor \\
+                                     & \mathcal{Q} = \any
 \end{align*}
 
 \end{document}
