@@ -65,7 +65,7 @@ A \emph{storage} is either a source or a destination.
     }{ \Gamma \flowproves b : \,\,\exactlyone~\boolt \flowprovesout \Gamma }
 
     \inferrule*[right=Var]{
-        \lnot(T~\immutable)
+        \lnot(\tau~\immutable)
     }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Field]{
@@ -180,17 +180,17 @@ Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
 
     \inferrule*[right=Put-Var]{
         \rho(\mu(A)) = \mathcal{W}
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \Sigma[\rho \leftarrow \rho[\mu(A) \leftarrow \mathcal{W}\mathcal{V}]] }
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \Sigma[\rho \mapsto \rho[\mu(A) \mapsto \mathcal{W}\mathcal{V}]] }
 
     \inferrule*[right=Put-VarDef]{
         \ell \not\in \dom(\rho)
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, \var~A : T) } \evaluates \Sigma[\mu \leftarrow \mu[A \leftarrow \ell], \rho \leftarrow \rho[\ell \leftarrow \mathcal{V}]] }
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, \var~A : T) } \evaluates \Sigma[\mu \mapsto \mu[A \mapsto \ell], \rho \mapsto \rho[\ell \mapsto \mathcal{V}]] }
 \end{mathpar}
 
 \begin{mathpar}
     \inferrule*[right=Flow-Every]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
-    }{ \angles{\Sigma, \mathcal{S} \to \mathcal{D}} \evaluates \angles{\Sigma'[\rho \leftarrow \rho'[\ell \leftarrow []]], \putS(\rho'(\ell), \mathcal{D}) } }
+    }{ \angles{\Sigma, \mathcal{S} \to \mathcal{D}} \evaluates \angles{\Sigma'[\rho \mapsto \rho'[\ell \mapsto []]], \putS(\rho'(\ell), \mathcal{D}) } }
 
     \inferrule*[right=Flow-Filter]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
@@ -200,7 +200,7 @@ Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
         \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
-    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma'[\rho' \leftarrow \rho'[\ell \leftarrow \rho'(\ell) \setminus \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
+    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma'[\rho' \mapsto \rho'[\ell \mapsto \rho'(\ell) \setminus \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
 
     \inferrule*[right=Flow-Filter-Fail]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
@@ -217,8 +217,8 @@ Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
         \\
         \rho'(\ell) = v, \mathcal{V}
         \\
-        \angles{ \Sigma'[\rho \leftarrow \rho'[\ell \leftarrow \mathcal{V}]], f(\overline{x}, v) } \to^* \angles{ \Sigma'', k }
-    }{ \angles{\Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D}} \evaluates \angles{ \Sigma'', \putS(\rho(k), \mathcal{D}) ~ (\mathcal{S} \to f(\overline{x}) \to \mathcal{D}) } }
+        \angles{ \Sigma'[\rho \mapsto \rho'[\ell \mapsto \mathcal{V}]], f(\overline{x}, v) } \to^* \angles{ \Sigma'', k }
+    }{ \angles{\Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D}} \evaluates \angles{ (\mu', \rho''), \putS(\rho''(k), \mathcal{D}) ~ (\mathcal{S} \to f(\overline{x}) \to \mathcal{D}) } }
 
     \inferrule*[right=Flow-Transformer-Done]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
@@ -232,7 +232,9 @@ Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
         \ell \not\in \dom(\rho)
         \\
         \transformer~f(\overline{y : \tau}) \to z : \sigma~\doC~\overline{S}
-    }{ \angles{ \Sigma, f(\overline{x}) } \evaluates \angles{ \Sigma'[\mu \leftarrow \mu[\overline{y \leftarrow \mu(x)}, z \leftarrow \ell], \rho \leftarrow \rho[\ell \leftarrow []]], \overline{S}~\ell } }
+        \\
+        \mu' = \overline{y \mapsto \mu(x)}, z \mapsto \ell
+    }{ \angles{ \Sigma, f(\overline{x}) } \evaluates \angles{ (\mu', \rho[\ell \mapsto []]), \overline{S}~\ell } }
 \end{mathpar}
 
 We introduce a new statement, $\tryS(\Sigma, \overline{S_1}, \overline{S_2})$, to implement the try-catch statement, which keeps track of the environment that we begin execution in so that we can revert to the original environment in the case of a $\revert$.
@@ -271,21 +273,21 @@ We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of
 
     \inferrule*[right=Resolve-Single]{
         \ell \not\in \dom(\rho)
-    }{ \resolve(\Sigma, [ x ]) = (\Sigma[\rho \leftarrow \rho[\ell \leftarrow \rho(\mu(x)), \mu(x) \leftarrow []]], \ell) }
+    }{ \resolve(\Sigma, [ x ]) = (\Sigma[\rho \mapsto \rho[\ell \mapsto \rho(\mu(x)), \mu(x) \mapsto []]], \ell) }
 
     \inferrule*[right=Resolve-Record]{
         \overline{\ell \not\in \dom(\rho)}
         \\
         k \not\in \dom(\rho) \cup \overline{\ell}
         \\
-        \Sigma' = \Sigma[\rho \leftarrow \rho[\overline{\mu(y) \leftarrow []}, \overline{\ell \leftarrow \rho(\mu(y))}, k \leftarrow \{ \overline{x : \tau \mapsto \ell} \} ]]
+        \Sigma' = \Sigma[\rho \mapsto \rho[\overline{\mu(y) \mapsto []}, \overline{\ell \mapsto \rho(\mu(y))}, k \mapsto \{ \overline{x : \tau \mapsto \ell} \} ]]
     }{ \resolve(\Sigma, \{ \overline{x : \tau \mapsto y} \}) = (\Sigma', k) }
 
     \inferrule*[right=Resolve-Bool]{
         b \in \{ \true, \false \}
         \\
         \ell \not\in \dom(\rho)
-    }{ \resolve(\Sigma, b) = (\Sigma[\rho \leftarrow \rho[\ell \leftarrow b]], \ell) }
+    }{ \resolve(\Sigma, b) = (\Sigma[\rho \mapsto \rho[\ell \mapsto b]], \ell) }
 
     \inferrule*[right=Resolve-Source]{
         \mu(t) = \ell
@@ -295,7 +297,7 @@ We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of
         t \not\in \dom(\mu)
         \\
         \ell \not\in \dom(\rho)
-    }{ \resolve(\Sigma, \newc(t, \overline{M}, T)) = (\Sigma'[\rho \leftarrow \rho[\ell \leftarrow \values(T)], \mu \leftarrow \mu[t \leftarrow \ell]], \ell) }
+    }{ \resolve(\Sigma, \newc(t, \overline{M}, T)) = (\Sigma'[\rho \mapsto \rho[\ell \mapsto \values(T)], \mu \mapsto \mu[t \mapsto \ell]], \ell) }
 \end{mathpar}
 
 \reed{TODO: Need to be sure to handle uniqueness correctly; could do this in \textsc{Resolve-New-Source}, or in the various flow rules.}
