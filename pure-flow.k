@@ -39,7 +39,7 @@ module PURE-FLOW-SYNTAX
 
     syntax Stmt ::= Storage "-->" Storage
                   | Storage "--[" Selector "]->" Storage
-                  | Storage "--[" Selector "]->" Var "-->" Storage
+                  | Storage "-->" Var "(" Vars ")" "-->" Storage
                   | "pass"
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
                   | "transformer" Var "(" VarDefs ")" "->" VarDef "{" Stmts "}"

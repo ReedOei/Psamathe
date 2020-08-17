@@ -22,7 +22,8 @@
 \input{LaTeX/macros.tex}
 \input{macros.tex}
 
-\newcommand{\multiset}{\textbf{\texttt{multiset}}\xspace}
+\newcommand{\putS}{\textbf{\texttt{put}}\xspace}
+\newcommand{\evaluates}{\Downarrow}
 
 \begin{document}
 
@@ -32,7 +33,7 @@
 \begin{tabular}{l r l l}
     $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ \\
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-    $T$ & \bnfdef & $\alpha \bnfalt \type~t~\is~\overline{M}~T \bnfalt \multiset~\tau \bnfalt \tau \to \tau \bnfalt \forall \alpha . \tau$ \\
+    $T$ & \bnfdef & $\alpha \bnfalt \type~t~\is~\overline{M}~T \bnfalt \listq~\tau \bnfalt \tau \to \tau \bnfalt \forall \alpha . \tau$ \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ \\
     $S$ & \bnfdef & $E$ \bnfalt $\mathcal{Q}~x : \tau~\suchthat~E$ \\
     $E$ & \bnfdef & $\emptyset \bnfalt \curlys{E} \bnfalt x \bnfalt \lambda x : \tau . E \bnfalt \Lambda \alpha . E \bnfalt E ~ E \bnfalt E[T] \bnfalt E \sends{E} E$ \\
@@ -40,45 +41,68 @@
 
 \subsection{Statics}
 
+\framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
-    \inferrule*[right=Flow-Everything]{
-        \Gamma \flowproves A : \mathcal{Q}~\multiset~\tau \flowprovesout \Delta
+    \inferrule*[right=Flow-Every]{
+        \Gamma \flowproves A : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \Delta \flowproves s : \mathcal{R}~\multiset~\demote(\tau) \flowprovesout \Delta
-        \\
-        \Delta \flowproves B : \mathcal{S}~\multiset~\tau \flowprovesout \Xi
-    }{ \Gamma \flowproves (A \sends{s} B) : \,\,\exactlyone~\forall \alpha. \,\,\exactlyone~((\mathcal{Q} \ominus \mathcal{R})~\multiset~\tau
-                                                                        \to \,\,\exactlyone~((\mathcal{S} \oplus \mathcal{R})~\multiset~\tau \to \alpha)) \flowprovesout \Xi }
+        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{Q}~T \flowprovesout \Xi
+    }{ \Gamma \flowproves (A \to B)~\ok \flowprovesout \Xi[B \leftarrow \Xi(B) \oplus \mathcal{Q}] }
 
     \inferrule*[right=Flow-Filter]{
-        \Gamma \flowproves A : \mathcal{Q}~\multiset~\tau \flowprovesout \Delta
+        \elemtype(\tau) = \sigma
         \\
-        \Delta, x : \tau \flowproves E : \,\,\exactlyone~\boolt \flowprovesout \Delta
+        \Gamma \flowproves A : \tau \flowprovesout \Delta
         \\
-        \Delta \flowproves B : \mathcal{S}~\multiset~\tau \flowprovesout \Xi
-    }{ \Gamma \flowproves (A \sends{\mathcal{R}~x : \tau~\suchthat~E} B) : \,\,\exactlyone~\forall \alpha. \,\,\exactlyone~((\mathcal{Q} \ominus \mathcal{R})~\multiset~\tau
-                                                                        \to \,\,\exactlyone~((\mathcal{S} \oplus \mathcal{R})~\multiset~\tau \to \alpha)) \flowprovesout \Xi }
+        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{S}~T \flowprovesout \Xi
+        \\
+        \transformer~f(\overline{x : \sigma}) \to y : \pi ~\doC~ \overline{\Stmt}
+    }{ \Gamma \flowproves (A \sends{\mathcal{R}~\suchthat~f(\overline{a})} B)~\ok \flowprovesout \Xi[B \leftarrow \Xi(B) \oplus \min(\mathcal{Q}, \mathcal{R})] }
+
+    \inferrule*[right=Flow-Transformer]{
+        \forall v \in \overline{x}. \lnot(\Gamma(v)~\asset)
+        \\
+        \Gamma \flowproves A : \mathcal{Q}~T \flowprovesout \Delta
+        \\
+        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{Q}~T \flowprovesout \Xi
+        \\
+        \transformer~f(\overline{x : \sigma}) \to y : \pi ~\doC~ \overline{\Stmt}
+    }{ \Gamma \flowproves (A \to f(\overline{x}) \to B)~\ok \flowprovesout \Xi[B \leftarrow \Xi(B) \oplus \mathcal{Q}] }
 \end{mathpar}
 
 \subsection{Dynamics}
 \begin{tabular}{l r l l}
-    $\mathcal{V}$ & \bnfdef & $\{\overline{\mathcal{V}}\}$
+    $\mathcal{V}$ & \bnfdef & $\overline{V}$
 \end{tabular}
 
 \begin{mathpar}
-    \inferrule*[right=App-Congr]{
-        f \to f'
-    }{ f e \to f' e }
+    \inferrule*[right=Pass]{
+    }{ \Sigma, \pass \to \Sigma }
 
-    \inferrule*[right=$\beta$-Red]{
-    }{ (\lambda x : \tau . e) a \to e[a / x] }
+    \inferrule*[right=Put-Consume]{
+    }{ \Sigma, \putS(\mathcal{V}, \consume) \to \Sigma }
 
-    \inferrule*[right=TApp-Congr]{
-        f \to f'
-    }{ f[\tau] \to f'[\tau] }
+    \inferrule*[right=Flow-Every]{
+        \Sigma(A) = \mathcal{V}
+        \\
+        \Sigma(B) = \mathcal{W}
+    }{ \angles{\Sigma, A \to B} \evaluates \Sigma[A \leftarrow [], B \leftarrow \mathcal{W}\mathcal{V}] }
 
-    \inferrule*[right=T-$\beta$-Red]{
-    }{ (\Lambda \alpha . e)[T] \to e[T / \alpha] }
+    \inferrule*[right=Flow-Filter]{
+        \Sigma(A) = \mathcal{V}
+        \\
+        \Sigma(B) = \mathcal{W}
+        \\
+        \mathcal{U} = [ v \in \mathcal{V} ~|~ \parens{\Sigma, f(\overline{x}, v) \to^* \Sigma', \ell} \tand \Sigma'(\ell) = \true ]
+    }{ \Sigma, (A \sends{\mathcal{Q}~\suchthat~f(\overline{x})} B) \to \Sigma[A \leftarrow \mathcal{V} \setminus \mathcal{U}, B \leftarrow \mathcal{W} \mathcal{U}] }
+
+    \inferrule*[right=Call]{
+        \ell \not\in \dom(\Sigma)
+        \\
+        \transformer~f(\overline{y : \tau}) \to z : \sigma~\doC~S
+        \\
+        \Sigma[y \leftarrow \ell, \overline{y \leftarrow \Sigma(x)}], f(\overline{x}) \to^* \Sigma'
+    }{ \Sigma, f(\overline{x}) \to \Sigma'[\ell \leftarrow \Sigma'(z)], \ell }
 \end{mathpar}
 
 \end{document}
