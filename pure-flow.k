@@ -227,6 +227,9 @@ module PURE-FLOW
         requires size(DVals) =/=Int 0
     rule select(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst) [owise]
     // TODO: Need to do some elemtype thing probably
+    rule select(every such that F(Vs), resource(R, ListItem(A) Rest), SRes, resource(R, Ws), Src, Dst)
+         =>
+         select(every such that F(Vs), resource(R, .List), SRes, resource(R, Ws ListItem(A) Rest), Src, Dst)
     rule <k> select(Q such that F(Vs), resource(R, ListItem(A) Rest), SRes, DRes, Src, Dst)
              =>
              check(F(addArg(Vs, var(I))), elem(ListItem(A))) ~>
@@ -236,6 +239,7 @@ module PURE-FLOW
         <lookup> ... .Map => var(I) |-> loc(I) ... </lookup>
         <storage> ... .Map => loc(I) |-> resource(elemtype(R), elem(ListItem(A))) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
+        requires Q =/=K every
 
     // Ugh, for some reason I can't just write (Vs, V), so this function does that...
     syntax Vars ::= addArg(Vars, Var) [function, functional]

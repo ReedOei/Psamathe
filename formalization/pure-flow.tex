@@ -41,51 +41,7 @@
 \subsection{Statics}
 
 \begin{mathpar}
-    \inferrule*[right=EmptySet]{
-    }{ \Gamma \flowproves \emptyset : \emptyq~\multiset~\tau \flowprovesout \Gamma }
-
-    \inferrule*[right=Singleton]{
-        \Gamma \flowproves E : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves \curlys{E} : \,\,\exactlyone~\multiset~\tau \flowproves \Delta }
-
-    \inferrule*[right=Demote-Var]{
-    }{ \Gamma, x : \tau \flowproves x : \demote(\tau) \flowprovesout \Gamma, x : \tau }
-
-    \inferrule*[right=Lin-Var]{
-        (\mathcal{Q}~T)~\asset
-    }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \tau \flowprovesout \Gamma }
-
-    \inferrule*[right=Lin-Abs]{
-        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Delta
-        \\
-        \tau~\asset
-        \\
-        (x \not\in \dom(\Delta) \lor \lnot(\Delta(x)~\asset))
-    }{ \Gamma \flowproves (\lambda x : \tau . E) : \,\,\exactlyone~(\tau \to \sigma) \flowprovesout \Gamma }
-
-    \inferrule*[right=Any-Abs]{
-        \Gamma, x : \tau \flowproves E : \sigma \flowprovesout \Gamma, x : \tau
-        \\
-        \lnot(\tau~\asset)
-    }{ \Gamma \flowproves (\lambda x : \tau . E) : \every~(\tau \to \sigma) \flowprovesout \Gamma }
-
-    \inferrule*[right=App]{
-        \Gamma \flowproves f : \mathcal{Q}~(\tau \to \sigma) \flowprovesout \Delta[f \leftarrow \Delta(f) \ominus !]
-        \\
-        \Delta[f \leftarrow \Delta(f) \ominus !] \flowproves e : \tau \flowprovesout \Xi
-        \\
-        \mathcal{Q} \neq \emptyq
-    }{ \Gamma \flowproves f e : \sigma \flowprovesout \Xi }
-
-    \inferrule*[right=T-Abs]{
-        \Gamma, \alpha \flowproves e : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves (\Lambda \alpha . e) : \,\,\exactlyone~(\forall \alpha . \tau) \flowprovesout \Delta }
-
-    \inferrule*[right=T-App]{
-        \Gamma \flowproves f : \,\,\exactlyone~(\forall \alpha . \tau) \flowprovesout \Delta
-    }{ \Gamma \flowproves f[T] : \tau[T / \alpha] \flowprovesout \Delta }
-
-    \inferrule*[right=Flow-Lit]{
+    \inferrule*[right=Flow-Everything]{
         \Gamma \flowproves A : \mathcal{Q}~\multiset~\tau \flowprovesout \Delta
         \\
         \Delta \flowproves s : \mathcal{R}~\multiset~\demote(\tau) \flowprovesout \Delta
