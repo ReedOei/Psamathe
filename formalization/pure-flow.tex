@@ -26,6 +26,7 @@
 \newcommand{\evaluates}{\to}
 \newcommand{\compatQuan}{\textbf{\texttt{compat}}\xspace}
 \newcommand{\resolve}{\textbf{\texttt{resolve}}\xspace}
+\newcommand{\values}{\textbf{\texttt{values}}\xspace}
 
 \begin{document}
 
@@ -45,7 +46,7 @@
     $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ \\
     $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & \\
     $\Stmt$ & \bnfdef & $\pass$ & \\
-            & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x}))} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{X}) \to \mathcal{D}$ & \\
+            & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{x}) \to \mathcal{D}$ & \\
             & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & \\
 
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$
@@ -150,7 +151,7 @@ A \emph{storage} is either a source or a destination.
 \end{tabular}
 
 \begin{definition}
-    An environment $\Sigma$ is a tuple $(\mathcal{T}, \mu, \rho)$ where $\mathcal{T} : \textsc{TypeNames} \partialfunc \mathcal{V}$ is the \emph{source environment}, $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N}$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc \mathcal{V}$ is the \emph{storage environment}.
+    An environment $\Sigma$ is a tuple $(\mu, \rho)$ where $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N}$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc \mathcal{V}$ is the \emph{storage environment}.
 \end{definition}
 
 \framebox{$\angles{\Sigma, \overline{\Stmt}} \to \angles{\Sigma, \overline{\Stmt}}$}
@@ -240,7 +241,6 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
 \framebox{$\resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)$} \textbf{Storage Resolution}
 
 We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of $\mathcal{S}$, which returns a new environment because it may need to allocate new memory (e.g., in the case of $[x]$).
-\reed{TODO: Finish the rest of the cases}
 
 \begin{mathpar}
     \inferrule*[right=Resolve-Var]{
@@ -270,6 +270,16 @@ We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of
         \\
         \ell \not\in \dom(\rho)
     }{ \resolve(\Sigma, b) = (\Sigma[\rho \leftarrow \rho[\ell \leftarrow b]], \ell) }
+
+    \inferrule*[right=Resolve-Source]{
+        \mu(t) = \ell
+    }{ \resolve(\Sigma, \newc(t, \overline{M}, T)) = (\Sigma, \ell) }
+
+    \inferrule*[right=Resolve-New-Source]{
+        t \not\in \dom(\mu)
+        \\
+        \ell \not\in \dom(\rho)
+    }{ \resolve(\Sigma, \newc(t, \overline{M}, T)) = (\Sigma'[\rho \leftarrow \rho[\ell \leftarrow \values(T)], \mu \leftarrow \mu[t \leftarrow \ell]], \ell) }
 \end{mathpar}
 
 \subsection{Auxiliaries}
@@ -414,12 +424,24 @@ This is because a transformer is \textbf{never} an asset, regardless of the type
 \]
 
 \framebox{$\compatQuan(n, m, \mathcal{Q})$}
+The relation $\compatQuan(n, m, \mathcal{Q})$ holds when the number of values sent, $n$, is compatible with the original number of values $m$, and the type quantity used, $\mathcal{Q}$.
+
 \begin{align*}
     \compatQuan(n, m, \mathcal{Q}) \iff & (\mathcal{Q} = \nonempty \tand n \geq 1) \tor \\
                                      & (\mathcal{Q} = \,\,\exactlyone \tand n = 1) \tor \\
                                      & (\mathcal{Q} = \emptyq \tand n = 0) \tor \\
                                      & (\mathcal{Q} = \every \tand n = m) \tor \\
                                      & \mathcal{Q} = \any
+\end{align*}
+
+\framebox{$\values(T) = \mathcal{V}$}
+The function $\values$ gives a list of all of the values of a given base type.
+
+\begin{align*}
+    \values(\boolt) & = [ \true, \false ] \\
+    \values(\listq~T) & = [ L | L \subseteq \values(T), |L| < \infty ] \\
+    \values(\type~t~\is~\overline{M}~T) &= \values(T) \\
+    \values(\{ \overline{x : \mathcal{Q}~T} \}) &= [ \{ \overline{x : \tau \mapsto v} \} | \overline{v \in \values(T)} ]
 \end{align*}
 
 \end{document}
