@@ -30,7 +30,7 @@
 
 \begin{document}
 
-\section{Specification}
+\section{Formalization}
 
 \subsection{Syntax}
 \begin{align*}
@@ -158,6 +158,8 @@ A \emph{storage} is either a source or a destination.
 
 Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the end of evaluation.
 
+The new constructs of $\resolve(\Sigma, \mathcal{S})$ and $\putS(\mathcal{V}, \mathcal{D})$ are used to simplify the process of locating sources and updating destinations, respectively.
+
 \begin{mathpar}
     \inferrule*[right=Seq]{
         \angles{\Sigma, S_1 } \to \angles{\Sigma', \overline{S_3}}
@@ -168,7 +170,11 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
 
     \inferrule*[right=Pass]{
     }{ \angles{ \Sigma, \pass } \evaluates \Sigma }
+\end{mathpar}
 
+Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
+
+\begin{mathpar}
     \inferrule*[right=Put-Consume]{
     }{ \angles{\Sigma, \putS(\mathcal{V}, \consume)} \evaluates \Sigma }
 
@@ -179,7 +185,9 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
     \inferrule*[right=Put-VarDef]{
         \ell \not\in \dom(\rho)
     }{ \angles{ \Sigma, \putS(\mathcal{V}, \var~A : T) } \evaluates \Sigma[\mu \leftarrow \mu[A \leftarrow \ell], \rho \leftarrow \rho[\ell \leftarrow \mathcal{V}]] }
+\end{mathpar}
 
+\begin{mathpar}
     \inferrule*[right=Flow-Every]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
     }{ \angles{\Sigma, \mathcal{S} \to \mathcal{D}} \evaluates \angles{\Sigma'[\rho \leftarrow \rho'[\ell \leftarrow []]], \putS(\rho'(\ell), \mathcal{D}) } }
@@ -217,13 +225,19 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
         \\
         \rho'(\ell) = []
     }{ \angles{ \Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D} } \evaluates \Sigma }
+\end{mathpar}
 
+\begin{mathpar}
     \inferrule*[right=Call]{
         \ell \not\in \dom(\rho)
         \\
         \transformer~f(\overline{y : \tau}) \to z : \sigma~\doC~\overline{S}
     }{ \angles{ \Sigma, f(\overline{x}) } \evaluates \angles{ \Sigma'[\mu \leftarrow \mu[\overline{y \leftarrow \mu(x)}, z \leftarrow \ell], \rho \leftarrow \rho[\ell \leftarrow []]], \overline{S}~\ell } }
+\end{mathpar}
 
+We introduce a new statement, $\tryS(\Sigma, \overline{S_1}, \overline{S_2})$, to implement the try-catch statement, which keeps track of the environment that we begin execution in so that we can revert to the original environment in the case of a $\revert$.
+
+\begin{mathpar}
     \inferrule*[right=Try-Start]{
     }{ \angles{ \Sigma, \tryS~\{ \overline{S_1} \}~\catchS~\{ \overline{S_2} \} } \evaluates \angles{ \Sigma, \tryS(\Sigma, \overline{S_1}, \overline{S_2}) } }
 
@@ -237,6 +251,8 @@ Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the 
     \inferrule*[right=Try-Done]{
     }{ \angles{ \Sigma, \tryS(\Sigma', \cdot, \overline{S_2}) } \evaluates \Sigma }
 \end{mathpar}
+
+\reed{Need to handle fungible specially (or maybe only after adding nats, I'm not sure it really has any meaning without them)}
 
 \framebox{$\resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)$} \textbf{Storage Resolution}
 
@@ -281,6 +297,8 @@ We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of
         \ell \not\in \dom(\rho)
     }{ \resolve(\Sigma, \newc(t, \overline{M}, T)) = (\Sigma'[\rho \leftarrow \rho[\ell \leftarrow \values(T)], \mu \leftarrow \mu[t \leftarrow \ell]], \ell) }
 \end{mathpar}
+
+\reed{TODO: Need to be sure to handle uniqueness correctly; could do this in \textsc{Resolve-New-Source}, or in the various flow rules.}
 
 \subsection{Auxiliaries}
 \begin{definition}
