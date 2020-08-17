@@ -33,41 +33,58 @@
 \begin{tabular}{l r l l}
     $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ \\
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-    $T$ & \bnfdef & $\alpha \bnfalt \type~t~\is~\overline{M}~T \bnfalt \listq~\tau \bnfalt \tau \to \tau \bnfalt \forall \alpha . \tau$ \\
+    $T$ & \bnfdef & $\boolt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ \\
-    $S$ & \bnfdef & $E$ \bnfalt $\mathcal{Q}~x : \tau~\suchthat~E$ \\
-    $E$ & \bnfdef & $\emptyset \bnfalt \curlys{E} \bnfalt x \bnfalt \lambda x : \tau . E \bnfalt \Lambda \alpha . E \bnfalt E ~ E \bnfalt E[T] \bnfalt E \sends{E} E$ \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $[]$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
+    $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $\var~x:\tau$ \bnfalt $\consume$ \\
+    $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & \\
+    $\Stmt$ & \bnfdef & $\pass$ & \\
+            & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x}))} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{X}) \to \mathcal{D}$ & \\
+            & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & \\
+
+    $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$
 \end{tabular}
 
 \subsection{Statics}
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
-    \inferrule*[right=Flow-Every]{
+    \inferrule*[right=Ok-Pass]{
+    }{ \Gamma \flowproves \pass~\ok \flowprovesout \Gamma }
+
+    \inferrule*[right=Ok-Flow-Every]{
         \Gamma \flowproves A : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{Q}~T \flowprovesout \Xi
+        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{R}~T \flowprovesout \Xi
     }{ \Gamma \flowproves (A \to B)~\ok \flowprovesout \Xi[B \leftarrow \Xi(B) \oplus \mathcal{Q}] }
 
-    \inferrule*[right=Flow-Filter]{
-        \elemtype(\tau) = \sigma
-        \\
-        \Gamma \flowproves A : \tau \flowprovesout \Delta
-        \\
-        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{S}~T \flowprovesout \Xi
-        \\
-        \transformer~f(\overline{x : \sigma}) \to y : \pi ~\doC~ \overline{\Stmt}
-    }{ \Gamma \flowproves (A \sends{\mathcal{R}~\suchthat~f(\overline{a})} B)~\ok \flowprovesout \Xi[B \leftarrow \Xi(B) \oplus \min(\mathcal{Q}, \mathcal{R})] }
-
-    \inferrule*[right=Flow-Transformer]{
-        \forall v \in \overline{x}. \lnot(\Gamma(v)~\asset)
-        \\
+    \inferrule*[right=Ok-Flow-Filter]{
         \Gamma \flowproves A : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{Q}~T \flowprovesout \Xi
+        \transformer~f(\overline{x : \sigma}, y : \elemtype(T)) \to z : \,\,!~\boolt ~\doC~ \overline{\Stmt}
         \\
-        \transformer~f(\overline{x : \sigma}) \to y : \pi ~\doC~ \overline{\Stmt}
+        \forall i. \Gamma(a_i) = \sigma_i
+        \\
+        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{S}~T \flowprovesout \Xi
+    }{ \Gamma \flowproves (A \sends{\mathcal{R}~\suchthat~f(\overline{a})} B)~\ok \flowprovesout \Xi[B \leftarrow \Xi(B) \oplus \min(\mathcal{Q}, \mathcal{R})] }
+
+    \inferrule*[right=Ok-Flow-Transformer]{
+        \Gamma \flowproves A : \mathcal{Q}~T_1 \flowprovesout \Delta
+        \\
+        \transformer~f(\overline{x : \sigma}, y : \elemtype(T_1)) \to z : \mathcal{R}~T_2~\doC~ \overline{\Stmt}
+        \\
+        \forall i. \Gamma(x_i) = \sigma_i
+        \\
+        \forall v \in \overline{x}. \lnot(\Gamma(v)~\asset)
+        \\
+        \Delta[A \leftarrow \Delta(A) \ominus \mathcal{Q}] \flowproves B : \mathcal{S}~T_2 \flowprovesout \Xi
     }{ \Gamma \flowproves (A \to f(\overline{x}) \to B)~\ok \flowprovesout \Xi[B \leftarrow \Xi(B) \oplus \mathcal{Q}] }
+
+    \inferrule*[right=Ok-Try]{
+        \Gamma \flowproves \overline{S_1}~\ok \flowprovesout \Delta
+        \\
+        \Gamma \flowproves \overline{S_2}~\ok \flowprovesout \Xi
+    }{ \Gamma \flowproves (\tryS~\{ \overline{S_1} \}~\catchS~\{ \overline{S_2} \}~\ok \flowprovesout \Delta \sqcup \Xi }
 \end{mathpar}
 
 \subsection{Dynamics}
