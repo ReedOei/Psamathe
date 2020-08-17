@@ -40,7 +40,7 @@
 \begin{tabular}{l r l l}
     $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ \\
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-    $T$ & \bnfdef & $\boolt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ \\
+    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ \\
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
     $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ \\
@@ -63,6 +63,9 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Bool]{
         b \in \{ \true, \false \}
     }{ \Gamma \flowproves b : \,\,\exactlyone~\boolt \flowprovesout \Gamma }
+
+    \inferrule*[right=Nat]{
+    }{ \Gamma \flowproves n : \,\,\exactlyone~\natt \flowprovesout \Gamma }
 
     \inferrule*[right=Var]{
         \lnot(\tau~\immutable)
@@ -142,10 +145,20 @@ A \emph{storage} is either a source or a destination.
     }{ \proves (\transformer~f(\overline{x : \tau}) \to y : \sigma \{ \overline{\Stmt} \})~\ok }
 \end{mathpar}
 
+\framebox{$\Prog~\ok$} \textbf{Program Well-formedness}
+\begin{mathpar}
+    \inferrule*[right=Ok-Transformer]{
+        \proves \overline{\Decl}~\ok
+        \\
+        \emptyset \flowproves \overline{\Stmt}~\ok \flowprovesout \Gamma
+        \\
+        \forall \tau \in \img(\Gamma). \lnot(\tau~\asset)
+    }{ (\overline{\Decl}; \overline{\Stmt})~\ok }
+\end{mathpar}
+
 \subsection{Dynamics}
 \begin{tabular}{l r l l}
-    % $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\{ x : \tau \mapsto V \}$ & \\
-    $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $\{ x : \tau \mapsto V \}$ & \\
+    $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\{ x : \tau \mapsto V \}$ & \\
     $\mathcal{V}$ & \bnfdef & $\overline{V}$ & \\
     $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{S}, \overline{S})$ & \\
 \end{tabular}
@@ -173,6 +186,8 @@ The new constructs of $\resolve(\Sigma, \mathcal{S})$ and $\putS(\mathcal{V}, \m
 \end{mathpar}
 
 Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
+\reed{TODO: Need to finalize how $\mathcal{V} + \mathcal{W}$ works; in particular, need to make sure that you can't overwrite things that shouldn't be overwritten (e.g., a nonfungible nat).
+Probably need to tag types with modifiers or something.}
 
 \begin{mathpar}
     \inferrule*[right=Put-Consume]{
@@ -180,7 +195,15 @@ Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
 
     \inferrule*[right=Put-Var]{
         \rho(\mu(A)) = \mathcal{W}
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \Sigma[\rho \mapsto \rho[\mu(A) \mapsto \mathcal{W}\mathcal{V}]] }
+        \\
+        \mathcal{W} + \mathcal{V} \neq \revert
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \Sigma[\rho \mapsto \rho[\mu(A) \mapsto \mathcal{W} + \mathcal{V}]] }
+
+    \inferrule*[right=Put-Var-Fail]{
+        \rho(\mu(A)) = \mathcal{W}
+        \\
+        \mathcal{W} + \mathcal{V} = \revert
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \angles{\Sigma, \revert} }
 
     \inferrule*[right=Put-VarDef]{
         \ell \not\in \dom(\rho)
@@ -200,7 +223,7 @@ Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
         \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
-    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma'[\rho' \mapsto \rho'[\ell \mapsto \rho'(\ell) \setminus \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
+    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma'[\rho' \mapsto \rho'[\ell \mapsto \rho'(\ell) - \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
 
     \inferrule*[right=Flow-Filter-Fail]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
@@ -210,7 +233,7 @@ Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
         \lnot \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
-    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma, \revert } }
+    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma', \revert } }
 
     \inferrule*[right=Flow-Transformer]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
@@ -419,7 +442,7 @@ This is because a transformer is \textbf{never} an asset, regardless of the type
 \begin{align*}
     \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
     \demote_*(\boolt) &= \boolt \\
-    % \demote_*(\natt) &= \natt \\
+    \demote_*(\natt) &= \natt \\
     \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
     \demote_*(\type~t~\is~\overline{M}~T) &= \demote_*(T)
 \end{align*}
@@ -459,6 +482,7 @@ The function $\values$ gives a list of all of the values of a given base type.
 
 \begin{align*}
     \values(\boolt) & = [ \true, \false ] \\
+    \values(\natt) & = [ 0, 1, 2, \ldots ] \\
     \values(\listq~T) & = [ L | L \subseteq \values(T), |L| < \infty ] \\
     \values(\type~t~\is~\overline{M}~T) &= \values(T) \\
     \values(\{ \overline{x : \mathcal{Q}~T} \}) &= [ \{ \overline{x : \tau \mapsto v} \} | \overline{v \in \values(T)} ]
