@@ -42,17 +42,18 @@
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
     $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ \\
     $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & \\
     $\Stmt$ & \bnfdef & $\pass$ & \\
-            & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{x}) \to \mathcal{D}$ & \\
+            & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{x}) \to \mathcal{D}$ & \\
             & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & \\
-
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$
 \end{tabular}
 
-\reed{Include flow-by-variable?}
+\reed{Add rules for flow-by-variable.}
+\reed{Remove bool type?
+Can implement the ``filter'' selectors another way, e.g., by using a transformer returning a pair.}
 
 \subsection{Statics}
 
