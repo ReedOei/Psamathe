@@ -79,14 +79,14 @@ A \emph{storage} is either a source or a destination.
     }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Field]{
-        \Gamma \flowproves x : \tau \flowprovesout \Delta
+        \Gamma \flowproves x : \,\,\exactlyone~T \flowprovesout \Delta
         \\
-        \lnot(\tau~\immutable)
+        \lnot(T~\immutable)
         \\
-        \fields(\tau) = \overline{z : \sigma}
+        \fields(T) = \overline{z : \sigma}
         \\
-        y : \mathcal{R}~T \in \overline{z : \sigma}
-    }{ \Gamma \flowproves x.y : \mathcal{R}~T \flowprovesout \Gamma }
+        y : \tau \in \overline{z : \sigma}
+    }{ \Gamma \flowproves x.y : \tau \flowprovesout \Gamma }
 
     \inferrule*[right=Single]{
     }{ \Gamma, x : \mathcal{Q}~T \flowproves [x] : \,\,\exactlyone~\listq~\mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }

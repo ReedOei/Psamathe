@@ -40,7 +40,7 @@ module PURE-FLOW-SYNTAX
     syntax Stmt ::= Storage "-->" Storage
                   | Storage "--[" Selector "]->" Storage
                   | Storage "-->" Var "(" Vars ")" "-->" Storage
-                  | "pass"
+                  | "skip"
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
                   | "transformer" Var "(" VarDefs ")" "->" VarDef "{" Stmts "}"
     syntax Stmts ::= List{Stmt, ""}
@@ -91,9 +91,9 @@ module PURE-FLOW
     rule S1:Stmt Rest:Stmts => S1 ~> Rest [structural]
 
     // =================================
-    // Pass
+    // Skip
     // =================================
-    rule pass => . [structural]
+    rule skip => . [structural]
 
     // =================================
     // Transformer Definition
@@ -143,10 +143,6 @@ module PURE-FLOW
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
-    /* rule <k> resolveStorage([]) => resolveStorage(loc(I)) ... </k> */
-    /*     // TODO: How to get the type right? */
-    /*     <storage> ...  .Map => loc(I) |-> resource(list ! bool, ListItem(Vs)) ... </storage> */
-    /*     <freshCounter> I => I +Int 1 </freshCounter> */
     rule <k> resolveStorage(resource(R, V)) => resolveStorage(loc(I)) ... </k>
         <storage> ... .Map => loc(I) |-> resource(R, V) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
@@ -156,6 +152,29 @@ module PURE-FLOW
     rule <k> resolveStorage(var X : _:TypeQuant T) => resolveStorage(loc(I)) ... </k>
         <lookup> ... .Map => X |-> loc(I) ... </lookup>
         <storage> ... .Map => loc(I) |-> resource(T, .List) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> resolveStorage(X . Y) => loc(I) ... </k>
+        <lookup> ... X |-> Loc ... </lookup>
+        <storage> ... Loc |-> resource(_, ListItem((Y |-> loc(I)) _)) ... </storage>
+    rule <k> resolveStorage({ Members }) => initRecord(loc(I), membersToDefs(Members)) ~> loc(I) </k>
+        <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+
+    syntax VarDefs ::= membersToDefs(RecordMembers) [function, functional]
+    rule membersToDefs(.RecordMembers) => .VarDefs
+    rule membersToDefs((X : T |-> _), Rest) => (X : T), membersToDefs(Rest)
+
+    syntax Stmt ::= initRecord(StorageLoc, VarDefs)
+    rule initRecord(_, .VarDefs) => .
+    rule <k> initRecord(Loc, (X : _ T, Rest)) => initRecord(Loc, Rest) </k>
+        <storage>
+            ...
+            (Loc |-> resource(R, ListItem(Fields)))
+            =>
+            (Loc |-> resource(R, ListItem(Fields (X |-> loc(I)))))
+            (loc(I) |-> resource(T, .List))
+            ...
+        </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // NOTE: All types are always stored as their demoted value, so we simply need to demote the type.
