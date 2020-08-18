@@ -1,0 +1,8 @@
+true --> var a : ! bool
+false --> var b : ! bool
+
+{ l : ! bool |-> a, r : ! bool |-> b } --> var c : ! { l : ! bool, r : ! bool }
+
+c.l --> var d : ! bool
+d --> c.l
+

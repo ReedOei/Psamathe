@@ -29,7 +29,7 @@ module PURE-FLOW-SYNTAX
     syntax RecordMember ::= Var ":" Type "|->" Var
     syntax RecordMembers ::= List{RecordMember, ","}
 
-    syntax Expr ::= Bool | Var | "[" "]" | "[" Var "]"
+    syntax Expr ::= Bool | Int | Var | "[" Var "]"
                   | "{" RecordMembers "}"
                   | "(" Expr ")"        [bracket]
 
@@ -42,7 +42,7 @@ module PURE-FLOW-SYNTAX
                   | Storage "-->" Var "(" Vars ")" "-->" Storage
                   | "skip"
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
-                  | "transformer" Var "(" VarDefs ")" "->" VarDef "{" Stmts "}"
+                  | "transformer" Id "(" VarDefs ")" "->" VarDef "{" Stmts "}"
     syntax Stmts ::= List{Stmt, ""}
 
     syntax Program ::= Stmts
@@ -127,7 +127,7 @@ module PURE-FLOW
         <storage> ... Loc |-> _ => .Map ... </storage>
 
     // =================================
-    // Variable lookup
+    // Resolve
     // =================================
     syntax StorageVal ::= resolveStorage(Storage)
 
@@ -153,10 +153,10 @@ module PURE-FLOW
         <lookup> ... .Map => X |-> loc(I) ... </lookup>
         <storage> ... .Map => loc(I) |-> resource(T, .List) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
-    rule <k> resolveStorage(X . Y) => loc(I) ... </k>
+    rule <k> resolveStorage(X . Y) => resolveStorage(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... Loc |-> resource(_, ListItem((Y |-> loc(I)) _)) ... </storage>
-    rule <k> resolveStorage({ Members }) => initRecord(loc(I), membersToDefs(Members)) ~> loc(I) </k>
+    rule <k> resolveStorage({ Members }) => initRecord(loc(I), Members) ~> resolveStorage(loc(I)) ... </k>
         <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
@@ -164,15 +164,18 @@ module PURE-FLOW
     rule membersToDefs(.RecordMembers) => .VarDefs
     rule membersToDefs((X : T |-> _), Rest) => (X : T), membersToDefs(Rest)
 
-    syntax Stmt ::= initRecord(StorageLoc, VarDefs)
-    rule initRecord(_, .VarDefs) => .
-    rule <k> initRecord(Loc, (X : _ T, Rest)) => initRecord(Loc, Rest) </k>
+    syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
+    rule initRecord(_, .RecordMembers) => .
+    rule <k> initRecord(Loc, (X : _ T |-> Y, Rest)) => initRecord(Loc, Rest) ... </k>
+        <lookup> ... Y |-> InitLoc ... </lookup>
         <storage>
             ...
             (Loc |-> resource(R, ListItem(Fields)))
+            (InitLoc |-> resource(T, V))
             =>
             (Loc |-> resource(R, ListItem(Fields (X |-> loc(I)))))
-            (loc(I) |-> resource(T, .List))
+            (InitLoc |-> resource(T, .List))
+            (loc(I) |-> resource(T, V))
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>

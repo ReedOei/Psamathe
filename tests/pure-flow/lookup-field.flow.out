@@ -1,0 +1,32 @@
+<generatedTop>
+  <k>
+    .
+  </k>
+  <functions>
+    .Map
+  </functions>
+  <freshCounter>
+    9
+  </freshCounter>
+  <lookup>
+    a |-> loc ( 0 )
+    b |-> loc ( 2 )
+    c |-> loc ( 4 )
+    d |-> loc ( 8 )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( bool , .List )
+    loc ( 1 ) |-> resource ( bool , .List )
+    loc ( 2 ) |-> resource ( bool , .List )
+    loc ( 3 ) |-> resource ( bool , .List )
+    loc ( 4 ) |-> resource ( { l : ! bool , r : ! bool , .VarDefs } , ListItem ( l |-> loc ( 6 )
+    r |-> loc ( 7 ) ) )
+    loc ( 5 ) |-> resource ( { l : ! bool , r : ! bool , .VarDefs } , .List )
+    loc ( 6 ) |-> resource ( bool , ListItem ( true ) )
+    loc ( 7 ) |-> resource ( bool , ListItem ( false ) )
+    loc ( 8 ) |-> resource ( bool , .List )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>
