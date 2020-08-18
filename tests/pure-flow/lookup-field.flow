@@ -1,3 +1,5 @@
+;
+
 true --> var a : ! bool
 false --> var b : ! bool
 

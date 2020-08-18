@@ -1,3 +1,5 @@
+;
+
 true --> var b : ! bool
 [ b ] --> var x : any list ! bool
 true --> b

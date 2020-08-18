@@ -11,6 +11,8 @@ transformer notBool(a : ! bool) -> res : ! bool {
     }
 }
 
+;
+
 false --> var b : ! bool
 b --[ ! such that notBool() ]-> var c : ! bool
 

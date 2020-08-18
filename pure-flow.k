@@ -38,15 +38,18 @@ module PURE-FLOW-SYNTAX
     syntax Storage ::= StorageVal | "var" VarDef | Expr
     syntax Selector ::= TypeQuant "such" "that" Var "(" Vars ")"
 
-    syntax Stmt ::= Storage "-->" Storage
+    syntax Stmt ::= "skip"
+                  | Storage "-->" Storage
+                  | Storage "--[" Var "]->" Storage
                   | Storage "--[" Selector "]->" Storage
                   | Storage "-->" Var "(" Vars ")" "-->" Storage
-                  | "skip"
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
-                  | "transformer" Id "(" VarDefs ")" "->" VarDef "{" Stmts "}"
     syntax Stmts ::= List{Stmt, ""}
 
-    syntax Program ::= Stmts
+    syntax Decl ::= "transformer" Id "(" VarDefs ")" "->" VarDef "{" Stmts "}"
+    syntax Decls ::= List{Decl, ""}
+
+    syntax Program ::= Decls ";" Stmts
 endmodule
 
 module PURE-FLOW
@@ -105,11 +108,13 @@ module PURE-FLOW
     rule skip => . [structural]
 
     // =================================
-    // Transformer Definition
+    // Declarations
     // =================================
     syntax KItem ::= transformer(VarDef, VarDefs, Stmts)
 
-    rule <k> transformer F(FormalArgs) -> Ret { Body } => . ... </k>
+    rule .Decls ; S => S [structural]
+
+    rule <k> (transformer F(FormalArgs) -> Ret { Body }) Decls ; S => Decls ; S </k>
         <functions> ... .Map => F |-> transformer(Ret, FormalArgs, Body) ... </functions>
         [structural]
 
@@ -268,8 +273,8 @@ module PURE-FLOW
     rule <k> Loc --> D => put(resource(R, Vs), D) ... </k>
         <storage> ... Loc |-> resource(R, Vs) => Loc |-> resource(R, .List) ... </storage>
 
-    context (HOLE => resolveStorage(HOLE)) --[ _ ]-> _
-    context _ --[ _ ]-> (HOLE => resolveStorage(HOLE))
+    context (HOLE => resolveStorage(HOLE)) --[ _:Selector ]-> _
+    context _ --[ _:Selector ]-> (HOLE => resolveStorage(HOLE))
 
     rule <k> SourceLoc:StorageLoc --[ Sel ]-> Dest:StorageVal
              =>
@@ -279,6 +284,8 @@ module PURE-FLOW
         <storage> ... SourceLoc |-> resource(R, Vs => .List) ... </storage>
 
     // TODO: Implement the rest of the flow constructs
+    context (HOLE => resolveStorage(HOLE)) --[ _:Var ]-> _
+    context _ --[ _:Var ]-> (HOLE => resolveStorage(HOLE))
 
     // ==================================
     // Select
