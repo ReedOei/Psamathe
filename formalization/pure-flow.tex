@@ -27,6 +27,7 @@
 \newcommand{\compatQuan}{\textbf{\texttt{compat}}\xspace}
 \newcommand{\resolve}{\textbf{\texttt{resolve}}\xspace}
 \newcommand{\values}{\textbf{\texttt{values}}\xspace}
+\newcommand{\skipS}{\textbf{\texttt{skip}}\xspace}
 
 \begin{document}
 
@@ -38,14 +39,14 @@
     a,x,y,z &\in \textsc{Identifiers} \\
 \end{align*}
 \begin{tabular}{l r l l}
-    $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ \\
+    $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ \\
-    $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\demote(x)$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
-    $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ \\
-    $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & \\
-    $\Stmt$ & \bnfdef & $\pass$ & \\
+    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
+    $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\demote(x)$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ & (sources) \\
+    $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ & (destinations) \\
+    $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
+    $\Stmt$ & \bnfdef & $\skipS$ & \\
             & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{x}) \to \mathcal{D}$ & \\
             & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & \\
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$
@@ -106,8 +107,8 @@ A \emph{storage} is either a source or a destination.
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
-    \inferrule*[right=Ok-Pass]{
-    }{ \Gamma \flowproves \pass~\ok \flowprovesout \Gamma }
+    \inferrule*[right=Ok-Skip]{
+    }{ \Gamma \flowproves \skipS~\ok \flowprovesout \Gamma }
 
     \inferrule*[right=Ok-Flow-Every]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
@@ -196,8 +197,8 @@ The new constructs of $\resolve(\Sigma, \mathcal{S})$ and $\putS(\mathcal{V}, \m
     \inferrule*[right=Revert]{
     }{ \angles{ \Sigma, (\revert)~\overline{S} } \to \angles{ \Sigma, \revert } }
 
-    \inferrule*[right=Pass]{
-    }{ \angles{ \Sigma, \pass } \evaluates \Sigma }
+    \inferrule*[right=Skip]{
+    }{ \angles{ \Sigma, \skipS } \evaluates \Sigma }
 \end{mathpar}
 
 Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
@@ -238,6 +239,26 @@ Probably need to tag types with modifiers or something.}
     \inferrule*[right=Flow-Every]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
     }{ \angles{\Sigma, \mathcal{S} \to \mathcal{D}} \evaluates \angles{\Sigma'[\rho \mapsto \rho'[\ell \mapsto []]], \putS(\rho'(\ell), \mathcal{D}) } }
+
+    \inferrule*[right=Flow-Var]{
+        \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
+        \\
+        \rho'(\ell) = \mathcal{V}
+        \\
+        \rho'(\mu'(x)) = \mathcal{W}
+        \\
+        \mathcal{W} \leq \mathcal{V}
+    }{ \angles{\Sigma, \mathcal{S} \sends{x} \mathcal{D}} \evaluates \angles{\Sigma'[\rho \mapsto \rho'[\ell \mapsto \mathcal{V} - \mathcal{W}]], \putS(\mathcal{W}, \mathcal{D}) } }
+
+    \inferrule*[right=Flow-Var-Fail]{
+        \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
+        \\
+        \rho'(\ell) = \mathcal{V}
+        \\
+        \rho'(\mu'(x)) = \mathcal{W}
+        \\
+        \mathcal{W} \not\leq \mathcal{V}
+    }{ \angles{\Sigma, \mathcal{S} \sends{x} \mathcal{D}} \evaluates \angles{ \Sigma', \revert } }
 
     \inferrule*[right=Flow-Filter]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
