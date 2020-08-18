@@ -177,7 +177,6 @@ A \emph{storage} is either a source or a destination.
     $\mathcal{V}$ & \bnfdef & $\overline{V}$ & \\
     $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{S}, \overline{S})$ & \\
 \end{tabular}
-\reed{We don't strictly \textbf{need} the type in the records right now, but it doesn't really hurt either, I think.}
 
 \begin{definition}
     An environment $\Sigma$ is a tuple $(\mu, \rho)$ where $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N}$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc \mathcal{V}$ is the \emph{storage environment}.

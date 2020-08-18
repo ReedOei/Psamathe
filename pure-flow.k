@@ -17,6 +17,7 @@ module PURE-FLOW-SYNTAX
     syntax TypeQuant ::= "!" | "any" | "nonempty" | "empty" | "every"
     syntax RecordType ::= "{" VarDefs "}"
     syntax BaseType ::= "bool"
+                      | "nat"
                       | "type" Var "is" Modifiers BaseType
                       | "list" Type
                       | RecordType
@@ -70,7 +71,8 @@ module PURE-FLOW
     syntax BaseType ::= demote(BaseType) [function, functional]
     // TODO: Write the rest of these rules
     rule demote(bool) => bool
-    rule demote(type _ is _ BaseT) => BaseT
+    rule demote(nat) => nat
+    rule demote(type _ is _ BaseT) => demote(BaseT)
     rule demote(list T) => list demote(T)
     rule demote({ Members }) => { demoteEach(Members) }
 
@@ -80,9 +82,16 @@ module PURE-FLOW
 
     syntax StorageLoc ::= loc(Int)
     syntax StorageVal ::= StorageLoc
-    syntax Resource ::= resource(BaseType, List)
+    syntax Resource ::= resource(BaseType, List) | "error"
     syntax Storage ::= Resource
     syntax KResult ::= StorageVal
+
+    syntax List ::= valueOf(Resource) [function]
+    rule valueOf(resource(_, V)) => V
+
+    syntax Set ::= modifiersToSet(Modifiers) [function, functional]
+    rule modifiersToSet(.Modifiers) => .Set
+    rule modifiersToSet(M:Modifier Ms) => SetItem(M) modifiersToSet(Ms)
 
     // =================================
     // Sequence
@@ -109,14 +118,11 @@ module PURE-FLOW
     // =================================
     syntax Stmt ::= insert(Var, StorageLoc)
                   | resetEnv(Map)
-                  | "dropCatch"
 
     rule <k> insert(X, Loc) => . ... </k>
         <lookup> ... .Map => X |-> Loc ... </lookup>
     rule <k> resetEnv(Lookup) => . ... </k>
         <lookup> _ => Lookup </lookup>
-    rule <k> dropCatch => . ... </k>
-        <catchStack> ListItem(_) => .List ... </catchStack>
 
     syntax Stmt ::= drop(Var)
                   | dropLoc(StorageLoc)
@@ -132,6 +138,8 @@ module PURE-FLOW
     syntax StorageVal ::= resolveStorage(Storage)
 
     rule resolveStorage(B:Bool) => resolveStorage(resource(bool, ListItem(B)))
+    rule resolveStorage(I:Int) => resolveStorage(resource(nat, ListItem(I)))
+        requires I >=Int 0 // Limitation of K---there's no built-in Nat type.
     rule <k> resolveStorage([ X ]) => resolveStorage(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage>
@@ -190,8 +198,9 @@ module PURE-FLOW
     // Stores the variable/type to catch, the handler, the lookup table, the storage to restore to, and the continuation.
     syntax Stmt ::= catch(Stmts, Map, Map, K)
                   | "revert"
+                  | "dropCatch"
 
-    rule <k> try { S1 } catch { S2 } ~> K => S1 ~> dropCatch </k>
+    rule <k> try { S1 } catch { S2 } ~> K => S1 ~> dropCatch ~> K </k>
         <lookup> Lookup </lookup>
         <storage> Storage </storage>
         <catchStack> .List => ListItem(catch(S2, Lookup, Storage, K)) ... </catchStack>
@@ -201,12 +210,58 @@ module PURE-FLOW
         <storage> _ => Storage </storage>
         <catchStack> ListItem(catch(S, Lookup, Storage, K)) => .List ... </catchStack>
 
+    rule <k> dropCatch => . ... </k>
+        <catchStack> ListItem(_) => .List ... </catchStack>
+
+    // ==================================
+    // Put:
+    // ==================================
+    syntax Stmt ::= put(Resource, StorageVal)
+
+    rule put(_, consume) => .
+    rule <k> put(resource(R, Vs), Loc) => . ... </k>
+        <storage> ... Loc |-> (resource(R, Ws) => combine(resource(R, Ws), resource(R, Vs))) ... </storage>
+        requires combine(resource(R, Ws), resource(R, Vs)) =/=K error
+    rule <k> put(resource(R, Vs), Loc) => revert ... </k>
+        <storage> ... Loc |-> resource(R, Ws) ... </storage>
+        requires combine(resource(R, Ws), resource(R, Vs)) ==K error
+
+    // =================================
+    // combine(R1, R2):
+    // =================================
+    syntax Resource ::= combine(Resource, Resource) [function, functional]
+
+    rule combine(error, _) => error
+    rule combine(_, error) => error
+
+    rule combine(resource(bool, ListItem(A)), resource(bool, ListItem(B))) => resource(bool, ListItem(A orBool B))
+    rule combine(resource(bool, .List), resource(bool, B)) => resource(bool, B)
+    rule combine(resource(bool, A), resource(nat, .List)) => resource(bool, A)
+
+    rule combine(resource(nat, ListItem(A)), resource(nat, ListItem(B))) => resource(nat, ListItem(A +Int B))
+    rule combine(resource(nat, .List), resource(nat, B)) => resource(nat, B)
+    rule combine(resource(nat, A), resource(nat, .List)) => resource(nat, A)
+
+    rule combine(resource(list R, Ws), resource(list R, Vs)) => resource(list R, Ws Vs)
+
+    rule combine(resource({ Members }, .List), resource({ Members }, .List)) => resource({ Members }, .List)
+    rule combine(resource({ Members }, .List), resource({ Members }, ListItem(FieldLocs))) => resource({ Members }, ListItem(FieldLocs))
+    // Can't have combine two records because that would lead to overwriting one of them.
+    rule combine(resource({ Members }, ListItem(_)), resource({ Members }, ListItem(_))) => error
+
+    rule combine(resource(type T is Ms BaseT, A), resource(type T is Ms BaseT, B)) => resource(type T is Ms BaseT, valueOf(combine(resource(BaseT, A), resource(BaseT, B))))
+        requires fungible in modifiersToSet(Ms)
+
+    rule combine(resource(type T is Ms BaseT, .List), resource(type T is Ms BaseT, B)) => resource(type T is Ms BaseT, B)
+        requires notBool(fungible in modifiersToSet(Ms))
+    rule combine(resource(type T is Ms BaseT, A), resource(type T is Ms BaseT, .List)) => resource(type T is Ms BaseT, A)
+        requires notBool(fungible in modifiersToSet(Ms))
+    rule combine(resource(type T is Ms BaseT, ListItem(_) _), resource(type T is Ms BaseT, ListItem(_) _)) => error
+        requires notBool(fungible in modifiersToSet(Ms))
+
     // =================================
     // Flows:
     // =================================
-    syntax Stmt ::= split(Resource, StorageLoc, StorageLoc)
-                  | put(Resource, StorageVal)
-
     context (HOLE => resolveStorage(HOLE)) --> _
     context _ --> (HOLE => resolveStorage(HOLE))
 
@@ -223,9 +278,7 @@ module PURE-FLOW
          </k>
         <storage> ... SourceLoc |-> resource(R, Vs => .List) ... </storage>
 
-    rule put(_, consume) => .
-    rule <k> put(resource(R, Vs), Loc) => . ... </k>
-        <storage> ... Loc |-> resource(R, Ws => Ws Vs) ... </storage>
+    // TODO: Implement the rest of the flow constructs
 
     // ==================================
     // Select
