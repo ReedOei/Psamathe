@@ -42,7 +42,7 @@
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
+    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\demote(x)$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ \\
     $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ \\
     $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & \\
     $\Stmt$ & \bnfdef & $\pass$ & \\
@@ -69,6 +69,9 @@ A \emph{storage} is either a source or a destination.
 
     \inferrule*[right=Nat]{
     }{ \Gamma \flowproves n : \,\,\exactlyone~\natt \flowprovesout \Gamma }
+
+    \inferrule*[right=Demote]{
+    }{ \Gamma, x : \tau \flowproves \demote(x) : \demote(\tau) \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Var]{
         \lnot(\tau~\immutable)
@@ -111,6 +114,14 @@ A \emph{storage} is either a source or a destination.
         \\
         \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{R}~T \flowprovesout \Xi
     }{ \Gamma \flowproves (\mathcal{S} \to \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{Q}) }
+
+    \inferrule*[right=Ok-Flow-Var]{
+        \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
+        \\
+        \Delta \flowproves x : \demote(\mathcal{R}~T) \flowprovesout \Delta
+        \\
+        \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
+    }{ \Gamma \flowproves (\mathcal{S} \sends{x} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{R}) }
 
     \inferrule*[right=Ok-Flow-Filter]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
@@ -165,6 +176,7 @@ A \emph{storage} is either a source or a destination.
     $\mathcal{V}$ & \bnfdef & $\overline{V}$ & \\
     $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{S}, \overline{S})$ & \\
 \end{tabular}
+\reed{We don't strictly \textbf{need} the type in the records right now, but it doesn't really hurt either, I think.}
 
 \begin{definition}
     An environment $\Sigma$ is a tuple $(\mu, \rho)$ where $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N}$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc \mathcal{V}$ is the \emph{storage environment}.
@@ -235,7 +247,7 @@ Probably need to tag types with modifiers or something.}
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
         \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
-    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma'[\rho' \mapsto \rho'[\ell \mapsto \rho'(\ell) - \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
+    }{ \angles{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) } \evaluates \angles{ \Sigma'[\rho' \mapsto \rho'[\ell \mapsto \rho'(\ell) - \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
 
     \inferrule*[right=Flow-Filter-Fail]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
@@ -245,7 +257,7 @@ Probably need to tag types with modifiers or something.}
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
         \lnot \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
-    }{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) \to \angles{ \Sigma', \revert } }
+    }{ \angles{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) } \evaluates \angles{ \Sigma', \revert } }
 
     \inferrule*[right=Flow-Transformer]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
