@@ -114,7 +114,7 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Filter]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \demote(\elemtype(T))) \to z : \,\,!~\boolt ~\doC~ \overline{\Stmt}
+        \transformer~f(\overline{x : \sigma}, y : \demote(\elemtype(T))) \to z : \,\,!~\boolt ~\{~\overline{\Stmt}~\}
         \\
         \forall i. \demote(\Gamma(a_i)) = \sigma_i
         \\
@@ -124,7 +124,7 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Transformer]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T_1 \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \demote(\elemtype(T_1))) \to z : \mathcal{R}~T_2~\doC~ \overline{\Stmt}
+        \transformer~f(\overline{x : \sigma}, y : \demote(\elemtype(T_1))) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
         \\
         \forall i. \demote(\Gamma(x_i)) = \sigma_i
         \\
@@ -135,7 +135,7 @@ A \emph{storage} is either a source or a destination.
         \Gamma \flowproves \overline{S_1}~\ok \flowprovesout \Delta
         \\
         \Gamma \flowproves \overline{S_2}~\ok \flowprovesout \Xi
-    }{ \Gamma \flowproves (\tryS~\{ \overline{S_1} \}~\catchS~\{ \overline{S_2} \}~\ok \flowprovesout \Delta \sqcup \Xi }
+    }{ \Gamma \flowproves (\tryS~\{ \overline{S_1} \}~\catchS~\{ \overline{S_2} \})~\ok \flowprovesout \Delta \sqcup \Xi }
 \end{mathpar}
 
 \framebox{$\proves \Decl~\ok$} \textbf{Declaration Well-formedness}
@@ -196,16 +196,25 @@ Probably need to tag types with modifiers or something.}
     }{ \angles{\Sigma, \putS(\mathcal{V}, \consume)} \evaluates \Sigma }
 
     \inferrule*[right=Put-Var]{
-        \rho(\mu(A)) = \mathcal{W}
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, x) } \evaluates \angles{ \Sigma, \putS(\mathcal{V}, \mu(x)) } }
+
+    \inferrule*[right=Put-Field]{
+        \rho(\mu(X)) = \{ \overline{x : \tau \mapsto \ell} \}
+        \\
+        (y : \sigma \mapsto k) \in \overline{x : \tau \mapsto \ell}
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, x.y) } \evaluates \angles{ \Sigma, \putS(\mathcal{V}, k) } }
+
+    \inferrule*[right=Put-Loc]{
+        \rho(\ell) = \mathcal{W}
         \\
         \mathcal{W} + \mathcal{V} \neq \revert
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \Sigma[\rho \mapsto \rho[\mu(A) \mapsto \mathcal{W} + \mathcal{V}]] }
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, \ell) } \evaluates \Sigma[\rho \mapsto \rho[\ell \mapsto \mathcal{W} + \mathcal{V}]] }
 
-    \inferrule*[right=Put-Var-Fail]{
-        \rho(\mu(A)) = \mathcal{W}
+    \inferrule*[right=Put-Loc-Fail]{
+        \rho(\ell) = \mathcal{W}
         \\
         \mathcal{W} + \mathcal{V} = \revert
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, A) } \evaluates \angles{\Sigma, \revert} }
+    }{ \angles{ \Sigma, \putS(\mathcal{V}, \ell) } \evaluates \angles{\Sigma, \revert} }
 
     \inferrule*[right=Put-VarDef]{
         \ell \not\in \dom(\rho)
@@ -256,7 +265,7 @@ Probably need to tag types with modifiers or something.}
     \inferrule*[right=Call]{
         \ell \not\in \dom(\rho)
         \\
-        \transformer~f(\overline{y : \tau}) \to z : \sigma~\doC~\overline{S}
+        \transformer~f(\overline{y : \tau}) \to z : \sigma~\{~\overline{S}~\}
         \\
         \mu' = \overline{y \mapsto \mu(x)}, z \mapsto \ell
     }{ \angles{ \Sigma, f(\overline{x}) } \evaluates \angles{ (\mu', \rho[\ell \mapsto []]), \overline{S}~\ell } }
