@@ -264,6 +264,39 @@ module PURE-FLOW
     rule combine(resource(type T is Ms BaseT, ListItem(_) _), resource(type T is Ms BaseT, ListItem(_) _)) => error
         requires notBool(fungible in modifiersToSet(Ms))
 
+    syntax Bool ::= Resource "contained_in" Resource [function]
+    // A <= B iff exists C such that A + C = B
+    rule resource(bool, ListItem(A)) contained_in resource(bool, ListItem(B)) => B orBool notBool(A)
+
+    rule resource(nat, ListItem(A)) contained_in resource(nat, ListItem(B)) => A <=Int B
+
+    rule resource({ _ }, A) contained_in resource({ _ }, B) => A ==K B
+
+    rule resource(_, .List) contained_in resource(_, _) => true
+    rule resource(_, ListItem(_) _) contained_in resource(_, .List) => false
+    rule resource(list T, ListItem(A) Rest) contained_in resource(list S, B)
+         =>
+         (A in B) andBool (resource(list T, Rest) contained_in resource(list S, remove(B, ListItem(A))))
+
+    // =================================
+    // subtract:
+    // =================================
+    syntax Resource ::= subtract(Resource, Resource) [function]
+    rule subtract(error, _) => error
+    rule subtract(_, error) => error
+
+    rule subtract(resource(R, V), resource(_, .List)) => resource(R, V)
+
+    rule subtract(resource(R, V), resource(_, V)) => resource(R, .List)
+
+    rule subtract(resource(nat, ListItem(A)), resource(nat, ListItem(B))) => resource(nat, ListItem(A -Int B))
+        requires A >=Int B
+
+    // NOTE: Boolean "subtraction" is kind of weird, but this definition is compatible with how the definition of "contained_in" above.
+    rule subtract(resource(bool, ListItem(_)), resource(bool, ListItem(B))) => resource(bool, ListItem(B))
+
+    rule subtract(resource(list R, A), resource(S, ListItem(B) Rest)) => subtract(resource(list R, remove(A, ListItem(B))), resource(S, Rest))
+
     // =================================
     // Flows:
     // =================================
@@ -278,7 +311,7 @@ module PURE-FLOW
 
     rule <k> SourceLoc:StorageLoc --[ Sel ]-> Dest:StorageVal
              =>
-             select(Sel, resource(R, Vs), resource(R, .List), resource(R, .List), SourceLoc, Dest)
+             filter(Sel, resource(R, Vs), resource(R, .List), resource(R, .List), SourceLoc, Dest)
              ...
          </k>
         <storage> ... SourceLoc |-> resource(R, Vs => .List) ... </storage>
@@ -287,8 +320,13 @@ module PURE-FLOW
     context (HOLE => resolveStorage(HOLE)) --[ _:Var ]-> _
     context _ --[ _:Var ]-> (HOLE => resolveStorage(HOLE))
 
+    rule <k> Loc --[ X:Var ]-> D => put(resource(R, Ws), D) ... </k>
+        <lookup> ... X |-> XLoc ... </lookup>
+        <storage> ... (Loc |-> (resource(R, Vs) => subtract(resource(R, Vs), resource(S, Ws)))) (XLoc |-> resource(S, Ws)) ... </storage>
+        requires resource(R, Ws) contained_in resource(R, Vs)
+
     // ==================================
-    // Select
+    // Filter
     // ==================================
     syntax BaseType ::= elemtype(BaseType) [function, functional]
     rule elemtype(list _:TypeQuant T) => T
@@ -298,24 +336,22 @@ module PURE-FLOW
     rule elem(ListItem(L:List)) => L
     rule elem(L) => L [owise]
 
-    syntax Resource ::= select(Selector, Resource, Resource, Resource, StorageVal, StorageVal)
+    syntax Resource ::= filter(Selector, Resource, Resource, Resource, StorageVal, StorageVal)
     syntax FunctionCallResult ::= Var "(" Vars ")" | StorageLoc
     syntax Stmt ::= check(FunctionCallResult, KItem)
-    rule select(! such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
+    rule filter(! such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
         requires size(DVals) =/=Int 1
-    rule select(nonempty such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
+    rule filter(nonempty such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
         requires size(DVals) ==Int 0
-    rule select(empty such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
+    rule filter(empty such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
         requires size(DVals) =/=Int 0
-    rule select(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst) [owise]
-    // TODO: Need to do some elemtype thing probably
-    rule select(every such that F(Vs), resource(R, ListItem(A) Rest), SRes, resource(R, Ws), Src, Dst)
-         =>
-         select(every such that F(Vs), resource(R, .List), SRes, resource(R, Ws ListItem(A) Rest), Src, Dst)
-    rule <k> select(Q such that F(Vs), resource(R, ListItem(A) Rest), SRes, DRes, Src, Dst)
+    // There should be nothing left in the source
+    rule filter(every such that _(_), resource(_, .List), resource(_, ListItem(_) _), _, _, _) => revert
+    rule filter(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst) [owise]
+    rule <k> filter(Q such that F(Vs), resource(R, ListItem(A) Rest), SRes, DRes, Src, Dst)
              =>
              check(F(addArg(Vs, var(I))), elem(ListItem(A))) ~>
-             select(Q such that F(Vs), resource(R, Rest), SRes, DRes, Src, Dst)
+             filter(Q such that F(Vs), resource(R, Rest), SRes, DRes, Src, Dst)
              ...
          </k>
         <lookup> ... .Map => var(I) |-> loc(I) ... </lookup>
@@ -329,15 +365,15 @@ module PURE-FLOW
     rule addArg((X, Xs), V) => X, addArg(Xs, V)
 
     context check(HOLE, _)
-    rule <k> check(Loc, V) ~> select(Sel, ToCheck, resource(R, Vs), DRes, Src, Dst)
-             => select(Sel, ToCheck, resource(R, Vs V), DRes, Src, Dst) ... </k>
+    rule <k> check(Loc, V) ~> filter(Sel, ToCheck, resource(R, Vs), DRes, Src, Dst)
+             => filter(Sel, ToCheck, resource(R, Vs V), DRes, Src, Dst) ... </k>
         <storage> ... Loc |-> resource(bool, ListItem(false)) ... </storage>
-    rule <k> check(Loc, V) ~> select(Sel, ToCheck, SRes, resource(R, Vs), Src, Dst)
-             => select(Sel, ToCheck, SRes, resource(R, Vs V), Src, Dst) ... </k>
+    rule <k> check(Loc, V) ~> filter(Sel, ToCheck, SRes, resource(R, Vs), Src, Dst)
+             => filter(Sel, ToCheck, SRes, resource(R, Vs V), Src, Dst) ... </k>
         <storage> ... Loc |-> resource(bool, ListItem(true)) ... </storage>
 
     // =================================
-    // Function calls:
+    // Transformer calls:
     // =================================
     syntax Stmt ::= cleanEnv(Set)
     syntax Stmts ::= setupArgs(Vars, VarDefs, Stmts)
@@ -361,5 +397,14 @@ module PURE-FLOW
     syntax Map ::= makeEnv(VarDefs) [function, functional]
     rule makeEnv(.VarDefs) => .Map
     rule makeEnv(X : T, Rest) => (X |-> T) makeEnv(Rest)
+
+    // =================================
+    // Helpers
+    // =================================
+    syntax List ::= remove(List, KItem) [function, functional]
+    rule remove(.List, _) => .List
+    rule remove(ListItem(X) Rest, X) => Rest
+    rule remove(ListItem(X) Rest, Y) => ListItem(X) remove(Rest, Y)
+        requires X =/=K Y
 endmodule
 
