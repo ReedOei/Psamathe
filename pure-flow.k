@@ -325,6 +325,11 @@ module PURE-FLOW
         <storage> ... (Loc |-> (resource(R, Vs) => subtract(resource(R, Vs), resource(S, Ws)))) (XLoc |-> resource(S, Ws)) ... </storage>
         requires resource(R, Ws) contained_in resource(R, Vs)
 
+    rule <k> Loc --[ X:Var ]-> _ => revert ... </k>
+        <lookup> ... X |-> XLoc ... </lookup>
+        <storage> ... (Loc |-> resource(R, Vs)) (XLoc |-> resource(_, Ws)) ... </storage>
+        requires notBool(resource(R, Ws) contained_in resource(R, Vs))
+
     // ==================================
     // Filter
     // ==================================
