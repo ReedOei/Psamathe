@@ -172,9 +172,9 @@ A \emph{storage} is either a source or a destination.
 
 \subsection{Dynamics}
 \begin{tabular}{l r l l}
-    $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\{ x : \tau \mapsto V \}$ & \\
+    $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\{ \overline{x : \tau \mapsto V} \}$ & \\
     $\mathcal{V}$ & \bnfdef & $\overline{V}$ & \\
-    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{S}, \overline{S})$ & \\
+    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{\Stmt}, \overline{\Stmt})$ & \\
 \end{tabular}
 
 \begin{definition}

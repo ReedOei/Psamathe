@@ -381,6 +381,10 @@ module PURE-FLOW
     // There should be nothing left in the source
     rule filter(every such that _(_), resource(_, .List), resource(_, ListItem(_) _), _, _, _) => revert
     rule filter(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst) [owise]
+
+    // ---------------------------------------------------------
+    // TODO: NEED TO COPY/DEMOTE ALL THE OTHER ARGUMENTS!!!
+    // ---------------------------------------------------------
     rule <k> filter(Q such that F(Vs), resource(R, ListItem(A) Rest), SRes, DRes, Src, Dst)
              =>
              check(F(addArg(Vs, var(I))), elem(ListItem(A))) ~>
