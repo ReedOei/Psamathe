@@ -36,13 +36,13 @@ module PURE-FLOW-SYNTAX
 
     syntax StorageVal ::= new(Var, Modifiers, BaseType) | "consume"
     syntax Storage ::= StorageVal | "var" VarDef | Expr
-    syntax Selector ::= TypeQuant "such" "that" Var "(" Vars ")"
+    syntax Selector ::= TypeQuant "such" "that" Id "(" Vars ")"
 
     syntax Stmt ::= "skip"
                   | Storage "-->" Storage
                   | Storage "--[" Var "]->" Storage
                   | Storage "--[" Selector "]->" Storage
-                  | Storage "-->" Var "(" Vars ")" "-->" Storage
+                  | Storage "-->" Id "(" Vars ")" "-->" Storage
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
     syntax Stmts ::= List{Stmt, ""}
 
@@ -300,12 +300,14 @@ module PURE-FLOW
     // =================================
     // Flows:
     // =================================
+    // Flow Everything
     context (HOLE => resolveStorage(HOLE)) --> _
     context _ --> (HOLE => resolveStorage(HOLE))
 
     rule <k> Loc --> D => put(resource(R, Vs), D) ... </k>
         <storage> ... Loc |-> resource(R, Vs) => Loc |-> resource(R, .List) ... </storage>
 
+    // Flow Filter
     context (HOLE => resolveStorage(HOLE)) --[ _:Selector ]-> _
     context _ --[ _:Selector ]-> (HOLE => resolveStorage(HOLE))
 
@@ -316,7 +318,7 @@ module PURE-FLOW
          </k>
         <storage> ... SourceLoc |-> resource(R, Vs => .List) ... </storage>
 
-    // TODO: Implement the rest of the flow constructs
+    // Flow Var
     context (HOLE => resolveStorage(HOLE)) --[ _:Var ]-> _
     context _ --[ _:Var ]-> (HOLE => resolveStorage(HOLE))
 
@@ -330,6 +332,32 @@ module PURE-FLOW
         <storage> ... (Loc |-> resource(R, Vs)) (XLoc |-> resource(_, Ws)) ... </storage>
         requires notBool(resource(R, Ws) contained_in resource(R, Vs))
 
+    // Flow Transformer
+    context (HOLE => resolveStorage(HOLE)) --> _(_:Vars) --> _
+    context _ --> _(_:Vars) --> (HOLE => resolveStorage(HOLE))
+
+    // NOTE: It is important D be a StorageVal, so that we are sure we have allocated it, if necessary.
+    rule <k> Loc --> _(_:Vars) --> _:StorageVal => . ... </k>
+        <storage> ... Loc |-> resource(_, .List) ... </storage>
+
+    rule <k> Loc --> F(Xs) --> D => transform(F(addArg(Xs, var(I))), D) ~> Loc --> F(Xs) --> D ... </k>
+        <lookup> ... .Map => var(I) |-> loc(I) ... </lookup>
+        <storage>
+            ...
+            (Loc |-> resource(R, ListItem(A) Rest))
+            =>
+            (Loc |-> resource(R, Rest))
+            (loc(I) |-> resource(elemtype(R), elem(A)))
+            ...
+        </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+
+    syntax Stmt ::= transform(FunctionCallResult, StorageVal)
+    context transform(HOLE, _)
+
+    rule <k> transform(loc(I), Dest) => put(resource(list ! R, ListItem(V)), Dest) ... </k>
+        <storage> ... loc(I) |-> resource(R, V) => .Map ... </storage>
+
     // ==================================
     // Filter
     // ==================================
@@ -342,7 +370,7 @@ module PURE-FLOW
     rule elem(L) => L [owise]
 
     syntax Resource ::= filter(Selector, Resource, Resource, Resource, StorageVal, StorageVal)
-    syntax FunctionCallResult ::= Var "(" Vars ")" | StorageLoc
+    syntax FunctionCallResult ::= Id "(" Vars ")" | StorageLoc
     syntax Stmt ::= check(FunctionCallResult, KItem)
     rule filter(! such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
         requires size(DVals) =/=Int 1

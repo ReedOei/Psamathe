@@ -52,7 +52,6 @@
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$
 \end{tabular}
 
-\reed{Add rules for flow-by-variable.}
 \reed{Remove bool type?
 Can implement the ``filter'' selectors another way, e.g., by using a transformer returning a pair.}
 
@@ -268,7 +267,7 @@ Probably need to tag types with modifiers or something.}
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
         \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
-    }{ \angles{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) } \evaluates \angles{ \Sigma'[\rho' \mapsto \rho'[\ell \mapsto \rho'(\ell) - \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
+    }{ \angles{ \Sigma, \mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D} } \evaluates \angles{ \Sigma'[\rho' \mapsto \rho'[\ell \mapsto \rho'(\ell) - \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
 
     \inferrule*[right=Flow-Filter-Fail]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
@@ -278,7 +277,7 @@ Probably need to tag types with modifiers or something.}
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
         \lnot \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
-    }{ \angles{ \Sigma, (\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}) } \evaluates \angles{ \Sigma', \revert } }
+    }{ \angles{ \Sigma, \mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D} } \evaluates \angles{ \Sigma', \revert } }
 
     \inferrule*[right=Flow-Transformer]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
@@ -286,14 +285,16 @@ Probably need to tag types with modifiers or something.}
         \rho'(\ell) = v, \mathcal{V}
         \\
         \angles{ \Sigma'[\rho \mapsto \rho'[\ell \mapsto \mathcal{V}]], f(\overline{x}, v) } \to^* \angles{ \Sigma'', k }
-    }{ \angles{\Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D}} \evaluates \angles{ (\mu', \rho''), \putS(\rho''(k), \mathcal{D}) ~ (\mathcal{S} \to f(\overline{x}) \to \mathcal{D}) } }
+    }{ \angles{\Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D}} \evaluates \angles{ (\mu', \rho''), \putS([ \rho''(k) ], \mathcal{D}) ~ (\mathcal{S} \to f(\overline{x}) \to \mathcal{D}) } }
 
     \inferrule*[right=Flow-Transformer-Done]{
         \resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)
         \\
         \rho'(\ell) = []
-    }{ \angles{ \Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D} } \evaluates \Sigma }
+    }{ \angles{ \Sigma, \mathcal{S} \to f(\overline{x}) \to \mathcal{D} } \evaluates \angles{ \Sigma, \putS([], \mathcal{D}) } }
 \end{mathpar}
+
+\reed{NOTE: It is important that we flow an empty list in the \textsc{Flow-Transformer-Done} rule, otherwise we may fail to allocate a variable as expected.}
 
 \begin{mathpar}
     \inferrule*[right=Call]{
