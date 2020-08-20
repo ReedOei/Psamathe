@@ -35,7 +35,7 @@ module PURE-FLOW-SYNTAX
                   | "(" Expr ")"        [bracket]
 
     syntax StorageVal ::= new(Var, Modifiers, BaseType) | "consume"
-    syntax Storage ::= StorageVal | "var" VarDef | Expr
+    syntax Storage ::= StorageVal | Expr | "total" "(" Var ")" | "var" VarDef
     syntax Selector ::= TypeQuant "such" "that" Id "(" Vars ")"
 
     syntax Stmt ::= "skip"
@@ -172,6 +172,10 @@ module PURE-FLOW
     rule <k> resolveStorage({ Members }) => initRecord(loc(I), Members) ~> resolveStorage(loc(I)) ... </k>
         <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> resolveStorage(total(X)) => resolveStorage(loc(I)) ... </k>
+        <lookup> ... X |-> XLoc ... </lookup>
+        <storage> ... (XLoc |-> resource(_, Vals)) (.Map => loc(I) |-> resource(nat, ListItem(size(Vals)))) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
 
     syntax VarDefs ::= membersToDefs(RecordMembers) [function, functional]
     rule membersToDefs(.RecordMembers) => .VarDefs
@@ -193,7 +197,7 @@ module PURE-FLOW
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    // NOTE: All types are always stored as their demoted value, so we simply need to demote the type.
+    // All types are always stored as their demoted value, so we simply need to demote the type.
     syntax Resource ::= demoteVal(Resource) [function, functional]
     rule demoteVal(resource(R, V)) => resource(demote(R), V)
 
