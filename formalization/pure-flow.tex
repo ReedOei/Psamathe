@@ -24,9 +24,9 @@
 
 \newcommand{\putS}{\textbf{\texttt{put}}\xspace}
 \newcommand{\evaluates}{\to}
-\newcommand{\compatQuan}{\textbf{\texttt{compat}}\xspace}
+\newcommand{\compat}{\text{compat}\xspace}
 \newcommand{\resolve}{\textbf{\texttt{resolve}}\xspace}
-\newcommand{\values}{\textbf{\texttt{values}}\xspace}
+\newcommand{\values}{\text{values}\xspace}
 \newcommand{\skipS}{\textbf{\texttt{skip}}\xspace}
 
 \begin{document}
@@ -71,7 +71,7 @@ A \emph{storage} is either a source or a destination.
     }{ \Gamma \flowproves n : \,\,\exactlyone~\natt \flowprovesout \Gamma }
 
     \inferrule*[right=Demote]{
-    }{ \Gamma, x : \tau \flowproves \demote(x) : \demote(\tau) \flowprovesout \Gamma, x : \tau }
+    }{ \Gamma, x : \tau \flowproves \demote(x) : \demoteT(\tau) \flowprovesout \Gamma, x : \tau }
 
     \inferrule*[right=Var]{
         \immutable \not\in \modifiers(\tau)
@@ -118,7 +118,7 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Var]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \Delta \flowproves x : \demote(\mathcal{R}~T) \flowprovesout \Delta
+        \Delta \flowproves x : \demoteT(\mathcal{R}~T) \flowprovesout \Delta
         \\
         \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
     }{ \Gamma \flowproves (\mathcal{S} \sends{x} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{R}) }
@@ -126,9 +126,9 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Filter]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \demote(\elemtype(T))) \to z : \,\,!~\boolt ~\{~\overline{\Stmt}~\}
+        \transformer~f(\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt ~\{~\overline{\Stmt}~\}
         \\
-        \forall i. \demote(\Gamma(a_i)) = \sigma_i
+        \forall i. \demoteT(\Gamma(a_i)) = \sigma_i
         \\
         \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
     }{ \Gamma \flowproves (\mathcal{S} \sends{\mathcal{R}~\suchthat~f(\overline{a})} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})) }
@@ -136,9 +136,9 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Transformer]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T_1 \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \demote(\elemtype(T_1))) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
+        \transformer~f(\overline{x : \sigma}, y : \demoteT(\elemtype(T_1))) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
         \\
-        \forall i. \demote(\Gamma(x_i)) = \sigma_i
+        \forall i. \demoteT(\Gamma(x_i)) = \sigma_i
         \\
         \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T_2 \flowprovesout \Xi
     }{ \Gamma \flowproves (\mathcal{S} \to f(\overline{x}) \to \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{Q}) }
@@ -266,7 +266,7 @@ Probably need to tag types with modifiers or something.}
         \\
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
-        \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
+        \compat(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
     }{ \angles{ \Sigma, \mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D} } \evaluates \angles{ \Sigma'[\rho' \mapsto \rho'[\ell \mapsto \rho'(\ell) - \mathcal{U}]], \putS(\mathcal{U}, \mathcal{D}) } }
 
     \inferrule*[right=Flow-Filter-Fail]{
@@ -276,7 +276,7 @@ Probably need to tag types with modifiers or something.}
         \\
         \mathcal{U} = [ v \in \mathcal{V} ~|~ \angles{\Sigma', f(\overline{x}, v)} \to^* \angles{\Sigma'', k} \tand \rho''(k) = \true ]
         \\
-        \lnot \compatQuan(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
+        \lnot \compat(|\mathcal{U}|, |\mathcal{V}|, \mathcal{Q})
     }{ \angles{ \Sigma, \mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D} } \evaluates \angles{ \Sigma', \revert } }
 
     \inferrule*[right=Flow-Transformer]{
@@ -480,19 +480,19 @@ Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \o
     \end{cases}
 \end{align*}
 
-\framebox{$\demote(\tau) = \sigma$}
-\framebox{$\demote_*(T_1) = T_2$} \textbf{Type Demotion}
-$\demote$ and $\demote_*$ take a type and ``strip'' all the asset modifiers from it, as well as unfolding named type definitions.
+\framebox{$\demoteT(\tau) = \sigma$}
+\framebox{$\demoteT_*(T_1) = T_2$} \textbf{Type Demotion}
+$\demoteT$ and $\demoteT_*$ take a type and ``strip'' all the asset modifiers from it, as well as unfolding named type definitions.
 This process is useful, because it allows selecting asset types without actually having a value of the desired asset type.
 Note that demoting a transformer type changes nothing.
 This is because a transformer is \textbf{never} an asset, regardless of the types that it operators on, because it has no storage.
 
 \begin{align*}
-    \demote(\mathcal{Q}~T) &= \mathcal{Q}~\demote_*(T) \\
-    \demote_*(\boolt) &= \boolt \\
-    \demote_*(\natt) &= \natt \\
-    \demote_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demote(\tau)}} \\
-    \demote_*(\type~t~\is~\overline{M}~T) &= \demote_*(T)
+    \demoteT(\mathcal{Q}~T) &= \mathcal{Q}~\demoteT_*(T) \\
+    \demoteT_*(\boolt) &= \boolt \\
+    \demoteT_*(\natt) &= \natt \\
+    \demoteT_*(\curlys{\overline{x : \tau}}) &= \curlys{\overline{x : \demoteT(\tau)}} \\
+    \demoteT_*(\type~t~\is~\overline{M}~T) &= \demoteT_*(T)
 \end{align*}
 
 \framebox{$\fields(T) = \overline{x : \tau}$} \textbf{Fields}
@@ -514,15 +514,15 @@ This is because a transformer is \textbf{never} an asset, regardless of the type
     \end{cases}
 \]
 
-\framebox{$\compatQuan(n, m, \mathcal{Q})$}
-The relation $\compatQuan(n, m, \mathcal{Q})$ holds when the number of values sent, $n$, is compatible with the original number of values $m$, and the type quantity used, $\mathcal{Q}$.
+\framebox{$\compat(n, m, \mathcal{Q})$}
+The relation $\compat(n, m, \mathcal{Q})$ holds when the number of values sent, $n$, is compatible with the original number of values $m$, and the type quantity used, $\mathcal{Q}$.
 
 \begin{align*}
-    \compatQuan(n, m, \mathcal{Q}) \iff & (\mathcal{Q} = \nonempty \tand n \geq 1) \tor \\
-                                     & (\mathcal{Q} = \,\,\exactlyone \tand n = 1) \tor \\
-                                     & (\mathcal{Q} = \emptyq \tand n = 0) \tor \\
-                                     & (\mathcal{Q} = \every \tand n = m) \tor \\
-                                     & \mathcal{Q} = \any
+    \compat(n, m, \mathcal{Q}) \iff & (\mathcal{Q} = \nonempty \tand n \geq 1) \tor \\
+                                    & (\mathcal{Q} = \,\,\exactlyone \tand n = 1) \tor \\
+                                    & (\mathcal{Q} = \emptyq \tand n = 0) \tor \\
+                                    & (\mathcal{Q} = \every \tand n = m) \tor \\
+                                    & \mathcal{Q} = \any
 \end{align*}
 
 \framebox{$\values(T) = \mathcal{V}$}
