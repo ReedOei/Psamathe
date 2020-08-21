@@ -27,7 +27,6 @@
 \newcommand{\compat}{\text{compat}\xspace}
 \newcommand{\resolve}{\textbf{\texttt{resolve}}\xspace}
 \newcommand{\values}{\text{values}\xspace}
-\newcommand{\skipS}{\textbf{\texttt{skip}}\xspace}
 
 \begin{document}
 
@@ -46,8 +45,7 @@
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\demote(x)$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ & (destinations) \\
     $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
-    $\Stmt$ & \bnfdef & $\skipS$ & \\
-            & \bnfalt & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{x}) \to \mathcal{D}$ & \\
+    $\Stmt$ & \bnfdef & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{x}) \to \mathcal{D}$ & \\
             & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & \\
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$
 \end{tabular}
@@ -106,9 +104,6 @@ A \emph{storage} is either a source or a destination.
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
-    \inferrule*[right=Ok-Skip]{
-    }{ \Gamma \flowproves \skipS~\ok \flowprovesout \Gamma }
-
     \inferrule*[right=Ok-Flow-Every]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
         \\
@@ -195,9 +190,6 @@ The new constructs of $\resolve(\Sigma, \mathcal{S})$ and $\putS(\mathcal{V}, \m
 
     \inferrule*[right=Revert]{
     }{ \angles{ \Sigma, (\revert)~\overline{S} } \to \angles{ \Sigma, \revert } }
-
-    \inferrule*[right=Skip]{
-    }{ \angles{ \Sigma, \skipS } \evaluates \Sigma }
 \end{mathpar}
 
 Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
