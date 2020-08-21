@@ -172,7 +172,7 @@ A \emph{storage} is either a source or a destination.
 
 \subsection{Dynamics}
 \begin{tabular}{l r l l}
-    $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\{ \overline{x : \tau \mapsto V} \}$ & \\
+    $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\{ \overline{x : \tau \mapsto \N} \}$ & \\
     $\mathcal{V}$ & \bnfdef & $\overline{V}$ & \\
     $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{\Stmt}, \overline{\Stmt})$ & \\
 \end{tabular}
@@ -186,6 +186,7 @@ A \emph{storage} is either a source or a destination.
 Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the end of evaluation.
 
 The new constructs of $\resolve(\Sigma, \mathcal{S})$ and $\putS(\mathcal{V}, \mathcal{D})$ are used to simplify the process of locating sources and updating destinations, respectively.
+\reed{Can probably just make put into a function as well, like resolve.}
 
 \begin{mathpar}
     \inferrule*[right=Seq]{

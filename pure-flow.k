@@ -169,12 +169,18 @@ module PURE-FLOW
     rule <k> resolveStorage(X . Y) => resolveStorage(loc(I)) ... </k>
         <lookup> ... X |-> Loc ... </lookup>
         <storage> ... Loc |-> resource(_, ListItem((Y |-> loc(I)) _)) ... </storage>
-    rule <k> resolveStorage({ Members }) => initRecord(loc(I), Members) ~> resolveStorage(loc(I)) ... </k>
-        <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
     rule <k> resolveStorage(total(X)) => resolveStorage(loc(I)) ... </k>
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... (XLoc |-> resource(_, Vals)) (.Map => loc(I) |-> resource(nat, ListItem(size(Vals)))) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+
+    // =============================================
+    // TODO: According to the formalization, record values should store the actualk value, not a reference. However, this does cause issues with hwo flows work, because we want to get locations out of resolveStorage, which is impossible if we store values. We will have the same issue if we start allowing writing things referring to specific elements of lists as a source (so probably shouldn't do that).
+    // TODO: Also, should we store the Resource (i.e., resource(R, V)) value, or just the V part, because we can figure out what the type is from context?
+    //       It seems like there isn't actually much benefit to storing just the value, because it just makes things more complicated?
+    // =============================================
+    rule <k> resolveStorage({ Members }) => initRecord(loc(I), Members) ~> resolveStorage(loc(I)) ... </k>
+        <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     syntax VarDefs ::= membersToDefs(RecordMembers) [function, functional]
@@ -192,7 +198,6 @@ module PURE-FLOW
             =>
             (Loc |-> resource(R, ListItem(Fields (X |-> loc(I)))))
             (InitLoc |-> resource(T, .List))
-            (loc(I) |-> resource(T, V))
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
