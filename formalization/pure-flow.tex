@@ -35,16 +35,17 @@
 \subsection{Syntax}
 \begin{align*}
     f &\in \textsc{TransformerNames} & t &\in \textsc{TypeNames} \\
-    a,x,y,z &\in \textsc{Identifiers} & \alpha, \beta &\in \textsc{TypeVars} \\
+    a,x,y,z &\in \textsc{Identifiers} & \alpha, \beta &\in \textsc{TypeVariables} \\
 \end{align*}
 \begin{tabular}{l r l l}
     $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
     $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
+    $T_V$ & \bnfdef & $\alpha~\is~\overline{M}$ & (type variable declaration) \\
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\demote(x)$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ & (destinations) \\
-    $\Decl$ & \bnfdef & $\transformer~f[\overline{\alpha}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
+    $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
     $\Stmt$ & \bnfdef & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f[\overline{T}](\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f[\overline{T}](\overline{x}) \to \mathcal{D}$ & (flows) \\
             & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & (try-catch) \\
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$ & (programs)
@@ -118,22 +119,24 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Filter]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt ~\{~\overline{\Stmt}~\}
+        % \transformer~f(\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt ~\{~\overline{\Stmt}~\}
+        \typeof(f, \overline{T}) = (\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt
         \\
         \forall i. \demoteT(\Gamma(a_i)) = \sigma_i
         \\
         \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
-    }{ \Gamma \flowproves (\mathcal{S} \sends{\mathcal{R}~\suchthat~f(\overline{a})} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+    }{ \Gamma \flowproves (\mathcal{S} \sends{\mathcal{R}~\suchthat~f[\overline{T}](\overline{a})} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Ok-Flow-Transformer]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T_1 \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \elemtype(T_1)) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
+        % \transformer~f(\overline{x : \sigma}, y : \elemtype(T_1)) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
+        \typeof(f, \overline{T}) = (\overline{x : \sigma}, y : \elemtype(T_1)) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
         \\
         \forall i. \demoteT(\Gamma(x_i)) = \sigma_i
         \\
         \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T_2 \flowprovesout \Xi
-    }{ \Gamma \flowproves (\mathcal{S} \to f(\overline{x}) \to \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{Q}) }
+    }{ \Gamma \flowproves (\mathcal{S} \to f[\overline{T}](\overline{x}) \to \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{Q}) }
 
     \inferrule*[right=Ok-Try]{
         \Gamma \flowproves \overline{S_1}~\ok \flowprovesout \Delta
@@ -145,10 +148,10 @@ A \emph{storage} is either a source or a destination.
 \framebox{$\proves \Decl~\ok$} \textbf{Declaration Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Ok-Transformer]{
-        \overline{x : \tau} \flowproves \overline{\Stmt}~\ok \flowprovesout \Gamma, y : \sigma
+        \overline{T_V}, \overline{x : \tau} \flowproves \overline{\Stmt}~\ok \flowprovesout \Gamma, y : \sigma
         \\
-        \forall \pi \in \img(\Gamma). \lnot(\pi~\asset)
-    }{ \proves (\transformer~f(\overline{x : \tau}) \to y : \sigma \{ \overline{\Stmt} \})~\ok }
+        \forall \pi \in \img(\Gamma). \lnot\isAsset(\overline{T_V}, \pi)
+    }{ \proves (\transformer~f[\overline{T_V}](\overline{x : \tau}) \to y : \sigma \{ \overline{\Stmt} \})~\ok }
 \end{mathpar}
 
 \framebox{$\Prog~\ok$} \textbf{Program Well-formedness}
@@ -158,7 +161,7 @@ A \emph{storage} is either a source or a destination.
         \\
         \emptyset \flowproves \overline{\Stmt}~\ok \flowprovesout \Gamma
         \\
-        \forall \tau \in \img(\Gamma). \lnot(\tau~\asset)
+        \forall \tau \in \img(\Gamma). \lnot \isAsset(\emptyset, \tau)
     }{ (\overline{\Decl}; \overline{\Stmt})~\ok }
 \end{mathpar}
 
@@ -182,6 +185,8 @@ The new constructs of $\resolve(\Sigma, \mathcal{S})$ and $\putS(\mathcal{V}, \m
 
 \begin{mathpar}
     \inferrule*[right=Seq]{
+        % S_1 \neq \tryS~\{ \overline{S_4} \}~\catchS~\{ \overline{S_5} \}
+        % \\
         \angles{\Sigma, S_1 } \to \angles{\Sigma', \overline{S_3}}
     }{ \angles{\Sigma, S_1 \overline{S_2}} \to \angles{\Sigma', \overline{S_3}~\overline{S_2}} }
 
@@ -371,12 +376,12 @@ We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of
     Define $\emptyq < \any < \,\, \exactlyone < \nonempty < \every$.
 \end{definition}
 
-\framebox{$\tau~\asset$} \textbf{Asset Types}
+\framebox{$\isAsset(\overline{T_V}, \tau)$} \textbf{Asset Types}
 
 \begin{align*}
-    (\mathcal{Q}~T)~\asset \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(T) \tor \\
-                                                                & (T = \mathcal{C}~\tau \tand \tau~\asset) \tor \\
-                                                                & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. (\tau~\asset)))
+    \isAsset(\overline{T_V}, \mathcal{Q}~T) \iff \mathcal{Q} \neq \emptyq \tand (& \asset \in \modifiers(\overline{T_V}, T) \tor \\
+                                                                                 & (T = \mathcal{C}~\tau \tand \isAsset(\overline{T_V}, \tau)) \tor \\
+                                                                                 & (T = \curlys{\overline{y : \sigma}} \tand \exists x : \tau \in \overline{y : \sigma}. \isAsset(\overline{T_V}, \tau)) \tor \\
 \end{align*}
 % \reed{It should be the case that a transformer can have an output of an asset type if and only if it has an input asset type (and it the case of curried transformers, that \textbf{some} input type is an asset).}
 
@@ -463,11 +468,12 @@ Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \o
     \end{cases}
 \end{align*}
 
-\framebox{$\modifiers(T) = \overline{M}$} \textbf{Type Modifiers}
+\framebox{$\modifiers(\overline{T_V}, T) = \overline{M}$} \textbf{Type Modifiers}
 \begin{align*}
-    \modifiers(T) =
+    \modifiers(\overline{T_V}, T) =
     \begin{cases}
-        \overline{M} & \tif T = \type~t~\is~\overline{M}~T \\
+        \overline{M} & \tif T = \type~t~\is~\overline{M}~T' \\
+        \overline{M} & \tif (T~\is~\overline{M}) \in \overline{T_V} \\
         \emptyset & \owise
     \end{cases}
 \end{align*}
