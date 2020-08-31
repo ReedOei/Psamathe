@@ -35,23 +35,20 @@
 \subsection{Syntax}
 \begin{align*}
     f &\in \textsc{TransformerNames} & t &\in \textsc{TypeNames} \\
-    a,x,y,z &\in \textsc{Identifiers} \\
+    a,x,y,z &\in \textsc{Identifiers} & \alpha, \beta &\in \textsc{TypeVars} \\
 \end{align*}
 \begin{tabular}{l r l l}
     $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
+    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $\type~t~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\demote(x)$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ & (sources) \\
     $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ & (destinations) \\
-    $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
-    $\Stmt$ & \bnfdef & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f(\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f(\overline{x}) \to \mathcal{D}$ & \\
-            & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & \\
-    $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$
+    $\Decl$ & \bnfdef & $\transformer~f[\overline{\alpha}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
+    $\Stmt$ & \bnfdef & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f[\overline{T}](\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f[\overline{T}](\overline{x}) \to \mathcal{D}$ & (flows) \\
+            & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & (try-catch) \\
+    $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$ & (programs)
 \end{tabular}
-
-\reed{Remove bool type?
-Can implement the ``filter'' selectors another way, e.g., by using a transformer returning a pair.}
 
 \subsection{Statics}
 
@@ -131,7 +128,7 @@ A \emph{storage} is either a source or a destination.
     \inferrule*[right=Ok-Flow-Transformer]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T_1 \flowprovesout \Delta
         \\
-        \transformer~f(\overline{x : \sigma}, y : \demoteT(\elemtype(T_1))) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
+        \transformer~f(\overline{x : \sigma}, y : \elemtype(T_1)) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
         \\
         \forall i. \demoteT(\Gamma(x_i)) = \sigma_i
         \\
@@ -196,6 +193,8 @@ Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
 Here $\mathcal{V} + \mathcal{W}$ refers to the combine operation for relevant values.
 \reed{TODO: Need to finalize how $\mathcal{V} + \mathcal{W}$ works; in particular, need to make sure that you can't overwrite things that shouldn't be overwritten (e.g., a nonfungible nat).
 Probably need to tag types with modifiers or something.}
+\reed{Here we have an issue if we want to do this thing that actually allows working with infinite lists/sets of values, because we can't concatenate two infintie lists (or at least, I'm not sure how...).
+But we could use multisets and dodge all the issues (also resolves the issue of how to deal with duplicates).}
 
 \begin{mathpar}
     \inferrule*[right=Put-Consume]{

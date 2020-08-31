@@ -26,8 +26,8 @@ syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not
 
-syntax keyword specialKeywords try catch constant unique immutable fungible emit let consume consumable return total via var transformer pass
-syntax keyword specialVars msg this one some any now
+syntax keyword specialKeywords try catch constant unique immutable fungible emit let consume consumable return total copy via var transformer pass
+syntax keyword specialVars msg this one any nonempty empty one every
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
 

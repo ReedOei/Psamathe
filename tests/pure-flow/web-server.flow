@@ -1,0 +1,117 @@
+// Standard implementation with many transformers
+transformer newServer()
+    -> server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }
+{
+    0 --> var curId : ! nat
+    [] --> var files : any list ! { id : ! nat, content : ! nat }
+
+    { curId : ! nat |-> curId, files : any list ! { id : ! nat, content : ! nat} |-> files } --> newServer
+}
+
+transformer upload(request : ! { server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }, newContent : ! nat })
+    -> newServer : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }
+{
+    request.server --> var server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat } }
+    request.newContent --> var newContent : ! nat
+
+    copy(server.curId) --> var newId : ! nat
+    temp --> server.curId
+    1 --> server.curId
+
+    { id : ! nat |-> newId, content : ! nat |-> newContent } --> var newEntry : ! { id : ! nat, content : ! nat }
+    [ newEntry ] --> server.files
+
+    server --> newServer
+}
+
+transformer hasId(id : ! nat, file : ! { id : ! nat, content : ! nat }) -> res : ! bool {
+    try {
+        file.id --[ id ]-> var temp : ! nat
+        true --> res
+    } catch {
+        false --> res
+    }
+}
+
+transformer edit(request : ! { server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }, id : ! nat, newContent : ! nat})
+    -> newServer : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }
+{
+    request.server --> var server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat } }
+    request.id --> var id : ! nat
+    request.newContent --> var newContent : ! nat
+
+    server.files --[ ! such that hasId(id) ]-> var file : ! { id : ! nat, content : ! nat }
+    file.content --> consume
+    newContent --> file.content
+    [ file ] --> server.files
+
+    server --> newServer
+}
+
+transformer download(request : ! { server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }, id : ! nat})
+    -> res : ! { newServer : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }, content : ! nat }
+{
+    request.server --> var server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat } }
+    request.id --> var id : ! nat
+
+    server.files --[ ! such that hasId(id) ]-> var file : ! { id : ! nat, content : ! nat }
+    copy(file.content) --> var content : ! nat
+    [ file ] --> server.files
+
+    {
+        newServer : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} } |-> server,
+        content : ! nat |-> content
+    } --> res
+}
+
+transformer delete(request : ! { server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }, id : ! nat})
+    -> newServer : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }
+{
+    request.server --> var server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat } }
+    request.id --> var id : ! nat
+
+    server.files --[ ! such that hasId(id) ]-> consume
+
+    server --> newServer
+}
+
+;
+
+// Create a new server
+newServer() --> var server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }
+
+// Upload some content
+2020 --> var newContent : ! nat
+{
+    server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} |-> server,
+    newContent : ! nat |-> newContent
+} --> upload() --> server
+
+// Download that content
+0 --> var zero : ! nat
+{
+    server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} |-> server,
+    id : ! nat |-> zero
+} --> download() --> var res : ! { newServer : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} }, content : ! nat }
+res.newServer --> server
+
+// If we had a print function, we could do something like this.
+res.content --> print() --> var b : ! bool
+res --> consume
+
+// Edit the content
+0 --> zero
+3141592 --> var newContent : ! nat
+{
+    server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} |-> server,
+    id : ! nat |-> zero,
+    newContent : ! nat |-> newContent
+} --> edit() --> server
+
+// Delete the content
+0 --> zero
+{
+    server : ! { curId : ! nat, files : any list ! { id : ! nat, content : ! nat} |-> server,
+    id : ! nat |-> zero
+} --> delete() --> server
+

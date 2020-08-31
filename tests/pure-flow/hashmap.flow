@@ -1,0 +1,69 @@
+// The actual type of the hashtable is:
+// any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+// This represents a list of entries, each storing a list of values to handle the case of collisions.
+
+transformer hash(k : ! nat) -> hashed : ! nat {
+    // something
+}
+
+transformer empty()
+    -> res : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+{
+    [] --> res
+}
+
+transformer hasHash(k : ! nat,
+                    entry : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } })
+    -> res : ! bool
+{
+    try {
+        k --> hash() --> var hashed : ! nat
+        entry.hash --[ hashed ]-> var temp : ! nat
+        true --> res
+    } catch {
+        false --> res
+    }
+}
+
+transformer insert(m : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } },
+                   k : ! nat,
+                   v : ! nat)
+    -> res : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+{
+    try {
+        // If the hash already appears in the map
+        m --[ ! such that hasHash(k) ]--> var entry : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+        { key : ! nat |-> k, value : ! nat |-> v } --> var newVal : ! { key : ! nat, value : ! nat }
+        [ newVal ] --> entry.vals
+        [ entry ] --> m
+    } catch {
+        // Otherwise we need to construct a new entry holding just the newly inserted key-value pair.
+        k --> hash() --> var hashed : ! nat
+        { key : ! nat |-> k, value : ! nat |-> v } --> var newKvPair : ! { key : ! nat, value : ! nat }
+        [ newKvPair ] --> var vals : any lsit ! { key : ! nat, value : ! nat }
+        { hash : ! nat |-> hashed, vals : any list ! { key : ! nat, value : ! nat } |-> vals } --> var newEntry : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat  } }
+        [ newEntry ] --> m
+    }
+    m --> res
+}
+
+// This is "select" in the flow language sense, meaning it -> the new value and the new map without the key-value pair.
+// In this case, this is not necessary, because nats aren't assets, but in general you wouldn't want to just delete the value in the map.
+transformer select(m : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } },
+                   k : ! nat)
+    -> res : ! { newMap :  any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } },
+                 v : ! nat }
+{
+    // Extract the entry we care about. This will fail if the entry is not present.
+    m --[ ! such that hasHash(k) ]--> var entry : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+    entry.vals --[ ! such that hasKey(k) ]-> var resultKvPair : ! { key : ! nat, value : ! nat }
+    resultKvPair.value --> var resultVal : ! nat
+    // Put the rest of the entry back
+    [ entry ] --> m
+
+    { newMap : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } } |-> m,
+      v : ! nat |-> resultVal } --> res
+}
+
+;
+
