@@ -1,0 +1,16 @@
+interface Resource[asset alpha] {
+    type elem
+    type selectVals
+
+    transformer equals(a : q alpha, b : r alpha) -> res : ! bool
+    transformer empty() -> res : empty alpha
+    transformer combine(a : q alpha, b : r alpha) -> res : (q + r) alpha
+
+    // Various selectors
+    transformer selectAll(a : q alpha) -> res : { newA : empty alpha, selected : q alpha }
+    transformer selectVals(a : q alpha, b : r alpha) -> res : { newA : (q - r) alpha, selected : r alpha }
+    transformer selectFilter(a : q alpha, b : r alpha) -> res : { newA : (q - r) alpha, selected : r alpha }
+}
+
+;
+

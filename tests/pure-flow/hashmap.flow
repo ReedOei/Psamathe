@@ -2,6 +2,8 @@
 // any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
 // This represents a list of entries, each storing a list of values to handle the case of collisions.
 
+// Note that this is only **kind of** a hashmap (the time complexities are wrong, because there's no nth operation to give constant time list lookup).
+
 transformer hash(k : ! nat) -> hashed : ! nat {
     // something
 }
@@ -47,7 +49,7 @@ transformer insert(m : any list ! { hash : ! nat, vals : any list ! { key : ! na
     m --> res
 }
 
-// This is "select" in the flow language sense, meaning it -> the new value and the new map without the key-value pair.
+// This is "select" in the Psamathe sense, meaning it returns the new value and the new map without the key-value pair.
 // In this case, this is not necessary, because nats aren't assets, but in general you wouldn't want to just delete the value in the map.
 transformer select(m : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } },
                    k : ! nat)
@@ -63,6 +65,42 @@ transformer select(m : any list ! { hash : ! nat, vals : any list ! { key : ! na
 
     { newMap : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } } |-> m,
       v : ! nat |-> resultVal } --> res
+}
+
+interface resource(R) {
+    type elem
+    type key
+    type selector
+
+    transformer empty() -> res : empty R
+    transformer single(e : elem) -> res : ! R
+
+    transformer combine[q,r](a : q R, b : r R) -> res : (q + r) R
+
+    transformer selectAll[q](a : q R) -> res : { newA : empty R, selected : q R }
+    transformer selectVals[q,r](a : q R, b : r list ! selector) -> res : { newA : (q - r) R, selected : r R }
+}
+
+implementation resource(type map[k, v] is list ! { key : k, value : v }) {
+    type elem is { key : k, value : v }
+    type key is k
+    type selector is k + { key : k, value : v }
+
+    transformer empty() -> res : empty map[k, v] {
+        [] -> res
+    }
+
+    transformer single(e : ! { key : k, value : v }) -> res : ! map[k, v] {
+        [ e ] --> res
+    }
+
+    transformer combine[q,r](a : q map[k, v], b : r map[k, v]) -> res : (q + r) map[k, v] {
+        a --> b
+        b --> res
+    }
+
+    transformer selectAll[q](a : q R) -> res : { newA : empty R, selected : q R }
+    transformer selectVals[q,r](a : q R, b : r list ! selector) -> res : { newA : (q - r) R, selected : r R }
 }
 
 ;
