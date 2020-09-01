@@ -69,7 +69,6 @@ transformer select(m : any list ! { hash : ! nat, vals : any list ! { key : ! na
 
 interface resource(R) {
     type elem
-    type key
     type selector
 
     transformer empty() -> res : empty R
@@ -83,7 +82,6 @@ interface resource(R) {
 
 implementation resource(type map[k, v] is list ! { key : k, value : v }) {
     type elem is { key : k, value : v }
-    type key is k
     type selector is k + { key : k, value : v }
 
     transformer empty() -> res : empty map[k, v] {

@@ -198,6 +198,7 @@ module PURE-FLOW
             =>
             (Loc |-> resource(R, ListItem(Fields (X |-> loc(I)))))
             (InitLoc |-> resource(T, .List))
+            (loc(I) |-> resource(T, V))
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
