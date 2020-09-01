@@ -76,7 +76,6 @@ interface resource(R) {
 
     transformer combine[q,r](a : q R, b : r R) -> res : (q + r) R
 
-    transformer selectAll[q](a : q R) -> res : { newA : empty R, selected : q R }
     transformer selectVals[q,r](a : q R, b : r list ! selector) -> res : { newA : (q - r) R, selected : r R }
 }
 
@@ -97,7 +96,6 @@ implementation resource(type map[k, v] is list ! { key : k, value : v }) {
         b --> res
     }
 
-    transformer selectAll[q](a : q R) -> res : { newA : empty R, selected : q R }
     transformer selectVals[q,r](a : q R, b : r list ! selector) -> res : { newA : (q - r) R, selected : r R }
 }
 
