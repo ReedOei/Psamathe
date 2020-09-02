@@ -4,6 +4,7 @@
 dynamic/*
 static/*
 compiler/*
+pure-flow/*
 texput.log
 .sage_cache
 *.sagetex.*

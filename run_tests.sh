@@ -7,45 +7,28 @@ if [[ "$1" == "--fast" ]]; then
     fast="true"
 fi
 
+run_target() {
+    target="$1"
+
+    "$kserver" &> /dev/null &
+    kserver_pid=$!
+    if [[ "$fast" == "false" ]]; then
+        echo "[INFO] Warming up: $target"
+        make "$target"
+        echo "[INFO] Done warming up: $target"
+    fi
+    time make "$target"
+    kill "$kserver_pid"
+}
+
 kserver="$HOME/k-framework/k-distribution/bin/kserver"
 
 pkill -f "kserver"
 
 set -ex
 
-"$kserver" &> /dev/null &
-kserver_pid=$!
-if [[ "$fast" == "false" ]]; then
-    # Warmup
-    make exec &> /dev/null
-fi
-time make exec
-kill "$kserver_pid"
-
-"$kserver" &> /dev/null &
-kserver_pid=$!
-if [[ "$fast" == "false" ]]; then
-    # Warmup
-    make typecheck &> /dev/null
-fi
-time make typecheck
-kill "$kserver_pid"
-
-"$kserver" &> /dev/null &
-kserver_pid=$!
-if [[ "$fast" == "false" ]]; then
-    # Warmup
-    make compile &> /dev/null
-fi
-time make compile
-kill "$kserver_pid"
-
-"$kserver" &> /dev/null &
-kserver_pid=$!
-if [[ "$fast" == "false" ]]; then
-    # Warmup
-    make pure-flow &> /dev/null
-fi
-time make pure-flow
-kill "$kserver_pid"
+run_target "exec"
+run_target "typecheck"
+run_target "compile"
+run_target "pure-flow"
 
