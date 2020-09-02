@@ -5,46 +5,60 @@
 // Note that this is only **kind of** a hashmap (the time complexities are wrong, because there's no nth operation to give constant time list lookup).
 
 transformer hash(k : ! nat) -> hashed : ! nat {
-    // something
+    // could be something more creative, but for now
+    k --> hashed
 }
 
-transformer empty()
+transformer emptyMap(dummy : ! {})
     -> res : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
 {
-    [] --> res
 }
 
 transformer hasHash(k : ! nat,
-                    entry : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } })
+                    bucket : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } })
     -> res : ! bool
 {
     try {
         k --> hash() --> var hashed : ! nat
-        entry.hash --[ hashed ]-> var temp : ! nat
+        bucket.hash --> var bucketHash : ! nat
+        [ bucketHash ] --[ hashed ]-> var temp : ! nat
         true --> res
     } catch {
         false --> res
     }
 }
 
-transformer insert(m : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } },
-                   k : ! nat,
-                   v : ! nat)
-    -> res : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+transformer hasKey(k : ! nat, entry : ! { key : ! nat, value : ! nat}) -> res : ! bool {
+    try {
+        entry.key --> var entryKey : ! nat
+        [ entryKey ] --[ k ]-> var temp : ! nat
+        true --> res
+    } catch {
+        false --> res
+    }
+}
+
+transformer insert(args : ! { m : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } },
+                              k : ! nat,
+                              v : ! nat })
+    -> res : nonempty list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
 {
+    args.m --> var m : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+    args.k --> var k : ! nat
+    args.v --> var v : ! nat
     try {
         // If the hash already appears in the map
-        m --[ ! such that hasHash(k) ]--> var entry : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
-        { key : ! nat |-> k, value : ! nat |-> v } --> var newVal : ! { key : ! nat, value : ! nat }
-        [ newVal ] --> entry.vals
-        [ entry ] --> m
+        m --[ ! such that hasHash(k) ]-> var bucket : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+        { key : ! nat |-> k, value : ! nat |-> v } --> var newEntry : ! { key : ! nat, value : ! nat }
+        [ newEntry ] --> bucket.vals
+        [ bucket ] --> m
     } catch {
-        // Otherwise we need to construct a new entry holding just the newly inserted key-value pair.
-        k --> hash() --> var hashed : ! nat
-        { key : ! nat |-> k, value : ! nat |-> v } --> var newKvPair : ! { key : ! nat, value : ! nat }
-        [ newKvPair ] --> var vals : any lsit ! { key : ! nat, value : ! nat }
-        { hash : ! nat |-> hashed, vals : any list ! { key : ! nat, value : ! nat } |-> vals } --> var newEntry : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat  } }
-        [ newEntry ] --> m
+        // Otherwise we need to construct a new bucket holding just the newly inserted key-value pair.
+        copy(k) --> hash() --> var hashed : ! nat
+        { key : ! nat |-> k, value : ! nat |-> v } --> var newEntry : ! { key : ! nat, value : ! nat }
+        [ newEntry ] --> var vals : any list ! { key : ! nat, value : ! nat }
+        { hash : ! nat |-> hashed, vals : any list ! { key : ! nat, value : ! nat } |-> vals } --> var newBucket : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat  } }
+        [ newBucket ] --> m
     }
     m --> res
 }
@@ -56,48 +70,25 @@ transformer select(m : any list ! { hash : ! nat, vals : any list ! { key : ! na
     -> res : ! { newMap :  any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } },
                  v : ! nat }
 {
-    // Extract the entry we care about. This will fail if the entry is not present.
-    m --[ ! such that hasHash(k) ]--> var entry : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
-    entry.vals --[ ! such that hasKey(k) ]-> var resultKvPair : ! { key : ! nat, value : ! nat }
+    // Extract the bucket we care about. This will fail if the bucket is not present.
+    m --[ ! such that hasHash(k) ]-> var bucket : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+    bucket.vals --[ ! such that hasKey(k) ]-> var resultKvPair : ! { key : ! nat, value : ! nat }
     resultKvPair.value --> var resultVal : ! nat
-    // Put the rest of the entry back
-    [ entry ] --> m
+    // Put the rest of the bucket back
+    [ bucket ] --> m
 
     { newMap : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } } |-> m,
       v : ! nat |-> resultVal } --> res
 }
 
-interface resource(R) {
-    type elem
-    type selector
-
-    transformer empty() -> res : empty R
-    transformer single(e : elem) -> res : ! R
-
-    transformer combine[q,r](a : q R, b : r R) -> res : (q + r) R
-
-    transformer selectVals[q,r](a : q R, b : r list ! selector) -> res : { newA : (q - r) R, selected : r R }
-}
-
-implementation resource(type map[k, v] is list ! { key : k, value : v }) {
-    type elem is { key : k, value : v }
-    type selector is k + { key : k, value : v }
-
-    transformer empty() -> res : empty map[k, v] {
-        [] -> res
-    }
-
-    transformer single(e : ! { key : k, value : v }) -> res : ! map[k, v] {
-        [ e ] --> res
-    }
-
-    transformer combine[q,r](a : q map[k, v], b : r map[k, v]) -> res : (q + r) map[k, v] {
-        a --> b
-        b --> res
-    }
-
-    transformer selectVals[q,r](a : q R, b : r list ! selector) -> res : { newA : (q - r) R, selected : r R }
-}
-
 ;
+
+{} --> var dummy : ! {}
+[ dummy ] --> emptyMap() --> var m : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } }
+
+7 --> var k : ! nat
+24 --> var v : ! nat
+{ m : any list ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat } } |-> m,
+  k : ! nat |-> k,
+  v : ! nat |-> v } --> insert() --> m
 

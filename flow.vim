@@ -21,7 +21,7 @@ syntax keyword conditional if else only when then be such that where
 
 syntax keyword distrSpecifiers everything
 
-syntax match operator '[~&\|!=+\-*/>@<:%\[\]]\+'
+syntax match operator '[~&\|!=+\-*/>@<:%\[\]{}]\+'
 syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not

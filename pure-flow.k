@@ -35,7 +35,7 @@ module PURE-FLOW-SYNTAX
                   | "(" Expr ")"        [bracket]
 
     syntax StorageVal ::= new(Var, Modifiers, BaseType) | "consume"
-    syntax Storage ::= StorageVal | Expr | "total" "(" Var ")" | "var" VarDef
+    syntax Storage ::= StorageVal | Expr | "copy" "(" Var ")" | "total" "(" Var ")" | "var" VarDef
     syntax Selector ::= TypeQuant "such" "that" Id "(" Vars ")"
 
     syntax Stmt ::= "skip"
@@ -172,6 +172,10 @@ module PURE-FLOW
     rule <k> resolveStorage(total(X)) => resolveStorage(loc(I)) ... </k>
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... (XLoc |-> resource(_, Vals)) (.Map => loc(I) |-> resource(nat, ListItem(size(Vals)))) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> resolveStorage(copy(X)) => resolveStorage(loc(I)) ... </k>
+        <lookup> ... X |-> XLoc ... </lookup>
+        <storage> ... (XLoc |-> R) (.Map => loc(I) |-> demoteVal(R)) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
     // =============================================
@@ -357,7 +361,7 @@ module PURE-FLOW
             (Loc |-> resource(R, ListItem(A) Rest))
             =>
             (Loc |-> resource(R, Rest))
-            (loc(I) |-> resource(elemtype(R), elem(A)))
+            (loc(I) |-> resource(elemtype(R), elem(ListItem(A))))
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
@@ -365,7 +369,10 @@ module PURE-FLOW
     syntax Stmt ::= transform(FunctionCallResult, StorageVal)
     context transform(HOLE, _)
 
-    rule <k> transform(loc(I), Dest) => put(resource(list ! R, ListItem(V)), Dest) ... </k>
+    // TODO: THe problem is this ListITem(V), we need to somehow "package up" the value such that it will be added to the destination correctly.
+    // In the case of a list, it should be ListItem, but not for other things.
+    // It would be nice to get rid of all thisw eird special casing...
+    rule <k> transform(loc(I), Dest) => put(resource(R, V), Dest) ... </k>
         <storage> ... loc(I) |-> resource(R, V) => .Map ... </storage>
 
     // ==================================
@@ -378,6 +385,10 @@ module PURE-FLOW
     syntax List ::= elem(List) [function, functional]
     rule elem(ListItem(L:List)) => L
     rule elem(L) => L [owise]
+
+    syntax Resource ::= singleton(BaseType, KItem) [function, functional]
+    rule singleton(list R, V) => resource(list R, ListItem(V))
+    rule singleton(R, V) => resource(R, V) [owise]
 
     syntax Resource ::= filter(Selector, Resource, Resource, Resource, StorageVal, StorageVal)
     syntax FunctionCallResult ::= Id "(" Vars ")" | StorageLoc
