@@ -1,0 +1,62 @@
+<generatedTop>
+  <k>
+    .
+  </k>
+  <functions>
+    newAccount |-> transformer ( res : ! list ! { name : ! nat , balance : ! nat , .VarDefs } , a : ! nat , .VarDefs , 0 --> var zero : ! nat  { name : ! nat |-> a , balance : ! nat |-> zero , .RecordMembers } --> var elem : ! { name : ! nat , balance : ! nat , .VarDefs }  [ elem ] --> res  .Stmts )
+  </functions>
+  <freshCounter>
+    36
+  </freshCounter>
+  <lookup>
+    accounts |-> loc ( 8 )
+    ids |-> loc ( 2 )
+    var ( 9 ) |-> loc ( 9 )
+    var ( 18 ) |-> loc ( 18 )
+    var ( 27 ) |-> loc ( 27 )
+    x |-> loc ( 0 )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( nat , .List )
+    loc ( 1 ) |-> resource ( nat , .List )
+    loc ( 2 ) |-> resource ( list ! nat , .List )
+    loc ( 3 ) |-> resource ( list ! nat , .List )
+    loc ( 4 ) |-> resource ( nat , .List )
+    loc ( 5 ) |-> resource ( list ! nat , .List )
+    loc ( 6 ) |-> resource ( nat , .List )
+    loc ( 7 ) |-> resource ( list ! nat , .List )
+    loc ( 8 ) |-> resource ( list ! { name : ! nat , balance : ! nat , .VarDefs } , ListItem ( ListItem ( balance |-> loc ( 16 )
+    name |-> loc ( 15 ) ) )
+    ListItem ( ListItem ( balance |-> loc ( 25 )
+    name |-> loc ( 24 ) ) )
+    ListItem ( ListItem ( balance |-> loc ( 34 )
+    name |-> loc ( 33 ) ) ) )
+    loc ( 9 ) |-> resource ( nat , .List )
+    loc ( 11 ) |-> resource ( nat , .List )
+    loc ( 12 ) |-> resource ( nat , .List )
+    loc ( 13 ) |-> resource ( { name : ! nat , balance : ! nat , .VarDefs } , .List )
+    loc ( 14 ) |-> resource ( { name : ! nat , balance : ! nat , .VarDefs } , .List )
+    loc ( 15 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 16 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 17 ) |-> resource ( list ! { name : ! nat , balance : ! nat , .VarDefs } , .List )
+    loc ( 18 ) |-> resource ( nat , .List )
+    loc ( 20 ) |-> resource ( nat , .List )
+    loc ( 21 ) |-> resource ( nat , .List )
+    loc ( 22 ) |-> resource ( { name : ! nat , balance : ! nat , .VarDefs } , .List )
+    loc ( 23 ) |-> resource ( { name : ! nat , balance : ! nat , .VarDefs } , .List )
+    loc ( 24 ) |-> resource ( nat , ListItem ( 1 ) )
+    loc ( 25 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 26 ) |-> resource ( list ! { name : ! nat , balance : ! nat , .VarDefs } , .List )
+    loc ( 27 ) |-> resource ( nat , .List )
+    loc ( 29 ) |-> resource ( nat , .List )
+    loc ( 30 ) |-> resource ( nat , .List )
+    loc ( 31 ) |-> resource ( { name : ! nat , balance : ! nat , .VarDefs } , .List )
+    loc ( 32 ) |-> resource ( { name : ! nat , balance : ! nat , .VarDefs } , .List )
+    loc ( 33 ) |-> resource ( nat , ListItem ( 2 ) )
+    loc ( 34 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 35 ) |-> resource ( list ! { name : ! nat , balance : ! nat , .VarDefs } , .List )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>
