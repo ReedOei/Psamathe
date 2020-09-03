@@ -271,6 +271,8 @@ module FLOW-COMMON
     rule demote(bool) => bool
     rule demote(string) => string
     rule demote(address) => address
+    rule [[ demote(C.T) => demote(BaseT) ]]
+        <types> ... C |-> types((T |-> type(_, BaseT)) _) ... </types>
 
     syntax Set ::= modifiers(BaseType) [function, functional]
     rule [[ modifiers(C.T) => Ms ]]
