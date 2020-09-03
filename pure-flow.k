@@ -177,12 +177,6 @@ module PURE-FLOW
         <lookup> ... X |-> XLoc ... </lookup>
         <storage> ... (XLoc |-> R) (.Map => loc(I) |-> demoteVal(R)) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
-
-    // =============================================
-    // TODO: According to the formalization, record values should store the actualk value, not a reference. However, this does cause issues with hwo flows work, because we want to get locations out of resolveStorage, which is impossible if we store values. We will have the same issue if we start allowing writing things referring to specific elements of lists as a source (so probably shouldn't do that).
-    // TODO: Also, should we store the Resource (i.e., resource(R, V)) value, or just the V part, because we can figure out what the type is from context?
-    //       It seems like there isn't actually much benefit to storing just the value, because it just makes things more complicated?
-    // =============================================
     rule <k> resolveStorage({ Members }) => initRecord(loc(I), Members) ~> resolveStorage(loc(I)) ... </k>
         <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
@@ -369,9 +363,6 @@ module PURE-FLOW
     syntax Stmt ::= transform(FunctionCallResult, StorageVal)
     context transform(HOLE, _)
 
-    // TODO: THe problem is this ListITem(V), we need to somehow "package up" the value such that it will be added to the destination correctly.
-    // In the case of a list, it should be ListItem, but not for other things.
-    // It would be nice to get rid of all thisw eird special casing...
     rule <k> transform(loc(I), Dest) => put(resource(R, V), Dest) ... </k>
         <storage> ... loc(I) |-> resource(R, V) => .Map ... </storage>
 
