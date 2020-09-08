@@ -58,9 +58,14 @@ transformer insert(m : any HashMap, k : nat, v : nat) -> res : nonempty HashMap 
         [ newEntry ] --> ( @entries <-[ ! such that hasHash(k) ]-- m )
         // Alternate version with the destination locator arrows going the other way. I slightly prefer the first one, even though it changes direction.
         [ newEntry ] --> ( m --[ ! such that hasHash(k) ]-> @entries )
+
+        // Explicit-copy version
+        [ newEntry ] --> ( @entries <-[ ! such that hasHash(copy(k)) ]-- m )
     } catch {
         // Otherwise we need to construct a new entry holding just the newly inserted key-value pair.
         [ new Bucket(hash(k), [ newEntry ]) ] --> m
+        // Copy version
+        [ new Bucket(hash(copy(k)), [ newEntry ]) ] --> m
     }
     m --> res
 }
@@ -70,6 +75,7 @@ transformer insert(m : any HashMap, k : nat, v : nat) -> res : nonempty HashMap 
 transformer select(m : any HashMap, k : nat) -> res : { newMap : any HashMap, v : nat } {
     // Extract the entry we care about. This will fail if the entry is not present.
     var v : nat <-- @value <-[ ! such that hasKey(k) ]-- @entries <-[ ! such that hashHash(k) ]-- m
+    var v : nat <-- @value <-[ ! such that hasKey(copy(k)) ]-- @entries <-[ ! such that hashHash(k) ]-- m
     { newMap |-> m, v |-> v } --> res
 }
 
