@@ -44,6 +44,10 @@
     \inferrule*[right=Loc-Id]{
     }{ \angles{ \Sigma, x } \to \angles{ \Sigma, \mu(x) } }
 
+    \inferrule*[right=Loc-VarDef]{
+        \ell \not\in \dom(\rho)
+    }{ \angles{ \Sigma, \var~x : T } \to \angles{ \Sigma[\mu \mapsto \mu[x \mapsto \ell], \rho \mapsto \rho[\ell \mapsto []]], \ell } }
+
     \inferrule*[right=Loc-Field-Congr]{
         \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma', \mathcal{L}' }
     }{ \angles{ \Sigma, \mathcal{L} \to @x } \to \angles{ \Sigma', \mathcal{L}' \to @x } }
@@ -52,9 +56,13 @@
         \overline{\rho(\ell).x = k}
     }{ \angles{ \Sigma, \overline{\ell} \to @x } \to \angles{ \Sigma', \overline{k} } }
 
-    \inferrule*[right=Loc-VarDef]{
-        \ell \not\in \dom(\rho)
-    }{ \angles{ \Sigma, \var~x : T } \to \angles{ \Sigma[\mu \mapsto \mu[x \mapsto \ell], \rho \mapsto \rho[\ell \mapsto []]], \ell } }
+    \inferrule*[right=Loc-List-Congr]{
+        \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma', \mathcal{L}' }
+    }{ \angles{ \Sigma, [ \overline{\ell}, \mathcal{L}, \overline{\mathcal{L}'} ] } \to \angles{ \Sigma', [ \overline{\ell}, \mathcal{L}', \overline{\mathcal{L}'} ] } }
+
+    \inferrule*[right=Loc-List]{
+        k \not\in \dom(\rho)
+    }{ \angles{ \Sigma, [ \overline{\ell} ] } \to \angles{ \Sigma[\rho \mapsto \rho[k \mapsto \overline{\ell}]] , k } }
 
     \inferrule*[right=Loc-Val-Src-Congr]{
         \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma'', \mathcal{L}'' }
@@ -62,7 +70,7 @@
 
     \inferrule*[right=Loc-Val-Sel-Congr]{
         \angles{ \Sigma, \mathcal{L}' } \to \angles{ \Sigma'', \mathcal{L}'' }
-    }{ \angles{ \Sigma, \mathcal{L} \sends{\mathcal{L}'} } \to \angles{ \Sigma'', \mathcal{L} \sends{\mathcal{L}'} } }
+    }{ \angles{ \Sigma, \ell \sends{\mathcal{L}'} } \to \angles{ \Sigma'', \ell \sends{\mathcal{L}'} } }
 
     \inferrule*[right=Loc-Val]{
     }{ \angles{ \Sigma, \overline{\ell} \sends{\overline{k}} } \to \angles{ \Sigma, \select(\rho, \overline{\ell}, \overline{k}) } }
