@@ -27,7 +27,9 @@
 \newcommand{\compat}{\text{compat}\xspace}
 \newcommand{\resolve}{\textbf{\texttt{resolve}}\xspace}
 \newcommand{\values}{\text{values}\xspace}
+\newcommand{\storage}{\text{storage}\xspace}
 \newcommand{\loc}{\text{loc}\xspace}
+% \newcommand{\loc}{\text{loc}\xspace}
 
 \begin{document}
 
@@ -36,13 +38,13 @@
 \subsection{Locators}
 
 \begin{tabular}{l r l l}
-    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $\var~x : T$ \bnfalt $\mathcal{L} \to @x$ \bnfalt $[ \overline{\mathcal{L}} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \mathcal{L}} \}$ \bnfalt $\mathcal{L} \sends{\mathcal{L}}$ \bnfalt $\mathcal{L} \sends{\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})}$ & (locators) \\
+    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $\var~x : T$ \bnfalt $\mathcal{L}.x$ \bnfalt $[ \overline{\mathcal{L}} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \mathcal{L}} \}$ \bnfalt $\mathcal{L}[\mathcal{L}]$ \bnfalt $\mathcal{L}[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ & (locators) \\
     Flow & \bnfdef & $\mathcal{L} \to \mathcal{L}$ \bnfalt $\mathcal{L} \to f[\overline{T}](\overline{x}) \to \mathcal{L}$ & (flows) \\
 \end{tabular}
 
 \begin{mathpar}
     \inferrule*[right=Loc-Id]{
-    }{ \angles{ \Sigma, x } \to \angles{ \Sigma, \mu(x) } }
+    }{ \angles{ \Sigma, x } \to \angles{ \Sigma, \storage(\mu(x), \rho(\mu(x))) } }
 
     \inferrule*[right=Loc-VarDef]{
         \ell \not\in \dom(\rho)
@@ -50,11 +52,13 @@
 
     \inferrule*[right=Loc-Field-Congr]{
         \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma', \mathcal{L}' }
-    }{ \angles{ \Sigma, \mathcal{L} \to @x } \to \angles{ \Sigma', \mathcal{L}' \to @x } }
+    }{ \angles{ \Sigma, \mathcal{L}.x } \to \angles{ \Sigma', \mathcal{L}'.x } }
 
     \inferrule*[right=Loc-Field]{
-        \overline{\rho(\ell).x = k}
-    }{ \angles{ \Sigma, \overline{\ell} \to @x } \to \angles{ \Sigma', \overline{k} } }
+        \rho(\ell) = \overline{k}
+        \\
+        \overline{\rho(k).x = j}
+    }{ \angles{ \Sigma, \ell.x } \to \angles{ \Sigma', \overline{j} } }
 
     \inferrule*[right=Loc-List-Congr]{
         \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma', \mathcal{L}' }
@@ -66,14 +70,14 @@
 
     \inferrule*[right=Loc-Val-Src-Congr]{
         \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma'', \mathcal{L}'' }
-    }{ \angles{ \Sigma, \mathcal{L} \sends{\mathcal{L}'} } \to \angles{ \Sigma'', \mathcal{L}'' \sends{\mathcal{L}'} } }
+    }{ \angles{ \Sigma, \mathcal{L}[\mathcal{L}'] } \to \angles{ \Sigma'', \mathcal{L}''[\mathcal{L}'] } }
 
     \inferrule*[right=Loc-Val-Sel-Congr]{
         \angles{ \Sigma, \mathcal{L}' } \to \angles{ \Sigma'', \mathcal{L}'' }
-    }{ \angles{ \Sigma, \ell \sends{\mathcal{L}'} } \to \angles{ \Sigma'', \ell \sends{\mathcal{L}'} } }
+    }{ \angles{ \Sigma, \ell[\mathcal{L}'] } \to \angles{ \Sigma'', \ell[\mathcal{L}'] } }
 
     \inferrule*[right=Loc-Val]{
-    }{ \angles{ \Sigma, \overline{\ell} \sends{\overline{k}} } \to \angles{ \Sigma, \select(\rho, \overline{\ell}, \overline{k}) } }
+    }{ \angles{ \Sigma, \overline{\ell}[\overline{k}] } \to \angles{ \Sigma, \select(\rho, \overline{\ell}, \overline{k}) } }
 
     % \inferrule*[right=Loc-Filter]{
     %     y \not\in \dom(\mu)
@@ -92,6 +96,12 @@
         % \select(\overline{\ell'}, \overline{k'})
     \end{cases}
 \]
+
+\reed{TODO Finish this rule/figuring out exactly how all this reference stuff works...}
+\begin{mathpar}
+    \inferrule*[right=Flow]{
+    }{ \angles{ \Sigma, \ell \to k } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto \rho(\ell) \setminus, k \mapsto \rho(k) + \rho(\ell)]] } }
+\end{mathpar}
 
 \subsection{Syntax}
 \begin{align*}

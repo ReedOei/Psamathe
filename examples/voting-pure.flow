@@ -1,32 +1,25 @@
-// NOTE: You can't actually write these like this (they go inline), but just treat it as a macro, because it's completely unreadable if I expand the definitions everywhere
 type Voter is unique immutable asset address
 type ProposalName is unique immutable asset string
 
 type State is {
-    chairperson : ! address,
-    voters : any list ! Voter,
-    proposals : any list ! { name : ! ProposalName, voters : any list ! Voter }
+    chairperson : address,
+    voters : list Voter,
+    proposals : list { name : ProposalName, voters : list Voter }
 }
 
-// Below I also use "everything" as an abbreviation for "every x : t such that true", and A --> B as an abbreviation for A --[ everything ]-> B
-transaction giveRightToVote(sender : ! address, st : ! State, voter : ! address) -> res : State do
-    // This implements the following precondition
-    // only when msg.sender = chairperson
-    sender --> addrEquals(st.chairperson)
-           --> var temp : any bool
-    temp --[ ! b : ! bool such that id[bool] ]-> var temp2 : ! bool
-    // Create a new voter with the desired address
-    new(Voter, unique immutable asset, address) --[ ! v : address such that addrEquals(voter) ]-> st.voters
-    // Return the new state
-    st --> res
+transaction giveRightToVote(this : State, sender : address, voter : address) -> res : State {
+    // Ensure we were called by the chairperson
+    [ this.chairperson ] --[ sender ]-> this.chairperson
 
-transaction vote(sender : ! address, st : ! State, proposalName : ! string) -> res : State do
-    // Select the proposal we want to vote for out of the proposal list
-    st.proposals --[ ! proposal : { name : ! ProposalName, voters : any list ! Voter } such that strEqual(proposal.name, proposalName) ]-> var curProposal : { name : ! ProposalName, voters : any list ! Voter }
-    // Move the voter from the to-vote list to the proposal's voter list
-    st.voters --[ ! voter : ! address such that addrEquals(sender) ]-> curProposal.voters
-    // Put the proposal back in the proposal list
-    [curProposal] --> st.proposals
-    // Return the new state
-    st --> res
+    new Voter(voter) --> this.voters
+    this --> res
+}
+
+transaction vote(this : State, sender : address, proposalName : string) -> res : State {
+    this.voters[! such that is(sender)] --> this.proposals[! such that hasName(proposalName)].voters
+    // Could abbreviate for x[! such that hasField(val)] as x[.field = val] as follows:
+    this.voters[! such that = sender] --> this.proposals[.name = proposalName]
+
+    this --> res
+}
 
