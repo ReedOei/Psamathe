@@ -33,15 +33,15 @@ transaction giveRightToVote(this : State, sender : address, voter : address) -> 
 }
 
 transaction vote(this : State, sender : address, proposalName : string) -> res : State {
-    this.voters --[ sender ]-> this.proposals[! such that hasName(proposalName)].voters
+    this.eligibleVoters --[ sender ]-> this.proposals[! such that hasName(proposalName)].voters
     // Alternative: Use different syntax for filtering operations
-    this.voters --[ sender ]-> this.proposals[! .name = proposalName].voters
+    this.eligibleVoters --[ sender ]-> this.proposals[! .name = proposalName].voters
     // Alternative: SQL-style
     // This uses "locate...in" instead of "select...from" b/c it evaluates to the location, and doesn't return the value like select would
-    this.voters --[ sender ]-> ( locate ! proposal
-                                 in this.proposals
-                                 where name = proposalName
-                               ).voters
+    this.eligibleVoters --[ sender ]-> ( locate ! proposal
+                                         in this.proposals
+                                         where name = proposalName
+                                       ).voters
 
     this --> res
 }
