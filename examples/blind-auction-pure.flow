@@ -28,10 +28,11 @@ type BlindAuction is asset {
     revealEnd : nat,
     ended : bool,
     // (Multi)map is probably the most useful single structure for most of the blockchain programs I've written
-    bids : multimap address => Bid,
+    // Could call it a table with a (not unique, in case of multimap) key instead, not sure if that's any better.
+    bids : map address => list Bid,
     highestBidder : address,
     highestBid : ether,
-    pendingReturns : list Return
+    pendingReturns : map address => list Return
 }
 
 transformer newAuction(beneficiary : address, biddingEnd : nat, revealEnd : nat) -> auction : BlindAuction {
@@ -100,7 +101,7 @@ transformer placeBid(this : BlindAuction, toPlace : { sender : address, value : 
 
     try {
         only when highestBidder != 0x0
-        [ new Return(toPlace.sender, this.highestBid) ] --> pendingReturns
+        [ new Return(toPlace.sender, this.highestBid) ] --> this.pendingReturns[msg.sender]
     } catch { }
 
     toPlace.sender --> highestBidder
@@ -108,7 +109,7 @@ transformer placeBid(this : BlindAuction, toPlace : { sender : address, value : 
 }
 
 transformer withdraw(this : BlindAuction, msg : Message) {
-    this.pendingReturns[any such that .sender = msg.sender].value --> msg.sender.balance
+    this.pendingReturns[msg.sender].value --> msg.sender.balance
     // Alternative
     (
         locate any pendingReturn
