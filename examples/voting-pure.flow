@@ -7,18 +7,40 @@ type State is {
     proposals : list { name : ProposalName, voters : list Voter }
 }
 
+// Alternate, more database-like version
+type State is {
+    chairperson : address,
+    voters : table {
+        voterRecord : Voter [key]
+    },
+
+    // This is written as a table of tables, could imagine compiling it into two separate tables, and using an id to link them.
+    proposals : table {
+        name : ProposalName [key],
+
+        voters : table {
+            voterRecord : Voter [key]
+        }
+    }
+}
+
 transaction giveRightToVote(this : State, sender : address, voter : address) -> res : State {
     // Ensure we were called by the chairperson
     [ this.chairperson ] --[ sender ]-> this.chairperson
 
-    new Voter(voter) --> this.voters
+    [ new Voter(voter) ] --> this.voters
     this --> res
 }
 
 transaction vote(this : State, sender : address, proposalName : string) -> res : State {
-    this.voters[! such that is(sender)] --> this.proposals[! such that hasName(proposalName)].voters
-    // Could abbreviate for x[! such that hasField(val)] as x[.field = val] as follows:
-    this.voters[! such that = sender] --> this.proposals[.name = proposalName]
+    this.voters[sender] --> this.proposals[! such that hasName(proposalName)].voters
+    // Alternative: Use different syntax for filtering operations (not sure if # is the right symbol)
+    this.voters[sender] --> this.proposals#(! name = proposalName)
+    // Alternative: SQL-style
+    // This uses "locate...in" instead of "select...from" b/c it evaluates to the location, and doesn't return the value like select would
+    this.voters[sender] --> locate ! proposal
+                            in this.proposals
+                            where name = proposalName
 
     this --> res
 }
