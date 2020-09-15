@@ -14,7 +14,7 @@ type State is {
         voterRecord : Voter [key]
     },
 
-    // This is written as a table of tables, could imagine compiling it into two separate tables, and using an id to link them.
+    // This is written as a table of tables, could compile into two separate tables, and use an id to link them.
     proposals : table {
         name : ProposalName [key],
 
