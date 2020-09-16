@@ -2,3 +2,7 @@
 
 1 --> var x : nat
 
+4 --> var y : nat
+
+x --> y
+

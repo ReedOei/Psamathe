@@ -64,13 +64,14 @@ module PURE-FLOW-TO-SOLIDITY-SYNTAX
     syntax RecordMember ::= Var ":" Type "|->" Var
     syntax RecordMembers ::= List{RecordMember, ","}
 
-    syntax Locator ::= Bool | Int | Var | "[" Var "]" | "var" Var ":" BaseType
+    syntax Locator ::= Bool | Int | Var | "[" Locators "]" | "var" Var ":" BaseType
+    syntax Locators ::= List{Locator, ","}
 
     syntax Stmt ::= "skip"
                   | Locator "-->" Locator
                   | Locator "-->" Id "(" Vars ")" "-->" Locator
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
-    syntax Stmts ::= List{Stmt, " "} [klabel(stmts), seqstrict]
+    syntax Stmts ::= List{Stmt, " "} [klabel(stmts)]
 
     syntax Decl ::= "type" Id "is" Modifiers BaseType
                   | "transformer" Id "(" VarDefs ")" "->" VarDef "{" Stmts "}"
@@ -85,8 +86,7 @@ module PURE-FLOW-TO-SOLIDITY
     imports DOMAINS
     imports COLLECTIONS
 
-    syntax KResult ::= SolStmts
-                    | SolStmt
+    syntax KResult
 
     configuration
         <T>
@@ -97,22 +97,27 @@ module PURE-FLOW-TO-SOLIDITY
             <constructorBody> .SolStmts </constructorBody>
             <typeEnv> .Map </typeEnv>
             <varMap> .Map </varMap>
+            <compiled> .SolStmts </compiled>
+            <scopeStack> .List </scopeStack>
             <freshCounter> 0 </freshCounter>
         </T>
+
+    syntax KItem ::= scope(Map, Map)
 
     syntax KItem ::= translateDecls(Decls)
                    | translateDecl(Decl)
 
-    syntax Stmt ::= SolStmt
-    syntax Stmts ::= SolStmts
-
-    syntax KItem ::= putCtor(Stmts) [strict]
+    syntax KItem ::= "putCtor"
                    | "done"
 
-    rule <k> putCtor(Body) => . ... </k>
+    rule <k> putCtor => . ... </k>
         <constructorBody> _ => Body </constructorBody>
+        <compiled> Body => .SolStmts </compiled>
 
-    rule (Decls ; Stmts):Program => translateDecls(Decls) ~> putCtor(Stmts) ~> done
+    rule (Decls ; Stmts):Program => translateDecls(Decls) ~> Stmts ~> putCtor ~> done
+
+    rule .Stmts => . [structural]
+    rule S1:Stmt Rest:Stmts => S1 ~> Rest [structural]
 
     rule <k> done
              =>
@@ -127,31 +132,37 @@ module PURE-FLOW-TO-SOLIDITY
     rule translateDecls(.Decls) => .
     rule translateDecls(D Ds) => translateDecl(D) ~> translateDecls(Ds)
 
-    rule skip => .SolStmts
+    rule skip => .
 
-    rule <k> A --> B => locate(A, genVar(I)) locate(B, genVar(I +Int 1)) flow(genVar(I), genVar(I +Int 1)) ... </k>
+    rule <k> A --> B => locate(A, genVar(I)) ~> locate(B, genVar(I +Int 1)) ~> flow(genVar(I), genVar(I +Int 1)) ... </k>
         <freshCounter> I => I +Int 2 </freshCounter>
 
     syntax Stmt ::= flow(Var, Var)
 
     // Flow for uints
-    rule <k> flow(X, Y) => Y = Y + X; X = 0; ... </k>
+    rule <k> flow(X, Y) => . ... </k>
         <typeEnv> ... (X |-> uint) (Y |-> uint) ... </typeEnv>
+        <compiled> S => S @ (Y = Y + X;) @ (X = 0;) </compiled>
 
-    syntax Stmts ::= Stmts "@" Stmts [function, functional]
-    rule .Stmts @ B => B
-    rule (S:Stmt Rest:Stmts) @ B => S (Rest @ B)
+    syntax SolStmts ::= SolStmts "@" SolStmt [function, functional]
+    rule .SolStmts @ B => B
+    rule (S:SolStmt Rest:SolStmts) @ B => S (Rest @ B)
 
     syntax Stmt ::= locate(Locator, Var)
 
-    rule <k> locate(I:Int, X) => uint X = I; ... </k>
+    rule <k> locate(I:Int, X) => . ... </k>
         <typeEnv> ... .Map => X |-> uint ... </typeEnv>
-    rule <k> locate(X:Var, Y) => T:SolType Y = Z; ... </k>
+        <compiled> Ss => Ss @ (uint X = I;) </compiled>
+
+    rule <k> locate(X:Var, Y) => . ... </k>
         <varMap> ... X |-> Z ... </varMap>
         <typeEnv> ... (Z |-> T) .Map => Y |-> T ... </typeEnv>
-    rule <k> locate(var X : T, Y) => baseTypeToSolType(T) Y; ... </k>
+        <compiled> Ss => Ss @ (T:SolType Y = Z;)</compiled>
+
+    rule <k> locate(var X : T, Y) => . ... </k>
         <varMap> ... .Map => X |-> Y ... </varMap>
         <typeEnv> ... .Map => Y |-> baseTypeToSolType(T) ... </typeEnv>
+        <compiled> Ss => Ss @ (baseTypeToSolType(T) Y;) </compiled>
 
     syntax Id ::= genVar(Int) [function, functional]
     rule genVar(I) => String2Id("v" +String Int2String(I))
