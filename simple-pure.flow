@@ -1,3 +1,10 @@
+type token is unique consumable asset nat
+
+type Bid is {
+    sender : ! address,
+    amount : ! nat
+}
+
 ;
 
 1 --> var x : nat

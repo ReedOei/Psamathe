@@ -91,6 +91,7 @@ module PURE-FLOW-TO-SOLIDITY
     configuration
         <T>
             <k> $PGM:Program </k>
+            <typeNameMap> .Map </typeNameMap>
             <structs> .Map </structs>
             <fields> .Map </fields>
             <functions> .Map </functions>
@@ -98,7 +99,6 @@ module PURE-FLOW-TO-SOLIDITY
             <typeEnv> .Map </typeEnv>
             <varMap> .Map </varMap>
             <compiled> .SolStmts </compiled>
-            <scopeStack> .List </scopeStack>
             <freshCounter> 0 </freshCounter>
         </T>
 
@@ -131,6 +131,18 @@ module PURE-FLOW-TO-SOLIDITY
 
     rule translateDecls(.Decls) => .
     rule translateDecls(D Ds) => translateDecl(D) ~> translateDecls(Ds)
+
+    // TODO: Need to deal with the modifiers eventually probably (mostly for fungible for combine impl. and unique so we generate the checker)
+    rule <k> translateDecl(type T is _ BaseT) => . ... </k>
+        <structs> ... .Map => T |-> struct T { encodeType(BaseT) } ... </structs>
+
+    syntax SolVarDefs ::= encodeType(BaseType) [function, functional]
+    rule encodeType(nat) => uint String2Id("val");
+    rule encodeType(string) => string String2Id("val");
+    rule encodeType(address) => address String2Id("val");
+    rule encodeType(bool) => bool String2Id("val");
+    rule encodeType({ .VarDefs }) => .SolVarDefs
+    rule encodeType({ X : T, Fields }) => (typeToSolType(T) X;) encodeType({ Fields })
 
     rule skip => .
 
@@ -173,5 +185,7 @@ module PURE-FLOW-TO-SOLIDITY
     rule typeToSolType(_:TypeQuant T) => baseTypeToSolType(T)
     rule baseTypeToSolType(bool) => bool
     rule baseTypeToSolType(nat) => uint
+    rule baseTypeToSolType(string) => string
+    rule baseTypeToSolType(address) => address
 endmodule
 
