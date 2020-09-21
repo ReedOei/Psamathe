@@ -64,7 +64,11 @@ module PURE-FLOW-TO-SOLIDITY-SYNTAX
     syntax RecordMember ::= Var ":" Type "|->" Var
     syntax RecordMembers ::= List{RecordMember, ","}
 
-    syntax Locator ::= Bool | Int | Var | "[" Locators "]" | "var" Var ":" BaseType
+    syntax Locator ::= Bool | Int | Var
+                     | Locator "." Var
+                     | "[" Locators "]"
+                     | "{" RecordMembers "}"
+                     | "var" Var ":" BaseType
     syntax Locators ::= List{Locator, ","}
 
     syntax Stmt ::= "skip"
@@ -100,6 +104,8 @@ module PURE-FLOW-TO-SOLIDITY
             <varMap> .Map </varMap>
             <compiled> .SolStmts </compiled>
             <freshCounter> 0 </freshCounter>
+            <types> .Map </types>
+            <typeEncoding> .Map </typeEncoding>
         </T>
 
     syntax KItem ::= scope(Map, Map)
@@ -133,16 +139,30 @@ module PURE-FLOW-TO-SOLIDITY
     rule translateDecls(D Ds) => translateDecl(D) ~> translateDecls(Ds)
 
     // TODO: Need to deal with the modifiers eventually probably (mostly for fungible for combine impl. and unique so we generate the checker)
-    rule <k> translateDecl(type T is _ BaseT) => . ... </k>
-        <structs> ... .Map => T |-> struct T { encodeType(BaseT) } ... </structs>
+    // TODO: Would be good to encode T **directly** as BaseT (so if BaseT is not a struct, then don't encode as a struct).
+    rule <k> translateDecl(type T is Ms BaseT) => . ... </k>
+        <structs> Structs => Structs defineStructs(T, BaseT) </structs>
+        <types> ... .Map => T |-> (type T is Ms BaseT) ... </types>
+        <typeEncoding> ... .Map => T |-> encodeType(T, BaseT) ... </typeEncoding>
 
-    syntax SolVarDefs ::= encodeType(BaseType) [function, functional]
-    rule encodeType(nat) => uint String2Id("val");
-    rule encodeType(string) => string String2Id("val");
-    rule encodeType(address) => address String2Id("val");
-    rule encodeType(bool) => bool String2Id("val");
-    rule encodeType({ .VarDefs }) => .SolVarDefs
-    rule encodeType({ X : T, Fields }) => (typeToSolType(T) X;) encodeType({ Fields })
+    syntax SolType ::= encodeType(Var, BaseType) [function, functional]
+    syntax SolVarDefs ::= encodeFields(VarDefs) [function, functional]
+    syntax Map ::= defineStructs(Var, BaseType) [function, functional]
+    rule encodeType(_, nat) => uint
+    rule encodeType(_, string) => string
+    rule encodeType(_, address) => address
+    rule encodeType(_, bool) => bool
+    rule encodeType(T, { _ }) => T
+
+    // TODO: Need to handle nested structs
+    rule defineStructs(_, nat) => .Map
+    rule defineStructs(_, string) => .Map
+    rule defineStructs(_, address) => .Map
+    rule defineStructs(_, bool) => .Map
+    rule defineStructs(T, { Fields }) => T |-> struct T { encodeFields(Fields) }
+
+    rule encodeFields(.VarDefs) => .SolVarDefs
+    rule encodeFields(X : T, Fields) => (typeToSolType(T) X;) encodeFields(Fields)
 
     rule skip => .
 
