@@ -56,7 +56,7 @@ module SOLIDITY-SYNTAX
     syntax Contract ::= "contract" Var "{" SolDecls "}"
 endmodule
 
-module PURE-FLOW-TO-SOLIDITY-SYNTAX
+module PURE-FLOW-COMPILER-SYNTAX
     imports DOMAINS-SYNTAX
     imports VARS
 
@@ -102,8 +102,8 @@ module PURE-FLOW-TO-SOLIDITY-SYNTAX
     syntax Program ::= Decls ";" Stmts
 endmodule
 
-module PURE-FLOW-TO-SOLIDITY
-    imports PURE-FLOW-TO-SOLIDITY-SYNTAX
+module PURE-FLOW-COMPILER
+    imports PURE-FLOW-COMPILER-SYNTAX
     imports SOLIDITY-SYNTAX
     imports DOMAINS
     imports COLLECTIONS

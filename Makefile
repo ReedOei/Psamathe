@@ -14,12 +14,13 @@ pure-flow: $(wildcard tests/pure-flow/*.flow)
 common: flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --backend $(BACKEND) flow-common.k
 
-kompile: dynamic static compiler pure-flow-dynamic
+kompile: dynamic static compiler pure-flow-dynamic pure-flow-compiler
 
 dynamic: dynamic/flow-kompiled/timestamp
 static: static/flow-typecheck-kompiled/timestamp
 compiler: compiler/flow-compiler-kompiled/timestamp
 pure-flow-dynamic: pure-flow/pure-flow-kompiled/timestamp
+pure-flow-compiler: pure-flow-compiler/pure-flow-compiler-kompiled/timestamp
 
 compiler/flow-compiler-kompiled/timestamp: flow-compiler.k yul-syntax.k flow-common.k flow-syntax.k
 	$(KDISTR)/kompile --hook-namespaces KRYPTO $(COMPILEFLAGS) --backend $(BACKEND) flow-compiler.k -d compiler/
@@ -33,6 +34,9 @@ static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-sy
 pure-flow/pure-flow-kompiled/timestamp: pure-flow.k
 	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) pure-flow.k -d pure-flow/
 
+pure-flow-compiler/pure-flow-compiler-kompiled/timestamp: pure-flow-compiler.k
+	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) pure-flow-compiler.k -d pure-flow-compiler/
+
 tests/exec/%.flow: dynamic/flow-kompiled/timestamp static/flow-typecheck-kompiled/timestamp
 	time ./flow test $(FLAGS) $@
 
@@ -44,6 +48,9 @@ tests/compile/%.flow: compiler/flow-compiler-kompiled/timestamp
 
 tests/pure-flow/%.flow: pure-flow/pure-flow-kompiled/timestamp
 	time ./flow pure test $(FLAGS) $@
+
+tests/pure-flow-compiler/%.flow: pure-flow-compiler/pure-flow-compiler-kompiled/timestamp
+	time ./flow pure-compile $(FLAGS) $@
 
 clean:
 	rm -rf dynamic/flow-kompiled
