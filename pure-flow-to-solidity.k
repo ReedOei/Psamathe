@@ -90,7 +90,7 @@ module PURE-FLOW-TO-SOLIDITY
     imports DOMAINS
     imports COLLECTIONS
 
-    syntax KResult
+    syntax KResult ::= Var
 
     configuration
         <T>
@@ -133,7 +133,7 @@ module PURE-FLOW-TO-SOLIDITY
                 }
             }
          </k>
-        <constructorBody> Body </constructorBody>
+        <constructorBody> Body => .SolStmts </constructorBody>
 
     rule translateDecls(.Decls) => .
     rule translateDecls(D Ds) => translateDecl(D) ~> translateDecls(Ds)
@@ -166,8 +166,9 @@ module PURE-FLOW-TO-SOLIDITY
 
     rule skip => .
 
-    rule <k> A --> B => locate(A, genVar(I)) ~> locate(B, genVar(I +Int 1)) ~> flow(genVar(I), genVar(I +Int 1)) ... </k>
-        <freshCounter> I => I +Int 2 </freshCounter>
+    context (HOLE => locate(HOLE)) --> _
+    context _ --> (HOLE => locate(HOLE))
+    rule <k> A --> B => flow(A, B) ... </k>
 
     syntax Stmt ::= flow(Var, Var)
 
@@ -180,21 +181,18 @@ module PURE-FLOW-TO-SOLIDITY
     rule .SolStmts @ B => B
     rule (S:SolStmt Rest:SolStmts) @ B => S (Rest @ B)
 
-    syntax Stmt ::= locate(Locator, Var)
+    syntax Var ::= locate(Locator)
 
-    rule <k> locate(I:Int, X) => . ... </k>
-        <typeEnv> ... .Map => X |-> uint ... </typeEnv>
-        <compiled> Ss => Ss @ (uint X = I;) </compiled>
+    rule <k> locate(V:Int) => locate(genVar(I)) ... </k>
+        <typeEnv> ... .Map => genVar(I) |-> uint ... </typeEnv>
+        <compiled> Ss => Ss @ (uint genVar(I) = V;) </compiled>
+        <freshCounter> I => I +Int 1 </freshCounter>
 
-    rule <k> locate(X:Var, Y) => . ... </k>
-        <varMap> ... X |-> Z ... </varMap>
-        <typeEnv> ... (Z |-> T) .Map => Y |-> T ... </typeEnv>
-        <compiled> Ss => Ss @ (T:SolType Y = Z;)</compiled>
+    rule <k> locate(X:Var) => locate(X) ... </k>
 
-    rule <k> locate(var X : T, Y) => . ... </k>
-        <varMap> ... .Map => X |-> Y ... </varMap>
-        <typeEnv> ... .Map => Y |-> baseTypeToSolType(T) ... </typeEnv>
-        <compiled> Ss => Ss @ (baseTypeToSolType(T) Y;) </compiled>
+    rule <k> locate(var X : T) => locate(X) ... </k>
+        <typeEnv> ... .Map => X |-> baseTypeToSolType(T) ... </typeEnv>
+        <compiled> Ss => Ss @ (baseTypeToSolType(T) X;) </compiled>
 
     syntax Id ::= genVar(Int) [function, functional]
     rule genVar(I) => String2Id("v" +String Int2String(I))
