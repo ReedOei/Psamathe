@@ -256,6 +256,8 @@ module PURE-FLOW-COMPILER
         <freshCounter> I => I +Int 1 </freshCounter>
         <structs> Structs => Structs defineStructs(nameOf({ key : K, value : V }), { key : K, value : V }) </structs>
 
+    rule locate(X:Var, _) => X
+
     rule <k> locate(var X : T, T) => X ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
         <compiled> Ss => Ss @ (baseTypeToSolType(T) X;) </compiled>
