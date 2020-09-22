@@ -30,6 +30,7 @@
 \newcommand{\storage}{\text{storage}\xspace}
 \newcommand{\loc}{\text{loc}\xspace}
 \newcommand{\Loc}{\mathcal{L}}
+\newcommand{\copyC}{\textbf{\texttt{copy}}\xspace}
 
 \begin{document}
 
@@ -46,8 +47,10 @@
     $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $t[\overline{T}]$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $T_V$ & \bnfdef & $\alpha~\is~\overline{M}$ & (type variable declaration) \\
-    $\Loc$ & \bnfdef & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $\Loc.x$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
-                  & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ \bnfalt $\consume$ \bnfalt $\newc~t$ & (locators) \\
+    $\Loc$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & (literals) \\
+           & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
+           & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ & \\
+           & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ \bnfalt $\consume$ \bnfalt $\newc~t$ & (locators) \\
     Flow & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to f[\overline{T}](\overline{x}) \to \Loc$ & (flows) \\
     $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
             & \bnfalt & $\type~t[\overline{T_V}]~\is~\overline{M}~T$ & (type decl.) \\
@@ -80,30 +83,44 @@ Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the bes
     }{ \Gamma \flowproves n : \#(n)~\natt \flowprovesout \Gamma }
 \end{mathpar}
 
+\reed{The idea is that both $\demote(\Loc)$ and $\copyC(\Loc)$ give a demoted value, but $\demote(\Loc)$ gives a read-only value (so no copy needs to happen), whereas copy will actually copy all the data.
+The results below intentionally throw out the environment $\Delta$, because we don't want to actually consume whatever references we used to get $\Loc : \tau$.}
+
 \begin{mathpar}
     \inferrule*[right=Demote]{
-    }{ \Gamma, x : \tau \flowproves \demote(x) : \demoteT(\tau) \flowprovesout \Gamma, x : \tau }
+        \Gamma \flowproves \Loc : \tau \flowprovesout \Delta
+    }{ \Gamma \flowproves \demote(\Loc) : \demoteT(\tau) \flowprovesout \Gamma }
 
+    \inferrule*[right=Copy]{
+        \Gamma \flowproves \Loc : \tau \flowprovesout \Delta
+    }{ \Gamma \flowproves \copyC(\Loc) : \demoteT(\tau) \flowprovesout \Gamma }
+\end{mathpar}
+
+\begin{mathpar}
     \inferrule*[right=Var]{
-        \immutable \not\in \modifiers(\tau)
-    }{ \Gamma, x : \tau \flowproves x : \tau \flowprovesout \Gamma, x : \tau }
+        \immutable \not\in \modifiers(T)
+    }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
 
     \inferrule*[right=Field]{
-        \Gamma \flowproves x : \,\,\exactlyone~T \flowprovesout \Delta
+        \Gamma \flowproves \Loc : \,\,\exactlyone~T \flowprovesout \Delta
         \\
         \immutable \not\in \modifiers(\tau)
         \\
         \fields(T) = \overline{z : \sigma}
         \\
         y : \tau \in \overline{z : \sigma}
-    }{ \Gamma \flowproves x.y : \tau \flowprovesout \Gamma }
+    }{ \Gamma \flowproves \Loc.y : \tau \flowprovesout \Gamma }
+\end{mathpar}
 
-    \inferrule*[right=Single]{
+\begin{mathpar}
+    \inferrule*[right=List]{
     }{ \Gamma, x : \mathcal{Q}~T \flowproves [x] : \,\,\exactlyone~\listq~\mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
 
     \inferrule*[right=Record]{
     }{ \Gamma, \overline{y : \mathcal{Q}~T} \flowproves \{ \overline{x : \mathcal{Q}~T \mapsto y} \} : \,\,\exactlyone~\{ \overline{x : \mathcal{Q}~T} \} \flowprovesout \Gamma, \overline{y : \emptyq~T} }
+\end{mathpar}
 
+\begin{mathpar}
     \inferrule*[right=New]{
     }{ \Gamma \flowproves \newc(t, \overline{M}, T) : \every~\listq~\exactlyone~(\type~t~\is~\overline{M}~T) \flowprovesout \Gamma }
 
@@ -195,9 +212,6 @@ Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the bes
 
 Note that we abbreviate $\angles{\Sigma, \cdot}$ as $\Sigma$, which signals the end of evaluation.
 
-The new constructs of $\resolve(\Sigma, \mathcal{S})$ and $\putS(\mathcal{V}, \mathcal{D})$ are used to simplify the process of locating sources and updating destinations, respectively.
-\reed{Can probably just make put into a function as well, like resolve.}
-
 \begin{mathpar}
     \inferrule*[right=Seq]{
         % S_1 \neq \tryS~\{ \overline{S_4} \}~\catchS~\{ \overline{S_5} \}
@@ -270,43 +284,6 @@ Locators.
 \begin{mathpar}
     \inferrule*[right=Flow]{
     }{ \angles{ \Sigma, \ell \to k } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto \rho(\ell) \setminus, k \mapsto \rho(k) + \rho(\ell)]] } }
-\end{mathpar}
-
-Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.
-Here $\mathcal{V} + \mathcal{W}$ refers to the combine operation for relevant values.
-\reed{TODO: Need to finalize how $\mathcal{V} + \mathcal{W}$ works; in particular, need to make sure that you can't overwrite things that shouldn't be overwritten (e.g., a nonfungible nat).
-Probably need to tag types with modifiers or something.}
-\reed{Here we have an issue if we want to do this thing that actually allows working with infinite lists/sets of values, because we can't concatenate two infintie lists (or at least, I'm not sure how...).
-But we could use multisets and dodge all the issues (also resolves the issue of how to deal with duplicates).}
-
-\begin{mathpar}
-    \inferrule*[right=Put-Consume]{
-    }{ \angles{\Sigma, \putS(\mathcal{V}, \consume)} \evaluates \Sigma }
-
-    \inferrule*[right=Put-Var]{
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, x) } \evaluates \angles{ \Sigma, \putS(\mathcal{V}, \mu(x)) } }
-
-    \inferrule*[right=Put-Field]{
-        \rho(\mu(X)) = \{ \overline{x : \tau \mapsto \ell} \}
-        \\
-        (y : \sigma \mapsto k) \in \overline{x : \tau \mapsto \ell}
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, x.y) } \evaluates \angles{ \Sigma, \putS(\mathcal{V}, k) } }
-
-    \inferrule*[right=Put-Loc]{
-        \rho(\ell) = \mathcal{W}
-        \\
-        \mathcal{W} + \mathcal{V} \neq \revert
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, \ell) } \evaluates \Sigma[\rho \mapsto \rho[\ell \mapsto \mathcal{W} + \mathcal{V}]] }
-
-    \inferrule*[right=Put-Loc-Fail]{
-        \rho(\ell) = \mathcal{W}
-        \\
-        \mathcal{W} + \mathcal{V} = \revert
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, \ell) } \evaluates \angles{\Sigma, \revert} }
-
-    \inferrule*[right=Put-VarDef]{
-        \ell \not\in \dom(\rho)
-    }{ \angles{ \Sigma, \putS(\mathcal{V}, \var~A : T) } \evaluates \Sigma[\mu \mapsto \mu[A \mapsto \ell], \rho \mapsto \rho[\ell \mapsto \mathcal{V}]] }
 \end{mathpar}
 
 \begin{mathpar}
@@ -398,55 +375,7 @@ We introduce a new statement, $\tryS(\Sigma, \overline{S_1}, \overline{S_2})$, t
     }{ \angles{ \Sigma, \tryS(\Sigma', \cdot, \overline{S_2}) } \evaluates \Sigma }
 \end{mathpar}
 
-\framebox{$\resolve(\Sigma, \mathcal{S}) = (\Sigma', \ell)$} \textbf{Storage Resolution}
-
-We use $\resolve(\Sigma, \mathcal{S})$ to get the location storing the values of $\mathcal{S}$, which returns an environment because it may need to allocate new memory (e.g., in the case of creating a new record value).
-
-\begin{mathpar}
-    \inferrule*[right=Resolve-Var]{
-        \mu(\mathcal{S}) = \ell
-    }{ \resolve(\Sigma, \mathcal{S}) = (\Sigma, \ell) }
-
-    \inferrule*[right=Resolve-Field]{
-        \rho(\mu(x)) = \{ \overline{z : \tau \mapsto \ell} \}
-        \\
-        (y : \sigma \mapsto k) \in \overline{z : \tau \mapsto \ell}
-    }{ \resolve(\Sigma, x.y) = (\Sigma, k) }
-
-    \inferrule*[right=Resolve-Single]{
-        \ell \not\in \dom(\rho)
-    }{ \resolve(\Sigma, [ x ]) = (\Sigma[\rho \mapsto \rho[\ell \mapsto \rho(\mu(x)), \mu(x) \mapsto []]], \ell) }
-
-    \inferrule*[right=Resolve-Record]{
-        \overline{\ell \not\in \dom(\rho)}
-        \\
-        k \not\in \dom(\rho) \cup \overline{\ell}
-        \\
-        \Sigma' = \Sigma[\rho \mapsto \rho[\overline{\mu(y) \mapsto []}, \overline{\ell \mapsto \rho(\mu(y))}, k \mapsto \{ \overline{x : \tau \mapsto \ell} \} ]]
-    }{ \resolve(\Sigma, \{ \overline{x : \tau \mapsto y} \}) = (\Sigma', k) }
-
-    \inferrule*[right=Resolve-Bool]{
-        b \in \{ \true, \false \}
-        \\
-        \ell \not\in \dom(\rho)
-    }{ \resolve(\Sigma, b) = (\Sigma[\rho \mapsto \rho[\ell \mapsto b]], \ell) }
-
-    \inferrule*[right=Resolve-Nat]{
-        \ell \not\in \dom(\rho)
-    }{ \resolve(\Sigma, n) = (\Sigma[\rho \mapsto \rho[\ell \mapsto n]], \ell) }
-
-    \inferrule*[right=Resolve-Source]{
-        \mu(t) = \ell
-    }{ \resolve(\Sigma, \newc(t, \overline{M}, T)) = (\Sigma, \ell) }
-
-    \inferrule*[right=Resolve-New-Source]{
-        t \not\in \dom(\mu)
-        \\
-        \ell \not\in \dom(\rho)
-    }{ \resolve(\Sigma, \newc(t, \overline{M}, T)) = (\Sigma'[\rho \mapsto \rho[\ell \mapsto \values(T)], \mu \mapsto \mu[t \mapsto \ell]], \ell) }
-\end{mathpar}
-
-\reed{TODO: Need to be sure to handle uniqueness correctly; could do this in \textsc{Resolve-New-Source}, or in the various flow rules.}
+\reed{TODO: Need to be sure to handle uniqueness correctly}
 
 \subsection{Auxiliaries}
 \begin{definition}
