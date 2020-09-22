@@ -182,6 +182,8 @@ The results below intentionally throw out the environment $\Delta$, because we d
     }{ \Gamma \flowproves (\tryS~\{ \overline{S_1} \}~\catchS~\{ \overline{S_2} \})~\ok \flowprovesout \Delta \sqcup \Xi }
 \end{mathpar}
 
+\reed{Rule \textsc{Ok-Flow-Transformer} actually doesn't necessary add $\mathcal{Q}$ things to the destination because it's like a concat operation, need to either change that or change how much gets added.}
+
 \framebox{$\proves \Decl~\ok$} \textbf{Declaration Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Ok-Transformer]{
