@@ -1,0 +1,6 @@
+type Token is unique consumable asset nat
+
+;
+
+[] --> var balances : map ! address => any Token
+

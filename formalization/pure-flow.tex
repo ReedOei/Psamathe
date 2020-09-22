@@ -31,6 +31,7 @@
 \newcommand{\loc}{\text{loc}\xspace}
 \newcommand{\Loc}{\mathcal{L}}
 \newcommand{\copyC}{\textbf{\texttt{copy}}\xspace}
+\newcommand{\Trfm}{\textbf{\texttt{Trfm}}\xspace}
 
 \begin{document}
 
@@ -47,14 +48,14 @@
     $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $t[\overline{T}]$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $T_V$ & \bnfdef & $\alpha~\is~\overline{M}$ & (type variable declaration) \\
-    $\Loc$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & (literals) \\
+    $\Loc$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
            & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
            & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ & \\
-           & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ \bnfalt $\consume$ \bnfalt $\newc~t$ & (locators) \\
-    Flow & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to f[\overline{T}](\overline{x}) \to \Loc$ & (flows) \\
+           & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ \bnfalt $\consume$ & \\
     $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
             & \bnfalt & $\type~t[\overline{T_V}]~\is~\overline{M}~T$ & (type decl.) \\
-    $\Stmt$ & \bnfdef & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f[\overline{T}](\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f[\overline{T}](\overline{x}) \to \mathcal{D}$ & (flows) \\
+    $\Trfm$ & \bnfdef & $\newc~t[\overline{T}](\overline{\Loc})$ \bnfalt $f[\overline{T}](\overline{\Loc})$ & (transformer calls) \\
+    $\Stmt$ & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to \Trfm \to \Loc$ & (flows) \\
             & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & (try-catch) \\
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$ & (programs)
 \end{tabular}
@@ -96,6 +97,7 @@ The results below intentionally throw out the environment $\Delta$, because we d
     }{ \Gamma \flowproves \copyC(\Loc) : \demoteT(\tau) \flowprovesout \Gamma }
 \end{mathpar}
 
+\reed{TODO: update the \textsc{Field} rule to modify the type of $\Loc$ appropriately.}
 \begin{mathpar}
     \inferrule*[right=Var]{
         \immutable \not\in \modifiers(T)
@@ -104,7 +106,7 @@ The results below intentionally throw out the environment $\Delta$, because we d
     \inferrule*[right=Field]{
         \Gamma \flowproves \Loc : \,\,\exactlyone~T \flowprovesout \Delta
         \\
-        \immutable \not\in \modifiers(\tau)
+        \immutable \not\in \modifiers(T)
         \\
         \fields(T) = \overline{z : \sigma}
         \\
@@ -114,16 +116,18 @@ The results below intentionally throw out the environment $\Delta$, because we d
 
 \begin{mathpar}
     \inferrule*[right=List]{
-    }{ \Gamma, x : \mathcal{Q}~T \flowproves [x] : \,\,\exactlyone~\listq~\mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
+        % \Gamma \flowproves \Loc_1 : \tau \flowprovesout \cdots \flowproves \Loc_n : \tau \flowprovesout \Delta
+        \Gamma = \Delta_0
+        \\
+        \forall 1 \leq i \leq n. \Delta_{i-1} \flowproves \Loc_i : \tau \flowprovesout \Delta_{i}
+    }{ \Gamma \flowproves [ \Loc_1, \ldots, \Loc_n ] : \#(n)~\listq~\tau \flowprovesout \Delta_n }
 
     \inferrule*[right=Record]{
-    }{ \Gamma, \overline{y : \mathcal{Q}~T} \flowproves \{ \overline{x : \mathcal{Q}~T \mapsto y} \} : \,\,\exactlyone~\{ \overline{x : \mathcal{Q}~T} \} \flowprovesout \Gamma, \overline{y : \emptyq~T} }
+        \Gamma \flowproves \overline{\Loc : \tau} \flowprovesout \Delta
+    }{ \Gamma \flowproves \{ \overline{x : \tau \mapsto \Loc} \} : \,\,\exactlyone~\{ \overline{x : \tau} \} \flowprovesout \Delta }
 \end{mathpar}
 
 \begin{mathpar}
-    \inferrule*[right=New]{
-    }{ \Gamma \flowproves \newc(t, \overline{M}, T) : \every~\listq~\exactlyone~(\type~t~\is~\overline{M}~T) \flowprovesout \Gamma }
-
     \inferrule*[right=VarDef]{
     }{ \Gamma \flowproves (\var~x : T) : \emptyq~T \flowprovesout \Gamma, x : \emptyq~T }
 

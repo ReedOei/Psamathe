@@ -351,7 +351,7 @@ module PURE-FLOW-COMPILER
     rule baseTypeToSolType(address) => address
     rule [[ baseTypeToSolType(X:Var) => SolT ]]
         <typeEncoding> ... X |-> SolT ... </typeEncoding>
-    rule baseTypeToSolType(map (_:TypeQuant T1) => (_:TypeQuant T2)) => mapping (baseTypeToSolType(T1) => baseTypeToSolType(T2))
+    rule baseTypeToSolType(map T1 => T2) => nameOf(map T1 => T2)
     rule baseTypeToSolType({ Fields }) => nameOf({ Fields })
 
     syntax SolType ::= encodeType(Var, BaseType) [function, functional]

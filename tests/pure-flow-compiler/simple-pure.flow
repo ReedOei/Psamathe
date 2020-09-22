@@ -2,7 +2,7 @@ type token is unique consumable asset nat
 
 type Bid is {
     sender : ! address,
-    amount : ! nat
+    amount : any nat
 }
 
 ;
@@ -13,5 +13,5 @@ type Bid is {
 
 x --> y
 
-[] --> var m : map ! nat => ! nat
+[] --> var m : map any nat => any nat
 
