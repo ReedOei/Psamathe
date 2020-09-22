@@ -30,6 +30,7 @@
 \newcommand{\storage}{\text{storage}\xspace}
 \newcommand{\loc}{\text{loc}\xspace}
 \newcommand{\Loc}{\mathcal{L}}
+\newcommand{\LocK}{\mathcal{K}}
 \newcommand{\copyC}{\textbf{\texttt{copy}}\xspace}
 \newcommand{\Trfm}{\textbf{\texttt{Trfm}}\xspace}
 
@@ -48,7 +49,7 @@
     $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $t[\overline{T}]$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $T_V$ & \bnfdef & $\alpha~\is~\overline{M}$ & (type variable declaration) \\
-    $\Loc$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
+    $\Loc$, $\LocK$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
            & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
            & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ & \\
            & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ \bnfalt $\consume$ & \\
@@ -98,6 +99,7 @@ The results below intentionally throw out the environment $\Delta$, because we d
 \end{mathpar}
 
 \reed{TODO: update the \textsc{Field} rule to modify the type of $\Loc$ appropriately.}
+\reed{TODO: Want to allow immutable variables in selector position (e.g., $\LocK$ in $\Loc[\LocK]$)}
 \begin{mathpar}
     \inferrule*[right=Var]{
         \immutable \not\in \modifiers(T)
@@ -136,6 +138,25 @@ The results below intentionally throw out the environment $\Delta$, because we d
     }{ \Gamma \flowproves \consume : \tau \flowprovesout \Gamma }
 \end{mathpar}
 
+\begin{mathpar}
+    \inferrule*[right=Select]{
+        \Gamma \flowproves \Loc : \mathcal{Q}~T \flowprovesout \Delta
+        \\
+        \Delta \flowproves \demote(\LocK) : \demoteT(\mathcal{R}~T) \flowprovesout \Delta
+    }{ \Gamma \flowproves \Loc[\LocK] : \mathcal{R}~T \flowprovesout \select(\Delta, \Loc, \mathcal{R}) }
+
+    % \inferrule*[right=Ok-Flow-Filter]{
+    %     \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
+    %     \\
+    %     % \transformer~f(\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt ~\{~\overline{\Stmt}~\}
+    %     \typeof(f, \overline{T}) = (\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt
+    %     \\
+    %     \forall i. \demoteT(\Gamma(a_i)) = \sigma_i
+    %     \\
+    %     \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
+    % }{ \Gamma \flowproves (\mathcal{S} \sends{\mathcal{R}~\suchthat~f[\overline{T}](\overline{a})} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+\end{mathpar}
+
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Ok-Flow-Every]{
@@ -143,25 +164,6 @@ The results below intentionally throw out the environment $\Delta$, because we d
         \\
         \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{R}~T \flowprovesout \Xi
     }{ \Gamma \flowproves (\mathcal{S} \to \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{Q}) }
-
-    \inferrule*[right=Ok-Flow-Var]{
-        \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
-        \\
-        \Delta \flowproves x : \demoteT(\mathcal{R}~T) \flowprovesout \Delta
-        \\
-        \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
-    }{ \Gamma \flowproves (\mathcal{S} \sends{x} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{R}) }
-
-    \inferrule*[right=Ok-Flow-Filter]{
-        \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
-        \\
-        % \transformer~f(\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt ~\{~\overline{\Stmt}~\}
-        \typeof(f, \overline{T}) = (\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt
-        \\
-        \forall i. \demoteT(\Gamma(a_i)) = \sigma_i
-        \\
-        \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
-    }{ \Gamma \flowproves (\mathcal{S} \sends{\mathcal{R}~\suchthat~f[\overline{T}](\overline{a})} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 
     \inferrule*[right=Ok-Flow-Transformer]{
         \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T_1 \flowprovesout \Delta
