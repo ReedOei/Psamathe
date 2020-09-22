@@ -58,10 +58,18 @@
 
 \subsection{Statics}
 
-\framebox{$\Gamma \flowproves \mathcal{S} : \tau \flowprovesout \Delta$}
-\framebox{$\Gamma \flowproves \mathcal{D} : \tau \flowprovesout \Delta$} \textbf{Storage Typing}
+Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the best approximation by type quantity of $n$, i.e.,
+\[
+    \#(n) =
+    \begin{cases}
+        \emptyq & \tif n = 0 \\
+        \exactlyone & \tif n = 1 \\
+        \nonempty & \tif n > 1 \\
+        \every & \tif n = \infty \\
+    \end{cases}
+\]
 
-A \emph{storage} is either a source or a destination.
+\framebox{$\Gamma \flowproves \Loc : \tau \flowprovesout \Delta$} \textbf{Locator Typing}
 
 \begin{mathpar}
     \inferrule*[right=Bool]{
@@ -69,8 +77,10 @@ A \emph{storage} is either a source or a destination.
     }{ \Gamma \flowproves b : \,\,\exactlyone~\boolt \flowprovesout \Gamma }
 
     \inferrule*[right=Nat]{
-    }{ \Gamma \flowproves n : \,\,\exactlyone~\natt \flowprovesout \Gamma }
+    }{ \Gamma \flowproves n : \#(n)~\natt \flowprovesout \Gamma }
+\end{mathpar}
 
+\begin{mathpar}
     \inferrule*[right=Demote]{
     }{ \Gamma, x : \tau \flowproves \demote(x) : \demoteT(\tau) \flowprovesout \Gamma, x : \tau }
 

@@ -86,6 +86,8 @@ module PURE-FLOW-COMPILER-SYNTAX
                      | Locator "." Var
                      | "[" Locators "]"
                      | "{" RecordMembers "}"
+                     | "demote" "(" Locator ")"
+                     | "copy" "(" Locator ")"
                      | "var" Var ":" BaseType
     syntax Locators ::= List{Locator, ","}
 
@@ -249,6 +251,26 @@ module PURE-FLOW-COMPILER
         <typeEnv> ... X |-> T ... </typeEnv>
     rule [[ flowType(_, X) => T ]]
         <typeEnv> ... X |-> T ... </typeEnv>
+    rule flowType(demote(A), B) => demoteBaseType(flowType(A, B))
+    rule flowType(A, demote(B)) => demoteBaseType(flowType(A, B))
+    rule flowType(copy(A), B) => demoteBaseType(flowType(A, B))
+    rule flowType(A, copy(B)) => demoteBaseType(flowType(A, B))
+
+    syntax BaseType ::= demoteBaseType(BaseType) [function, functional]
+
+    rule demoteBaseType(nat) => nat
+    rule demoteBaseType(string) => string
+    rule demoteBaseType(address) => address
+    rule demoteBaseType(bool) => bool
+    rule [[ demoteBaseType(T1) => demoteBaseType(T2) ]]
+        <types> ... T1 |-> (type _ is _ T2) ... </types>
+    rule demoteBaseType(list Q T) => list Q demoteBaseType(T)
+    rule demoteBaseType(map Q1 T1 => Q2 T2) => map Q1 demoteBaseType(T1) => Q2 demoteBaseType(T2)
+    rule demoteBaseType({ Fields }) => { demoteVarDefs(Fields) }
+
+    syntax VarDefs ::= demoteVarDefs(VarDefs) [function, functional]
+    rule demoteVarDefs(.VarDefs) => .VarDefs
+    rule demoteVarDefs(X : Q T, Rest) => X : Q demoteBaseType(T), demoteVarDefs(Rest)
 
     syntax Locator ::= locate(Locator, BaseType)
 
@@ -270,6 +292,14 @@ module PURE-FLOW-COMPILER
         <structs> Structs => Structs defineStructs(nameOf({ key : K, value : V }), { key : K, value : V }) </structs>
 
     rule locate(X:Var, _) => X
+    rule locate(demote(L), T) => locate(L, T)
+
+    context locate(copy(HOLE => locate(copy(HOLE), T)), T)
+    rule <k> locate(copy(X:Var), T) => X ... </k>
+        <typeEnv> ... .Map => genVar(I) |-> T ... </typeEnv>
+        // TODO: Does this actually copy everything?
+        <compiled> Ss => Ss @ (baseTypeToSolType(T) genVar(I) = X;) </compiled>
+        <freshCounter> I => I +Int 1 </freshCounter>
 
     rule <k> locate(var X : T, T) => X ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
@@ -277,10 +307,6 @@ module PURE-FLOW-COMPILER
         <structs> Structs => Structs defineStructs(nameOf(T), T) </structs>
 
     syntax Var ::= nameOf(BaseType) [function, functional]
-    /* rule nameOf(bool) => bool */
-    /* rule nameOf(nat) => nat */
-    /* rule nameOf(string) => string */
-    /* rule nameOf(address) => address */
     rule nameOf(X:Var) => X
     rule nameOf({ Fields }) => String2Id(genName(Fields))
     rule nameOf(map T1 => T2) => String2Id(baseTypeToString(map T1 => T2))
