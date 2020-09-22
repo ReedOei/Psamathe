@@ -29,79 +29,11 @@
 \newcommand{\values}{\text{values}\xspace}
 \newcommand{\storage}{\text{storage}\xspace}
 \newcommand{\loc}{\text{loc}\xspace}
-% \newcommand{\loc}{\text{loc}\xspace}
+\newcommand{\Loc}{\mathcal{L}}
 
 \begin{document}
 
 \section{Formalization}
-
-\subsection{Locators}
-
-\begin{tabular}{l r l l}
-    $\mathcal{L}$ & \bnfdef & $x$ \bnfalt $\var~x : T$ \bnfalt $\mathcal{L}.x$ \bnfalt $[ \overline{\mathcal{L}} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \mathcal{L}} \}$ \bnfalt $\mathcal{L}[\mathcal{L}]$ \bnfalt $\mathcal{L}[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ & (locators) \\
-    Flow & \bnfdef & $\mathcal{L} \to \mathcal{L}$ \bnfalt $\mathcal{L} \to f[\overline{T}](\overline{x}) \to \mathcal{L}$ & (flows) \\
-\end{tabular}
-
-\begin{mathpar}
-    \inferrule*[right=Loc-Id]{
-    }{ \angles{ \Sigma, x } \to \angles{ \Sigma, \storage(\mu(x), \rho(\mu(x))) } }
-
-    \inferrule*[right=Loc-VarDef]{
-        \ell \not\in \dom(\rho)
-    }{ \angles{ \Sigma, \var~x : T } \to \angles{ \Sigma[\mu \mapsto \mu[x \mapsto \ell], \rho \mapsto \rho[\ell \mapsto []]], \ell } }
-
-    \inferrule*[right=Loc-Field-Congr]{
-        \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma', \mathcal{L}' }
-    }{ \angles{ \Sigma, \mathcal{L}.x } \to \angles{ \Sigma', \mathcal{L}'.x } }
-
-    \inferrule*[right=Loc-Field]{
-        \rho(\ell) = \overline{k}
-        \\
-        \overline{\rho(k).x = j}
-    }{ \angles{ \Sigma, \ell.x } \to \angles{ \Sigma', \overline{j} } }
-
-    \inferrule*[right=Loc-List-Congr]{
-        \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma', \mathcal{L}' }
-    }{ \angles{ \Sigma, [ \overline{\ell}, \mathcal{L}, \overline{\mathcal{L}'} ] } \to \angles{ \Sigma', [ \overline{\ell}, \mathcal{L}', \overline{\mathcal{L}'} ] } }
-
-    \inferrule*[right=Loc-List]{
-        k \not\in \dom(\rho)
-    }{ \angles{ \Sigma, [ \overline{\ell} ] } \to \angles{ \Sigma[\rho \mapsto \rho[k \mapsto \overline{\ell}]] , k } }
-
-    \inferrule*[right=Loc-Val-Src-Congr]{
-        \angles{ \Sigma, \mathcal{L} } \to \angles{ \Sigma'', \mathcal{L}'' }
-    }{ \angles{ \Sigma, \mathcal{L}[\mathcal{L}'] } \to \angles{ \Sigma'', \mathcal{L}''[\mathcal{L}'] } }
-
-    \inferrule*[right=Loc-Val-Sel-Congr]{
-        \angles{ \Sigma, \mathcal{L}' } \to \angles{ \Sigma'', \mathcal{L}'' }
-    }{ \angles{ \Sigma, \ell[\mathcal{L}'] } \to \angles{ \Sigma'', \ell[\mathcal{L}'] } }
-
-    \inferrule*[right=Loc-Val]{
-    }{ \angles{ \Sigma, \overline{\ell}[\overline{k}] } \to \angles{ \Sigma, \select(\rho, \overline{\ell}, \overline{k}) } }
-
-    % \inferrule*[right=Loc-Filter]{
-    %     y \not\in \dom(\mu)
-    %     \\
-    %     \overline{j} = [ k \in \overline{\ell} : \angles{ \Sigma, f(\overline{x}, y) } \to^* \angles{ \Sigma
-    % }{ \angles{ \Sigma, \overline{\ell} \sends{\mathcal{Q}~\tsuchthat~f(\overline{x},  @x } \to \angles{ \Sigma', \mathcal{L}' \to @x } }
-\end{mathpar}
-
-\[
-    \select(\rho, \overline{\ell}, \overline{k}) =
-    \begin{cases}
-        [] & \tif \overline{k} = [] \\
-        \revert & \tif \overline{\ell} = [] \tand \overline{k} \neq [] \\
-        j, \select(\rho, \overline{\ell} \setminus j, \overline{k'}) & \tif \overline{k} = (i, \overline{k'}) \tand j \in \overline{\ell} \tand \rho(i) = \rho(j) \\
-        \select(\rho, \overline{\ell}, \overline{k'}) & \tif \overline{k} = (i, \overline{k'}) \tand \forall j \in \overline{\ell}. \rho(i) \neq \rho(j) \\
-        % \select(\overline{\ell'}, \overline{k'})
-    \end{cases}
-\]
-
-\reed{TODO Finish this rule/figuring out exactly how all this reference stuff works...}
-\begin{mathpar}
-    \inferrule*[right=Flow]{
-    }{ \angles{ \Sigma, \ell \to k } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto \rho(\ell) \setminus, k \mapsto \rho(k) + \rho(\ell)]] } }
-\end{mathpar}
 
 \subsection{Syntax}
 \begin{align*}
@@ -111,12 +43,14 @@
 \begin{tabular}{l r l l}
     $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $\type~t[\overline{T_V}]~\is~\overline{M}~T$ \bnfalt $\listq~\tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
+    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $t[\overline{T}]$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $T_V$ & \bnfdef & $\alpha~\is~\overline{M}$ & (type variable declaration) \\
-    $\mathcal{S}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\demote(x)$ \bnfalt $[x]$ \bnfalt $\{ \overline{x : \tau \mapsto x} \}$ \bnfalt $\newc(t, \overline{M}, T)$ & (sources) \\
-    $\mathcal{D}$ & \bnfdef & $x$ \bnfalt $x.y$ \bnfalt $\var~x:T$ \bnfalt $\consume$ & (destinations) \\
+    $\Loc$ & \bnfdef & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $\Loc.x$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
+                  & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ \bnfalt $\consume$ \bnfalt $\newc~t$ & (locators) \\
+    Flow & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to f[\overline{T}](\overline{x}) \to \Loc$ & (flows) \\
     $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
+            & \bnfalt & $\type~t[\overline{T_V}]~\is~\overline{M}~T$ & (type decl.) \\
     $\Stmt$ & \bnfdef & $\mathcal{S} \to \mathcal{D}$ \bnfalt $\mathcal{S} \sends{x} \mathcal{D}$ \bnfalt $\mathcal{S} \sends{\mathcal{Q}~\suchthat~f[\overline{T}](\overline{x})} \mathcal{D}$ \bnfalt $\mathcal{S} \to f[\overline{T}](\overline{x}) \to \mathcal{D}$ & (flows) \\
             & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & (try-catch) \\
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$ & (programs)
@@ -240,7 +174,7 @@ A \emph{storage} is either a source or a destination.
 \begin{tabular}{l r l l}
     $V$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ \bnfalt $\{ \overline{x : \tau \mapsto \N} \}$ & \\
     $\mathcal{V}$ & \bnfdef & $\overline{V}$ & \\
-    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\putS(\mathcal{V}, \mathcal{D})$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{\Stmt}, \overline{\Stmt})$ & \\
+    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\revert$ \bnfalt $\tryS(\Sigma, \overline{\Stmt}, \overline{\Stmt})$ & \\
 \end{tabular}
 
 \begin{definition}
@@ -263,6 +197,69 @@ The new constructs of $\resolve(\Sigma, \mathcal{S})$ and $\putS(\mathcal{V}, \m
 
     \inferrule*[right=Revert]{
     }{ \angles{ \Sigma, (\revert)~\overline{S} } \to \angles{ \Sigma, \revert } }
+\end{mathpar}
+
+Locators.
+
+\begin{mathpar}
+    \inferrule*[right=Loc-Id]{
+    }{ \angles{ \Sigma, x } \to \angles{ \Sigma, \storage(\mu(x), \rho(\mu(x))) } }
+
+    \inferrule*[right=Loc-VarDef]{
+        \ell \not\in \dom(\rho)
+    }{ \angles{ \Sigma, \var~x : T } \to \angles{ \Sigma[\mu \mapsto \mu[x \mapsto \ell], \rho \mapsto \rho[\ell \mapsto []]], \ell } }
+
+    \inferrule*[right=Loc-Field-Congr]{
+        \angles{ \Sigma, \Loc } \to \angles{ \Sigma', \Loc' }
+    }{ \angles{ \Sigma, \Loc.x } \to \angles{ \Sigma', \Loc'.x } }
+
+    \inferrule*[right=Loc-Field]{
+        \rho(\ell) = \overline{k}
+        \\
+        \overline{\rho(k).x = j}
+    }{ \angles{ \Sigma, \ell.x } \to \angles{ \Sigma', \overline{j} } }
+
+    \inferrule*[right=Loc-List-Congr]{
+        \angles{ \Sigma, \Loc } \to \angles{ \Sigma', \Loc' }
+    }{ \angles{ \Sigma, [ \overline{\ell}, \Loc, \overline{\Loc'} ] } \to \angles{ \Sigma', [ \overline{\ell}, \Loc', \overline{\Loc'} ] } }
+
+    \inferrule*[right=Loc-List]{
+        k \not\in \dom(\rho)
+    }{ \angles{ \Sigma, [ \overline{\ell} ] } \to \angles{ \Sigma[\rho \mapsto \rho[k \mapsto \overline{\ell}]] , k } }
+
+    \inferrule*[right=Loc-Val-Src-Congr]{
+        \angles{ \Sigma, \Loc } \to \angles{ \Sigma'', \Loc'' }
+    }{ \angles{ \Sigma, \Loc[\Loc'] } \to \angles{ \Sigma'', \Loc''[\Loc'] } }
+
+    \inferrule*[right=Loc-Val-Sel-Congr]{
+        \angles{ \Sigma, \Loc' } \to \angles{ \Sigma'', \Loc'' }
+    }{ \angles{ \Sigma, \ell[\Loc'] } \to \angles{ \Sigma'', \ell[\Loc'] } }
+
+    \inferrule*[right=Loc-Val]{
+    }{ \angles{ \Sigma, \overline{\ell}[\overline{k}] } \to \angles{ \Sigma, \select(\rho, \overline{\ell}, \overline{k}) } }
+
+    % \inferrule*[right=Loc-Filter]{
+    %     y \not\in \dom(\mu)
+    %     \\
+    %     \overline{j} = [ k \in \overline{\ell} : \angles{ \Sigma, f(\overline{x}, y) } \to^* \angles{ \Sigma
+    % }{ \angles{ \Sigma, \overline{\ell} \sends{\mathcal{Q}~\tsuchthat~f(\overline{x},  @x } \to \angles{ \Sigma', \Loc' \to @x } }
+\end{mathpar}
+
+\[
+    \select(\rho, \overline{\ell}, \overline{k}) =
+    \begin{cases}
+        [] & \tif \overline{k} = [] \\
+        \revert & \tif \overline{\ell} = [] \tand \overline{k} \neq [] \\
+        j, \select(\rho, \overline{\ell} \setminus j, \overline{k'}) & \tif \overline{k} = (i, \overline{k'}) \tand j \in \overline{\ell} \tand \rho(i) = \rho(j) \\
+        \select(\rho, \overline{\ell}, \overline{k'}) & \tif \overline{k} = (i, \overline{k'}) \tand \forall j \in \overline{\ell}. \rho(i) \neq \rho(j) \\
+        % \select(\overline{\ell'}, \overline{k'})
+    \end{cases}
+\]
+
+\reed{TODO Finish this rule/figuring out exactly how all this reference stuff works...}
+\begin{mathpar}
+    \inferrule*[right=Flow]{
+    }{ \angles{ \Sigma, \ell \to k } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto \rho(\ell) \setminus, k \mapsto \rho(k) + \rho(\ell)]] } }
 \end{mathpar}
 
 Here we give the rules for the new $\putS(\mathcal{V}, \mathcal{D})$ statement.

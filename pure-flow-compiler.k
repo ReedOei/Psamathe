@@ -89,8 +89,7 @@ module PURE-FLOW-COMPILER-SYNTAX
                      | "var" Var ":" BaseType
     syntax Locators ::= List{Locator, ","}
 
-    syntax Stmt ::= "skip"
-                  | Locator "-->" Locator
+    syntax Stmt ::= Locator "-->" Locator
                   | Locator "-->" Id "(" Vars ")" "-->" Locator
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
     syntax Stmts ::= List{Stmt, " "} [klabel(stmts)]
@@ -128,15 +127,33 @@ module PURE-FLOW-COMPILER
             <typeEncoding> .Map </typeEncoding>
         </T>
 
-    syntax KItem ::= scope(Map, Map)
-
     syntax KItem ::= translateDecls(Decls)
                    | translateDecl(Decl)
 
     syntax KItem ::= "done"
 
-    rule (Decls ; Stmts):Program => translateDecls(Decls) ~> Stmts ~> done
+    rule (Decls ; Stmts):Program => checkDecls(Decls) ~> checkStmts(Stmts) ~> translateDecls(Decls) ~> Stmts ~> done
 
+    syntax KItem ::= checkDecls(Decls)
+                   | checkDecl(Decl)
+                   | checkStmts(Stmts)
+                   | checkStmt(Stmt)
+
+    rule checkDecls(.Decls) => .
+    rule checkDecls(D Ds) => checkDecl(D) ~> checkDecls(Ds)
+
+    // TODO: Implement this
+    rule checkDecl(_) => .
+
+    rule checkStmts(.Stmts) => .
+    rule checkStmts(S1 Rest) => checkStmt(S1) ~> checkStmts(Rest)
+
+    // TODO: Implement this
+    rule checkStmt(_) => .
+
+    // =========================================
+    // Sequencing
+    // =========================================
     rule .Stmts => . [structural]
     rule S1:Stmt Rest:Stmts => S1 ~> Rest [structural]
 
@@ -187,10 +204,6 @@ module PURE-FLOW-COMPILER
     rule defineVarDefsStructs(.VarDefs) => .Map
     rule defineVarDefsStructs(_ : _ T, Rest) => defineStructs(nameOf(T), T) defineVarDefsStructs(Rest)
 
-    rule skip => .
-
-    /* context (HOLE => locate(HOLE, flowType(HOLE, B))) --> B */
-    /* context A --> (HOLE => locate(HOLE, flowType(A, HOLE))) */
     rule <k> A --> B => flow(locate(A, flowType(A, B)), locate(B, flowType(A, B))) ... </k>
 
     syntax KItem ::= flow(Locator, Locator) [strict]
