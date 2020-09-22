@@ -170,23 +170,15 @@ module PURE-FLOW-COMPILER
         <types> ... .Map => T |-> (type T is Ms BaseT) ... </types>
         <typeEncoding> ... .Map => T |-> encodeType(T, BaseT) ... </typeEncoding>
 
-    syntax SolType ::= encodeType(Var, BaseType) [function, functional]
-    syntax SolVarDefs ::= encodeFields(VarDefs) [function, functional]
     syntax Map ::= defineStructs(Var, BaseType) [function, functional]
                  | defineVarDefsStructs(VarDefs) [function, functional]
-    rule encodeType(_, nat) => baseTypeToSolType(nat)
-    rule encodeType(_, string) => baseTypeToSolType(string)
-    rule encodeType(_, address) => baseTypeToSolType(address)
-    rule encodeType(_, bool) => baseTypeToSolType(bool)
-    rule encodeType(_, map T1 => T2) => baseTypeToSolType(map T1 => T2)
-    rule encodeType(T, { _ }) => T
 
-    // TODO: Need to handle nested structs
     rule defineStructs(_, nat) => .Map
     rule defineStructs(_, string) => .Map
     rule defineStructs(_, address) => .Map
     rule defineStructs(_, bool) => .Map
     rule defineStructs(_, list _ T) => defineStructs(nameOf(T), T)
+    rule defineStructs(_, _:Var) => .Map
     rule defineStructs(T, { Fields }) => (T |-> struct T { encodeFields(Fields) }) defineVarDefsStructs(Fields)
     rule defineStructs(T, map _ T1 => _ T2) => T |-> struct T {
                                                         mapping (baseTypeToSolType(T1) => baseTypeToSolType(T2)) underlying_map;
@@ -195,28 +187,25 @@ module PURE-FLOW-COMPILER
     rule defineVarDefsStructs(.VarDefs) => .Map
     rule defineVarDefsStructs(_ : _ T, Rest) => defineStructs(nameOf(T), T) defineVarDefsStructs(Rest)
 
-    rule encodeFields(.VarDefs) => .SolVarDefs
-    rule encodeFields(X : T, Fields) => (typeToSolType(T) X;) encodeFields(Fields)
-
     rule skip => .
 
-    context (HOLE => locate(HOLE)) --> _
-    context _ --> (HOLE => locate(HOLE))
-    rule <k> A --> B => flow(A, B) ... </k>
+    /* context (HOLE => locate(HOLE, flowType(HOLE, B))) --> B */
+    /* context A --> (HOLE => locate(HOLE, flowType(A, HOLE))) */
+    rule <k> A --> B => flow(locate(A, flowType(A, B)), locate(B, flowType(A, B))) ... </k>
 
-    syntax Stmt ::= flow(Var, Var)
+    syntax KItem ::= flow(Locator, Locator) [strict]
 
     // =========================================
     // Flow for nats
     // =========================================
-    rule <k> flow(X, Y) => . ... </k>
+    rule <k> flow(X:Var, Y:Var) => . ... </k>
         <typeEnv> ... (X |-> nat) (Y |-> nat) ... </typeEnv>
         <compiled> S => S @ (Y = Y + X;) @ (X = 0;) </compiled>
 
     // =========================================
     // Flow list to map
     // =========================================
-    rule <k> flow(X, Y) => . ... </k>
+    rule <k> flow(X:Var, Y:Var) => . ... </k>
         <typeEnv>
             ...
             (X |-> list ! { key : K, value : V })
@@ -238,31 +227,46 @@ module PURE-FLOW-COMPILER
     rule .SolStmts @ B => B
     rule (S:SolStmt Rest:SolStmts) @ B => S (Rest @ B)
 
-    syntax Var ::= locate(Locator)
+    syntax BaseType ::= flowType(Locator, Locator) [function, functional]
+    rule flowType(_:Int, _) => nat
+    rule flowType(_, _:Int) => nat
+    rule flowType(var _ : T, _) => T
+    rule flowType(_, var _ : T) => T
+    rule [[ flowType(X, _) => T ]]
+        <typeEnv> ... X |-> T ... </typeEnv>
+    rule [[ flowType(_, X) => T ]]
+        <typeEnv> ... X |-> T ... </typeEnv>
 
-    rule <k> locate(V:Int) => locate(genVar(I)) ... </k>
+    syntax Locator ::= locate(Locator, BaseType)
+
+    rule <k> locate(V:Int, nat) => genVar(I) ... </k>
         <typeEnv> ... .Map => genVar(I) |-> nat ... </typeEnv>
         <compiled> Ss => Ss @ (uint genVar(I) = V;) </compiled>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    rule <k> locate([ .Locators ]) => locate(genVar(I)) ... </k>
-        <typeEnv> ... .Map => genVar(I) |-> list ?_ ?T ... </typeEnv>
-        <compiled> Ss => Ss @ (baseTypeToSolType(?T)[] genVar(I);) </compiled>
+    rule <k> locate([ .Locators ], list Q T) => genVar(I) ... </k>
+        <typeEnv> ... .Map => genVar(I) |-> list Q T ... </typeEnv>
+        <compiled> Ss => Ss @ (baseTypeToSolType(T)[] genVar(I);) </compiled>
         <freshCounter> I => I +Int 1 </freshCounter>
-        <structs> Structs => Structs defineStructs(nameOf(?T), ?T) </structs>
+        <structs> Structs => Structs defineStructs(nameOf(T), T) </structs>
 
-    rule <k> locate(X:Var) => locate(X) ... </k>
+    rule <k> locate([ .Locators ], map K => V) => genVar(I) ... </k>
+        <typeEnv> ... .Map => genVar(I) |-> list ! { key : K, value : V } ... </typeEnv>
+        <compiled> Ss => Ss @ (baseTypeToSolType({ key : K, value : V })[] genVar(I);) </compiled>
+        <freshCounter> I => I +Int 1 </freshCounter>
+        <structs> Structs => Structs defineStructs(nameOf({ key : K, value : V }), { key : K, value : V }) </structs>
 
-    rule <k> locate(var X : T) => locate(X) ... </k>
+    rule <k> locate(var X : T, T) => X ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
         <compiled> Ss => Ss @ (baseTypeToSolType(T) X;) </compiled>
         <structs> Structs => Structs defineStructs(nameOf(T), T) </structs>
 
     syntax Var ::= nameOf(BaseType) [function, functional]
-    rule nameOf(bool) => bool
-    rule nameOf(nat) => nat
-    rule nameOf(string) => string
-    rule nameOf(address) => address
+    /* rule nameOf(bool) => bool */
+    /* rule nameOf(nat) => nat */
+    /* rule nameOf(string) => string */
+    /* rule nameOf(address) => address */
+    rule nameOf(X:Var) => X
     rule nameOf({ Fields }) => String2Id(genName(Fields))
     rule nameOf(map T1 => T2) => String2Id(baseTypeToString(map T1 => T2))
 
@@ -304,8 +308,21 @@ module PURE-FLOW-COMPILER
     rule baseTypeToSolType(nat) => uint
     rule baseTypeToSolType(string) => string
     rule baseTypeToSolType(address) => address
-    rule baseTypeToSolType(X:Var) => X
+    rule [[ baseTypeToSolType(X:Var) => SolT ]]
+        <typeEncoding> ... X |-> SolT ... </typeEncoding>
     rule baseTypeToSolType(map (_:TypeQuant T1) => (_:TypeQuant T2)) => mapping (baseTypeToSolType(T1) => baseTypeToSolType(T2))
     rule baseTypeToSolType({ Fields }) => nameOf({ Fields })
+
+    syntax SolType ::= encodeType(Var, BaseType) [function, functional]
+    rule encodeType(_, nat) => baseTypeToSolType(nat)
+    rule encodeType(_, string) => baseTypeToSolType(string)
+    rule encodeType(_, address) => baseTypeToSolType(address)
+    rule encodeType(_, bool) => baseTypeToSolType(bool)
+    rule encodeType(_, map T1 => T2) => baseTypeToSolType(map T1 => T2)
+    rule encodeType(T, { _ }) => T
+
+    syntax SolVarDefs ::= encodeFields(VarDefs) [function, functional]
+    rule encodeFields(.VarDefs) => .SolVarDefs
+    rule encodeFields(X : T, Fields) => (typeToSolType(T) X;) encodeFields(Fields)
 endmodule
 
