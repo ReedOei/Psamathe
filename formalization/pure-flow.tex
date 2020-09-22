@@ -33,6 +33,7 @@
 \newcommand{\LocK}{\mathcal{K}}
 \newcommand{\copyC}{\textbf{\texttt{copy}}\xspace}
 \newcommand{\Trfm}{\textbf{\texttt{Trfm}}\xspace}
+\newcommand{\tableT}{\textbf{\texttt{table}}\xspace}
 
 \begin{document}
 
@@ -46,7 +47,7 @@
 \begin{tabular}{l r l l}
     $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
     $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $t[\overline{T}]$ \bnfalt $\map~\tau \Rightarrow \tau$ \bnfalt $\{ \overline{x : \tau} \}$ & (base types) \\
+    $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $t[\overline{T}]$ \bnfalt $\tableT(\overline{x})~\{ \overline{x : \tau} \}$ & (base types) \\
     $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
     $T_V$ & \bnfdef & $\alpha~\is~\overline{M}$ & (type variable declaration) \\
     $\Loc$, $\LocK$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
