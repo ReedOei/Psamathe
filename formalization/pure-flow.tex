@@ -145,36 +145,35 @@ The results below intentionally throw out the environment $\Delta$, because we d
         \Delta \flowproves \demote(\LocK) : \demoteT(\mathcal{R}~T) \flowprovesout \Delta
     }{ \Gamma \flowproves \Loc[\LocK] : \mathcal{R}~T \flowprovesout \select(\Delta, \Loc, \mathcal{R}) }
 
-    % \inferrule*[right=Ok-Flow-Filter]{
-    %     \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
+    % \inferrule*[right=Filter]{
+    %     \Gamma \flowproves \Loc : \mathcal{Q}~T \flowprovesout \Delta
     %     \\
-    %     % \transformer~f(\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt ~\{~\overline{\Stmt}~\}
     %     \typeof(f, \overline{T}) = (\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt
     %     \\
     %     \forall i. \demoteT(\Gamma(a_i)) = \sigma_i
     %     \\
     %     \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
-    % }{ \Gamma \flowproves (\mathcal{S} \sends{\mathcal{R}~\suchthat~f[\overline{T}](\overline{a})} \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})) }
+    % }{ \Gamma \flowproves \Loc[\mathcal{R}~\suchthat~f[\overline{T}](\overline{a})] : \mathcal{R}~T \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 \end{mathpar}
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
     \inferrule*[right=Ok-Flow-Every]{
-        \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T \flowprovesout \Delta
+        \Gamma \flowproves \Loc : \mathcal{Q}~T \flowprovesout \Delta
         \\
-        \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{R}~T \flowprovesout \Xi
-    }{ \Gamma \flowproves (\mathcal{S} \to \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{Q}) }
+        \update(\Delta, \Loc, \Delta(\Loc) \ominus \mathcal{Q}) \flowproves \LocK : \mathcal{R}~T \flowprovesout \Xi
+    }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout \update(\Xi, \LocK, \Xi(\LocK) \oplus \mathcal{Q}) }
 
     \inferrule*[right=Ok-Flow-Transformer]{
-        \Gamma \flowproves \mathcal{S} : \mathcal{Q}~T_1 \flowprovesout \Delta
+        \Gamma \flowproves \Loc : \mathcal{Q}~T_1 \flowprovesout \Delta
         \\
         % \transformer~f(\overline{x : \sigma}, y : \elemtype(T_1)) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
         \typeof(f, \overline{T}) = (\overline{x : \sigma}, y : \elemtype(T_1)) \to z : \mathcal{R}~T_2~\{~ \overline{\Stmt} ~\}
         \\
         \forall i. \demoteT(\Gamma(x_i)) = \sigma_i
         \\
-        \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T_2 \flowprovesout \Xi
-    }{ \Gamma \flowproves (\mathcal{S} \to f[\overline{T}](\overline{x}) \to \mathcal{D})~\ok \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \mathcal{Q}) }
+        \update(\Delta, \Loc, \Delta(\Loc) \ominus \mathcal{Q}) \flowproves \LocK : \mathcal{S}~T_2 \flowprovesout \Xi
+    }{ \Gamma \flowproves (\Loc \to f[\overline{T}](\overline{x}) \to \LocK)~\ok \flowprovesout \update(\Xi, \LocK, \Xi(\LocK) \oplus \mathcal{Q}) }
 
     \inferrule*[right=Ok-Try]{
         \Gamma \flowproves \overline{S_1}~\ok \flowprovesout \Delta
