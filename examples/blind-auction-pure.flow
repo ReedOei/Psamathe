@@ -1,0 +1,126 @@
+// Based on: https://solidity.readthedocs.io/en/v0.7.1/solidity-by-example.html
+
+type Bid is consumable asset {
+    sender : address,
+    blindedBid : bytes,
+    deposit : ether
+}
+
+type Reveal is {
+    value : nat,
+    fake : bool,
+    secret : bytes
+}
+
+type Return is consumable asset {
+    sender : address,
+    returnVal : ether
+}
+
+type Message is consumable asset {
+    sender : address,
+    value : ether
+}
+
+type BlindAuction is asset {
+    beneficiary : address,
+    biddingEnd : nat,
+    revealEnd : nat,
+    ended : bool,
+    // (Multi)map is probably the most useful single structure for most of the blockchain programs I've written
+    // Could call it a table with a (not unique, in case of multimap) key instead, not sure if that's any better.
+    bids : map address => list Bid,
+    highestBidder : address,
+    highestBid : ether,
+    pendingReturns : map address => list Return
+}
+
+transformer newAuction(beneficiary : address, biddingEnd : nat, revealEnd : nat) -> auction : BlindAuction {
+    new BlindAuction(beneficiary, biddingEnd, revealEnd, false, [], 0x0, 0, []) --> auction
+}
+
+transformer bid(this : BlindAuction, msg : Message, bid : bytes) {
+    // this.biddingEnd --[ now ]-> this.biddingEnd
+    // abbreviated by:
+    only when now <= this.biddingEnd
+    [ new Bid(msg.sender, big, msg.value) ] --> this.bids[msg.sender]
+}
+
+transformer reveal(this : BlindAuction, msg : Message, reveals : list Reveal) {
+    only when biddingEnd <= now and now <= revealEnd
+
+    // This implementation relies on being able to mutate arguments
+    // For the moment, I assume that zip is a locator combinator thing
+    // Because of the linearity, for safety, the default behavior should be to fail when the two lists have different lengths.
+    // Maybe this means a different name than zip should be used (which typically just truncates the longer list).
+    zip(this.bids[msg.sender], reveals)
+        --[ any such that revealed(_) ]-> revealBid(this, _) --> placeBid(this, _)
+
+    // Alternative, SQL-style
+    (
+        locate any bidReveal
+        // Still using "zip" instead of "join" or something because "join" is a product-like operation, which is wrong in terms of linearity
+        in zip (
+            locate any bid
+            in this.bids
+            where bid.sender = msg.sender
+        ) with reveals
+        where revealed(bidReveal)
+    ) --> revealBid(this, _) --> placeBid(this, _)
+}
+
+transformer revealed(arg : { fst : Bid, snd : Reveal }) -> res : bool {
+    keccak256(arg.snd.value, arg.snd.fake, arg.snd.secret) --> var hashed : bytes
+    try {
+        [ bid.blindedBid ] --[ hashed ]-> bid.blindedBid
+        true --> res
+    } catch {
+        false --> res
+    }
+}
+
+transformer revealBid(this : BlindAuction, arg : { fst : Bid, snd : Reveal }) -> toPlace : list { sender : address, value : ether } {
+    arg.fst --> var bid : Bid
+    arg.snd --> var reveal : Reveal
+
+    try {
+        only when not reveal.fake
+        bid.deposit --[ reveal.value ]-> var value : ether
+        [ { sender |-> fst.sender, value |-> value } ] --> toPlace
+    } catch {
+        // Don't place fake bid, just refund
+    }
+
+    // Refund the rest
+    bid.deposit --> fst.sender.balance
+}
+
+// In solidity, this is an internal function; there's no such thing in the Pure flow (but there is a private modifier in the surface language)
+transformer placeBid(this : BlindAuction, toPlace : { sender : address, value : ether }) {
+    only when toPlace.value >= this.highestBid
+
+    try {
+        only when highestBidder != 0x0
+        [ new Return(toPlace.sender, this.highestBid) ] --> this.pendingReturns[msg.sender]
+    } catch { }
+
+    toPlace.sender --> highestBidder
+    toPlace.value --> highestBid
+}
+
+transformer withdraw(this : BlindAuction, msg : Message) {
+    this.pendingReturns[msg.sender].value --> msg.sender.balance
+    // Alternative
+    (
+        locate any pendingReturn
+        in this.pendingReturns
+        where pendingReturn.sender = msg.value
+    ).value --> msg.sender.balance
+}
+
+transformer auctionEnd(this : BlindAuction) {
+    only when now >= this.revealEnd and not this.ended
+    true --> this.ended
+    highestBid --> beneficiary.balance
+}
+

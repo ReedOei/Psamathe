@@ -1,111 +1,143 @@
 mod FLOW is
     protecting QID .
     protecting NAT .
+    protecting CONVERSION .
 
-    sorts TyQuant BaseTy Ty Source Dest Stmt Mod Mods .
+    sorts Flow List Map Env .
 
-    subsort Mod < Mods .
+    sort Val .
+    subsort Val < List .
 
-    sorts Loc Locs .
-    subsort Qid < Loc < Locs .
-    subsort Loc < Source .
-    subsort Loc < Dest .
+    sorts Loc Locator .
+    subsort Qid < Locator < Val .
+    subsort Nat < Locator .
+    subsort Loc < Locator .
 
-    op _._ : Loc Qid -> Loc [ctor] .
-    ops True False : -> Loc [ctor] .
+    sorts Field .
+    subsort Field < Val .
+
+    sort Revert .
+    subsort Revert < Val .
+
+    sort LocatorVal .
+    subsort LocatorVal < Val .
+
+    op located : Loc List -> LocatorVal .
+
+    op revert : -> Revert [ctor] .
+
+    op nil : -> List [ctor] .
+    op _,_ : List List -> List [ctor assoc id: nil] .
+
     op loc : Nat -> Loc [ctor] .
 
-    op nil : -> Locs [ctor] .
-    op _,_ : Locs Locs -> Locs [ctor assoc id: nil] .
+    op var_:_ : Qid Qid -> Locator [ctor] .
+    op _._ : Locator Qid -> Locator [ctor] .
+    op [_] : List -> Locator [ctor] .
+    op {_} : Map -> Locator [ctor] .
+    op _[_] : Locator Locator -> Locator [ctor] .
 
-    op mt : -> Mods [ctor] .
-    op __ : Mods Mods -> Mods [ctor comm assoc id: mt] .
+    op mt : -> Map .
+    op _|->_ : Val List -> Map [ctor] .
+    op __ : Map Map -> Map [assoc comm id: mt] .
 
-    ops empty any one nonempty every : -> TyQuant [ctor] .
-    op bool : -> BaseTy [ctor] .
-    op v : Qid -> BaseTy [ctor] .
-    op t : Qid Mods BaseTy -> BaseTy [ctor] .
-    op list : Ty -> BaseTy [ctor] .
+    op <_;_;_;_> : Nat Map Map List -> Env [ctor] .
+    op <_;_;_;_> : Nat Map Map Flow -> Env [ctor] .
 
-    op __ : TyQuant BaseTy -> Ty [ctor] .
+    op _-->_ : Locator Locator -> Flow [ctor] .
 
-    op emptylist : -> Source [ctor] .
-    op [_] : Loc -> Source [ctor] .
-    op new : Qid Mods BaseTy -> Source [ctor] .
-
-    op consume : -> Dest [ctor] .
-    op var_:_ : Qid Ty -> Dest [ctor] .
-
-    sort Selector .
-    op __:_st_(_) : TyQuant Qid Ty Qid Locs -> Selector [ctor] .
-
-    op _-->_ : Source Dest -> Stmt [ctor] .
-    op _--[_]->_ : Source Selector Dest -> Stmt [ctor] .
-    op _--[_]->_(_)-->_ : Source Selector Qid Locs Dest -> Stmt [ctor] .
-    op done : -> Stmt [ctor] .
-
-    sort Val Vals .
-    subsort Bool < Val < Vals .
-
-    op nil : -> Val [ctor] .
-    op __ : Vals Vals -> Vals [ctor assoc id: nil] .
-
-    sort Result .
-    subsort Vals < Result < Stmt .
-    op error : -> Result [ctor] .
-
-    op select : Vals Selector -> Result .
-
-    sorts Lookup Env Config .
-    op mt : -> Env [ctor] .
-    op _|->_ : Nat Vals -> Env [ctor] .
-    op _,_ : Env Env -> Env [ctor comm assoc id: mt] .
-
-    op mt : -> Lookup [ctor] .
-    op _|->_ : Loc Nat -> Lookup [ctor] .
-    op _,_ : Lookup Lookup -> Lookup [ctor comm assoc id: mt] .
-
-    op [_,_,_,_] : Nat Lookup Env Stmt -> Config [ctor] .
-
-    vars T T1 T2 : BaseTy .
-    vars Tau Sigma Pi : Ty .
-    vars Q R : TyQuant .
-    vars X Y Z F Alpha Beta : Qid .
-    var M : Mod .
-    var Ms : Mods .
-    vars A S : Source .
-    vars B D : Dest .
-    vars L L1 L2 : Loc .
-    var Ls : Locs .
+    vars N N' M : Nat .
+    vars L J K : Locator .
+    vars l j k : Loc .
+    vars X Y Z : Qid .
     vars V W V1 V2 : Val .
-    vars Vs Ws : Vals .
-    var Res : Result .
+    vars Vs Ws Ls Ls1 Ls2 : List .
+    vars Mu Mu' Rho Rho' Rho'' : Map .
 
-    var Sel : Selector .
+    rl [lookup-var]:
+        < N ; (X |-> l) Mu ; Rho ; X >
+        =>
+        < N ; (X |-> l) Mu ; (l |-> Vs) Rho ; located(l, Vs) > .
 
-    var Lookup : Lookup .
-    var Store : Env .
+    rl [new-var]:
+        < N ; Mu ; Rho ; var X : Y >
+        =>
+        < N + 1 ; (X |-> loc(N)) Mu ; (loc(N) |-> nil) Rho ; located(loc(N), nil) > .
 
-    vars Counter N : Nat .
+    rl [nat-const]:
+        < N ; Mu ; Rho ; M >
+        =>
+        < N + 1 ; Mu ; (loc(N) |-> M) Rho ; located(loc(N), M) > .
 
-    op resolve : Lookup Env Source -> Nat .
-    op resolve : Dest -> Dest .
+    crl [list-congr]:
+        < N ; Mu ; Rho ; [ Ls1, L, Ls2 ] >
+        =>
+        < N' ; Mu' ; Rho' ; [ Ls1, J, Ls2] >
+        if < N ; Mu ; Rho ; L > => < N' ; Mu' ; Rho' ; J >
+        /\ L =/= J .
 
-    crl [ Counter, Lookup, Store, S --> D ] =>
-        if resolve(Lookup, Store, S) => Vs .
+    op allLocated : List -> Bool .
+    eq allLocated(nil) = true .
+    eq allLocated(located(l, Vs), Ls) = allLocs(Ls) .
+    eq allLocated(Ls) = false [owise] .
 
-    --- rl [ Store, select(nil, one X : Tau st F(Ls)) ] => [ Store, error ] .
-    --- rl [ Store, select(nil, nonempty X : Tau st F(Ls)) ] => [ Store, error ] .
-    --- crl [ Store, select(nil, Q X : Tau st F(Ls)) ] => [ Store, nil ]
-    ---     if Q =/= one /\ Q =/= nonempty .
+    crl [list-alloc]:
+        < N ; Mu ; Rho ; [ Ls ] >
+        =>
+        < N + 1 ; Mu ; (loc(N) |-> Ls) Rho ; located(loc(N), Ls) >
+        if allLocs(Ls) .
 
-    --- crl [ Store, select(Vs V Ws, one X : Tau st F(Ls)) ] => [ Store, V ]
-    ---     if NewLoc := freshLoc(Store) /\
-    ---        call(F, (Ls, NewLoc)) => Res /\ Res =/= error /\
-    ---        --- We should not be able to select any more values.
-    ---        select(Vs Ws, one X : Tau st F(Ls)) => error .
+    crl [vals-congr-src]:
+        < N ; Mu ; Rho ; L[K] >
+        =>
+        < N' ; Mu' ; Rho' ; J[K] >
+        if < N ; Mu ; Rho ; L > => < N' ; Mu' ; Rho' ; J >
+        /\ L =/= J .
+
+    crl [vals-congr-sel]:
+        < N ; Mu ; Rho ; L[K] >
+        =>
+        < N' ; Mu' ; Rho' ; L[J] >
+        if < N ; Mu ; Rho ; K > => < N' ; Mu' ; Rho' ; J >
+        /\ K =/= J .
+
+    crl [vals]:
+        < N ; Mu ; Rho ; l[k] >
+        =>
+        < N ; Mu ; Rho ; located(l, select(Rho, Vs, Ws)) >
+        if (l |-> Vs) (k |-> Ws) Rho' := Rho .
+
+    op select : Map List List -> List .
+    eq select(Rho, Vs, nil) = nil .
+    eq select(Rho, nil, (k, Ws)) = revert .
+    eq select((j |-> V) (k |-> V) Rho, (Ls1, j, Ls2), (k, Ws)) =
+        j, select((j |-> V) (k |-> V) Rho, (Ls1, Ls2), Ws) .
+    eq select(Rho, Ls, (k, Ws)) = select(Rho, Ls, Ws) [owise] .
+
+    op exec : Flow -> Env .
+    rl exec(L --> K) => < 0 ; mt ; mt ; L --> K > .
+
+    crl [flow-congr-src]:
+        < N ; Mu ; Rho ; L --> K >
+        =>
+        < N' ; Mu' ; Rho' ; J --> K >
+        if < N ; Mu ; Rho ; L > => < N' ; Mu' ; Rho' ; J >
+        /\ L =/= J .
+
+    crl [flow-congr-dst]:
+        < N ; Mu ; Rho ; L --> K >
+        =>
+        < N' ; Mu' ; Rho' ; L --> J >
+        if < N ; Mu ; Rho ; K > => < N' ; Mu' ; Rho' ; J >
+        /\ K =/= J .
 endm
 
-rew (True --> var 'b : one bool) .
---- rew (True --[ one 'x : one bool st 'idBool(nil) ]-> var 'b : one bool) .
+--- rew exec(var 'x : 'nat) .
+--- rew exec([ var 'x : 'nat ]) .
+--- rew exec([ (var 'x : 'nat), var 'y : 'nat ]) .
+--- rew exec([ 6, (var 'x : 'nat), var 'y : 'nat ]) .
+--- set trace on .
+--- set trace eq off .
+rew exec([ 6, 3, 4][ [6,4] ] --> var 'y : 'listnat ) .
+
 

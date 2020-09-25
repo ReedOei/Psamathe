@@ -42,6 +42,9 @@ elif [[ "$1" == "compile" ]]; then
 elif [[ "$1" == "pure" ]]; then
     shift
     directory="pure-flow/"
+elif [[ "$1" == "pure-compile" ]]; then
+    shift
+    directory="pure-flow-compiler/"
 else
     directory="dynamic/"
     if [[ "$1" == "debug" ]]; then

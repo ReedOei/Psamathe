@@ -12,4 +12,5 @@ contract-vers.csv
 .krun*
 *.bak
 formalization/*.out
+pure-flow-compiler/*
 
