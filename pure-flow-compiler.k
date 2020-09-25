@@ -269,8 +269,7 @@ module PURE-FLOW-COMPILER
     rule [[ demoteBaseType(T1) => demoteBaseType(T2) ]]
         <types> ... T1 |-> (type _ is _ T2) ... </types>
     rule demoteBaseType(list Q T) => list Q demoteBaseType(T)
-    rule demoteBaseType(map Q1 T1 => Q2 T2) => map Q1 demoteBaseType(T1) => Q2 demoteBaseType(T2)
-    rule demoteBaseType({ Fields }) => { demoteVarDefs(Fields) }
+    rule demoteBaseType(table(Keys) { Fields }) => table(Keys) { demoteVarDefs(Fields) }
 
     syntax VarDefs ::= demoteVarDefs(VarDefs) [function, functional]
     rule demoteVarDefs(.VarDefs) => .VarDefs

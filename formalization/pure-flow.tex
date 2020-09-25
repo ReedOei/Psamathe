@@ -34,6 +34,7 @@
 \newcommand{\copyC}{\textbf{\texttt{copy}}\xspace}
 \newcommand{\Trfm}{\textbf{\texttt{Trfm}}\xspace}
 \newcommand{\tableT}{\textbf{\texttt{table}}\xspace}
+\newcommand{\Env}{\textbf{Env}\xspace}
 
 \begin{document}
 
@@ -65,7 +66,8 @@
 
 We use the following abbreviations
 \begin{itemize}
-    \item $(\map~\tau~\Rightarrow~\sigma) := \tableT(\texttt{key})~\{ \texttt{key} : \tau, \texttt{value} : \sigma\}$
+    \item $(\map~\tau~\Rightarrow~\sigma) := \tableT(\texttt{key})~\{ \texttt{key} : \tau, \texttt{value} : \sigma \}$
+    \item $(\listq~\tau) := \tableT(\texttt{idx})~\{ \texttt{idx} : \natt, \texttt{value} : \tau \}$
     \item $\{ \overline{x : \tau} \} := \tableT(\cdot)~\{ \overline{x : \tau} \}$
 \end{itemize}
 
@@ -84,15 +86,28 @@ Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the bes
     \end{cases}
 \]
 
-\framebox{$\Gamma \flowproves \Loc : \tau \flowprovesout \Delta$} \textbf{Locator Typing}
+\framebox{$\Gamma \flowproves (\Loc : \tau) ; u$} \textbf{Locator Typing}
+
+Here $u$ is an \emph{updater}, that is, $u \in \curlys{\bot} \cup ((\Gamma \times (\tau \to \tau)) \to \Gamma)$.
+The updater describes how the types of the values specified by the locator will be modified given some function $f : \tau \to \tau$.
+If $u = \bot$, that means that the updater cannot be applied---this typically \reed{atm, always} means that the locator value(s) are immutable.
+
+Define
+\[
+    u ||_T =
+    \begin{cases}
+        \bot & \tif T~\immutable \\
+        u & \owise
+    \end{cases}
+\]
 
 \begin{mathpar}
     \inferrule*[right=Bool]{
         b \in \{ \true, \false \}
-    }{ \Gamma \flowproves b : \,\,\exactlyone~\boolt \flowprovesout \Gamma }
+    }{ \Gamma \flowproves b : \,\,\exactlyone~\boolt; (\Delta, f) \mapsto \Delta }
 
     \inferrule*[right=Nat]{
-    }{ \Gamma \flowproves n : \#(n)~\natt \flowprovesout \Gamma }
+    }{ \Gamma \flowproves n : \#(n)~\natt; (\Delta, f) \mapsto \Delta }
 \end{mathpar}
 
 \reed{The idea is that both $\demote(\Loc)$ and $\copyC(\Loc)$ give a demoted value, but $\demote(\Loc)$ gives a read-only value (so no copy needs to happen), whereas copy will actually copy all the data.
@@ -100,25 +115,22 @@ The results below intentionally throw out the environment $\Delta$, because we d
 
 \begin{mathpar}
     \inferrule*[right=Demote]{
-        \Gamma \flowproves \Loc : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves \demote(\Loc) : \demoteT(\tau) \flowprovesout \Gamma }
+        \Gamma \flowproves (\Loc : \tau) ; u
+    }{ \Gamma \flowproves (\demote(\Loc) : \demoteT(\tau)) ; \bot }
 
     \inferrule*[right=Copy]{
-        \Gamma \flowproves \Loc : \tau \flowprovesout \Delta
-    }{ \Gamma \flowproves \copyC(\Loc) : \demoteT(\tau) \flowprovesout \Gamma }
+        \Gamma \flowproves (\Loc : \tau) ; u
+    }{ \Gamma \flowproves (\copyC(\Loc) : \demoteT(\tau)) ; (\Delta, f) \mapsto \Delta }
 \end{mathpar}
 
-\reed{TODO: update the \textsc{Field} rule to modify the type of $\Loc$ appropriately.}
-\reed{TODO: Want to allow immutable variables in selector position (e.g., $\LocK$ in $\Loc[\LocK]$)}
+\reed{TODO: Finish adding the various updater functions as done in the Haskell file}
+
 \begin{mathpar}
     \inferrule*[right=Var]{
-        \immutable \not\in \modifiers(T)
-    }{ \Gamma, x : \mathcal{Q}~T \flowproves x : \mathcal{Q}~T \flowprovesout \Gamma, x : \emptyq~T }
+    }{ \Gamma, x : \mathcal{Q}~T \flowproves (x : \mathcal{Q}~T) ; ((\Delta, f) \mapsto \Delta[x \mapsto f(\Delta(x))])||_T }
 
     \inferrule*[right=Field]{
         \Gamma \flowproves \Loc : \,\,\exactlyone~T \flowprovesout \Delta
-        \\
-        \immutable \not\in \modifiers(T)
         \\
         \fields(T) = \overline{z : \sigma}
         \\
