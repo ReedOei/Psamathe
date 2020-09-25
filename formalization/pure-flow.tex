@@ -63,6 +63,14 @@
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$ & (programs)
 \end{tabular}
 
+We use the following abbreviations
+\begin{itemize}
+    \item $(\map~\tau~\Rightarrow~\sigma) := \tableT(\texttt{key})~\{ \texttt{key} : \tau, \texttt{value} : \sigma\}$
+    \item $\{ \overline{x : \tau} \} := \tableT(\cdot)~\{ \overline{x : \tau} \}$
+\end{itemize}
+
+\reed{TODO: Need type formation rules to make sure things like types that are used are declared and that the key variables are a subset of the fields of a table}
+
 \subsection{Statics}
 
 Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the best approximation by type quantity of $n$, i.e.,

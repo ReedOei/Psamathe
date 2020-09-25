@@ -6,15 +6,15 @@ module VARS
 
     syntax Vars ::= List{Var, ","}
 
+    // Some special variables
     syntax Var ::= "bool" | "uint" | "address" | "string" | "nat"
+    syntax Var ::= "this" | "msg" | "sender" | "key" | "value"
 endmodule
 
 module SOLIDITY-SYNTAX
     imports DOMAINS-SYNTAX
     imports VARS
 
-    // Some special variables
-    syntax Var ::= "this" | "msg" | "sender" | "value"
 
     syntax SolVar ::= SolType Var
     syntax SolArgs ::= List{SolVar, ","}
@@ -68,11 +68,11 @@ module PURE-FLOW-COMPILER-SYNTAX
     syntax Modifiers ::= List{Modifier, " "}
 
     syntax TypeQuant ::= "!" | "any" | "nonempty" | "empty" | "every"
-    syntax RecordType ::= "{" VarDefs "}"
     syntax BaseType ::= Var
                       | "list" Type
                       | "map" Type "=>" Type
-                      | RecordType
+                      | "{" VarDefs "}"
+                      | "table" "(" Vars ")" "{" VarDefs "}"
                       | "(" BaseType ")" [bracket]
     syntax Type ::= TypeQuant BaseType
 
@@ -101,6 +101,10 @@ module PURE-FLOW-COMPILER-SYNTAX
     syntax Decls ::= List{Decl, " "}
 
     syntax Program ::= Decls ";" Stmts
+
+    // Expand out these types as abbreviations for special kinds of tables.
+    rule (map T1 => T2) => table (key) { key : T1, value : T2 } [macro-rec]
+    rule { Fields } => table (.Vars) { Fields } [macro-rec]
 endmodule
 
 module PURE-FLOW-COMPILER
@@ -112,7 +116,7 @@ module PURE-FLOW-COMPILER
     syntax KResult ::= Var
 
     // Variables we'll need to do code generation
-    syntax Var ::= "success" | "keys" | "underlying_map" | "length" | "push" | "key"
+    syntax Var ::= "success" | "keys" | "underlying_map" | "length" | "push"
 
     configuration
         <T>

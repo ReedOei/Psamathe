@@ -130,6 +130,48 @@
 \maketitle
 
 \section{Introduction}
+\reed{Seems like we should emphasize two things: why is this language declarative, and why are our programs easier to verify than Solidity programs?}
+\reed{The other thing they seem to really care about is performance.}
+
+\reed{Basically, re-hash the SRC submission with a little more detail about how things work and why it's declarative and easy to verify.
+We should also discuss the role that locators play in all of this, as they did not exist before.}
+
+\reed{Should we put any effort into actually verifying things?}
+
+\reed{I would liek to have a full formla semantics for this, because then maybe we can translate to an SMT solver or something for a proof of concept at least.}
+
+\reed{TODO: Get rid of some of these section headings}
+
+\subsection{Background}
+
+\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation.
+Flows allow encoding semantic information about the flow of \assetTxt{}s into the code.
+The \langName language will also provide features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible.
+\emph{Locators} provide a concise way to update complicated structures while maintaining linearity.
+
+\subsection{Contributions}
+
+\section{Language}
+
+\subsection{Why delcarative}
+
+\subsection{Why easy to verify}
+
+\subsection{Why fast}
+
+\section{Examples}
+
+\subsection{ERC-20}
+
+\subsubsection{Why delcarative}
+\subsubsection{Why easy to verify}
+
+\subsection{Voting}
+\subsubsection{Why delcarative}
+\subsubsection{Why easy to verify}
+
+\section{Conclusion and Future Work}
+
 Blockchains are increasingly used as platforms for applications called \emph{smart contracts}~\cite{Szabo97:Formalizing}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
 Commonly proposed and implemented smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, \emph{token contracts}, voting, crowdfunding, auctions, and more~\cite{Elsden18:Making}.
 A \emph{token contract} is a contract implementing a \emph{token standard}, such as ERC-20~\cite{erc20}.
@@ -143,18 +185,13 @@ Smart contracts cannot be patched after being deployed, even if a security vulne
 Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
 \begin{figure}[!b]
     \centering
-    \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
+    \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
     \vspace{-1em}
     \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
         All preconditions are checked manually.
         Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
     \label{fig:erc20-transfer-sol}
 \end{figure}
-
-\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation.
-% which is useful in smart contracts managing digital \assetTxt{}s.
-Flows allow encoding semantic information about the flow of \assetTxt{}s into the code.
-The \langName language will also provide features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible.
 
 Solidity is the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, and does not provide analogous support for managing \assetTxt{}s.
 Additionally, typical smart contracts are more \textbf{concise} in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
@@ -176,7 +213,7 @@ Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a
 ERC-20 is a standard for token contracts managing \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 \begin{figure}[!b]
     \centering
-    \lstinputlisting[language=flow, xrightmargin=-1.0em]{splash20-examples/erc20-transfer.flow}
+    \lstinputlisting[language=flow, xrightmargin=-1.0em]{padl-21-examples/erc20-transfer.flow}
     \vspace{-1em}
     \caption{A \langName contract with a simple \lstinline{transfer} function, which transfers \lstinline{amount} tokens from the sender's account to the destination account.
 It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
@@ -217,51 +254,12 @@ If a sequence of flows fails, the error propagates, like an exception, until it 
 \section{Examples}
 \begin{figure}[!b]
     \centering
-    \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
+    \lstinputlisting[language=Solidity]{padl-21-examples/voting.sol}
     \vspace{-1em}
     \caption{A simple voting contract in Solidity.}
     \label{fig:voting-impl-sol}
 \end{figure}
 The complete Solidity and \langName code is in our repository~\cite{psamatheRepo}.
-% \begin{figure*}
-%     \centering
-%     \begin{subfigure}[t]{0.49\textwidth}
-%         \centering
-%         \lstinputlisting[language=Solidity]{splash20-examples/erc721.sol}
-%         \caption{A Solidity implementation of ERC-721's \lstinline{transferFrom}.}
-%         \label{fig:erc721-impl-sol}
-%     \end{subfigure}%
-%     \hfill
-%     \begin{subfigure}[t]{0.49\textwidth}
-%         \centering
-%         \lstinputlisting[language=flow]{splash20-examples/erc721.flow}
-%         \caption{\langName implementation of ERC-721's \lstinline{transferFrom}.}
-%         \label{fig:erc721-impl-flow}
-%     \end{subfigure}
-%     \caption{Implementation of ERC-721's \lstinline{transferFrom} function, which sends a specific token from the \lstinline{src} account to the \lstinline{dst} account.
-%         It also must clear the approval of the token, if any.}
-%     \label{fig:erc721-impl}
-% \end{figure*}
-% \begin{figure*}[ht]
-%     \centering
-%     \begin{subfigure}[t]{0.49\textwidth}
-%         \centering
-%         \lstinputlisting[language=Solidity]{splash20-examples/voting.sol}
-%         \caption{Solidity implementation of the core voting functions~\cite{solidityByExample}.}
-%         \label{fig:voting-impl-sol}
-%     \end{subfigure}%
-%     \hfill
-%     \begin{subfigure}[t]{0.49\textwidth}
-%         \centering
-%         \lstinputlisting[language=flow]{splash20-examples/voting.flow}
-%         \caption{\langName implementation of the core voting functions.}
-%         \label{fig:voting-impl-flow}
-%     \end{subfigure}
-%     \caption{A voting contract with a set of proposals, for which each user must first be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
-%     Each user can vote exactly once for exactly one proposal.
-%     The proposal with the most votes wins.}
-%     \label{fig:voting-impl}
-% \end{figure*}
 
 \subsection{ERC-20}\label{sec:erc20-impl}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
@@ -273,7 +271,7 @@ Psamathe automatically inserts code checking these two conditions, ensuring that
 \subsection{Voting}\label{sec:voting-impl}
 \begin{figure}[!b]
     \centering
-    \lstinputlisting[language=flow]{splash20-examples/voting.flow}
+    \lstinputlisting[language=flow]{padl-21-examples/voting.flow}
     \vspace{-1em}
     \caption{A simple voting contract in \langName.}
     \label{fig:voting-impl-flow}
