@@ -4,9 +4,9 @@
 
 // Note that this is only **kind of** a hashmap (the time complexities are wrong, because there's no nth operation to give constant time list lookup).
 
-transformer hash(k : ! nat) -> hashed : ! nat {
+transformer hash(k : ! nat) -> hash : ! nat {
     // could be something more creative, but for now
-    k --> hashed
+    k --> hash
 }
 
 transformer emptyMap(dummy : ! {})
@@ -19,9 +19,9 @@ transformer hasHash(k : ! nat,
     -> res : ! bool
 {
     try {
-        k --> hash() --> var hashed : ! nat
+        k --> hash() --> var hash : ! nat
         bucket.hash --> var bucketHash : ! nat
-        [ bucketHash ] --[ hashed ]-> var temp : ! nat
+        [ bucketHash ] --[ hash ]-> var temp : ! nat
         true --> res
     } catch {
         false --> res
@@ -54,10 +54,10 @@ transformer insert(args : ! { m : any list ! { hash : ! nat, vals : any list ! {
         [ bucket ] --> m
     } catch {
         // Otherwise we need to construct a new bucket holding just the newly inserted key-value pair.
-        copy(k) --> hash() --> var hashed : ! nat
+        copy(k) --> hash() --> var hash : ! nat
         { key : ! nat |-> k, value : ! nat |-> v } --> var newEntry : ! { key : ! nat, value : ! nat }
         [ newEntry ] --> var vals : any list ! { key : ! nat, value : ! nat }
-        { hash : ! nat |-> hashed, vals : any list ! { key : ! nat, value : ! nat } |-> vals } --> var newBucket : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat  } }
+        { hash : ! nat |-> hash, vals : any list ! { key : ! nat, value : ! nat } |-> vals } --> var newBucket : ! { hash : ! nat, vals : any list ! { key : ! nat, value : ! nat  } }
         [ newBucket ] --> m
     }
     m --> res
