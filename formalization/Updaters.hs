@@ -45,8 +45,7 @@ makeUpdater (Filter loc q) gamma f =
     let u = makeUpdater loc
     in u gamma $ if q == Empty then id
                  else if q == Every then f
-                 else
-                    \t -> joinTy t (f t) -- Because we can't be sure whether it will be selected or not
+                 else \t -> joinTy t (f t) -- Because we can't be sure whether it will be selected or not
 
 -- makeUpdater (Field (Var "m") "value") (withType ("m", (Any, Table ["key"] [("key", (One, Nat)), ("value", (One, Nat))])) allNat) (\(q, t) -> (Empty, t)) "m"
 -- == (Any,Table ["key"] [("key",(One,Nat)),("value",(Empty,Nat))])

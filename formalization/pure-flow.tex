@@ -102,13 +102,15 @@ Define
     \end{cases}
 \]
 
+Let $\id{u}$ be the identity updater, that is, $\id{u}(\Delta, f) = \Delta$ for all $\Delta$ and $f$.
+
 \begin{mathpar}
     \inferrule*[right=Bool]{
         b \in \{ \true, \false \}
-    }{ \Gamma \flowproves b : \,\,\exactlyone~\boolt; (\Delta, f) \mapsto \Delta }
+    }{ \Gamma \flowproves b : \,\,\exactlyone~\boolt; \id{u} }
 
     \inferrule*[right=Nat]{
-    }{ \Gamma \flowproves n : \#(n)~\natt; (\Delta, f) \mapsto \Delta }
+    }{ \Gamma \flowproves n : \#(n)~\natt; \id{u} }
 \end{mathpar}
 
 \reed{The idea is that both $\demote(\Loc)$ and $\copyC(\Loc)$ give a demoted value, but $\demote(\Loc)$ gives a read-only value (so no copy needs to happen), whereas copy will actually copy all the data.
@@ -121,7 +123,7 @@ The results below intentionally throw out the environment $\Delta$, because we d
 
     \inferrule*[right=Copy]{
         \Gamma \flowproves (\Loc : \tau) ; u
-    }{ \Gamma \flowproves (\copyC(\Loc) : \demoteT(\tau)) ; (\Delta, f) \mapsto \Delta }
+    }{ \Gamma \flowproves (\copyC(\Loc) : \demoteT(\tau)) ; \id{u} }
 \end{mathpar}
 
 \reed{TODO: Finish adding the various updater functions as done in the Haskell file}
@@ -151,32 +153,31 @@ where $\useField_{T,x}(f)$ is defined by:
 
 \begin{mathpar}
     \inferrule*[right=List]{
-        % \Gamma \flowproves \Loc_1 : \tau \flowprovesout \cdots \flowproves \Loc_n : \tau \flowprovesout \Delta
-        \Gamma = \Delta_0
-        \\
-        \forall 1 \leq i \leq n. \Delta_{i-1} \flowproves \Loc_i : \tau \flowprovesout \Delta_{i}
-    }{ \Gamma \flowproves [ \Loc_1, \ldots, \Loc_n ] : \#(n)~\listq~\tau \flowprovesout \Delta_n }
+        \Gamma \flowproves \overline{\Loc : \tau ; u}
+    }{ \Gamma \flowproves ([ \overline{\Loc} ] : \#(|\overline{\Loc}|)~\listq~\tau) ; (\Delta, f) \mapsto u_n(u_{n-1}(\cdots u_1(\Delta, f) \cdots, f), f)}
 
     \inferrule*[right=Record]{
         \Gamma \flowproves \overline{\Loc : \tau} \flowprovesout \Delta
     }{ \Gamma \flowproves \{ \overline{x : \tau \mapsto \Loc} \} : \,\,\exactlyone~\{ \overline{x : \tau} \} \flowprovesout \Delta }
 \end{mathpar}
 
+\reed{VarDef needs some way to get out of the definition so it can be used later? We could use the updater for this.}
+
 \begin{mathpar}
     \inferrule*[right=VarDef]{
-    }{ \Gamma \flowproves (\var~x : T) : \emptyq~T \flowprovesout \Gamma, x : \emptyq~T }
+    }{ \Gamma \flowproves ((\var~x : T) : \emptyq~T) ; (\Delta, f) \mapsto \Delta[x \mapsto f(\emptyq~T)] }
 
     \inferrule*[right=Consume]{
         \tau~\consumable
-    }{ \Gamma \flowproves \consume : \tau \flowprovesout \Gamma }
+    }{ \Gamma \flowproves \consume : \tau }
 \end{mathpar}
 
 \begin{mathpar}
     \inferrule*[right=Select]{
-        \Gamma \flowproves \Loc : \mathcal{Q}~T \flowprovesout \Delta
+        \Gamma \flowproves (\Loc : \mathcal{Q}~T) ; u
         \\
-        \Delta \flowproves \demote(\LocK) : \demoteT(\mathcal{R}~T) \flowprovesout \Delta
-    }{ \Gamma \flowproves \Loc[\LocK] : \mathcal{R}~T \flowprovesout \select(\Delta, \Loc, \mathcal{R}) }
+        \Gamma \flowproves (\demote(\LocK) : \demoteT(\mathcal{R}~T)) ; v
+    }{ \Gamma \flowproves (\Loc[\LocK] : \mathcal{R}~T) ; \select(\mathcal{R}, u) }
 
     % \inferrule*[right=Filter]{
     %     \Gamma \flowproves \Loc : \mathcal{Q}~T \flowprovesout \Delta
@@ -188,6 +189,16 @@ where $\useField_{T,x}(f)$ is defined by:
     %     \update(\Delta, \mathcal{S}, \Delta(\mathcal{S}) \ominus \mathcal{Q}) \flowproves \mathcal{D} : \mathcal{S}~T \flowprovesout \Xi
     % }{ \Gamma \flowproves \Loc[\mathcal{R}~\suchthat~f[\overline{T}](\overline{a})] : \mathcal{R}~T \flowprovesout \update(\Xi, \mathcal{D}, \Xi(\mathcal{D}) \oplus \min(\mathcal{Q}, \mathcal{R})) }
 \end{mathpar}
+
+where
+\[
+    \select(\mathcal{Q}, u)(\Delta, f) =
+    \begin{cases}
+        \Delta & \tif \mathcal{Q} = \emptyq \\
+        u(\Delta, f) & \tif \mathcal{Q} = \every \\
+        u(\Delta, \tau \mapsto \tau \sqcup f(\tau)) & \owise
+    \end{cases}
+\]
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \begin{mathpar}
