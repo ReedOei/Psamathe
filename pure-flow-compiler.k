@@ -20,7 +20,7 @@ module SOLIDITY-SYNTAX
     syntax SolArgs ::= List{SolVar, ","}
 
     syntax SolVarDef ::= SolVar ";"
-    syntax SolVarDefs ::= List{SolVarDef, " "}
+    syntax SolVarDefs ::= List{SolVarDef, ""}
 
     syntax Access ::= Var
                     | Expr "." Var
@@ -40,7 +40,7 @@ module SOLIDITY-SYNTAX
                      | Expr "=" Expr ";"
                      | "return" Var ";"
                      | "for" "(" SolStmt Expr ";" Expr ")" "{" SolStmts "}"
-    syntax SolStmts ::= List{SolStmt, " "} [klabel(stmts)]
+    syntax SolStmts ::= List{SolStmt, ""} [klabel(stmts)]
 
     syntax SolType ::= Var
                      | SolType "[]"
@@ -52,7 +52,7 @@ module SOLIDITY-SYNTAX
 
     syntax SolDecl ::= Struct | Function | Constructor | SolVarDef
 
-    syntax SolDecls ::= List{SolDecl, " "}
+    syntax SolDecls ::= List{SolDecl, ""}
     syntax Contract ::= "contract" Var "{" SolDecls "}"
 endmodule
 
@@ -65,7 +65,7 @@ module PURE-FLOW-COMPILER-SYNTAX
                       | "unique"
                       | "consumable"
                       | "asset"
-    syntax Modifiers ::= List{Modifier, " "}
+    syntax Modifiers ::= List{Modifier, ""}
 
     syntax TypeQuant ::= "!" | "any" | "nonempty" | "empty" | "every"
     syntax BaseType ::= Var
@@ -94,11 +94,11 @@ module PURE-FLOW-COMPILER-SYNTAX
     syntax Stmt ::= Locator "-->" Locator
                   | Locator "-->" Id "(" Vars ")" "-->" Locator
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
-    syntax Stmts ::= List{Stmt, " "} [klabel(stmts)]
+    syntax Stmts ::= List{Stmt, ""} [klabel(stmts)]
 
     syntax Decl ::= "type" Id "is" Modifiers BaseType
                   | "transformer" Id "(" VarDefs ")" "->" VarDef "{" Stmts "}"
-    syntax Decls ::= List{Decl, " "}
+    syntax Decls ::= List{Decl, ""}
 
     syntax Program ::= Decls ";" Stmts
 
@@ -220,6 +220,14 @@ module PURE-FLOW-COMPILER
     rule <k> flow(X:Var, Y:Var) => . ... </k>
         <typeEnv> ... (X |-> nat) (Y |-> nat) ... </typeEnv>
         <compiled> S => S @ (Y = Y + X;) @ (X = 0;) </compiled>
+
+    // TODO: Instead of the old approach, we should instead have a locateSource or something that evaluates to a list of things to send
+    // TODO: Then we can implement list literals without actually building a list, and similarly for all filters and everything
+    // TODO: So you build a block of code with filters and such into which we embed the transfer code
+    // so locateSource([ a, b][ any such that f(_)]) gives us something like
+    // for x in [a,b]:
+    //      if f(x):
+    //          ______ HERE IS A HOLE WHERE THE TRANSFER CODE GOES ______
 
     // =========================================
     // Flow list to map

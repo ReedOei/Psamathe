@@ -35,6 +35,7 @@
 \newcommand{\Trfm}{\textbf{\texttt{Trfm}}\xspace}
 \newcommand{\tableT}{\textbf{\texttt{table}}\xspace}
 \newcommand{\Env}{\textbf{Env}\xspace}
+\newcommand{\useField}{\text{useField}\xspace}
 
 \begin{document}
 
@@ -130,13 +131,23 @@ The results below intentionally throw out the environment $\Delta$, because we d
     }{ \Gamma, x : \mathcal{Q}~T \flowproves (x : \mathcal{Q}~T) ; ((\Delta, f) \mapsto \Delta[x \mapsto f(\Delta(x))])||_T }
 
     \inferrule*[right=Field]{
-        \Gamma \flowproves \Loc : \,\,\exactlyone~T \flowprovesout \Delta
+        \Gamma \flowproves (\Loc : \mathcal{Q}~\exactlyone~T) ; u
         \\
-        \fields(T) = \overline{z : \sigma}
-        \\
-        y : \tau \in \overline{z : \sigma}
-    }{ \Gamma \flowproves \Loc.y : \tau \flowprovesout \Gamma }
+        (x : \tau) \in \fields(T)
+    }{ \Gamma \flowproves (\Loc.x : \tau); ((\Delta, f) \mapsto u(\Delta, \useField_{T,x}(f)))||_{T} }
 \end{mathpar}
+
+where $\useField_{T,x}(f)$ is defined by:
+\reed{Can we simplify this a little?}
+\reed{Can/should define keys and fields functions so we can do more easily}
+\reed{How ot keep track that a value used to be of some named typed????}
+\[
+    \useField_{T,x}(f) =
+    \begin{cases}
+        \tableT(\overline{k})~\{ \overline{y : \tau}, x : f(\sigma), \overline{z : \pi} \} & \tif T = \tableT(\overline{k})~\{ \overline{y : \tau}, x : \sigma, \overline{z : \pi} \} \\
+        \tableT(\overline{k})~\{ \overline{y : \tau}, x : f(\sigma), \overline{z : \pi} \} & \tif \type~T~\is~\overline{M}~\tableT(\overline{k})~\{ \overline{y : \tau}, x : \sigma, \overline{z : \pi} \} \\
+    \end{cases}
+\]
 
 \begin{mathpar}
     \inferrule*[right=List]{

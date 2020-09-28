@@ -133,44 +133,12 @@
 \reed{Seems like we should emphasize two things: why is this language declarative, and why are our programs easier to verify than Solidity programs?}
 \reed{The other thing they seem to really care about is performance.}
 
-\reed{Basically, re-hash the SRC submission with a little more detail about how things work and why it's declarative and easy to verify.
+\reed{Basically, re-work the SRC submission with a little more detail about how things work and why it's declarative and easy to verify.
 We should also discuss the role that locators play in all of this, as they did not exist before.}
 
 \reed{Should we put any effort into actually verifying things?}
 
 \reed{I would liek to have a full formla semantics for this, because then maybe we can translate to an SMT solver or something for a proof of concept at least.}
-
-\reed{TODO: Get rid of some of these section headings}
-
-\subsection{Background}
-
-\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation.
-Flows allow encoding semantic information about the flow of \assetTxt{}s into the code.
-The \langName language will also provide features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible.
-\emph{Locators} provide a concise way to update complicated structures while maintaining linearity.
-
-\subsection{Contributions}
-
-\section{Language}
-
-\subsection{Why delcarative}
-
-\subsection{Why easy to verify}
-
-\subsection{Why fast}
-
-\section{Examples}
-
-\subsection{ERC-20}
-
-\subsubsection{Why delcarative}
-\subsubsection{Why easy to verify}
-
-\subsection{Voting}
-\subsubsection{Why delcarative}
-\subsubsection{Why easy to verify}
-
-\section{Conclusion and Future Work}
 
 Blockchains are increasingly used as platforms for applications called \emph{smart contracts}~\cite{Szabo97:Formalizing}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
 Commonly proposed and implemented smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, \emph{token contracts}, voting, crowdfunding, auctions, and more~\cite{Elsden18:Making}.
@@ -178,12 +146,8 @@ A \emph{token contract} is a contract implementing a \emph{token standard}, such
 Smart contracts often manage \emph{digital assets}, such as cryptocurrencies, or, depending on the application, bids in an auction, votes in an election, and so on.
 Token contracts are common on the Ethereum blockchain~\cite{wood2014ethereum}---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
 Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
-% Developers must carefully review contracts, and some use an independent auditing service to help with this process.
-% Despite this extra care, discoveries of vulnerabilities still occur regularly, often costing large amounts of money.
-% Vulnerabilities still occur regularly, often costing large amounts of money.
-% The well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars.
 Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
-\begin{figure}[!b]
+\begin{figure}
     \centering
     \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
     \vspace{-1em}
@@ -193,25 +157,46 @@ Some estimates suggest that as much as 46\% of smart contracts may have some vul
     \label{fig:erc20-transfer-sol}
 \end{figure}
 
+\langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation.
+Together with \emph{modifiers} and \emph{locators}, flows provide a concise and easily checkable way to write programs that safely manage \assetTxt{}s.
+
 Solidity is the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, and does not provide analogous support for managing \assetTxt{}s.
 Additionally, typical smart contracts are more \textbf{concise} in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
 
 Other many newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
 Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which provide the benefits of \emph{linear types}, but give a more precise analysis of the flow of values in a program.
-% Type quantities provide a more precise analysis of the behavior of a program than linear types.
-None of the these languages have flows or provide support for all the modifiers that \langName does.
+None of the these languages have flows, provide support for all the modifiers that \langName does, or have locators.
+In particular, the latter means that those languages using linear or affine types must go to additional effort to maintain linearity.
+
+\section{Language}
+
+\langName is built already flows, which are used to specify the flow of resources.
+For example, in Figure~\ref{fig:erc20-transfer-flow}, there is a single flow on line~\ref{line:erc20-flow-ex}.
+
+\reed{Why delcarative}
+\reed{Why easy to verify}
+\reed{Why fast}
+
+\section{Examples}
+
+\subsection{ERC-20}
+
+\reed{Why delcarative}
+\reed{Why easy to verify}
+
+\subsection{Voting}
+\reed{Why delcarative}
+\reed{Why easy to verify}
+
+\section{Conclusion and Future Work}
 
 \section{Language}\label{sec:lang}
 A \langName program is made of \emph{contracts}, each containing \emph{fields}, \emph{types}, and \emph{functions}.
 Each contract instance in \langName represents a contract on the blockchain, and the fields provide persistent storage.
-% Type declarations allow annotating values with modifiers, such as $\asset$.
-% We distinguish between three types of function: \emph{transactions}, \emph{views}, and \emph{transformers}.
-% Transactions and views are both \emph{methods}, which may access the fields of a contract; a transaction can read \textbf{and} write fields, whereas a view may only read fields.
-% A transformer is a \textbf{pure} function, which is not part of any contract: it may contain flows and other statements, and it may mutate \textbf{local} state, but it cannot mutate the state of any contract.
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core of ERC-20's \lstinline{transfer} function.
 ERC-20 is a standard for token contracts managing \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
-\begin{figure}[!b]
+\begin{figure}
     \centering
     \lstinputlisting[language=flow, xrightmargin=-1.0em]{padl-21-examples/erc20-transfer.flow}
     \vspace{-1em}
@@ -248,11 +233,13 @@ A \flowinline{unique} value only exists in at most one variable; it must be \flo
 ERC-721 tokens are \flowinline{unique} and \flowinline{immutable}.
 A \flowinline{consumable} value is an \flowinline{asset} that it may be appropriate to dispose of, done via the \flowinline{consume} construct, documenting that the disposal is intentional.
 
+\reed{TODO: Discuss locators}
+
 \langName has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
 If a sequence of flows fails, the error propagates, like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.
 
 \section{Examples}
-\begin{figure}[!b]
+\begin{figure}
     \centering
     \lstinputlisting[language=Solidity]{padl-21-examples/voting.sol}
     \vspace{-1em}
@@ -269,7 +256,7 @@ In this case, the sender's balance must be at least as large as \flowinline{amou
 Psamathe automatically inserts code checking these two conditions, ensuring that the checks are not forgotten.
 
 \subsection{Voting}\label{sec:voting-impl}
-\begin{figure}[!b]
+\begin{figure}
     \centering
     \lstinputlisting[language=flow]{padl-21-examples/voting.flow}
     \vspace{-1em}
@@ -285,6 +272,15 @@ This example shows \langName is suited for a range of applications.
 It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 % The Solidity implementation is also more verbose than the \langName implementation because it must work around the limitations of the mapping structure.
 % In this example, the \lstinline{weight} and \lstinline{voted} members of the \lstinline{Voter} struct exist so that the contract can tell whether a voter has the default values, was authorized to vote, or has already voted.
+
+\subsection{Blind Auction}\label{sec:blind-auction-impl}
+\begin{figure}
+    \centering
+    \lstinputlisting[language=flow]{padl-21-examples/blind-auction.flow}
+    \vspace{-1em}
+    \caption{\reed{TODO}}
+    \label{fig:blind-auction-impl-flow}
+\end{figure}
 
 \section{Conclusion and Future Work}
 
