@@ -26,7 +26,9 @@ transformer bid(this : BlindAuction, msg : Message, bid : bytes) {
 transformer reveal(this : BlindAuction, msg : Message, reveals : list Reveal) {
     only when biddingEnd <= now and now <= revealEnd
     zip(this.bids[msg.sender], reveals)
-        --[ any such that revealed(_) ]-> revealBid(this, _) --> placeBid(this, _)
+        --[ any such that revealed(_) ]
+        --> revealBid(this, _)
+        --> placeBid(this, _)
 }
 transformer revealed(arg : { fst : Bid, snd : Reveal }) -> res : bool {
     keccak256(arg.snd.value, arg.snd.fake, arg.snd.secret) --> var hashed : bytes
@@ -44,22 +46,19 @@ transformer revealBid(this : BlindAuction, arg : { fst : Bid, snd : Reveal }) ->
     try {
         only when not reveal.fake
         bid.deposit --[ reveal.value ]-> var value : ether
+        only when value >= this.highestBid
         [ { sender |-> fst.sender, value |-> value } ] --> toPlace
     } catch {
         // Don't place fake bid, just refund
     }
-
     // Refund the rest
     bid.deposit --> fst.sender.balance
 }
 transformer placeBid(this : BlindAuction, toPlace : { sender : address, value : ether }) {
-    only when toPlace.value >= this.highestBid
-
     try {
         only when highestBidder != 0x0
-        this.highestBid --> this.pendingReturns[msg.sender]
+        this.highestBid --> this.pendingReturns[highestBidder]
     } catch { }
-
     toPlace.sender --> highestBidder
     toPlace.value --> highestBid
 }
