@@ -201,12 +201,15 @@ where
 \]
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
+\reed{TODO: Not sure that the final update call is right in \textsc{Ok-Flow-Every}}
 \begin{mathpar}
     \inferrule*[right=Ok-Flow-Every]{
-        \Gamma \flowproves \Loc : \mathcal{Q}~T \flowprovesout \Delta
+        \Gamma \flowproves \Loc : \mathcal{Q}~T ; u
         \\
-        \update(\Delta, \Loc, \Delta(\Loc) \ominus \mathcal{Q}) \flowproves \LocK : \mathcal{R}~T \flowprovesout \Xi
-    }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout \update(\Xi, \LocK, \Xi(\LocK) \oplus \mathcal{Q}) }
+        \Delta = u(\Gamma, (\mathcal{Q}'~T') \mapsto \emptyq~T')
+        \\
+        \Delta \flowproves \LocK : \mathcal{R}~T ; v
+    }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout v(\Delta, \tau \mapsto \tau \oplus \mathcal{Q}) }
 
     \inferrule*[right=Ok-Flow-Transformer]{
         \Gamma \flowproves \Loc : \mathcal{Q}~T_1 \flowprovesout \Delta
