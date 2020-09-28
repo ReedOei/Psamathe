@@ -209,6 +209,10 @@ where
         \Delta = u(\Gamma, (\mathcal{Q}'~T') \mapsto \emptyq~T')
         \\
         \Delta \flowproves \LocK : \mathcal{R}~T ; v
+        \\
+        u \neq \bot
+        \\
+        v \neq \bot
     }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout v(\Delta, \tau \mapsto \tau \oplus \mathcal{Q}) }
 
     \inferrule*[right=Ok-Flow-Transformer]{
