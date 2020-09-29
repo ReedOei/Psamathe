@@ -130,8 +130,8 @@
 \maketitle
 
 \section{Introduction}
-\reed{Seems like we should emphasize two things: why is this language declarative, and why are our programs easier to verify than Solidity programs (are they)?}
-\reed{The other thing they seem to really care about is performance.}
+% \reed{Seems like we should emphasize two things: why is this language declarative, and why are our programs easier to verify than Solidity programs (are they)?}
+% \reed{The other thing they seem to really care about is performance.}
 
 \reed{Should we put any effort into actually verifying things?}
 
@@ -232,9 +232,9 @@ This example shows the advantages of flows in precondition checking, data-flow t
 In this case, the sender's balance must be at least as large as \flowinline{amount}, and the destination's balance must not overflow when it receives the tokens.
 Psamathe automatically inserts code checking these two conditions, ensuring that the checks are not forgotten.
 
-\reed{Why declarative}
-\reed{Why easy to verify}
-\reed{Why just as fast}
+% \reed{Why declarative}
+% \reed{Why easy to verify}
+% \reed{Why just as fast}
 
 \subsection{Voting}\label{sec:voting-impl}
 \begin{figure}
@@ -252,9 +252,9 @@ Each user can vote exactly once for exactly one proposal, and the proposal with 
 This example shows \langName is suited for a range of applications.
 It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 
-\reed{Why declarative}
-\reed{Why easy to verify}
-\reed{Why just as fast}
+% \reed{Why declarative}
+% \reed{Why easy to verify}
+% \reed{Why just as fast}
 
 \subsection{Blind Auction}\label{sec:blind-auction-impl}
 \begin{figure}
@@ -264,7 +264,7 @@ It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ e
     \caption{\reed{TODO}}
     \label{fig:blind-auction-impl-flow}
 \end{figure}
-\Fix{TODO: Describe}
+\Fix{TODO: Describe, simplify}
 
 \section{Conclusion and Future Work}
 
