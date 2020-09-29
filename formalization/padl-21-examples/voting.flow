@@ -5,11 +5,11 @@ type Election is asset {
     eligibleVoters : set Voter
     proposals : map ProposalName => set Voter
 }
-transaction giveRightToVote(this : Election, voter : address) {
+transformer giveRightToVote(this : Election, voter : address) {
     only when msg.sender = chairperson
     new Voter(voter) --> this.eligibleVoters
 }
-transaction vote(this : Election, proposal : string) {
+transformer vote(this : Election, proposal : string) {
     this.eligibleVoters --[ msg.sender ]-> this.proposals[proposal]
 }
 

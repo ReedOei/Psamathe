@@ -167,7 +167,6 @@ In particular, the latter means that programs in those languages using linear or
 \section{Language}\label{sec:lang}
 A \langName program is made of \emph{transformers} and \emph{types}.
 \reed{TODO: Need to rewrite some of this to work with the new simpler flow language.}
-% TODO: Put this back? Or do we not actually care so much about how things literally work on the blockchain? Each contract instance in \langName represents a contract on the blockchain, and the fields provide persistent storage.
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type and a transformer, which implements the core of ERC-20's \lstinline{transfer} function.
 ERC-20 is a standard for token contracts managing \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 \begin{figure}
@@ -185,7 +184,8 @@ It is implemented with a single flow, which automatically checks all the precond
 \reed{Why fast}
 Using the more declarative, \emph{flow-based} approach provides the following advantages:
 \begin{itemize}
-    \item \textbf{Invariant preservation}: Each flow in a program can do \reed{a lot} to help preserve invariants, when compared to an imperative approach.
+    \item \textbf{Invariant preservation}: Because of the design of the language, each flow is guaranteed to have certain safety properties, such as preserving the total amount of assets (except for when consumed or allocated).
+        to preserve the amount of resources can do \reed{a lot} to help preserve invariants, when compared to an imperative approach.
     \item \textbf{Precondition checking}: \langName automatically inserts dynamic checks of a flow's validity; e.g., a flow of money would fail if there is not enough in the source, or if there is too much in the destination (e.g., due to overflow).
     \item \textbf{Data-flow tracking}: We hypothesize that flows provide a clearer way of specifying how resources flow in the code itself, which may be less apparent using other approaches, especially in complicated contracts.
         Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
@@ -199,9 +199,9 @@ Cannot flow <amount> Token from account[<src>] to account[<dst>]:
         Flows enable such messages by encoding all the necessary information into the program.
 \end{itemize}
 
-Each variable, field, and function parameter has a \emph{type quantity}, approximating the number of values in the variable, which is one of: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
+Each variable and function parameter has a \emph{type quantity}, approximating the number of values in the variable, which is one of: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
 Type quantities are inferred if omitted.
-Only $\emptyq$ \assetTxt variables may be dropped.
+Only $\emptyq$ asset variables may be dropped.
 
 \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 An \flowinline{asset} is a value that must not be reused or accidentally lost.
@@ -213,6 +213,7 @@ ERC-721 tokens are \flowinline{unique} and \flowinline{immutable}.
 A \flowinline{consumable} value is an \flowinline{asset} that it may be appropriate to dispose of, done via the \flowinline{consume} construct, documenting that the disposal is intentional.
 
 \reed{TODO: Discuss locators}
+\emph{Locators} are expressions that allow accessing or modifying parts of complex structures while maintaining linearity.
 
 \langName has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
 If a sequence of flows fails, the error propagates, like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.

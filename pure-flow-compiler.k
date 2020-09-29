@@ -91,7 +91,7 @@ module PURE-FLOW-COMPILER-SYNTAX
                      | "var" Var ":" BaseType
                      | Locator "[" Locator "]"
                      | "(" Locator ")" [bracket]
-    syntax Locators ::= List{Locator, ","} [klabel(locators)]
+    syntax Locators ::= List{Locator, ","} [klabel(locators), strict]
                       | Vars
 
     syntax Stmt ::= Locator "-->" Locator
@@ -268,9 +268,38 @@ module PURE-FLOW-COMPILER
         </compiled>
         <freshCounter> I => I +Int 1 </freshCounter>
 
+    syntax Locators ::= locateEach(Locators, VarDefs) [function, functional]
+    rule locateEach(.Locators, .VarDefs) => .Locators
+    rule locateEach((L:Locator, Ls), (_ : _ T, Xs)) => locate(L, T), locateEach(Ls, Xs)
+
     syntax KItem ::= flowNew(Locator, Var, Locators, Locators) [strict(1,3,4)]
 
-    rule A --> new T(Args) --> B => flowNew(A, T, Args, B)
+    // TODO: This isn't quite right, because it won't handle a list correctly.
+    rule <k> A --> new T(Locs) --> B => flowNew(
+                                                A, /* locate(A, baseTypeOf(lastVDef(getConstructorArgs(BaseT)))), */
+                                                T,
+                                                locateEach(Locs, tailVDefs(getConstructorArgs(BaseT))),
+                                                B) ... </k>
+        <types> ... T |-> type T is _ BaseT ... </types>
+
+    syntax VarDef ::= lastVDef(VarDefs) [function, functional]
+    rule lastVDef(X : T) => X : T
+    rule lastVDef(_ : _, X : T, Rest) => lastVDef(X : T, Rest)
+
+    syntax BaseType ::= baseTypeOf(VarDef) [function, functional]
+    rule baseTypeOf(_ : _ T) => T
+
+    syntax VarDefs ::= tailVDefs(VarDefs) [function, functional]
+    rule tailVDefs(.VarDefs) => .VarDefs
+    rule tailVDefs(_ : _, Tail) => Tail
+
+    syntax VarDefs ::= getConstructorArgs(BaseType) [function, functional]
+    rule getConstructorArgs(nat) => !_:Id : any nat
+    rule getConstructorArgs(string) => !_:Id : ! string
+    rule getConstructorArgs(bool) => !_:Id : ! bool
+    rule getConstructorArgs(address) => !_:Id : ! address
+    rule getConstructorArgs(table(_) { Fields }) => Fields
+    // TODO: Finish getConstructoArgs
 
     /* rule <k> flowNew(X:Var, T, Args:Vars, Y:Var) */
 
