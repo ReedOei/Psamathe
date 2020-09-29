@@ -1,30 +1,34 @@
 <generatedTop>
+  <common>
+    <typeEnv>
+      .Map
+    </typeEnv>
+    <types>
+      .Map
+    </types>
+    <freshCounter>
+      7
+    </freshCounter>
+  </common>
   <k>
     .
   </k>
   <functions>
     .Map
   </functions>
-  <freshCounter>
-    9
-  </freshCounter>
   <lookup>
-    a |-> loc ( 0 )
-    b |-> loc ( 2 )
-    c |-> loc ( 4 )
-    d |-> loc ( 8 )
+    c |-> loc ( 0 )
+    d |-> loc ( 6 )
   </lookup>
   <storage>
-    loc ( 0 ) |-> resource ( bool , .List )
-    loc ( 1 ) |-> resource ( bool , .List )
+    loc ( 0 ) |-> resource ( table ( .Vars ) { l : ! bool , r : ! bool , .VarDefs } , ListItem ( l |-> loc ( 3 )
+    r |-> loc ( 5 ) ) )
+    loc ( 1 ) |-> resource ( table ( .Vars ) { l : ! bool , r : ! bool , .VarDefs } , .List )
     loc ( 2 ) |-> resource ( bool , .List )
     loc ( 3 ) |-> resource ( bool , .List )
-    loc ( 4 ) |-> resource ( { l : ! bool , r : ! bool , .VarDefs } , ListItem ( l |-> loc ( 6 )
-    r |-> loc ( 7 ) ) )
-    loc ( 5 ) |-> resource ( { l : ! bool , r : ! bool , .VarDefs } , .List )
+    loc ( 4 ) |-> resource ( bool , .List )
+    loc ( 5 ) |-> resource ( bool , ListItem ( false ) )
     loc ( 6 ) |-> resource ( bool , ListItem ( true ) )
-    loc ( 7 ) |-> resource ( bool , ListItem ( false ) )
-    loc ( 8 ) |-> resource ( bool , .List )
   </storage>
   <catchStack>
     .List

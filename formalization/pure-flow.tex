@@ -333,7 +333,7 @@ Locators.
         [] & \tif \overline{k} = [] \\
         \revert & \tif \overline{\ell} = [] \tand \overline{k} \neq [] \\
         j, \select(\rho, \overline{\ell} \setminus j, \overline{k'}) & \tif \overline{k} = (i, \overline{k'}) \tand j \in \overline{\ell} \tand \rho(i) = \rho(j) \\
-        \select(\rho, \overline{\ell}, \overline{k'}) & \tif \overline{k} = (i, \overline{k'}) \tand \forall j \in \overline{\ell}. \rho(i) \neq \rho(j) \\
+        \revert & \tif \overline{k} = (i, \overline{k'}) \tand \forall j \in \overline{\ell}. \rho(i) \neq \rho(j) \\
         % \select(\overline{\ell'}, \overline{k'})
     \end{cases}
 \]

@@ -1,15 +1,15 @@
 ;
 
-10 --> var n : ! nat
-4 --> var x : ! nat
+10 --> var n : nat
+4 --> var x : nat
 
-n --[ x ]-> var m : ! nat
+n[x] --> var m : nat
 1 --> x
-n --[ x ]-> var k : ! nat
+n[x] --> var k : nat
 
-[ m ] --> var nums : ! list ! nat
+[ m ] --> var nums : list ! nat
 [ k ] --> nums
 
-4 --> var sel : ! nat
-nums --[ sel ]-> var newNums : ! list ! nat
+4 --> var sel : nat
+nums[sel] --> var newNums : list ! nat
 

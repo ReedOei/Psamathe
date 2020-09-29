@@ -94,7 +94,31 @@ if [[ "$1" == "test" ]]; then
         echo -e "${GREEN}[INFO] $fname passed${NC}"
     fi
 else
-    set -x
-    "$KDISTR/krun" --directory "$directory" "${FLAGS[@]}" "$@"
+    if [[ "$1" == "log" ]]; then
+        shift
+        depth=1
+        prev_output=""
+
+        set +e
+        pkill -f "kserver"
+        set -e
+        "$KDISTR/kserver" &> /dev/null &
+
+        while true; do
+            set -x
+            output="$("$KDISTR/krun" --directory "$directory" --depth "$depth" "${FLAGS[@]}" "$@")"
+            set +x
+            if [[ "$output" == "$prev_output" ]]; then
+                break
+            else
+                prev_output="$output"
+            fi
+            depth=$((depth + 1))
+        done
+        pkfill -f "kserver"
+    else
+        set -x
+        "$KDISTR/krun" --directory "$directory" "${FLAGS[@]}" "$@"
+    fi
 fi
 

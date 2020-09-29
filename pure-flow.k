@@ -1,100 +1,39 @@
-// The syntax module containing the "core" flow language.
+requires "pure-flow-common.k"
+
 module PURE-FLOW-SYNTAX
     imports DOMAINS-SYNTAX
-
-    syntax Var ::= Id
-                 | Var "." Id
-                 | var(Int) // For generated Vars
-    syntax Vars ::= List{Var, ","}
-
-    syntax Modifier ::= "fungible"
-                      | "immutable"
-                      | "unique"
-                      | "consumable"
-                      | "asset"
-    syntax Modifiers ::= List{Modifier, " "}
-
-    syntax TypeQuant ::= "!" | "any" | "nonempty" | "empty" | "every"
-    syntax RecordType ::= "{" VarDefs "}"
-    syntax BaseType ::= "bool"
-                      | "nat"
-                      | "type" Var "is" Modifiers BaseType
-                      | "list" Type
-                      | RecordType
-                      | "(" BaseType ")" [bracket]
-    syntax Type ::= TypeQuant BaseType
-
-    syntax VarDef ::= Var ":" Type
-    syntax VarDefs ::= List{VarDef, ","}
-
-    syntax RecordMember ::= Var ":" Type "|->" Var
-    syntax RecordMembers ::= List{RecordMember, ","}
-
-    syntax Expr ::= Bool | Int | Var | "[" Var "]"
-                  | "{" RecordMembers "}"
-                  | "(" Expr ")"        [bracket]
-
-    syntax StorageVal ::= new(Var, Modifiers, BaseType) | "consume"
-    syntax Storage ::= StorageVal | Expr | "copy" "(" Var ")" | "total" "(" Var ")" | "var" VarDef
-    syntax Selector ::= TypeQuant "such" "that" Id "(" Vars ")"
-
-    syntax Stmt ::= "skip"
-                  | Storage "-->" Storage
-                  | Storage "--[" Var "]->" Storage
-                  | Storage "--[" Selector "]->" Storage
-                  | Storage "-->" Id "(" Vars ")" "-->" Storage
-                  | "try" "{" Stmts "}" "catch" "{" Stmts "}"
-    syntax Stmts ::= List{Stmt, ""}
-
-    syntax Decl ::= "transformer" Id "(" VarDefs ")" "->" VarDef "{" Stmts "}"
-    syntax Decls ::= List{Decl, ""}
-
-    syntax Program ::= Decls ";" Stmts
+    imports PURE-FLOW-COMMON-SYNTAX
 endmodule
 
 module PURE-FLOW
-    imports PURE-FLOW-SYNTAX
     imports DOMAINS
     imports COLLECTIONS
 
-    syntax KResult
+    imports PURE-FLOW-SYNTAX
+    imports PURE-FLOW-COMMON
 
     configuration
+        <common />
         <k> $PGM:Program </k>
         <functions> .Map </functions>
-        /* <log stream="stdout"> .List </log> */
-        <freshCounter> 0 </freshCounter>
         <lookup> .Map </lookup>
         <storage> .Map </storage>
         <catchStack> .List </catchStack>
 
-    syntax Type ::= demote(Type) [function, functional]
-    rule demote(Q:TypeQuant T) => Q demote(T)
-
-    syntax BaseType ::= demote(BaseType) [function, functional]
-    // TODO: Write the rest of these rules
-    rule demote(bool) => bool
-    rule demote(nat) => nat
-    rule demote(type _ is _ BaseT) => demote(BaseT)
-    rule demote(list T) => list demote(T)
-    rule demote({ Members }) => { demoteEach(Members) }
-
-    syntax VarDefs ::= demoteEach(VarDefs) [function, functional]
-    rule demoteEach(.VarDefs) => .VarDefs
-    rule demoteEach(X : T, Defs) => X : demote(T), demoteEach(Defs)
+    syntax Type ::= demoteType(Type) [function, functional]
+    rule demoteType(Q:TypeQuant T) => Q demoteBaseType(T)
 
     syntax StorageLoc ::= loc(Int)
-    syntax StorageVal ::= StorageLoc
-    syntax Resource ::= resource(BaseType, List) | "error"
-    syntax Storage ::= Resource
-    syntax KResult ::= StorageVal
+    syntax Resource ::= "error"
+                      | resource(BaseType, List)
+
+    // A location(L, V) is a pair of a storage location, where L place that the value V is stored.
+    syntax Location ::= location(StorageLoc, Resource)
+    syntax Locator ::= List // So that we can use a list of Locations as the result value of a locator.
+    syntax KResult ::= List // A list of Locations
 
     syntax List ::= valueOf(Resource) [function]
     rule valueOf(resource(_, V)) => V
-
-    syntax Set ::= modifiersToSet(Modifiers) [function, functional]
-    rule modifiersToSet(.Modifiers) => .Set
-    rule modifiersToSet(M:Modifier Ms) => SetItem(M) modifiersToSet(Ms)
 
     // =================================
     // Sequence
@@ -103,20 +42,15 @@ module PURE-FLOW
     rule S1:Stmt Rest:Stmts => S1 ~> Rest [structural]
 
     // =================================
-    // Skip
-    // =================================
-    rule skip => . [structural]
-
-    // =================================
     // Declarations
     // =================================
     syntax KItem ::= transformer(VarDef, VarDefs, Stmts)
 
-    rule .Decls ; S => S [structural]
-
     rule <k> (transformer F(FormalArgs) -> Ret { Body }) Decls ; S => Decls ; S </k>
         <functions> ... .Map => F |-> transformer(Ret, FormalArgs, Body) ... </functions>
         [structural]
+
+    rule .Decls ; S => S [structural]
 
     // =================================
     // Environment Helpers
@@ -136,74 +70,6 @@ module PURE-FLOW
 
     rule <k> dropLoc(Loc) => . ... </k>
         <storage> ... Loc |-> _ => .Map ... </storage>
-
-    // =================================
-    // Resolve
-    // =================================
-    syntax StorageVal ::= resolveStorage(Storage)
-
-    rule resolveStorage(B:Bool) => resolveStorage(resource(bool, ListItem(B)))
-    rule resolveStorage(I:Int) => resolveStorage(resource(nat, ListItem(I)))
-        requires I >=Int 0 // Limitation of K---there's no built-in Nat type.
-    rule <k> resolveStorage([ X ]) => resolveStorage(loc(I)) ... </k>
-        <lookup> ... X |-> Loc ... </lookup>
-        <storage>
-            ...
-            (Loc |-> resource(R, Vs))
-            =>
-            (Loc |-> resource(R, .List))
-            (loc(I) |-> resource(list ! R, ListItem(Vs)))
-            ...
-        </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
-    rule <k> resolveStorage(resource(R, V)) => resolveStorage(loc(I)) ... </k>
-        <storage> ... .Map => loc(I) |-> resource(R, V) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
-    rule resolveStorage(consume) => resolveStorage(consume)
-    rule <k> resolveStorage(X) => resolveStorage(Loc) ... </k>
-        <lookup> ... X |-> Loc ... </lookup>
-    rule <k> resolveStorage(var X : _:TypeQuant T) => resolveStorage(loc(I)) ... </k>
-        <lookup> ... .Map => X |-> loc(I) ... </lookup>
-        <storage> ... .Map => loc(I) |-> resource(T, .List) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
-    rule <k> resolveStorage(X . Y) => resolveStorage(loc(I)) ... </k>
-        <lookup> ... X |-> Loc ... </lookup>
-        <storage> ... Loc |-> resource(_, ListItem((Y |-> loc(I)) _)) ... </storage>
-    rule <k> resolveStorage(total(X)) => resolveStorage(loc(I)) ... </k>
-        <lookup> ... X |-> XLoc ... </lookup>
-        <storage> ... (XLoc |-> resource(_, Vals)) (.Map => loc(I) |-> resource(nat, ListItem(size(Vals)))) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
-    rule <k> resolveStorage(copy(X)) => resolveStorage(loc(I)) ... </k>
-        <lookup> ... X |-> XLoc ... </lookup>
-        <storage> ... (XLoc |-> R) (.Map => loc(I) |-> demoteVal(R)) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
-    rule <k> resolveStorage({ Members }) => initRecord(loc(I), Members) ~> resolveStorage(loc(I)) ... </k>
-        <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
-
-    syntax VarDefs ::= membersToDefs(RecordMembers) [function, functional]
-    rule membersToDefs(.RecordMembers) => .VarDefs
-    rule membersToDefs((X : T |-> _), Rest) => (X : T), membersToDefs(Rest)
-
-    syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
-    rule initRecord(_, .RecordMembers) => .
-    rule <k> initRecord(Loc, (X : _ T |-> Y, Rest)) => initRecord(Loc, Rest) ... </k>
-        <lookup> ... Y |-> InitLoc ... </lookup>
-        <storage>
-            ...
-            (Loc |-> resource(R, ListItem(Fields)))
-            (InitLoc |-> resource(T, V))
-            =>
-            (Loc |-> resource(R, ListItem(Fields (X |-> loc(I)))))
-            (InitLoc |-> resource(T, .List))
-            (loc(I) |-> resource(T, V))
-            ...
-        </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
-
-    // All types are always stored as their demoted value, so we simply need to demote the type.
-    syntax Resource ::= demoteVal(Resource) [function, functional]
-    rule demoteVal(resource(R, V)) => resource(demote(R), V)
 
     // =================================
     // Try-Catch:
@@ -229,15 +95,15 @@ module PURE-FLOW
     // ==================================
     // Put:
     // ==================================
-    syntax Stmt ::= put(Resource, StorageVal)
+    /* syntax Stmt ::= put(Resource, StorageVal) */
 
-    rule put(_, consume) => .
-    rule <k> put(resource(R, Vs), Loc) => . ... </k>
-        <storage> ... Loc |-> (resource(R, Ws) => combine(resource(R, Ws), resource(R, Vs))) ... </storage>
-        requires combine(resource(R, Ws), resource(R, Vs)) =/=K error
-    rule <k> put(resource(R, Vs), Loc) => revert ... </k>
-        <storage> ... Loc |-> resource(R, Ws) ... </storage>
-        requires combine(resource(R, Ws), resource(R, Vs)) ==K error
+    /* rule put(_, consume) => . */
+    /* rule <k> put(resource(R, Vs), Loc) => . ... </k> */
+    /*     <storage> ... Loc |-> (resource(R, Ws) => combine(resource(R, Ws), resource(R, Vs))) ... </storage> */
+    /*     requires combine(resource(R, Ws), resource(R, Vs)) =/=K error */
+    /* rule <k> put(resource(R, Vs), Loc) => revert ... </k> */
+    /*     <storage> ... Loc |-> resource(R, Ws) ... </storage> */
+    /*     requires combine(resource(R, Ws), resource(R, Vs)) ==K error */
 
     // =================================
     // combine(R1, R2):
@@ -249,7 +115,7 @@ module PURE-FLOW
 
     rule combine(resource(bool, ListItem(A)), resource(bool, ListItem(B))) => resource(bool, ListItem(A orBool B))
     rule combine(resource(bool, .List), resource(bool, B)) => resource(bool, B)
-    rule combine(resource(bool, A), resource(nat, .List)) => resource(bool, A)
+    rule combine(resource(bool, A), resource(bool, .List)) => resource(bool, A)
 
     rule combine(resource(nat, ListItem(A)), resource(nat, ListItem(B))) => resource(nat, ListItem(A +Int B))
     rule combine(resource(nat, .List), resource(nat, B)) => resource(nat, B)
@@ -257,20 +123,10 @@ module PURE-FLOW
 
     rule combine(resource(list R, Ws), resource(list R, Vs)) => resource(list R, Ws Vs)
 
-    rule combine(resource({ Members }, .List), resource({ Members }, .List)) => resource({ Members }, .List)
-    rule combine(resource({ Members }, .List), resource({ Members }, ListItem(FieldLocs))) => resource({ Members }, ListItem(FieldLocs))
+    rule combine(resource({ Members }, .List), resource({ Members }, FieldLocs)) => resource({ Members }, FieldLocs)
+    rule combine(resource({ Members }, FieldLocs), resource({ Members }, .List)) => resource({ Members }, FieldLocs)
     // Can't have combine two records because that would lead to overwriting one of them.
     rule combine(resource({ Members }, ListItem(_)), resource({ Members }, ListItem(_))) => error
-
-    rule combine(resource(type T is Ms BaseT, A), resource(type T is Ms BaseT, B)) => resource(type T is Ms BaseT, valueOf(combine(resource(BaseT, A), resource(BaseT, B))))
-        requires fungible in modifiersToSet(Ms)
-
-    rule combine(resource(type T is Ms BaseT, .List), resource(type T is Ms BaseT, B)) => resource(type T is Ms BaseT, B)
-        requires notBool(fungible in modifiersToSet(Ms))
-    rule combine(resource(type T is Ms BaseT, A), resource(type T is Ms BaseT, .List)) => resource(type T is Ms BaseT, A)
-        requires notBool(fungible in modifiersToSet(Ms))
-    rule combine(resource(type T is Ms BaseT, ListItem(_) _), resource(type T is Ms BaseT, ListItem(_) _)) => error
-        requires notBool(fungible in modifiersToSet(Ms))
 
     syntax Bool ::= Resource "contained_in" Resource [function]
     // A <= B iff exists C such that A + C = B
@@ -284,7 +140,7 @@ module PURE-FLOW
     rule resource(_, ListItem(_) _) contained_in resource(_, .List) => false
     rule resource(list T, ListItem(A) Rest) contained_in resource(list S, B)
          =>
-         (A in B) andBool (resource(list T, Rest) contained_in resource(list S, remove(B, ListItem(A))))
+         (A in B) andBool (resource(list T, Rest) contained_in resource(list S, remove(ListItem(A), B)))
 
     // =================================
     // subtract:
@@ -298,162 +154,255 @@ module PURE-FLOW
     rule subtract(resource(R, V), resource(_, V)) => resource(R, .List)
 
     rule subtract(resource(nat, ListItem(A)), resource(nat, ListItem(B))) => resource(nat, ListItem(A -Int B))
-        requires A >=Int B
 
-    // NOTE: Boolean "subtraction" is kind of weird, but this definition is compatible with how the definition of "contained_in" above.
-    rule subtract(resource(bool, ListItem(_)), resource(bool, ListItem(B))) => resource(bool, ListItem(B))
-
-    rule subtract(resource(list R, A), resource(S, ListItem(B) Rest)) => subtract(resource(list R, remove(A, ListItem(B))), resource(S, Rest))
+    rule subtract(resource(list R, A), resource(S, ListItem(B) Rest)) => subtract(resource(list R, remove(ListItem(B), A)), resource(S, Rest))
 
     // =================================
-    // Flows:
+    // Updaters:
     // =================================
-    // Flow Everything
-    context (HOLE => resolveStorage(HOLE)) --> _
-    context _ --> (HOLE => resolveStorage(HOLE))
+    /* syntax Updater ::= "id" */
+    /*                  | updateVar(Var) */
+    /*                  | listUpdater(List) */
+    /*                  | updateField(Updater, Var) */
+    /* syntax QuantFunc ::= "id" */
+    /*                    | toQuant(TypeQuant) */
+    /* syntax Map ::= runUpdater(Updater, QuantFunc, Map) [function, functional] */
 
-    rule <k> Loc --> D => put(resource(R, Vs), D) ... </k>
-        <storage> ... Loc |-> resource(R, Vs) => Loc |-> resource(R, .List) ... </storage>
+    /* rule runUpdater(id, _, M) => M */
 
-    // Flow Filter
-    context (HOLE => resolveStorage(HOLE)) --[ _:Selector ]-> _
-    context _ --[ _:Selector ]-> (HOLE => resolveStorage(HOLE))
+    /* rule runUpdater(updateVar(X), F, (X |-> R T) M) => (X |-> applyQuantFunc(F, R) T) M */
 
-    rule <k> SourceLoc:StorageLoc --[ Sel ]-> Dest:StorageVal
-             =>
-             filter(Sel, resource(R, Vs), resource(R, .List), resource(R, .List), SourceLoc, Dest)
-             ...
-         </k>
-        <storage> ... SourceLoc |-> resource(R, Vs => .List) ... </storage>
+    /* rule runUpdater(listUpdater(.List), _, M) => M */
+    /* rule runUpdater(listUpdater(ListItem(U) Rest), F, M) => runUpdater(listUpdater(Rest), F, runUpdater(U, F, M)) */
 
-    // Flow Var
-    context (HOLE => resolveStorage(HOLE)) --[ _:Var ]-> _
-    context _ --[ _:Var ]-> (HOLE => resolveStorage(HOLE))
+    /* rule runUpdater(updateField(U, X), F, M) => runUpdater( */
 
-    rule <k> Loc --[ X:Var ]-> D => put(resource(R, Ws), D) ... </k>
-        <lookup> ... X |-> XLoc ... </lookup>
-        <storage> ... (Loc |-> (resource(R, Vs) => subtract(resource(R, Vs), resource(S, Ws)))) (XLoc |-> resource(S, Ws)) ... </storage>
-        requires resource(R, Ws) contained_in resource(R, Vs)
+    /* syntax TypeQuant ::= applyQuantFunc(TypeQuant, TypeQuant) [function, functional] */
 
-    rule <k> Loc --[ X:Var ]-> _ => revert ... </k>
-        <lookup> ... X |-> XLoc ... </lookup>
-        <storage> ... (Loc |-> resource(R, Vs)) (XLoc |-> resource(_, Ws)) ... </storage>
-        requires notBool(resource(R, Ws) contained_in resource(R, Vs))
+    // =================================
+    // Locate:
+    // =================================
+    context (HOLE[_]):Locator
+    context (_[HOLE]):Locator
+    context HOLE[_ such that _(_)]
 
-    // Flow Transformer
-    context (HOLE => resolveStorage(HOLE)) --> _(_:Vars) --> _
-    context _ --> _(_:Vars) --> (HOLE => resolveStorage(HOLE))
+    rule <k> N:Int => ListItem(location(loc(I), resource(nat, ListItem(N)))) ... </k>
+        <storage> ... .Map => loc(I) |-> resource(nat, ListItem(N)) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+        requires N >=Int 0
 
-    // NOTE: It is important D be a StorageVal, so that we are sure we have allocated it, if necessary.
-    rule <k> Loc --> _(_:Vars) --> _:StorageVal => . ... </k>
-        <storage> ... Loc |-> resource(_, .List) ... </storage>
+    rule <k> B:Bool => ListItem(location(loc(I), resource(bool, ListItem(B)))) ... </k>
+        <storage> ... .Map => loc(I) |-> resource(bool, ListItem(B)) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
 
-    rule <k> Loc --> F(Xs) --> D => transform(F(addArg(Xs, var(I))), D) ~> Loc --> F(Xs) --> D ... </k>
-        <lookup> ... .Map => var(I) |-> loc(I) ... </lookup>
+    rule <k> var X : T => ListItem(location(loc(I), resource(T, .List))) ... </k>
+        <lookup> ... .Map => X |-> loc(I) ... </lookup>
+        <storage> ... .Map => loc(I) |-> resource(T, .List) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+
+    context (HOLE._):Locator
+    rule (Ls:List).X => getFields(Ls, X, .List)
+
+    syntax Locator ::= getFields(List, Var, List)
+    rule getFields(.List, _, Ls) => Ls
+    rule <k> getFields(ListItem(location(_, resource(_, ListItem((X |-> loc(I)) _)))) Rest, X, Ls)
+             => getFields(Rest, X, Ls ListItem(location(loc(I), R))) ... </k>
+        <storage> ... loc(I) |-> R ... </storage>
+
+    syntax List ::= makeLocations(StorageLoc, BaseType, List) [function, functional]
+    rule makeLocations(L, T, .List) => ListItem(location(L, resource(T, .List)))
+    rule makeLocations(L, T, ListItem(V)) => ListItem(location(L, resource(T, ListItem(V))))
+    rule makeLocations(L, T, ListItem(V) ListItem(W) Rest) => ListItem(location(L, resource(T, ListItem(V)))) makeLocations(L, T, ListItem(W) Rest)
+
+    rule <k> X => makeLocations(loc(I), T, Vs) ... </k>
+        <lookup> ... X |-> loc(I) ... </lookup>
+        <storage> ... loc(I) |-> resource(T, Vs) ... </storage>
+
+    rule [ Locs ] => locatorList(Locs, .List)
+
+    syntax Locator ::= locatorList(Locators, List)
+    context locatorList((HOLE:Locator, _), _)
+
+    rule locatorList(.Locators, Ks) => Ks
+    rule locatorList((ListItem(location(L, R)), Rest), Ks) => locatorList(Rest, Ks ListItem(location(L, R)))
+
+    // Select list.
+    // TODO: Need to make sure that we're expanding everywhere correctly.
+    rule Ls:List[Ks:List] => selectLocations(Ls, Ks)
+
+    syntax List ::= selectLocation(List, Resource) [function, functional]
+    rule selectLocation(.List, _) => .List
+    rule selectLocation(ListItem(location(L, R)) _, R) => ListItem(location(L, R))
+    rule selectLocation(ListItem(location(_, R1)) Rest, R2) => selectLocation(Rest, R2)
+        requires R1 =/=K R2
+
+    syntax List ::= selectLocations(List, List) [function, functional]
+    rule selectLocations(_, .List) => .List
+    rule selectLocations(.List, ListItem(_) _) => ListItem(error)
+    rule selectLocations(Ls, ListItem(location(_, R)) Rest) =>
+            #fun(Loc:List => Loc selectLocations(removeList(Loc, Ls), Rest) )(selectLocation(Ls, R))
+        requires selectLocation(Ls, R) =/=K .List // This means that we didn't find one of the values we wanted to select in the source---an error.
+
+    syntax Locator ::= locateFilter(List, TypeQuant, Var, Locators, List)
+
+    rule Ls:List[Q such that F(Args)] => locateFilter(Ls, Q, F, Args, .List)
+
+    rule locateFilter(.List, empty, _, _, Ls) => #if size(Ls) ==Int 0 #then .List #else revert #fi
+    rule locateFilter(.List, !, _, _, Ls) => #if size(Ls) ==Int 1 #then Ls #else revert #fi
+    rule locateFilter(.List, nonempty, _, _, Ls) => #if size(Ls) >=Int 1 #then Ls #else revert #fi
+    rule locateFilter(.List, any, _, _, Ls) => Ls
+
+    rule locateFilter(ListItem(L) Rest, Q, F, Args, Ls)
+         => execute(F, appendLoc(Args, ListItem(L))) ~> check(L) ~> locateFilter(Rest, Q, F, Args, Ls)
+
+    syntax Stmt ::= check(Location)
+                  | execute(Var, Locators)
+
+    rule <k> Loc ~> check(L) ~> locateFilter(Ls, Q, F, Args, Ks)
+             => locateFilter(Ls, Q, F, Args, Ks ListItem(L)) ... </k>
+        <storage> ... Loc |-> resource(bool, ListItem(true)) ... </storage>
+    rule <k> Loc ~> check(_) ~> locateFilter(Ls, Q, F, Args, Ks)
+             => locateFilter(Ls, Q, F, Args, Ks) ... </k>
+        <storage> ... Loc |-> resource(bool, ListItem(false)) ... </storage>
+        requires Q =/=K every // If Q is every, the check **must** succeed for every element.
+
+    rule <k> { Members } => initRecord(loc(I), Members) ... </k>
+        <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+    syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
+    rule <k> initRecord(loc(I), .RecordMembers) => ListItem(location(loc(I), resource(T, FieldLocs))) ... </k>
+        <storage> ... loc(I) |-> resource(T, FieldLocs) ... </storage>
+
+    context initRecord(_, _ : _ |-> HOLE , _ )
+    rule <k> initRecord(Loc, (X : _ T |-> ListItem(location(InitLoc, _)), Rest)) => initRecord(Loc, Rest) ... </k>
         <storage>
             ...
-            (Loc |-> resource(R, ListItem(A) Rest))
+            (Loc |-> resource(R, ListItem(Fields)))
+            (InitLoc |-> resource(T, V))
             =>
-            (Loc |-> resource(R, Rest))
-            (loc(I) |-> resource(elemtype(R), elem(ListItem(A))))
+            (Loc |-> resource(R, ListItem(Fields (X |-> loc(I)))))
+            (InitLoc |-> resource(T, .List))
+            (loc(I) |-> resource(T, V))
             ...
         </storage>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    syntax Stmt ::= transform(FunctionCallResult, StorageVal)
-    context transform(HOLE, _)
+    // All types are always stored as their demoted value, so we simply need to demote the type.
+    syntax Resource ::= demoteVal(Resource) [function, functional]
+    rule demoteVal(resource(R, V)) => resource(demoteBaseType(R), V)
 
-    rule <k> transform(loc(I), Dest) => put(resource(R, V), Dest) ... </k>
-        <storage> ... loc(I) |-> resource(R, V) => .Map ... </storage>
+    // =================================
+    // Flows:
+    // =================================
+    syntax Stmt ::= useResource(Location)
 
-    // ==================================
-    // Filter
-    // ==================================
-    syntax BaseType ::= elemtype(BaseType) [function, functional]
-    rule elemtype(list _:TypeQuant T) => T
-    rule elemtype(T) => T [owise]
+    rule <k> useResource(location(L, R)) => . ... </k>
+        <storage> ... L |-> (LR => subtract(LR, R)) ... </storage>
+    /* // TODO: Is this right? */
+    /* rule <k> useResource(location(L, resource(_, ListItem(loc(K))))) => . ... </k> */
+    /*     <storage> */
+    /*         ... */
+    /*         L |-> resource(_, ListItem((_ |-> K) _)) */
+    /*         K |-> resource(_, _ => .List) */
+    /*         ... */
+    /*     </storage> */
 
-    syntax List ::= elem(List) [function, functional]
-    rule elem(ListItem(L:List)) => L
-    rule elem(L) => L [owise]
+    // TODO: Make seqstrict?
+    context HOLE --> _
+    context _ --> HOLE
 
-    syntax Resource ::= singleton(BaseType, KItem) [function, functional]
-    rule singleton(list R, V) => resource(list R, ListItem(V))
-    rule singleton(R, V) => resource(R, V) [owise]
-
-    syntax Resource ::= filter(Selector, Resource, Resource, Resource, StorageVal, StorageVal)
-    syntax FunctionCallResult ::= Id "(" Vars ")" | StorageLoc
-    syntax Stmt ::= check(FunctionCallResult, KItem)
-    rule filter(! such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
-        requires size(DVals) =/=Int 1
-    rule filter(nonempty such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
-        requires size(DVals) ==Int 0
-    rule filter(empty such that _(_), resource(_, .List), _, resource(_, DVals), _, _) => revert
-        requires size(DVals) =/=Int 0
-    // There should be nothing left in the source
-    rule filter(every such that _(_), resource(_, .List), resource(_, ListItem(_) _), _, _, _) => revert
-    rule filter(_, resource(_, .List), SRes, DRes, Src, Dst) => put(SRes, Src) ~> put(DRes, Dst) [owise]
-
-    // ---------------------------------------------------------
-    // TODO: NEED TO COPY/DEMOTE ALL THE OTHER ARGUMENTS!!!
-    // ---------------------------------------------------------
-    rule <k> filter(Q such that F(Vs), resource(R, ListItem(A) Rest), SRes, DRes, Src, Dst)
+    rule .List --> ListItem(_) => . [structural]
+    rule <k> (ListItem(location(P, RP)) Rest) --> ListItem(location(K, V))
              =>
-             check(F(addArg(Vs, var(I))), elem(ListItem(A))) ~>
-             filter(Q such that F(Vs), resource(R, Rest), SRes, DRes, Src, Dst)
-             ...
-         </k>
-        <lookup> ... .Map => var(I) |-> loc(I) ... </lookup>
-        <storage> ... .Map => loc(I) |-> resource(elemtype(R), elem(ListItem(A))) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
-        requires Q =/=K every
+             useResource(location(P, RP)) ~> Rest --> ListItem(location(K, V)) ... </k>
+        <storage> ... K |-> (RK => combine(RP, RK)) ... </storage>
+        requires combine(RP, RK) =/=K error
 
-    // Ugh, for some reason I can't just write (Vs, V), so this function does that...
-    syntax Vars ::= addArg(Vars, Var) [function, functional]
-    rule addArg(.Vars, V) => V
-    rule addArg((X, Xs), V) => X, addArg(Xs, V)
+    // Flow Filter
+    /* context (HOLE => resolveStorage(HOLE)) --[ _:Selector ]-> _ */
+    /* context _ --[ _:Selector ]-> (HOLE => resolveStorage(HOLE)) */
 
-    context check(HOLE, _)
-    rule <k> check(Loc, V) ~> filter(Sel, ToCheck, resource(R, Vs), DRes, Src, Dst)
-             => filter(Sel, ToCheck, resource(R, Vs V), DRes, Src, Dst) ... </k>
-        <storage> ... Loc |-> resource(bool, ListItem(false)) ... </storage>
-    rule <k> check(Loc, V) ~> filter(Sel, ToCheck, SRes, resource(R, Vs), Src, Dst)
-             => filter(Sel, ToCheck, SRes, resource(R, Vs V), Src, Dst) ... </k>
-        <storage> ... Loc |-> resource(bool, ListItem(true)) ... </storage>
+    /* rule <k> SourceLoc:StorageLoc --[ Sel ]-> Dest:StorageVal */
+    /*          => */
+    /*          filter(Sel, resource(R, Vs), resource(R, .List), resource(R, .List), SourceLoc, Dest) */
+    /*          ... */
+    /*      </k> */
+    /*     <storage> ... SourceLoc |-> resource(R, Vs => .List) ... </storage> */
+
+    // Flow Var
+    /* context (HOLE => resolveStorage(HOLE)) --[ _:Var ]-> _ */
+    /* context _ --[ _:Var ]-> (HOLE => resolveStorage(HOLE)) */
+
+    /* rule <k> Loc --[ X:Var ]-> D => put(resource(R, Ws), D) ... </k> */
+    /*     <lookup> ... X |-> XLoc ... </lookup> */
+    /*     <storage> ... (Loc |-> (resource(R, Vs) => subtract(resource(R, Vs), resource(S, Ws)))) (XLoc |-> resource(S, Ws)) ... </storage> */
+    /*     requires resource(R, Ws) contained_in resource(R, Vs) */
+
+    /* rule <k> Loc --[ X:Var ]-> _ => revert ... </k> */
+    /*     <lookup> ... X |-> XLoc ... </lookup> */
+    /*     <storage> ... (Loc |-> resource(R, Vs)) (XLoc |-> resource(_, Ws)) ... </storage> */
+    /*     requires notBool(resource(R, Ws) contained_in resource(R, Vs)) */
+
+    // Flow Transformer
+    /* context (HOLE => resolveStorage(HOLE)) --> _(_:Vars) --> _ */
+    /* context _ --> _(_:Vars) --> (HOLE => resolveStorage(HOLE)) */
+
+    // NOTE: It is important D be a StorageVal, so that we are sure we have allocated it, if necessary.
+    /* rule <k> Loc --> _(_:Vars) --> _:StorageVal => . ... </k> */
+    /*     <storage> ... Loc |-> resource(_, .List) ... </storage> */
+
+    /* rule <k> Loc --> F(Xs) --> D => transform(F(addArg(Xs, var(I))), D) ~> Loc --> F(Xs) --> D ... </k> */
+    /*     <lookup> ... .Map => var(I) |-> loc(I) ... </lookup> */
+    /*     <storage> */
+    /*         ... */
+    /*         (Loc |-> resource(R, ListItem(A) Rest)) */
+    /*         => */
+    /*         (Loc |-> resource(R, Rest)) */
+    /*         (loc(I) |-> resource(elemtype(R), elem(ListItem(A)))) */
+    /*         ... */
+    /*     </storage> */
+    /*     <freshCounter> I => I +Int 1 </freshCounter> */
+
+    /* syntax Stmt ::= transform(FunctionCallResult, StorageVal) */
+    /* context transform(HOLE, _) */
+
+    /* rule <k> transform(loc(I), Dest) => put(resource(R, V), Dest) ... </k> */
+    /*     <storage> ... loc(I) |-> resource(R, V) => .Map ... </storage> */
 
     // =================================
     // Transformer calls:
     // =================================
     syntax Stmt ::= cleanEnv(Set)
-    syntax Stmts ::= setupArgs(Vars, VarDefs, Stmts)
-                  | invoke(Vars, VarDefs, Stmts)
+                  | setupArg(Locator, VarDef) [strict(1)]
+                  | setupArgs(Locators, VarDefs)
+                  | invoke(Locators, VarDefs, Stmts)
 
-    rule setupArgs(.Vars, .VarDefs, S) => S
-    rule <k> setupArgs((E, Es):Vars, (Y : _, Defs2), S) => setupArgs(Es, Defs2, S) ... </k>
-        <lookup> Lookup => Lookup[Y <- Lookup[E]] </lookup>
+    rule setupArgs(.Locators, .VarDefs) => . [structural]
+    rule setupArgs((L, Ls), (X : T, Xs)) => setupArg(L, X : T) ~> setupArgs(Ls, Xs) [structural]
+
+    rule <k> setupArg(Ls:List, X : _ T) => . ... </k>
+        <lookup> Lookup => Lookup[X <- loc(I)] </lookup>
+        <storage> ... .Map => loc(I) |-> resource(T, collectLocations(Ls)) ... </storage>
+        <freshCounter> I => I +Int 1 </freshCounter>
+
+    syntax List ::= collectLocations(List) [function, functional]
+    rule collectLocations(.List) => .List
+    rule collectLocations(ListItem(location(_, resource(_, Vs))) Rest) => Vs collectLocations(Rest)
 
     rule <k> cleanEnv(ToRemove) => . ... </k>
         <lookup> Lookup => removeAll(Lookup, ToRemove) </lookup>
 
-    rule <k> invoke(Args, FormalArgs, Body) => setupArgs(Args, FormalArgs, cleanEnv(keys(Lookup) -Set keys(makeEnv(FormalArgs))) Body) ~> resetEnv(Lookup) ... </k>
+    rule <k> invoke(Args, FormalArgs, Body)
+             => setupArgs(Args, FormalArgs) ~>
+                cleanEnv(keys(Lookup) -Set keys(makeEnv(FormalArgs))) ~>
+                Body ~>
+                resetEnv(Lookup) ... </k>
         <lookup> Lookup </lookup>
 
-    rule <k> F(ActualArgs) => invoke(ActualArgs, FormalArgs, insert(RetVar, loc(I)) Body) ~> loc(I) ... </k>
+    rule <k> execute(F, ActualArgs) => invoke(ActualArgs, FormalArgs, insert(RetVar, loc(I)) Body) ~> loc(I) ... </k>
         <storage> ... .Map => loc(I) |-> resource(RetType, .List) ... </storage>
         <functions> ... F |-> transformer(RetVar : _:TypeQuant RetType, FormalArgs, Body) ... </functions>
         <freshCounter> I => I +Int 1 </freshCounter>
 
-    syntax Map ::= makeEnv(VarDefs) [function, functional]
-    rule makeEnv(.VarDefs) => .Map
-    rule makeEnv(X : T, Rest) => (X |-> T) makeEnv(Rest)
-
-    // =================================
-    // Helpers
-    // =================================
-    syntax List ::= remove(List, KItem) [function, functional]
-    rule remove(.List, _) => .List
-    rule remove(ListItem(X) Rest, X) => Rest
-    rule remove(ListItem(X) Rest, Y) => ListItem(X) remove(Rest, Y)
-        requires X =/=K Y
 endmodule
 

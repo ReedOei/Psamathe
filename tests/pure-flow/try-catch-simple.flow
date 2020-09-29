@@ -4,7 +4,7 @@ transformer idBool(a : ! bool) -> res : ! bool {
 
 transformer notBool(a : ! bool) -> res : ! bool {
     try {
-        a --[ ! such that idBool() ]-> var y : ! bool
+        a[! such that idBool()] --> var y : bool
         false --> res
     } catch {
         true --> res
@@ -13,6 +13,6 @@ transformer notBool(a : ! bool) -> res : ! bool {
 
 ;
 
-false --> var b : ! bool
-b --[ ! such that notBool() ]-> var c : ! bool
+false --> var b : bool
+b[! such that notBool() ] --> var c : bool
 

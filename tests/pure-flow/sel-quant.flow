@@ -4,12 +4,12 @@ transformer idBool(a : ! bool) -> res : ! bool {
 
 ;
 
-true --> var b : ! bool
-[ b ] --> var x : any list ! bool
+true --> var b : bool
+[ b ] --> var x : list ! bool
 true --> b
 [ b ] --> x
 false --> b
 [ b ] --> x
 
-x --[ any such that idBool() ]-> var y : any list ! bool
+x[ any such that idBool() ] --> var y : list ! bool
 

@@ -31,10 +31,10 @@ dynamic/flow-kompiled/timestamp: flow.k flow-common.k flow-syntax.k
 static/flow-typecheck-kompiled/timestamp: flow-typecheck.k flow-common.k flow-syntax.k
 	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) flow-typecheck.k -d static/
 
-pure-flow/pure-flow-kompiled/timestamp: pure-flow.k
+pure-flow/pure-flow-kompiled/timestamp: pure-flow.k pure-flow-common.k
 	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) pure-flow.k -d pure-flow/
 
-pure-flow-compiler/pure-flow-compiler-kompiled/timestamp: pure-flow-compiler.k
+pure-flow-compiler/pure-flow-compiler-kompiled/timestamp: pure-flow-compiler.k pure-flow-common.k
 	$(KDISTR)/kompile $(COMPILEFLAGS) --backend $(BACKEND) pure-flow-compiler.k -d pure-flow-compiler/
 
 tests/exec/%.flow: dynamic/flow-kompiled/timestamp static/flow-typecheck-kompiled/timestamp

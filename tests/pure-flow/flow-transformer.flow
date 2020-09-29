@@ -1,17 +1,17 @@
 transformer newAccount(a : ! nat) -> res : ! list ! { name : ! nat, balance : ! nat } {
-    0 --> var zero : ! nat
-    { name : ! nat |-> a, balance : ! nat |-> zero } --> var elem : ! { name : ! nat, balance : ! nat }
+    0 --> var zero : nat
+    { name : ! nat |-> a, balance : ! nat |-> zero } --> var elem : { name : ! nat, balance : ! nat }
     [ elem ] --> res
 }
 
 ;
 
-0 --> var x : ! nat
-[ x ] --> var ids : ! list ! nat
+0 --> var x : nat
+[ x ] --> var ids : list ! nat
 1 --> x
 [ x ] --> ids
 2 --> x
 [ x ] --> ids
 
-ids --> newAccount() --> var accounts : any list ! { name : ! nat, balance : ! nat }
+ids --> newAccount() --> var accounts : list ! { name : ! nat, balance : ! nat }
 
