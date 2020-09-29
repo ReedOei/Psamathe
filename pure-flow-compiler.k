@@ -4,7 +4,7 @@ module VARS
     syntax Var ::= Id
                  | Var "." Id
 
-    syntax Vars ::= List{Var, ","}
+    syntax Vars ::= List{Var, ","} [klabel(locators)]
 
     // Some special variables
     syntax Var ::= "bool" | "uint" | "address" | "string" | "nat"
@@ -89,10 +89,14 @@ module PURE-FLOW-COMPILER-SYNTAX
                      | "demote" "(" Locator ")"
                      | "copy" "(" Locator ")"
                      | "var" Var ":" BaseType
-    syntax Locators ::= List{Locator, ","}
+                     | Locator "[" Locator "]"
+                     | "(" Locator ")" [bracket]
+    syntax Locators ::= List{Locator, ","} [klabel(locators)]
+                      | Vars
 
     syntax Stmt ::= Locator "-->" Locator
-                  | Locator "-->" Id "(" Vars ")" "-->" Locator
+                  | Locator "-->" Var "(" Locators ")" "-->" Locator
+                  | Locator "-->" "new" Var "(" Locators ")" "-->" Locator
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
     syntax Stmts ::= List{Stmt, ""} [klabel(stmts)]
 
@@ -114,6 +118,7 @@ module PURE-FLOW-COMPILER
     imports COLLECTIONS
 
     syntax KResult ::= Var
+                     | Vars
 
     // Variables we'll need to do code generation
     syntax Var ::= "success" | "keys" | "underlying_map" | "length" | "push"
@@ -193,6 +198,19 @@ module PURE-FLOW-COMPILER
         <types> ... .Map => T |-> (type T is Ms BaseT) ... </types>
         <typeEncoding> ... .Map => T |-> encodeType(T, BaseT) ... </typeEncoding>
 
+    syntax KItem ::= setupArgs(VarDefs)
+                   | defFunc(Var)
+                   | cleanupEnv(Set)
+
+    rule translateDecl(transformer F(Args) -> X : _ T { Body }) => setupArgs(X : empty T, Args) ~> Body ~> defFunc(F) ~> cleanupEnv(keys(makeEnv(X : empty T, Args)))
+
+    rule <k> cleanupEnv(Xs) => . ... </k>
+        <typeEnv> Env => removeAll(Env, Xs) </typeEnv>
+
+    syntax Map ::= makeEnv(VarDefs) [function, functional]
+    rule makeEnv(.VarDefs) => .Map
+    rule makeEnv(X : T, Rest) => (X |-> T) makeEnv(Rest)
+
     syntax Map ::= defineStructs(Var, BaseType) [function, functional]
                  | defineVarDefsStructs(VarDefs) [function, functional]
 
@@ -249,6 +267,12 @@ module PURE-FLOW-COMPILER
             }
         </compiled>
         <freshCounter> I => I +Int 1 </freshCounter>
+
+    syntax KItem ::= flowNew(Locator, Var, Locators, Locators) [strict(1,3,4)]
+
+    rule A --> new T(Args) --> B => flowNew(A, T, Args, B)
+
+    /* rule <k> flowNew(X:Var, T, Args:Vars, Y:Var) */
 
     syntax SolStmts ::= SolStmts "@" SolStmt [function, functional]
     rule .SolStmts @ B => B

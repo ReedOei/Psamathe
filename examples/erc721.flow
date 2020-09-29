@@ -33,13 +33,13 @@ contract NFToken is ERC721, SupportsInterface {
 
     //  Checks that the msg.sender is an owner or operator of the given NFT.
     view canOperate(_tokenId : nat) returns bool :=
-    _tokenId in balances[msg.sender] or
-    msg.sender in ownerToOperators[tokenOwner]
+        _tokenId in balances[msg.sender] or
+        msg.sender in ownerToOperators[tokenOwner]
 
     // Checks that the msg.sender is allowed to transfer NFT.
     view canTransfer(_tokenId : nat) returns bool :=
-    _tokenId in balances[msg.sender] or
-    msg.sender in ownerToOperators[owner of _tokenId from balances]
+        _tokenId in balances[msg.sender] or
+        msg.sender in ownerToOperators[owner of _tokenId from balances]
 
     // Checks that _tokenId is a valid Token.
     view validNFToken(_tokenId : nat) returns bool :=

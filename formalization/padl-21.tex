@@ -130,15 +130,10 @@
 \maketitle
 
 \section{Introduction}
-\reed{Seems like we should emphasize two things: why is this language declarative, and why are our programs easier to verify than Solidity programs?}
+\reed{Seems like we should emphasize two things: why is this language declarative, and why are our programs easier to verify than Solidity programs (are they)?}
 \reed{The other thing they seem to really care about is performance.}
 
-\reed{Basically, re-work the SRC submission with a little more detail about how things work and why it's declarative and easy to verify.
-We should also discuss the role that locators play in all of this, as they did not exist before.}
-
 \reed{Should we put any effort into actually verifying things?}
-
-\reed{I would liek to have a full formla semantics for this, because then maybe we can translate to an SMT solver or something for a proof of concept at least.}
 
 Blockchains are increasingly used as platforms for applications called \emph{smart contracts}~\cite{Szabo97:Formalizing}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
 Commonly proposed and implemented smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, \emph{token contracts}, voting, crowdfunding, auctions, and more~\cite{Elsden18:Making}.
@@ -158,30 +153,22 @@ Some estimates suggest that as much as 46\% of smart contracts may have some vul
 \end{figure}
 
 \langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation.
-Together with \emph{modifiers} and \emph{locators}, flows provide a concise and easily checkable way to write programs that safely manage \assetTxt{}s.
+Together with \emph{modifiers} and \emph{locators}, flows provide a \textbf{concise} way to write smart contracts that \textbf{safely} manage \assetTxt{}s.
 
 Solidity is the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, and does not provide analogous support for managing \assetTxt{}s.
-Additionally, typical smart contracts are more \textbf{concise} in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
+Typical smart contracts are more concise in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
 
 Other many newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
 Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which provide the benefits of \emph{linear types}, but give a more precise analysis of the flow of values in a program.
 None of the these languages have flows, provide support for all the modifiers that \langName does, or have locators.
-In particular, the latter means that those languages using linear or affine types must go to additional effort to maintain linearity.
-
-\section{Language}
-
-\langName is built already flows, which are used to specify the flow of resources.
-For example, in Figure~\ref{fig:erc20-transfer-flow}, there is a single flow on line~\ref{line:erc20-flow-ex}.
-
-\reed{Why declarative}
-\reed{Why easy to verify}
-\reed{Why fast}
+In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.
 
 \section{Language}\label{sec:lang}
-A \langName program is made of \emph{contracts}, each containing \emph{fields}, \emph{types}, and \emph{functions}.
-Each contract instance in \langName represents a contract on the blockchain, and the fields provide persistent storage.
-Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type, a field, and a transaction, which implements the core of ERC-20's \lstinline{transfer} function.
+A \langName program is made of \emph{transformers} and \emph{types}.
+\reed{TODO: Need to rewrite some of this to work with the new simpler flow language.}
+% TODO: Put this back? Or do we not actually care so much about how things literally work on the blockchain? Each contract instance in \langName represents a contract on the blockchain, and the fields provide persistent storage.
+Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type and a transformer, which implements the core of ERC-20's \lstinline{transfer} function.
 ERC-20 is a standard for token contracts managing \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
 \begin{figure}
     \centering
@@ -192,9 +179,13 @@ It is implemented with a single flow, which automatically checks all the precond
     \label{fig:erc20-transfer-flow}
 \end{figure}
 
-\langName is built around the concept of a \emph{flow}. %, an atomic, state-changing operation describing the transfer of values.
+\langName is built around the concept of a \emph{flow}.
+\reed{Why declarative}
+\reed{Why easy to verify}
+\reed{Why fast}
 Using the more declarative, \emph{flow-based} approach provides the following advantages:
 \begin{itemize}
+    \item \textbf{Invariant preservation}: Each flow in a program can do \reed{a lot} to help preserve invariants, when compared to an imperative approach.
     \item \textbf{Precondition checking}: \langName automatically inserts dynamic checks of a flow's validity; e.g., a flow of money would fail if there is not enough in the source, or if there is too much in the destination (e.g., due to overflow).
     \item \textbf{Data-flow tracking}: We hypothesize that flows provide a clearer way of specifying how resources flow in the code itself, which may be less apparent using other approaches, especially in complicated contracts.
         Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
@@ -245,7 +236,7 @@ Psamathe automatically inserts code checking these two conditions, ensuring that
 
 \reed{Why declarative}
 \reed{Why easy to verify}
-\reed{Why just fast}
+\reed{Why just as fast}
 
 \subsection{Voting}\label{sec:voting-impl}
 \begin{figure}
@@ -265,7 +256,7 @@ It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ e
 
 \reed{Why declarative}
 \reed{Why easy to verify}
-\reed{Why just fast}
+\reed{Why just as fast}
 
 \subsection{Blind Auction}\label{sec:blind-auction-impl}
 \begin{figure}
