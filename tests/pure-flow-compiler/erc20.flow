@@ -1,17 +1,13 @@
 type Token is fungible asset nat
-type ether is fungible asset nat
-type Message is asset { sender : ! address, value : any ether }
-/* transformer transfer(balances : any map ! address => any Token, msg : ! Message, dst : ! address, amount : any nat) -> res : ! bool { */
-/*   balances[msg.sender][amount] --> balances[dst] */
+/* transformer transfer(balances : any map ! address => any Token, sender : ! address, dst : ! address, amount : any nat) -> res : ! bool { */
+/*   balances[sender][amount] --> balances[dst] */
 /*   true --> res */
 /* } */
 
 ;
 
-10 --> new ether() --> var val : ether
-val --> new Message(0) --> var msg : Message
-
 [] --> var balances : map ! address => any Token
-balances[msg.sender][amount] --> balances[dst]
+// TODO: Need to have address literals (i.e., hex literals) in the compiler
+balances[0][amount] --> balances[1]
 true --> res
 
