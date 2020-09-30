@@ -1,0 +1,34 @@
+<generatedTop>
+  <common>
+    <typeEnv>
+      .Map
+    </typeEnv>
+    <types>
+      .Map
+    </types>
+  </common>
+  <k>
+    .
+  </k>
+  <functions>
+    .Map
+  </functions>
+  <lookup>
+    b |-> loc ( 0 )
+    x |-> loc ( 2 )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( bool , .List )
+    loc ( 1 ) |-> resource ( bool , .List )
+    loc ( 2 ) |-> resource ( list ! bool , ListItem ( loc ( 4 ) )
+    ListItem ( loc ( 7 ) ) )
+    loc ( 3 ) |-> resource ( list ! bool , .List )
+    loc ( 4 ) |-> resource ( bool , ListItem ( true ) )
+    loc ( 5 ) |-> resource ( bool , .List )
+    loc ( 6 ) |-> resource ( list ! bool , .List )
+    loc ( 7 ) |-> resource ( bool , ListItem ( true ) )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>

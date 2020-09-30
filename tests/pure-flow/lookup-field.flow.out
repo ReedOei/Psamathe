@@ -6,9 +6,6 @@
     <types>
       .Map
     </types>
-    <freshCounter>
-      7
-    </freshCounter>
   </common>
   <k>
     .
@@ -21,11 +18,13 @@
     d |-> loc ( 6 )
   </lookup>
   <storage>
-    loc ( 0 ) |-> resource ( table ( .Vars ) { l : ! bool , r : ! bool , .VarDefs } , ListItem ( l |-> loc ( 2 )
-    r |-> loc ( 4 ) ) )
+    loc ( 0 ) |-> resource ( table ( .Vars ) { l : ! bool , r : ! bool , .VarDefs } , ListItem ( l |-> loc ( 3 )
+    r |-> loc ( 5 ) ) )
     loc ( 1 ) |-> resource ( table ( .Vars ) { l : ! bool , r : ! bool , .VarDefs } , .List )
     loc ( 2 ) |-> resource ( bool , .List )
-    loc ( 4 ) |-> resource ( bool , ListItem ( false ) )
+    loc ( 3 ) |-> resource ( bool , .List )
+    loc ( 4 ) |-> resource ( bool , .List )
+    loc ( 5 ) |-> resource ( bool , ListItem ( false ) )
     loc ( 6 ) |-> resource ( bool , ListItem ( true ) )
   </storage>
   <catchStack>

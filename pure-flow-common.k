@@ -39,7 +39,7 @@ module PURE-FLOW-COMMON-SYNTAX
 
     syntax Locator ::= Bool | Int | Var
                      | Locator "." Var [klabel(qualified)]
-                     | "[" Locators "]"
+                     | "[" Type ";" Locators "]"
                      | "{" RecordMembers "}"
                      | "demote" "(" Locator ")"
                      | "copy" "(" Locator ")"
@@ -75,7 +75,6 @@ module PURE-FLOW-COMMON
         <common>
             <typeEnv> .Map </typeEnv>
             <types> .Map </types>
-            <freshCounter> 0 </freshCounter>
         </common>
 
     syntax BaseType ::= demoteBaseType(BaseType) [function, functional]

@@ -1,0 +1,7 @@
+;
+
+true --> var b : bool
+[ ! bool ; b ] --> var x : list ! bool
+true --> b
+[ ! bool ; b ] --> x
+

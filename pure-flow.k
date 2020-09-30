@@ -156,19 +156,16 @@ module PURE-FLOW
     context (_[HOLE]):Locator
     context HOLE[_ such that _(_)]
 
-    rule <k> N:Int => ListItem(selected(loc(I), amount(N))) ... </k>
-        <storage> ... .Map => loc(I) |-> resource(nat, ListItem(N)) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> N:Int => ListItem(selected(loc(!I), amount(N))) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(nat, ListItem(N)) ... </storage>
         requires N >=Int 0
 
-    rule <k> B:Bool => ListItem(selected(loc(I), loc(I))) ... </k>
-        <storage> ... .Map => loc(I) |-> resource(bool, ListItem(B)) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> B:Bool => ListItem(selected(loc(!I), loc(!I))) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(bool, ListItem(B)) ... </storage>
 
-    rule <k> var X : T => ListItem(selected(loc(I), loc(I))) ... </k>
-        <lookup> ... .Map => X |-> loc(I) ... </lookup>
-        <storage> ... .Map => loc(I) |-> resource(T, .List) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> var X : T => ListItem(selected(loc(!I), loc(!I))) ... </k>
+        <lookup> ... .Map => X |-> loc(!I) ... </lookup>
+        <storage> ... .Map => loc(!I) |-> resource(T, .List) ... </storage>
 
     context (HOLE._):Locator
     rule (Ls:List).X => getFields(Ls, X, .List)
@@ -182,13 +179,26 @@ module PURE-FLOW
     rule <k> X => ListItem(selected(loc(I), loc(I))) ... </k>
         <lookup> ... X |-> loc(I) ... </lookup>
 
-    rule [ Locs ] => locatorList(Locs, .List)
+    rule <k> [ T ; Locs ] => locatorList(loc(!I), Locs) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(list T, .List) ... </storage>
 
-    syntax Locator ::= locatorList(Locators, List)
-    context locatorList((HOLE:Locator, _), _)
+    syntax Locator ::= locatorList(StorageLoc, Locators)
+    context locatorList(_, (HOLE:Locator, _))
 
-    rule locatorList(.Locators, Ks) => Ks
-    rule locatorList((ListItem(selected(L, K)), Rest), Ks) => locatorList(Rest, Ks ListItem(selected(L, K)))
+    // TODO: We need a mode or something to know whether we should useResource or just construct and destroy the temporarily created things (can be in the configuration)
+    rule locatorList(loc(I), .Locators) => ListItem(selected(loc(I), loc(I))) [structural]
+    rule <k> locatorList(Loc, (ListItem(selected(L, K)), Rest))
+             => useResource(selected(L, K)) ~> locatorList(Loc, Rest) ... </k>
+        <storage>
+            ...
+            (Loc |-> resource(T, Vs))
+            (K |-> R)
+            =>
+            (Loc |-> resource(T, Vs ListItem(loc(!I))))
+            (K |-> R)
+            (loc(!I) |-> R)
+            ...
+        </storage>
 
     // Select list.
     // TODO: Need to make sure that we're expanding everywhere correctly.
@@ -239,30 +249,32 @@ module PURE-FLOW
         <storage> ... Loc |-> resource(bool, ListItem(false)) ... </storage>
         requires Q =/=K every // If Q is every, the check **must** succeed for every element.
 
-    rule <k> { Members } => initRecord(loc(I), Members) ... </k>
-        <storage> ... .Map => loc(I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> { Members } => initRecord(loc(!I), Members) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
     syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
 
     context initRecord(_, _ : _ |-> HOLE , _ )
     rule initRecord(loc(I), .RecordMembers) => ListItem(selected(loc(I), loc(I)))
     // TODO: How to not build the record unless necessary?
-    rule <k> initRecord(Loc, (X : _ |-> ListItem(selected(L, K)), Rest)) => moveResource(selected(L, K)) ~> initRecord(Loc, Rest) ... </k>
+    rule <k> initRecord(Loc, (X : _ |-> ListItem(selected(L, K)), Rest))
+             => useResource(selected(L, K)) ~> initRecord(Loc, Rest) ... </k>
         <storage>
             ...
-            (Loc |-> resource(R, ListItem(Fields)))
+            (Loc |-> resource(T, ListItem(Fields)))
+            (K |-> R)
             =>
-            (Loc |-> resource(R, ListItem(Fields (X |-> K))))
+            (Loc |-> resource(T, ListItem(Fields (X |-> loc(!I)))))
+            (K |-> R)
+            (loc(!I) |-> R)
             ...
         </storage>
-        <freshCounter> I => I +Int 1 </freshCounter>
 
     // All types are always stored as their demoted value, so we simply need to demote the type.
     syntax Resource ::= demoteVal(Resource) [function, functional]
     rule demoteVal(resource(R, V)) => resource(demoteBaseType(R), V)
 
     // =================================
-    // useResource, moveResource
+    // useResource
     // =================================
     syntax Stmt ::= useResource(Selected)
 
@@ -278,26 +290,6 @@ module PURE-FLOW
         <storage> ... loc(I) |-> resource(_, Vs => remove(loc(J), Vs)) ... </storage>
         requires I =/=Int J andBool loc(J) in Vs
     rule <k> useResource(selected(loc(I), loc(J))) => . ... </k>
-        <storage>
-            ...
-            loc(I) |-> resource(_, ListItem((_ |-> loc(J)) _))
-            loc(J) |-> resource(_, _ => .List)
-            ...
-        </storage>
-
-    syntax Stmt ::= moveResource(Selected)
-
-    rule <k> moveResource(selected(L, amount(N))) => . ... </k>
-        <storage> ... L |-> resource(_, ListItem(M => M -Int N)) ... </storage>
-        requires M >=Int N
-    rule <k> moveResource(selected(L, amount(N))) => revert ... </k>
-        <storage> ... L |-> resource(_, ListItem(M => M -Int N)) ... </storage>
-        requires N >Int M
-    rule moveResource(selected(loc(I), loc(I))) => . [structural]
-    rule <k> moveResource(selected(loc(I), loc(J))) => . ... </k>
-        <storage> ... loc(I) |-> resource(_, Vs => remove(loc(J), Vs)) ... </storage>
-        requires I =/=Int J andBool loc(J) in Vs
-    rule <k> moveResource(selected(loc(I), loc(J))) => . ... </k>
         <storage>
             ...
             loc(I) |-> resource(_, ListItem((_ |-> loc(J)) _))
@@ -346,7 +338,6 @@ module PURE-FLOW
     /*         (loc(I) |-> resource(elemtype(R), elem(ListItem(A)))) */
     /*         ... */
     /*     </storage> */
-    /*     <freshCounter> I => I +Int 1 </freshCounter> */
 
     /* syntax Stmt ::= transform(FunctionCallResult, StorageVal) */
     /* context transform(HOLE, _) */
@@ -366,8 +357,8 @@ module PURE-FLOW
     rule setupArgs((L, Ls), (X : T, Xs)) => setupArg(L, X : T) ~> setupArgs(Ls, Xs) [structural]
 
     // TODO: Handle if there is more than one value (need to collect or something in that case)
-    // TODO: Should we be using the moveResource version or not?
-    /* rule <k> setupArg(ListItem(selected(L, K)), X : _) => moveResource(selected(L, K)) ... </k> */
+    // TODO: Should we be using the useREsource version or not?
+    /* rule <k> setupArg(ListItem(selected(L, K)), X : _) => useResource(selected(L, K)) ... </k> */
     rule <k> setupArg(ListItem(selected(_, K)), X : _) => . ... </k>
         <lookup> Lookup => Lookup[X <- K] </lookup>
 
@@ -381,10 +372,9 @@ module PURE-FLOW
                 resetEnv(Lookup) ... </k>
         <lookup> Lookup </lookup>
 
-    rule <k> execute(F, ActualArgs) => invoke(ActualArgs, FormalArgs, insert(RetVar, loc(I)) Body) ~> loc(I) ... </k>
-        <storage> ... .Map => loc(I) |-> resource(RetType, .List) ... </storage>
+    rule <k> execute(F, ActualArgs) => invoke(ActualArgs, FormalArgs, insert(RetVar, loc(!I)) Body) ~> loc(!I) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(RetType, .List) ... </storage>
         <functions> ... F |-> transformer(RetVar : _:TypeQuant RetType, FormalArgs, Body) ... </functions>
-        <freshCounter> I => I +Int 1 </freshCounter>
 
 endmodule
 

@@ -69,7 +69,6 @@ module PURE-FLOW-COMPILER
         <structs> .Map </structs>
         <fields> .Map </fields>
         <functions> .Map </functions>
-        <varMap> .Map </varMap>
         <compiled> .SolStmts </compiled>
         <typeEncoding> .Map </typeEncoding>
 
@@ -142,10 +141,6 @@ module PURE-FLOW-COMPILER
     rule <k> cleanupEnv(Xs) => . ... </k>
         <typeEnv> Env => removeAll(Env, Xs) </typeEnv>
 
-    syntax Map ::= makeEnv(VarDefs) [function, functional]
-    rule makeEnv(.VarDefs) => .Map
-    rule makeEnv(X : T, Rest) => (X |-> T) makeEnv(Rest)
-
     syntax Map ::= defineStructs(Var, BaseType) [function, functional]
                  | defineVarDefsStructs(VarDefs) [function, functional]
 
@@ -163,7 +158,7 @@ module PURE-FLOW-COMPILER
     rule defineVarDefsStructs(.VarDefs) => .Map
     rule defineVarDefsStructs(_ : _ T, Rest) => defineStructs(nameOf(T), T) defineVarDefsStructs(Rest)
 
-    rule <k> A --> B => flow(locate(A, flowType(A, B)), locate(B, flowType(A, B))) ... </k>
+    rule <k> A --> B => flow(locate(A), locate(B)) ... </k>
 
     syntax KItem ::= flow(Locator, Locator) [strict]
 
@@ -196,26 +191,21 @@ module PURE-FLOW-COMPILER
             Cur
             =>
             Cur @
-            for (uint genVar(I) = 0; genVar(I) < (X.length); genVar(I)++) {
-                Y.underlying_map[X[genVar(I)].key] = X[genVar(I)].value;
-                Y.keys.push(X[genVar(I)].key);
+            for (uint genVar(!I) = 0; genVar(!I) < (X.length); genVar(!I)++) {
+                Y.underlying_map[X[genVar(!I)].key] = X[genVar(!I)].value;
+                Y.keys.push(X[genVar(!I)].key);
             }
         </compiled>
-        <freshCounter> I => I +Int 1 </freshCounter>
-
-    syntax Locators ::= locateEach(Locators, VarDefs) [function, functional]
-    rule locateEach(.Locators, .VarDefs) => .Locators
-    rule locateEach((L:Locator, Ls), (_ : _ T, Xs)) => locate(L, T), locateEach(Ls, Xs)
 
     syntax KItem ::= flowNew(Locator, Var, Locators, Locators) [strict(1,3,4)]
 
     // TODO: This isn't quite right, because it won't handle a list correctly.
-    rule <k> A --> new T(Locs) --> B => flowNew(
-                                                A, /* locate(A, baseTypeOf(lastVDef(getConstructorArgs(BaseT)))), */
-                                                T,
-                                                locateEach(Locs, tailVDefs(getConstructorArgs(BaseT))),
-                                                B) ... </k>
-        <types> ... T |-> type T is _ BaseT ... </types>
+    /* rule <k> A --> new T(Locs) --> B => flowNew( */
+    /*                                             A, /1* locate(A, baseTypeOf(lastVDef(getConstructorArgs(BaseT)))), *1/ */
+    /*                                             T, */
+    /*                                             locateEach(Locs, tailVDefs(getConstructorArgs(BaseT))), */
+    /*                                             B) ... </k> */
+    /*     <types> ... T |-> type T is _ BaseT ... </types> */
     // TODO: Finish getConstructoArgs
 
     /* rule <k> flowNew(X:Var, T, Args:Vars, Y:Var) */
@@ -224,36 +214,27 @@ module PURE-FLOW-COMPILER
     rule .SolStmts @ B => B
     rule (S:SolStmt Rest:SolStmts) @ B => S (Rest @ B)
 
-    syntax Locator ::= locate(Locator, BaseType)
+    syntax Locator ::= locate(Locator)
 
-    rule <k> locate(V:Int, nat) => genVar(I) ... </k>
-        <typeEnv> ... .Map => genVar(I) |-> nat ... </typeEnv>
-        <compiled> Ss => Ss @ (uint genVar(I) = V;) </compiled>
-        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> locate(V:Int) => genVar(!I) ... </k>
+        <typeEnv> ... .Map => genVar(!I) |-> nat ... </typeEnv>
+        <compiled> Ss => Ss @ (uint genVar(!I) = V;) </compiled>
 
-    rule <k> locate([ .Locators ], list Q T) => genVar(I) ... </k>
-        <typeEnv> ... .Map => genVar(I) |-> list Q T ... </typeEnv>
-        <compiled> Ss => Ss @ (baseTypeToSolType(T)[] genVar(I);) </compiled>
-        <freshCounter> I => I +Int 1 </freshCounter>
+    rule <k> locate([ Q T ; .Locators ]) => genVar(!I) ... </k>
+        <typeEnv> ... .Map => genVar(!I) |-> list Q T ... </typeEnv>
+        <compiled> Ss => Ss @ (baseTypeToSolType(T)[] genVar(!I);) </compiled>
         <structs> Structs => Structs defineStructs(nameOf(T), T) </structs>
 
-    rule <k> locate([ .Locators ], map K => V) => genVar(I) ... </k>
-        <typeEnv> ... .Map => genVar(I) |-> list ! { key : K, value : V } ... </typeEnv>
-        <compiled> Ss => Ss @ (baseTypeToSolType({ key : K, value : V })[] genVar(I);) </compiled>
-        <freshCounter> I => I +Int 1 </freshCounter>
-        <structs> Structs => Structs defineStructs(nameOf({ key : K, value : V }), { key : K, value : V }) </structs>
+    rule locate(X:Var) => X
+    rule locate(demote(L)) => locate(L)
 
-    rule locate(X:Var, _) => X
-    rule locate(demote(L), T) => locate(L, T)
-
-    context locate(copy(HOLE => locate(copy(HOLE), T)), T)
-    rule <k> locate(copy(X:Var), T) => X ... </k>
-        <typeEnv> ... .Map => genVar(I) |-> T ... </typeEnv>
+    context locate(copy(HOLE => locate(copy(HOLE))))
+    rule <k> locate(copy(X:Var)) => X ... </k>
         // TODO: Does this actually copy everything?
-        <compiled> Ss => Ss @ (baseTypeToSolType(T) genVar(I) = X;) </compiled>
-        <freshCounter> I => I +Int 1 </freshCounter>
+        <compiled> Ss => Ss @ (baseTypeToSolType(T) genVar(!I) = X;) </compiled>
+        <typeEnv> ... (X |-> T) (.Map => genVar(!I) |-> T) ... </typeEnv>
 
-    rule <k> locate(var X : T, T) => X ... </k>
+    rule <k> locate(var X : T) => X ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
         <compiled> Ss => Ss @ (baseTypeToSolType(T) X;) </compiled>
         <structs> Structs => Structs defineStructs(nameOf(T), T) </structs>
