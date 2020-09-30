@@ -150,39 +150,6 @@ module PURE-FLOW
     rule subtract(resource(list R, A), resource(S, ListItem(B) Rest)) => subtract(resource(list R, remove(ListItem(B), A)), resource(S, Rest))
 
     // =================================
-    // Updaters:
-    // =================================
-    syntax Updater ::= "id"
-                     | updateLoc(StorageLoc)
-                     | listUpdater(List)
-                     | updateField(Updater, Var)
-    syntax ConsumeFunc ::= "idConsume"
-                         | subtract(Resource)
-                         | consumeField(Var, ConsumeFunc)
-    syntax Map ::= runUpdater(Updater, ConsumeFunc, Map) [function, functional]
-
-    rule runUpdater(id, _, M) => M
-
-    rule runUpdater(updateLoc(L), F, (L |-> R) M) => runConsume(M, F, L, R)
-
-    rule runUpdater(listUpdater(.List), _, M) => M
-    rule runUpdater(listUpdater(ListItem(U) Rest), F, M) => runUpdater(listUpdater(Rest), F, runUpdater(U, F, M))
-
-    rule runUpdater(updateField(U, X), F, M) => runUpdater(U, consumeField(X, F), M)
-
-    syntax Map ::= runConsume(Map, ConsumeFunc, StorageLoc, Resource) [function, functional]
-    rule runConsume(M, idConsume, L, R) => M (L |-> R)
-    rule runConsume(M, subtract(R2), L, R1) => M (L |-> subtract(R1, R2))
-    rule runConsume(M, consumeField(_, _), L, resource(T, .List)) => M (L |-> resource(T, .List))
-    rule runConsume(M, consumeField(X, F), L, resource(T, Vs))
-         => consumeEach(M (L |-> resource(T, Vs)), X, F, Vs)
-
-    syntax Map ::= consumeEach(Map, Var, ConsumeFunc, List) [function, functional]
-    rule consumeEach(M, _, _, .List) => M
-    rule consumeEach(M (XLoc |-> RX), X, F, ListItem((X |-> XLoc) _) Rest)
-         => consumeEach(runConsume(M, consumeField(X, F), XLoc, RX), X, F, Rest)
-
-    // =================================
     // Locate:
     // =================================
     context (HOLE[_]):Locator
