@@ -128,7 +128,7 @@ module PURE-FLOW-COMMON
     rule membersToDefs(.RecordMembers) => .VarDefs
     rule membersToDefs((X : T |-> _), Rest) => (X : T), membersToDefs(Rest)
 
-    syntax List ::= remove(List, KItem) [function, functional]
+    syntax List ::= remove(KItem, List) [function, functional]
     rule remove(_, .List) => .List
     rule remove(X, ListItem(X) Rest) => Rest
     rule remove(Y, ListItem(X) Rest) => ListItem(X) remove(Y, Rest)

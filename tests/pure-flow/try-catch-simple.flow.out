@@ -7,7 +7,7 @@
       .Map
     </types>
     <freshCounter>
-      9
+      7
     </freshCounter>
   </common>
   <k>
@@ -26,8 +26,7 @@
     loc ( 1 ) |-> resource ( bool , .List )
     loc ( 2 ) |-> resource ( bool , ListItem ( false ) )
     loc ( 3 ) |-> resource ( bool , ListItem ( true ) )
-    loc ( 4 ) |-> resource ( bool , ListItem ( false ) )
-    loc ( 8 ) |-> resource ( bool , .List )
+    loc ( 6 ) |-> resource ( bool , .List )
   </storage>
   <catchStack>
     .List

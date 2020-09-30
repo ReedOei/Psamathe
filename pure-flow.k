@@ -295,37 +295,52 @@ module PURE-FLOW
     rule demoteVal(resource(R, V)) => resource(demoteBaseType(R), V)
 
     // =================================
-    // Flows:
+    // useResource, moveResource
     // =================================
     syntax Stmt ::= useResource(Selected)
 
     rule <k> useResource(selected(L, amount(N))) => . ... </k>
         <storage> ... L |-> resource(_, ListItem(M => M -Int N)) ... </storage>
         requires M >=Int N
-
     rule <k> useResource(selected(L, amount(N))) => revert ... </k>
         <storage> ... L |-> resource(_, ListItem(M => M -Int N)) ... </storage>
         requires N >Int M
-
-    rule <k> useResource(selected(L, L)) => . ... </k>
-        <storage> ... L |-> resource(_, _ => .List) ... </storage>
-
-    rule <k> useResource(selected(L, K)) => . ... </k>
-        <storage> ... L |-> resource(_, (A ListItem(K) B) => A B) ... </storage>
-        requires L =/=K K
+    rule <k> useResource(selected(loc(I), loc(I))) => . ... </k>
+        <storage> ... loc(I) |-> resource(_, _ => .List) ... </storage>
+    rule <k> useResource(selected(loc(I), loc(J))) => . ... </k>
+        <storage> ... loc(I) |-> resource(_, Vs => remove(loc(J), Vs)) ... </storage>
+        requires I =/=Int J andBool loc(J) in Vs
+    rule <k> useResource(selected(loc(I), loc(J))) => . ... </k>
+        <storage>
+            ...
+            loc(I) |-> resource(_, ListItem((_ |-> loc(J)) _))
+            loc(J) |-> resource(_, _ => .List)
+            ...
+        </storage>
 
     syntax Stmt ::= moveResource(Selected)
-    rule moveResource(selected(L, L)) => .
+
     rule <k> moveResource(selected(L, amount(N))) => . ... </k>
         <storage> ... L |-> resource(_, ListItem(M => M -Int N)) ... </storage>
         requires M >=Int N
     rule <k> moveResource(selected(L, amount(N))) => revert ... </k>
         <storage> ... L |-> resource(_, ListItem(M => M -Int N)) ... </storage>
         requires N >Int M
-    rule <k> moveResource(selected(L, K)) => . ... </k>
-        <storage> ... L |-> resource(_, (A ListItem(K) B) => A B) ... </storage>
-        requires L =/=K K
+    rule moveResource(selected(loc(I), loc(I))) => . [structural]
+    rule <k> moveResource(selected(loc(I), loc(J))) => . ... </k>
+        <storage> ... loc(I) |-> resource(_, Vs => remove(loc(J), Vs)) ... </storage>
+        requires I =/=Int J andBool loc(J) in Vs
+    rule <k> moveResource(selected(loc(I), loc(J))) => . ... </k>
+        <storage>
+            ...
+            loc(I) |-> resource(_, ListItem((_ |-> loc(J)) _))
+            loc(J) |-> resource(_, _ => .List)
+            ...
+        </storage>
 
+    // =================================
+    // Flows
+    // =================================
     // TODO: Make seqstrict?
     context HOLE --> _
     context _ --> HOLE
@@ -384,7 +399,9 @@ module PURE-FLOW
     rule setupArgs((L, Ls), (X : T, Xs)) => setupArg(L, X : T) ~> setupArgs(Ls, Xs) [structural]
 
     // TODO: Handle if there is more than one value (need to collect or something in that case)
-    rule <k> setupArg(ListItem(selected(L, K)), X : _) => moveResource(selected(L, K)) ... </k>
+    // TODO: Should we be using the moveResource version or not?
+    /* rule <k> setupArg(ListItem(selected(L, K)), X : _) => moveResource(selected(L, K)) ... </k> */
+    rule <k> setupArg(ListItem(selected(_, K)), X : _) => . ... </k>
         <lookup> Lookup => Lookup[X <- K] </lookup>
 
     rule <k> cleanEnv(ToRemove) => . ... </k>

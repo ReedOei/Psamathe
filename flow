@@ -115,7 +115,7 @@ else
             fi
             depth=$((depth + 1))
         done
-        pkfill -f "kserver"
+        pkill -f "kserver"
     else
         set -x
         "$KDISTR/krun" --directory "$directory" "${FLAGS[@]}" "$@"
