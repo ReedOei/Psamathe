@@ -1,0 +1,29 @@
+<generatedTop>
+  <common>
+    <typeEnv>
+      .Map
+    </typeEnv>
+    <types>
+      .Map
+    </types>
+    <freshCounter>
+      2
+    </freshCounter>
+  </common>
+  <k>
+    .
+  </k>
+  <functions>
+    .Map
+  </functions>
+  <lookup>
+    n |-> loc ( 0 )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( nat , ListItem ( 2 ) )
+    loc ( 1 ) |-> resource ( nat , ListItem ( 0 ) )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+</generatedTop>
