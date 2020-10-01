@@ -14,8 +14,8 @@
     .Map
   </functions>
   <lookup>
-    c |-> loc ( 0 )
-    d |-> loc ( 6 )
+    c |-> selected ( loc ( 0 ) , loc ( 0 ) )
+    d |-> selected ( loc ( 6 ) , loc ( 6 ) )
   </lookup>
   <storage>
     loc ( 0 ) |-> resource ( { l : ! bool , r : ! bool , .VarDefs } , ListItem ( l |-> loc ( 3 )

@@ -173,11 +173,31 @@ module PURE-FLOW
     syntax Stmt ::= deepCopy(StorageLoc, List)
 
     rule deepCopy(_, .List) => .
-    rule <k> deepCopy(L, ListItem(loc(I)) Rest) => deepCopy(loc(!J), Vs) ~> deepCopy(L, Rest) ... </k>
-        <storage> ... (loc(I) |-> resource(T, Vs)) (.Map => loc(!J) |-> resource(demoteBaseType(T), .List)) ... </storage>
+    rule <k> deepCopy(L, ListItem(loc(I)) Rest) => deepCopy(loc(!J), Ws) ~> deepCopy(L, Rest) ... </k>
+        <storage>
+            ...
+            (L |-> resource(TL, Vs))
+            (loc(I) |-> resource(T, Ws))
+            =>
+            (L |-> resource(TL, Vs ListItem(loc(!J))))
+            (loc(I) |-> resource(T, Ws))
+            (loc(!J) |-> resource(demoteBaseType(T), .List))
+            ...
+        </storage>
+
     rule deepCopy(_, ListItem(.Map)) => .
-    rule <k> deepCopy(L, ListItem((_ |-> XLoc) Fields)) => deepCopy(loc(!I), Vs) ~> deepCopy(L, ListItem(Fields)) ... </k>
-        <storage> ... (XLoc |-> resource(T, Vs)) (.Map => loc(!I) |-> resource(demoteBaseType(T), .List)) ... </storage>
+    rule <k> deepCopy(L, ListItem((X |-> XLoc) Fields)) => deepCopy(loc(!I), Vs) ~> deepCopy(L, ListItem(Fields)) ... </k>
+        <storage>
+            ...
+            (L |-> resource(TL, ListItem(CurFields)))
+            (XLoc |-> resource(T, Vs))
+            =>
+            (L |-> resource(TL, ListItem(CurFields (X |-> loc(!I)))))
+            (XLoc |-> resource(T, Vs))
+            (loc(!I) |-> resource(demoteBaseType(T), .List))
+            ...
+        </storage>
+
     rule <k> deepCopy(L, ListItem(V) Rest) => deepCopy(L, Rest) ... </k>
         <storage> ... L |-> resource(_, Vs => Vs ListItem(V)) ... </storage>
         [owise]
@@ -210,6 +230,7 @@ module PURE-FLOW
     // TODO: This is some pretty annoying special casing. Should ideally be able to do away with this.
     rule makeLocations(L, ListItem(loc(I)) Rest) => ListItem(selected(L, loc(I))) makeLocations(L, Rest)
     rule makeLocations(L, ListItem(_:Map)) => ListItem(selected(L, L))
+    rule makeLocations(L, ListItem(_:Bool)) => ListItem(selected(L, L))
     rule makeLocations(L, ListItem(N:Int)) => ListItem(selected(L, amount(N)))
 
     syntax List ::= makeAllLocations(List) [function]
@@ -220,8 +241,7 @@ module PURE-FLOW
 
     context (HOLE[_]):Locator
     context (_[HOLE]):Locator
-    rule <k> ListItem(selected(_, K))[Ks:List] => selectLocations(makeLocations(K, Vs), makeAllLocations(Ks), .List) ... </k>
-        <storage> ... K |-> resource(_, Vs) ... </storage>
+    rule Ls:List[Ks:List] => selectLocations(makeAllLocations(Ls), makeAllLocations(Ks), .List)
 
     syntax Locator ::= selectLocation(List, StorageVal) [function]
     rule selectLocation(.List, _) => .List
@@ -248,7 +268,7 @@ module PURE-FLOW
     syntax Locator ::= locateFilter(List, TypeQuant, Var, Locators, List)
 
     context HOLE[_ such that _(_)]
-    rule Ls:List[Q such that F(Args)] => locateFilter(Ls, Q, F, Args, .List)
+    rule Ls:List[Q such that F(Args)] => locateFilter(makeAllLocations(Ls), Q, F, Args, .List)
 
     rule locateFilter(.List, empty, _, _, Ls) => #if size(Ls) ==Int 0 #then .List #else revert #fi
     rule locateFilter(.List, !, _, _, Ls) => #if size(Ls) ==Int 1 #then Ls #else revert #fi
@@ -256,7 +276,7 @@ module PURE-FLOW
     rule locateFilter(.List, any, _, _, Ls) => Ls
 
     rule locateFilter(ListItem(L) Rest, Q, F, Args, Ls)
-         => execute(F, appendLoc(Args, copy(ListItem(L)))) ~> check(L) ~>
+         => execute(F, appendLoc(Args, ListItem(L))) ~> check(L) ~>
             locateFilter(Rest, Q, F, Args, Ls)
 
     syntax Stmt ::= check(Selected)
@@ -376,13 +396,13 @@ module PURE-FLOW
     // Transformer calls:
     // =================================
     syntax Stmt ::= setupArgs(VarDefs)
-                  | zipFlow(List, VarDefs)
+                  | initArgs(List, VarDefs)
 
-    rule <k> Ls:List ~> setupArgs(FormalArgs) => zipFlow(Ls, FormalArgs) ... </k>
+    rule <k> Ls:List ~> setupArgs(FormalArgs) => initArgs(Ls, FormalArgs) ... </k>
         <lookup> _ => .Map </lookup>
 
-    rule zipFlow(.List, .VarDefs) => . [structural]
-    rule <k> zipFlow(ListItem(Sel) Rest, (X : _ _, RestArgs)) => zipFlow(Rest, RestArgs) ... </k>
+    rule initArgs(.List, .VarDefs) => . [structural]
+    rule <k> initArgs(ListItem(Sel) Rest, (X : _ _, RestArgs)) => initArgs(Rest, RestArgs) ... </k>
         <lookup> ... .Map => X |-> Sel ... </lookup>
 
     rule <k> execute(F, Args)
