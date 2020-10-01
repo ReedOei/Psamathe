@@ -27,7 +27,7 @@ module PURE-FLOW-COMMON-SYNTAX
                       | "list" Type
                       | "map" Type "=>" Type
                       | "{" VarDefs "}"
-                      | "table" "(" Vars ")" "{" VarDefs "}"
+                      | "table" "(" Vars ")" Type
                       | "(" BaseType ")" [bracket]
     syntax Type ::= TypeQuant BaseType
 
@@ -63,8 +63,8 @@ module PURE-FLOW-COMMON-SYNTAX
     syntax Program ::= Decls ";" Stmts
 
     // Expand out these types as abbreviations for special kinds of tables.
-    rule (map T1 => T2) => table (key) { key : T1, value : T2 } [macro-rec]
-    rule { Fields } => table (.Vars) { Fields } [macro-rec]
+    rule (map T1 => T2) => table (key) ! { key : T1, value : T2 } [macro-rec]
+    rule list T => table (.Vars) T [macro-rec]
 endmodule
 
 module PURE-FLOW-COMMON
@@ -77,6 +77,9 @@ module PURE-FLOW-COMMON
             <types> .Map </types>
         </common>
 
+    syntax Type ::= demoteType(Type) [function, functional]
+    rule demoteType(Q:TypeQuant T) => Q demoteBaseType(T)
+
     syntax BaseType ::= demoteBaseType(BaseType) [function, functional]
     rule demoteBaseType(nat) => nat
     rule demoteBaseType(string) => string
@@ -84,8 +87,8 @@ module PURE-FLOW-COMMON
     rule demoteBaseType(bool) => bool
     rule [[ demoteBaseType(T1) => demoteBaseType(T2) ]]
         <types> ... T1 |-> (type _ is _ T2) ... </types>
-    rule demoteBaseType(list Q T) => list Q demoteBaseType(T)
-    rule demoteBaseType(table(Keys) { Fields }) => table(Keys) { demoteVarDefs(Fields) }
+    rule demoteBaseType(table(Keys) Q T) => table(Keys) Q demoteBaseType(T)
+    rule demoteBaseType({ Fields }) => { demoteVarDefs(Fields) }
 
     syntax VarDefs ::= demoteVarDefs(VarDefs) [function, functional]
     rule demoteVarDefs(.VarDefs) => .VarDefs
@@ -121,7 +124,8 @@ module PURE-FLOW-COMMON
     rule getConstructorArgs(string) => !_:Id : ! string
     rule getConstructorArgs(bool) => !_:Id : ! bool
     rule getConstructorArgs(address) => !_:Id : ! address
-    rule getConstructorArgs(table(_) { Fields }) => Fields
+    rule getConstructorArgs(table(_) _ T) => getConstructorArgs(T)
+    rule getConstructorArgs({ Fields }) => Fields
 
     syntax VarDefs ::= membersToDefs(RecordMembers) [function, functional]
     rule membersToDefs(.RecordMembers) => .VarDefs

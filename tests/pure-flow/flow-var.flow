@@ -3,13 +3,18 @@
 10 --> var n : nat
 4 --> var x : nat
 
+// n |-> 10, x |-> 4
+
 n[x] --> var m : nat
+// n |-> 6, x |-> 4, m |-> 4
 1 --> x
+// n |-> 6, x |-> 5, m |-> 4
 n[x] --> var k : nat
+// n |-> 1, x |-> 5, m |-> 4, k |-> 5
 
-[ m ] --> var nums : list ! nat
-[ k ] --> nums
+[ any nat ; m, k ] --> var nums : list any nat
+// n |-> 1, x |-> 5, m |-> 0, k |-> 0, nums |-> [ l1, l2 ], l1 |-> 4, l2 |-> 5
 
-4 --> var sel : nat
-nums[sel] --> var newNums : list ! nat
+nums[4] --> var newNums : list any nat
+// n |-> 1, x |-> 5, m |-> 0, k |-> 0, nums |-> [ l2 ], newNums |-> [l1], l1 |-> 4, l2 |-> 5
 

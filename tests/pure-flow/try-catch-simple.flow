@@ -1,10 +1,10 @@
 transformer idBool(a : ! bool) -> res : ! bool {
-    a --> res
+    copy(a) --> res
 }
 
 transformer notBool(a : ! bool) -> res : ! bool {
     try {
-        a[! such that idBool()] --> var y : bool
+        copy(a)[! such that idBool()] --> var y : bool
         false --> res
     } catch {
         true --> res
