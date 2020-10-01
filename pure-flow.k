@@ -188,17 +188,8 @@ module PURE-FLOW
     // TODO: We need a mode or something to know whether we should useResource or just construct and destroy the temporarily created things (can be in the configuration)
     rule locatorList(loc(I), .Locators) => ListItem(selected(loc(I), loc(I))) [structural]
     rule <k> locatorList(Loc, (ListItem(selected(L, K)), Rest))
-             => useResource(selected(L, K)) ~> locatorList(Loc, Rest) ... </k>
-        <storage>
-            ...
-            (Loc |-> resource(T, Vs))
-            (K |-> R)
-            =>
-            (Loc |-> resource(T, Vs ListItem(loc(!I))))
-            (K |-> R)
-            (loc(!I) |-> R)
-            ...
-        </storage>
+             => allocate(loc(!I), selected(L, K)) ~> locatorList(Loc, Rest) ... </k>
+        <storage> ... (Loc |-> resource(_, Vs => Vs ListItem(loc(!I)))) ... </storage>
 
     // Select list.
     // TODO: Need to make sure that we're expanding everywhere correctly.
@@ -253,21 +244,19 @@ module PURE-FLOW
         <storage> ... .Map => loc(!I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
     syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
 
+    syntax Stmt ::= allocate(StorageLoc, Selected)
+
+    rule <k> allocate(loc(I), selected(L, K)) => useResource(selected(L, K)) ... </k>
+        <storage> ... (K |-> R) (.Map => loc(I) |-> R) ... </storage>
+    rule <k> allocate(loc(I), selected(L, amount(N))) => useResource(selected(L, amount(N))) ... </k>
+        <storage> ... (L |-> resource(T, _)) (.Map => loc(I) |-> resource(T, ListItem(N))) ... </storage>
+
     context initRecord(_, _ : _ |-> HOLE , _ )
     rule initRecord(loc(I), .RecordMembers) => ListItem(selected(loc(I), loc(I)))
     // TODO: How to not build the record unless necessary?
     rule <k> initRecord(Loc, (X : _ |-> ListItem(selected(L, K)), Rest))
-             => useResource(selected(L, K)) ~> initRecord(Loc, Rest) ... </k>
-        <storage>
-            ...
-            (Loc |-> resource(T, ListItem(Fields)))
-            (K |-> R)
-            =>
-            (Loc |-> resource(T, ListItem(Fields (X |-> loc(!I)))))
-            (K |-> R)
-            (loc(!I) |-> R)
-            ...
-        </storage>
+             => allocate(loc(!I), selected(L, K)) ~> initRecord(Loc, Rest) ... </k>
+        <storage> ... (Loc |-> resource(_, ListItem(Fields => Fields (X |-> loc(!I))))) ... </storage>
 
     // All types are always stored as their demoted value, so we simply need to demote the type.
     syntax Resource ::= demoteVal(Resource) [function, functional]
@@ -321,29 +310,31 @@ module PURE-FLOW
          <storage> ... J |-> resource(_, .List => ListItem(N)) ... </storage>
 
     // Flow Transformer
-    /* context (HOLE => resolveStorage(HOLE)) --> _(_:Vars) --> _ */
-    /* context _ --> _(_:Vars) --> (HOLE => resolveStorage(HOLE)) */
+    context (HOLE --> _(_) --> _):Stmt
+    context (_ --> _(_) --> HOLE):Stmt
 
-    // NOTE: It is important D be a StorageVal, so that we are sure we have allocated it, if necessary.
-    /* rule <k> Loc --> _(_:Vars) --> _:StorageVal => . ... </k> */
-    /*     <storage> ... Loc |-> resource(_, .List) ... </storage> */
+    rule (.List --> _(_) --> _:List):Stmt => . [structural]
+    // TODO: Make this nicer?
+    rule <k> (ListItem(selected(L, L)) --> F(Args) --> ListItem(selected(P, J))):Stmt
+             => makeLocations(L, Vs) --> F(Args) --> ListItem(selected(P, J)) ... </k>
+        <storage> ... L |-> resource(_, Vs) ... </storage>
+    rule (ListItem(selected(L, K)) Rest) --> F(Args) --> ListItem(selected(P, J))
+         => execute(F, appendLoc(Args, ListItem(selected(L, K))))
+            ~> transform(J) ~> useResource(selected(L, K)) ~> Rest --> F(Args) --> ListItem(selected(P, J))
+        requires L =/=K K
 
-    /* rule <k> Loc --> F(Xs) --> D => transform(F(addArg(Xs, var(I))), D) ~> Loc --> F(Xs) --> D ... </k> */
-    /*     <lookup> ... .Map => var(I) |-> loc(I) ... </lookup> */
-    /*     <storage> */
-    /*         ... */
-    /*         (Loc |-> resource(R, ListItem(A) Rest)) */
-    /*         => */
-    /*         (Loc |-> resource(R, Rest)) */
-    /*         (loc(I) |-> resource(elemtype(R), elem(ListItem(A)))) */
-    /*         ... */
-    /*     </storage> */
+    syntax Stmt ::= transform(StorageLoc)
 
-    /* syntax Stmt ::= transform(FunctionCallResult, StorageVal) */
-    /* context transform(HOLE, _) */
-
-    /* rule <k> transform(loc(I), Dest) => put(resource(R, V), Dest) ... </k> */
-    /*     <storage> ... loc(I) |-> resource(R, V) => .Map ... </storage> */
+    rule <k> L ~> transform(K) => . ... </k>
+        <storage>
+            ...
+            (L |-> RL)
+            (K |-> RK)
+            =>
+            (K |-> combine(RK, RL))
+            ...
+        </storage>
+        requires combine(RK, RL) =/=K error
 
     // =================================
     // Transformer calls:

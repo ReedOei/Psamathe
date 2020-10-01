@@ -106,7 +106,7 @@ else
 
         while true; do
             set -x
-            output="$("$KDISTR/krun" --directory "$directory" --depth "$depth" "${FLAGS[@]}" "$@")"
+            output="$(time "$KDISTR/krun" --directory "$directory" --depth "$depth" "${FLAGS[@]}" "$@")"
             set +x
             if [[ "$output" == "$prev_output" ]]; then
                 break
