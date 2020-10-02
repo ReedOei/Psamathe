@@ -47,9 +47,14 @@ module PURE-FLOW
     // Declarations
     // =================================
     syntax KItem ::= transformer(VarDef, VarDefs, Stmts)
+                   | typeDef(Set, BaseType)
 
     rule <k> (transformer F(FormalArgs) -> Ret { Body }) Decls ; S => Decls ; S </k>
         <functions> ... .Map => F |-> transformer(Ret, FormalArgs, Body) ... </functions>
+        [structural]
+
+    rule <k> (type T is Ms BaseT) Decls ; S => Decls ; S </k>
+        <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
         [structural]
 
     rule .Decls ; S => S [structural]
@@ -72,6 +77,11 @@ module PURE-FLOW
 
     rule <k> dropLoc(Loc) => . ... </k>
         <storage> ... Loc |-> _ => .Map ... </storage>
+
+    syntax Stmt ::= setType(StorageLoc, BaseType)
+
+    rule <k> setType(L, T) => . ... </k>
+        <storage> ... L |-> resource(_ => T, _) ... </storage>
 
     // =================================
     // Try-Catch:
@@ -97,10 +107,16 @@ module PURE-FLOW
     // =================================
     // combine(R1, R2):
     // =================================
-    syntax Resource ::= combine(Resource, Resource) [function, functional]
+    syntax Resource ::= withType(BaseType, Resource) [function, functional]
+    rule withType(_, error) => error
+    rule withType(T, resource(_, V)) => resource(T, V)
 
+    syntax Resource ::= combine(Resource, Resource) [function, functional]
     rule combine(error, _) => error
     rule combine(_, error) => error
+
+    rule combine(resource(T, .List), resource(_, V)) => resource(T, V)
+    rule combine(resource(T, V), resource(_, .List)) => resource(T, V)
 
     rule combine(resource(bool, ListItem(A)), resource(bool, ListItem(B))) => resource(bool, ListItem(A orBool B))
     rule combine(resource(bool, .List), resource(bool, B)) => resource(bool, B)
@@ -110,11 +126,15 @@ module PURE-FLOW
     rule combine(resource(nat, .List), resource(nat, B)) => resource(nat, B)
     rule combine(resource(nat, A), resource(nat, .List)) => resource(nat, A)
 
-    rule combine(resource(list R, Ws), resource(list R, Vs)) => resource(list R, Ws Vs)
+    // TODO: Maybe allow custom combining functions?
+    rule [[ combine(resource(T, A), resource(_, B)) => withType(T, combine(resource(BaseT, A), resource(BaseT, B))) ]]
+        <types> ... T |-> typeDef(Ms, BaseT) ... </types>
+        requires fungible in Ms
+    rule [[ combine(resource(T, ListItem(_) _), resource(_, ListItem(_) _)) => error ]]
+        <types> ... T |-> typeDef(Ms, _) ... </types>
+        requires notBool(fungible in Ms)
 
-    rule combine(resource(record(Keys) { Members }, .List), resource(record(_) { Members }, FieldLocs)) => resource(record(Keys) { Members }, FieldLocs)
-    rule combine(resource(record(Keys) { Members }, FieldLocs), resource(record(_) { Members }, .List)) => resource(record(Keys) { Members }, FieldLocs)
-    // Can't have combine two records because that would lead to overwriting one of them.
+    // Can't have combine two records where both are nonempty, because that would lead to overwriting one of them.
     rule combine(resource(record(_) { Members }, ListItem(_)), resource(record(_) { Members }, ListItem(_))) => error
 
     rule combine(resource(table(Keys) T, Vs), resource(table(_) T, Ws)) => resource(table(Keys) T, Vs Ws)
@@ -274,11 +294,19 @@ module PURE-FLOW
     rule expand(resource(record(Keys) { Fields }, ListItem(M))) => resource(record(Keys) { Fields }, ListItem(expandEach(Fields, M)))
 
     rule expand(resource(table(Keys) T, Vs)) => resource(table(Keys) T, expandList(Vs))
+    rule [[ expand(resource(T, Vs)) => withType(T, expand(resource(BaseT, Vs))) ]]
+        <types> ... T |-> typeDef(_, BaseT) ... </types>
 
+
+    // expandList(Ls) assumes that Ls is a list of locations, whereas expandSelecteds(Ls) assumes Ls is a list of Selected
     syntax List ::= expandList(List) [function]
     rule expandList(.List) => .List
     rule [[ expandList(ListItem(loc(I)) Rest) => ListItem(expand(R)) expandList(Rest) ]]
         <storage> ... loc(I) |-> R ... </storage>
+
+    syntax List ::= expandSelecteds(List) [function]
+    rule expandSelecteds(.List) => .List
+    rule expandSelecteds(ListItem(Sel) Rest) => ListItem(expand(Sel)) expandSelecteds(Rest)
 
     syntax Map ::= expandEach(VarDefs, Map) [function]
     rule expandEach(.VarDefs, .Map) => .Map
@@ -443,8 +471,37 @@ module PURE-FLOW
         requires L =/=K K
 
     syntax Stmt ::= transform(Locator)
+    rule ListItem(selected(L, K)) ~> transform(Sel) => ListItem(selected(L, K)) --> Sel [structural]
 
-    rule ListItem(selected(L, K)) ~> transform(Sel) => ListItem(selected(L, K)) --> Sel
+    context HOLE --> new _(_) --> _
+    context _ --> new _(_) --> HOLE
+
+    // If the type is unique, we need to ensure that the request value has never been created before
+    rule .List --> new _(_) --> _:List => . [structural]
+    rule (ListItem(Sel) Rest) --> new T(Args) --> Dest:List
+         => createNew(T, appendLoc(Args, ListItem(Sel))) ~> transform(Dest) ~>
+            Rest --> new T(Args) --> Dest
+
+    syntax Locator ::= createNew(Var, Locators)
+
+    // TODO: Implement unique modifier
+    rule <k> createNew(T, Args)
+             => initializer(BaseT, Args) --> ListItem(selected(loc(!I), loc(!I))) ~> setType(loc(!I), T) ~>
+                ListItem(selected(loc(!I), loc(!I))) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(BaseT, .List) ... </storage>
+        <types> ... T |-> typeDef(Ms, BaseT) ... </types>
+        requires notBool(unique in Ms)
+
+    syntax Locator ::= initializer(BaseType, Locators) [function, functional]
+
+    rule initializer(nat, L:Locator) => L
+    rule initializer(bool, L:Locator) => L
+    rule initializer(record(Keys) { Fields }, Ls) => record(Keys) { makeRecordMembers(Fields, Ls) }
+    rule initializer(table(_) T, Ls) => [ T ; Ls ]:Locator
+
+    syntax RecordMembers ::= makeRecordMembers(VarDefs, Locators) [function, functional]
+    rule makeRecordMembers(.VarDefs, .Locators) => .RecordMembers
+    rule makeRecordMembers((X : T, Fields), (L, Ls)) => (X : T |-> L), makeRecordMembers(Fields, Ls)
 
     // =================================
     // Transformer calls:

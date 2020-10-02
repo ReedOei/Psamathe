@@ -130,8 +130,8 @@ module PURE-FLOW-COMMON
     rule getConstructorArgs(string) => !_:Id : ! string
     rule getConstructorArgs(bool) => !_:Id : ! bool
     rule getConstructorArgs(address) => !_:Id : ! address
-    rule getConstructorArgs(table(_) _ T) => getConstructorArgs(T)
-    rule getConstructorArgs({ Fields }) => Fields
+    rule getConstructorArgs(table(Keys) T) => !_:Id : any table(Keys) T
+    rule getConstructorArgs(record(_) { Fields }) => Fields
 
     syntax VarDefs ::= membersToDefs(RecordMembers) [function, functional]
     rule membersToDefs(.RecordMembers) => .VarDefs
