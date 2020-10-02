@@ -49,12 +49,17 @@ module PURE-FLOW-COMMON-SYNTAX
                      | Locator "[" Locator "]"
                      | Locator "[" TypeQuant "such" "that" Var "(" Locators ")" "]"
                      | "(" Locator ")" [bracket]
+                     | "consume"
     syntax Locators ::= List{Locator, ","} [klabel(locators), strict]
                       | Vars
 
     syntax Stmt ::= Locator "-->" Locator
                   | Locator "-->" Var "(" Locators ")" "-->" Locator
                   | Locator "-->" "new" Var "(" Locators ")" "-->" Locator
+                  | Locator "--[" Locator "]->" Locator
+                  | Locator "--[" TypeQuant "such" "that" Var "(" Locators ")" "]->" Locator
+                  | Var "(" Locators ")" "-->" Locator
+                  | "new" Var "(" Locators ")" "-->" Locator
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
     syntax Stmts ::= List{Stmt, ""} [klabel(stmts)]
 
@@ -71,6 +76,20 @@ module PURE-FLOW-COMMON-SYNTAX
     rule { Fields:VarDefs } => record (.Vars) { Fields } [macro-rec]
 
     rule { Members:RecordMembers } => record (.Vars) { Members } [macro-rec]
+
+    syntax Locator ::= lastLoc(Locators) [function, functional]
+    rule lastLoc(L:Locator) => L
+    rule lastLoc(_, B, Rest) => lastLoc(B, Rest)
+
+    syntax Locators ::= initLocs(Locators) [function, functional]
+    rule initLocs(_:Locator) => .Locators
+    rule initLocs(A, B, Rest) => A, initLocs(B, Rest)
+
+    // Expand syntactic sugar for flows
+    rule A --[ L:Locator ]-> B => A[L] --> B [macro-rec]
+    rule A --[ Q such that F(Args) ]-> B => A[Q such that F(Args)] --> B [macro-rec]
+    rule (F:Var(Args:Locators) --> B):Stmt => lastLoc(Args) --> F(initLocs(Args)) --> B [macro-rec]
+    rule new T(Args) --> B => lastLoc(Args) --> new T(initLocs(Args)) --> B [macro-rec]
 endmodule
 
 module PURE-FLOW-COMMON

@@ -262,7 +262,6 @@ module PURE-FLOW
          => ListItem(resource(record(Keys) { Fields }, ListItem(M)))
             allKeys(Keys, M)
 
-    // TODO: Implement this:
     rule keysOf(resource(table(Keys) Q T, Vs))
          => ListItem(resource(table(Keys) Q T, Vs))
             allKeysTable(T, Keys, Vs)
@@ -296,7 +295,6 @@ module PURE-FLOW
     rule expand(resource(table(Keys) T, Vs)) => resource(table(Keys) T, expandList(Vs))
     rule [[ expand(resource(T, Vs)) => withType(T, expand(resource(BaseT, Vs))) ]]
         <types> ... T |-> typeDef(_, BaseT) ... </types>
-
 
     // expandList(Ls) assumes that Ls is a list of locations, whereas expandSelecteds(Ls) assumes Ls is a list of Selected
     syntax List ::= expandList(List) [function]
