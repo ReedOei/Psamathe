@@ -54,9 +54,6 @@
 % \reed{Seems like we should emphasize two things: why is this language declarative, and why are our programs easier to verify than Solidity programs (are they)?}
 % \reed{The other thing they seem to really care about is performance.}
 
-\reed{Should we put any effort into actually verifying things?}
-
-\reed{This paragraph is completely unchanged atm, but could use updating.}
 Blockchains are increasingly used as platforms for applications called \emph{smart contracts}~\cite{Szabo97:Formalizing}, which automatically manage transactions in an unbiased, mutually agreed-upon way.
 Commonly proposed and implemented smart contracts include supply chain management~\cite{SupplyChainUse}, healthcare~\cite{HealthcareUse}, \emph{token contracts}, voting, crowdfunding, auctions, and more~\cite{Elsden18:Making}.
 A \emph{token contract} is a contract implementing a \emph{token standard}, such as ERC-20~\cite{erc20}.
@@ -64,18 +61,19 @@ Smart contracts often manage \emph{digital assets}, such as cryptocurrencies, or
 Token contracts are common on the Ethereum blockchain~\cite{wood2014ethereum}---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
 Smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
 Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
-\begin{figure}
-    \centering
-    \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
-    \vspace{-1em}
-    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
-        All preconditions are checked manually.
-        Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
-    \label{fig:erc20-transfer-sol}
-\end{figure}
 
 \langName (\langNamePronounce) is a new programming language we are designing around a new abstraction, a \emph{flow}, representing an atomic transfer operation.
-\Fix{Together with \emph{modifiers} and \emph{locators}, flows provide a \textbf{concise} way to write smart contracts that \textbf{safely} manage \assetTxt{}s.}
+Together with \emph{modifiers} and \emph{locators}, flows provide a \textbf{concise} way to write smart contracts that \textbf{safely} manage \assetTxt{}s.
+\begin{figure}
+    \vspace{-2em}
+    \centering
+    \lstinputlisting[language=flow, xrightmargin=-1.0em]{padl-21-examples/erc20-transfer.flow}
+    \vspace{-1em}
+    \caption{A \langName contract with a simple \lstinline{transfer} function, which transfers \lstinline{amount} tokens from the sender's account to the destination account.
+It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
+    \label{fig:erc20-transfer-flow}
+    \vspace{-1em}
+\end{figure}
 
 Solidity is the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, and does not provide analogous support for managing \assetTxt{}s.
 Typical smart contracts are more concise in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
@@ -83,8 +81,8 @@ Typical smart contracts are more concise in \langName than in Solidity, because 
 Other many newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint,blackshear2019move,das2019nomos,coblenz2019obsidian,sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
 Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which provide the benefits of \emph{linear types}, but give a more precise analysis of the flow of values in a program.
-\Fix{None of the these languages have flows, provide support for all the modifiers that \langName does, or have locators.
-In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.}
+None of the these languages have flows, provide support for all the modifiers that \langName does, or have locators.
+In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.
 
 \section{Language}\label{sec:lang}
 \Fix{A \langName program is made of \emph{transformers} and \emph{types}.
@@ -92,14 +90,6 @@ Transformers contain statements describing the flow of values between the variab
 Types provide a mechanism for marking values with \emph{modifiers}.}
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type and a transformer, which implements the core of ERC-20's \lstinline{transfer} function.
 ERC-20 is a standard for token contracts managing \textbf{fungible} tokens, and provides a bare-bones interface for this purpose.
-\begin{figure}
-    \centering
-    \lstinputlisting[language=flow, xrightmargin=-1.0em]{padl-21-examples/erc20-transfer.flow}
-    \vspace{-1em}
-    \caption{A \langName contract with a simple \lstinline{transfer} function, which transfers \lstinline{amount} tokens from the sender's account to the destination account.
-It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
-    \label{fig:erc20-transfer-flow}
-\end{figure}
 
 \langName is built around the concept of a flow.
 Using the more declarative, \emph{flow-based} approach provides the following advantages:
@@ -137,27 +127,36 @@ A \flowinline{consumable} value is an \flowinline{asset} that it may be appropri
 If a sequence of flows fails, the error propagates, like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.
 
 \section{Examples}
-\begin{figure}
-    \centering
-    \lstinputlisting[language=Solidity]{padl-21-examples/voting.sol}
-    \vspace{-1em}
-    \caption{A simple voting contract in Solidity.}
-    \label{fig:voting-impl-sol}
-\end{figure}
-The complete Solidity and \langName code is in our repository~\cite{psamatheRepo}.
+% The complete Solidity and \langName code is in our repository~\cite{psamatheRepo}.
 
 \subsection{ERC-20}\label{sec:erc20-impl}
+\begin{figure}
+    \vspace{-2em}
+    \centering
+    \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
+    \vspace{-1em}
+    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
+        All preconditions are checked manually.
+        Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
+    \label{fig:erc20-transfer-sol}
+    \vspace{-1em}
+\end{figure}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the ERC-20 function \lstinline{transfer} (cf. Figure~\ref{fig:erc20-transfer-flow}).
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of how many tokens each user has; users are represented by addresses.
 This example shows the advantages of flows in precondition checking, data-flow tracking, and error messages.
 In this case, the sender's balance must be at least as large as \flowinline{amount}, and the destination's balance must not overflow when it receives the tokens.
 Psamathe automatically inserts code checking these two conditions, ensuring that the checks are not forgotten.
 
-% \reed{Why declarative}
-% \reed{Why easy to verify}
-% \reed{Why just as fast}
-
 \subsection{Voting}\label{sec:voting-impl}
+\begin{figure}
+    \vspace{-2em}
+    \centering
+    \lstinputlisting[language=Solidity]{padl-21-examples/voting.sol}
+    \vspace{-1em}
+    \caption{A simple voting contract in Solidity.}
+    \label{fig:voting-impl-sol}
+    \vspace{-1em}
+\end{figure}
 \begin{figure}
     \centering
     \lstinputlisting[language=flow]{padl-21-examples/voting.flow}
