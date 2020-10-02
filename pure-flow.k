@@ -254,6 +254,7 @@ module PURE-FLOW
     syntax List ::= keysOf(Resource) [function, functional]
                  | allKeys(Vars, Map) [function, functional]
                  | allKeysTable(BaseType, Vars, List) [function, functional]
+    // TODO: Need to demote here for when we eventually add asset keys
     rule keysOf(resource(T, .List)) => ListItem(resource(T, .List))
     rule keysOf(resource(nat, V)) => ListItem(resource(nat, V))
     rule keysOf(resource(bool, V)) => ListItem(resource(bool, V))
