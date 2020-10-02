@@ -112,24 +112,12 @@ module PURE-FLOW
 
     rule combine(resource(list R, Ws), resource(list R, Vs)) => resource(list R, Ws Vs)
 
-    rule combine(resource({ Members }, .List), resource({ Members }, FieldLocs)) => resource({ Members }, FieldLocs)
-    rule combine(resource({ Members }, FieldLocs), resource({ Members }, .List)) => resource({ Members }, FieldLocs)
+    rule combine(resource(record(Keys) { Members }, .List), resource(record(_) { Members }, FieldLocs)) => resource(record(Keys) { Members }, FieldLocs)
+    rule combine(resource(record(Keys) { Members }, FieldLocs), resource(record(_) { Members }, .List)) => resource(record(Keys) { Members }, FieldLocs)
     // Can't have combine two records because that would lead to overwriting one of them.
-    rule combine(resource({ Members }, ListItem(_)), resource({ Members }, ListItem(_))) => error
+    rule combine(resource(record(_) { Members }, ListItem(_)), resource(record(_) { Members }, ListItem(_))) => error
 
-    syntax Bool ::= Resource "contained_in" Resource [function]
-    // A <= B iff exists C such that A + C = B
-    rule resource(bool, ListItem(A)) contained_in resource(bool, ListItem(B)) => B orBool notBool(A)
-
-    rule resource(nat, ListItem(A)) contained_in resource(nat, ListItem(B)) => A <=Int B
-
-    rule resource({ _ }, A) contained_in resource({ _ }, B) => A ==K B
-
-    rule resource(_, .List) contained_in resource(_, _) => true
-    rule resource(_, ListItem(_) _) contained_in resource(_, .List) => false
-    rule resource(list T, ListItem(A) Rest) contained_in resource(list S, B)
-         =>
-         (A in B) andBool (resource(list T, Rest) contained_in resource(list S, remove(ListItem(A), B)))
+    rule combine(resource(table(Keys) T, Vs), resource(table(_) T, Ws)) => resource(table(Keys) T, Vs Ws)
 
     // =================================
     // subtract:
@@ -243,27 +231,93 @@ module PURE-FLOW
     context (_[HOLE]):Locator
     rule Ls:List[Ks:List] => selectLocations(makeAllLocations(Ls), makeAllLocations(Ks), .List)
 
-    syntax Locator ::= selectLocation(List, StorageVal) [function]
+    syntax List ::= keysOf(Resource) [function, functional]
+                 | allKeys(Vars, Map) [function, functional]
+                 | allKeysTable(BaseType, Vars, List) [function, functional]
+    rule keysOf(resource(T, .List)) => ListItem(resource(T, .List))
+    rule keysOf(resource(nat, V)) => ListItem(resource(nat, V))
+    rule keysOf(resource(bool, V)) => ListItem(resource(bool, V))
+
+    rule keysOf(resource(record(Keys) { Fields }, ListItem(M)))
+         => ListItem(resource(record(Keys) { Fields }, ListItem(M)))
+            allKeys(Keys, M)
+
+    // TODO: Implement this:
+    rule keysOf(resource(table(Keys) Q T, Vs))
+         => ListItem(resource(table(Keys) Q T, Vs))
+            allKeysTable(T, Keys, Vs)
+
+    rule allKeys(.Vars, _) => .List
+    rule allKeys((A, Rest), (A |-> V) M) => ListItem(V) allKeys(Rest, M)
+
+    rule allKeysTable(_, .Vars, _) => .List
+    rule allKeysTable(T, (A, Rest), Vs)
+         => ListItem(resource(list getFieldType(A, T), getFieldVals(A, Vs)))
+            allKeysTable(T, Rest, Vs)
+
+    syntax List ::= getFieldVals(Var, List) [function, functional]
+    rule getFieldVals(_, .List) => .List
+    rule getFieldVals(A, ListItem((A |-> V) _) Rest) => ListItem(V) getFieldVals(A, Rest)
+
+    syntax Type ::= getFieldType(Var, BaseType) [function, functional]
+    rule getFieldType(A, record(_) { A : T, _ }) => T
+    rule getFieldType(A, record(Keys) { B : _, Rest }) => getFieldType(A, record(Keys) { Rest })
+        requires A =/=K B
+
+    // Takes a resource and resolves all references in it (e.g., fields) so that the entire value is contained in the resource
+    syntax Resource ::= expand(Resource) [function]
+    rule expand(error) => error
+    rule expand(resource(nat, V)) => resource(nat, V)
+    rule expand(resource(bool, V)) => resource(bool, V)
+
+    rule expand(resource(record(Keys) { Fields }, .List)) => resource(record(Keys) { Fields }, .List)
+    rule expand(resource(record(Keys) { Fields }, ListItem(M))) => resource(record(Keys) { Fields }, ListItem(expandEach(Fields, M)))
+
+    rule expand(resource(table(Keys) T, Vs)) => resource(table(Keys) T, expandList(Vs))
+
+    syntax List ::= expandList(List) [function]
+    rule expandList(.List) => .List
+    rule [[ expandList(ListItem(loc(I)) Rest) => ListItem(expand(R)) expandList(Rest) ]]
+        <storage> ... loc(I) |-> R ... </storage>
+
+    syntax Map ::= expandEach(VarDefs, Map) [function]
+    rule expandEach(.VarDefs, .Map) => .Map
+    rule [[ expandEach((X : _, Rest), (X |-> XLoc) M) => (X |-> expand(R)) expandEach(Rest, M) ]]
+        <storage> ... XLoc |-> R ... </storage>
+
+    syntax Resource ::= resolveSelected(Selected) [function]
+    rule [[ resolveSelected(selected(_, K)) => R ]]
+        <storage> ... K |-> R </storage>
+    rule [[ resolveSelected(selected(L, amount(N))) => resource(T, ListItem(N)) ]]
+        <storage> ... L |-> resource(T, _) ... </storage>
+
+    syntax Locator ::= selectLocation(List, Resource)
     rule selectLocation(.List, _) => .List
-    rule [[ selectLocation(ListItem(selected(L, K)) _, amount(N)) => ListItem(selected(L, K)) ]]
-        <storage> ... K |-> resource(_, ListItem(N)) </storage>
-    rule [[ selectLocation(ListItem(selected(_, K)) Rest, amount(N)) => selectLocation(Rest, amount(N)) ]]
-        <storage> ... K |-> resource(_, ListItem(M)) </storage>
-        requires M =/=Int N
-    rule [[ selectLocation(ListItem(selected(L, K)) _, J) => ListItem(selected(L, K)) ]]
-        <storage> ... (K |-> V) (J |-> V) ... </storage>
-    rule [[ selectLocation(ListItem(selected(_, K)) Rest, J) => selectLocation(Rest, J) ]]
-        <storage> ... (K |-> V) (J |-> W) ... </storage>
-        requires V =/=K W
-    rule selectLocation(ListItem(selected(L, amount(N))), amount(M)) => ListItem(selected(L, amount(M)))
-        requires N >=Int M
+    rule selectLocation(ListItem(selected(loc(I), loc(J))) Rest, R)
+          => #if expand(R) inList keysOf(expand(resolveSelected(selected(loc(I), loc(J))))) #then
+                ListItem(selected(loc(I), loc(J)))
+             #else
+                selectLocation(Rest, R)
+             #fi
+    rule selectLocation(ListItem(selected(L, amount(N))) Rest, resource(T, ListItem(M)))
+         => #if N >=Int M #then
+                ListItem(selected(L, amount(M)))
+            #else
+                selectLocation(Rest, resource(T, ListItem(M)))
+            #fi
 
     syntax Locator ::= selectLocations(List, List, List)
     rule selectLocations(_, .List, Selected) => Selected
     rule selectLocations(.List, ListItem(_) _, _) => revert
-    rule selectLocations(Ls, ListItem(selected(_, J)) Rest, Selected) =>
-            #fun(Loc:List => selectLocations(removeList(Loc, Ls), Rest, Selected Loc) )(selectLocation(Ls, J))
-        requires selectLocation(Ls, J) =/=K .List // This means that we didn't find one of the values we wanted to select in the source---an error.
+    rule selectLocations(Ls, ListItem(Sel) Rest, Selected)
+         => selectLocation(Ls, resolveSelected(Sel)) ~> selectLocations(Ls, Rest, Selected)
+    rule Loc:List ~> selectLocations(Ls, Rest, Selected)
+         => #if Loc ==K .List #then
+                // This means that we didn't find one of the values we wanted to select in the source---an error.
+                selectLocations(Ls, Rest, Selected)
+            #else
+                selectLocations(removeList(Loc, Ls), Rest, Selected Loc)
+            #fi
 
     syntax Locator ::= locateFilter(List, TypeQuant, Var, Locators, List)
 
@@ -291,8 +345,8 @@ module PURE-FLOW
         requires Q =/=K every // If Q is every, the check **must** succeed for every element.
 
     // Records
-    rule <k> { Members } => initRecord(loc(!I), Members) ... </k>
-        <storage> ... .Map => loc(!I) |-> resource({ membersToDefs(Members) }, ListItem(.Map)) ... </storage>
+    rule <k> record(Keys) { Members } => initRecord(loc(!I), Members) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(record(Keys) { membersToDefs(Members) }, ListItem(.Map)) ... </storage>
     syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
 
     syntax Stmt ::= allocate(StorageLoc, Selected)

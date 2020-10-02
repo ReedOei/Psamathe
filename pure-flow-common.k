@@ -27,6 +27,7 @@ module PURE-FLOW-COMMON-SYNTAX
                       | "list" Type
                       | "map" Type "=>" Type
                       | "{" VarDefs "}"
+                      | "record" "(" Vars ")" "{" VarDefs "}"
                       | "table" "(" Vars ")" Type
                       | "(" BaseType ")" [bracket]
     syntax Type ::= TypeQuant BaseType
@@ -40,6 +41,7 @@ module PURE-FLOW-COMMON-SYNTAX
     syntax Locator ::= Bool | Int | Var
                      | Locator "." Var [klabel(qualified)]
                      | "[" Type ";" Locators "]"
+                     | "record" "(" Vars ")" "{" RecordMembers "}"
                      | "{" RecordMembers "}"
                      | "demote" "(" Locator ")"
                      | "copy" "(" Locator ")"
@@ -63,8 +65,12 @@ module PURE-FLOW-COMMON-SYNTAX
     syntax Program ::= Decls ";" Stmts
 
     // Expand out these types as abbreviations for special kinds of tables.
-    rule (map T1 => T2) => table (key) ! { key : T1, value : T2 } [macro-rec]
+    rule (map T1 => T2) => table (key) ! record(key) { key : T1, value : T2 } [macro-rec]
     rule list T => table (.Vars) T [macro-rec]
+
+    rule { Fields:VarDefs } => record (.Vars) { Fields } [macro-rec]
+
+    rule { Members:RecordMembers } => record (.Vars) { Members } [macro-rec]
 endmodule
 
 module PURE-FLOW-COMMON
@@ -152,6 +158,12 @@ module PURE-FLOW-COMMON
     syntax Set ::= modifiersToSet(Modifiers) [function, functional]
     rule modifiersToSet(.Modifiers) => .Set
     rule modifiersToSet(M:Modifier Ms) => SetItem(M) modifiersToSet(Ms)
+
+    syntax Bool ::= KItem "inList" List [function, functional]
+    rule _ inList .List => false
+    rule X inList (ListItem(X) _) => true
+    rule X inList (ListItem(Y) Rest) => X inList Rest
+        requires X =/=K Y
 
 endmodule
 

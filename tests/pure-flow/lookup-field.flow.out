@@ -18,9 +18,9 @@
     d |-> selected ( loc ( 6 ) , loc ( 6 ) )
   </lookup>
   <storage>
-    loc ( 0 ) |-> resource ( { l : ! bool , r : ! bool , .VarDefs } , ListItem ( l |-> loc ( 3 )
+    loc ( 0 ) |-> resource ( record ( .Vars ) { l : ! bool , r : ! bool , .VarDefs } , ListItem ( l |-> loc ( 3 )
     r |-> loc ( 5 ) ) )
-    loc ( 1 ) |-> resource ( { l : ! bool , r : ! bool , .VarDefs } , .List )
+    loc ( 1 ) |-> resource ( record ( .Vars ) { l : ! bool , r : ! bool , .VarDefs } , .List )
     loc ( 2 ) |-> resource ( bool , .List )
     loc ( 3 ) |-> resource ( bool , .List )
     loc ( 4 ) |-> resource ( bool , .List )
