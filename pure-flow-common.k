@@ -100,20 +100,24 @@ module PURE-FLOW-COMMON
         <common>
             <typeEnv> .Map </typeEnv>
             <types> .Map </types>
+            <functions> .Map </functions>
         </common>
 
     syntax Type ::= demoteType(Type) [function, functional]
     rule demoteType(Q:TypeQuant T) => Q demoteBaseType(T)
+
+    syntax KItem ::= transformer(VarDef, VarDefs, Stmts)
+                   | typeDef(Set, BaseType)
 
     syntax BaseType ::= demoteBaseType(BaseType) [function, functional]
     rule demoteBaseType(nat) => nat
     rule demoteBaseType(string) => string
     rule demoteBaseType(address) => address
     rule demoteBaseType(bool) => bool
-    rule [[ demoteBaseType(T1) => demoteBaseType(T2) ]]
-        <types> ... T1 |-> (type _ is _ T2) ... </types>
+    rule [[ demoteBaseType(T1) => demoteBaseType(BaseT) ]]
+        <types> ... T1 |-> typeDef(_, BaseT) ... </types>
     rule demoteBaseType(table(Keys) Q T) => table(Keys) Q demoteBaseType(T)
-    rule demoteBaseType({ Fields }) => { demoteVarDefs(Fields) }
+    rule demoteBaseType(record(Keys) { Fields }) => record(Keys) { demoteVarDefs(Fields) }
 
     syntax VarDefs ::= demoteVarDefs(VarDefs) [function, functional]
     rule demoteVarDefs(.VarDefs) => .VarDefs

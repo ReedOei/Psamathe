@@ -6,14 +6,14 @@
     <types>
       .Map
     </types>
+    <functions>
+      idBool |-> transformer ( res : ! bool , a : ! bool , .VarDefs , copy ( a ) --> res  .Stmts )
+      notBool |-> transformer ( res : ! bool , a : ! bool , .VarDefs , try { copy ( a ) [ ! such that idBool ( .Vars ) ] --> var y : bool  false --> res  .Stmts } catch { true --> res  .Stmts }  .Stmts )
+    </functions>
   </common>
   <k>
     .
   </k>
-  <functions>
-    idBool |-> transformer ( res : ! bool , a : ! bool , .VarDefs , copy ( a ) --> res  .Stmts )
-    notBool |-> transformer ( res : ! bool , a : ! bool , .VarDefs , try { copy ( a ) [ ! such that idBool ( .Vars ) ] --> var y : bool  false --> res  .Stmts } catch { true --> res  .Stmts }  .Stmts )
-  </functions>
   <lookup>
     b |-> selected ( loc ( 0 ) , loc ( 0 ) )
     c |-> selected ( loc ( 2 ) , loc ( 2 ) )
@@ -27,4 +27,7 @@
   <catchStack>
     .List
   </catchStack>
+  <createdVals>
+    .Map
+  </createdVals>
 </generatedTop>

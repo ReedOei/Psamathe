@@ -96,7 +96,14 @@ if [[ "$1" == "test" ]]; then
 else
     if [[ "$1" == "log" ]]; then
         shift
-        depth=1
+
+        if [[ "$1" == "skip" ]]; then
+            shift
+            depth="$1"
+            shift
+        else
+            depth=1
+        fi
         prev_output=""
 
         set +e

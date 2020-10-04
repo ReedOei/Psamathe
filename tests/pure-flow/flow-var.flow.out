@@ -6,13 +6,13 @@
     <types>
       .Map
     </types>
+    <functions>
+      .Map
+    </functions>
   </common>
   <k>
     .
   </k>
-  <functions>
-    .Map
-  </functions>
   <lookup>
     k |-> selected ( loc ( 6 ) , loc ( 6 ) )
     m |-> selected ( loc ( 4 ) , loc ( 4 ) )
@@ -29,14 +29,17 @@
     loc ( 4 ) |-> resource ( nat , ListItem ( 0 ) )
     loc ( 5 ) |-> resource ( nat , ListItem ( 0 ) )
     loc ( 6 ) |-> resource ( nat , ListItem ( 0 ) )
-    loc ( 7 ) |-> resource ( table ( .Vars ) any nat , ListItem ( loc ( 9 ) ) )
+    loc ( 7 ) |-> resource ( table ( .Vars ) any nat , ListItem ( loc ( 8 ) )
+    ListItem ( loc ( 9 ) ) )
     loc ( 8 ) |-> resource ( nat , ListItem ( 4 ) )
     loc ( 9 ) |-> resource ( nat , ListItem ( 5 ) )
-    loc ( 10 ) |-> resource ( table ( .Vars ) any nat , ListItem ( loc ( 12 ) ) )
+    loc ( 10 ) |-> resource ( table ( .Vars ) any nat , ListItem ( loc ( 8 ) ) )
     loc ( 11 ) |-> resource ( nat , ListItem ( 4 ) )
-    loc ( 12 ) |-> resource ( nat , ListItem ( 4 ) )
   </storage>
   <catchStack>
     .List
   </catchStack>
+  <createdVals>
+    .Map
+  </createdVals>
 </generatedTop>

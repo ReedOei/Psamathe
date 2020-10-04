@@ -6,13 +6,13 @@
     <types>
       .Map
     </types>
+    <functions>
+      .Map
+    </functions>
   </common>
   <k>
     .
   </k>
-  <functions>
-    .Map
-  </functions>
   <lookup>
     c |-> selected ( loc ( 0 ) , loc ( 0 ) )
     d |-> selected ( loc ( 6 ) , loc ( 6 ) )
@@ -30,4 +30,7 @@
   <catchStack>
     .List
   </catchStack>
+  <createdVals>
+    .Map
+  </createdVals>
 </generatedTop>
