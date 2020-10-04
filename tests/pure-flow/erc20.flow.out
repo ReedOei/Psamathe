@@ -17,16 +17,16 @@
     .
   </k>
   <lookup>
-    balances |-> selected ( loc ( 3 ) , loc ( 3 ) )
-    succeeded |-> selected ( loc ( 29 ) , loc ( 29 ) )
+    balances |-> selected ( loc ( 0 ) , loc ( 0 ) )
+    succeeded |-> selected ( loc ( 28 ) , loc ( 28 ) )
   </lookup>
   <storage>
-    loc ( 0 ) |-> resource ( nat , ListItem ( 0 ) )
-    loc ( 1 ) |-> resource ( nat , ListItem ( 0 ) )
-    loc ( 2 ) |-> resource ( nat , ListItem ( 0 ) )
-    loc ( 3 ) |-> resource ( table ( key , .Vars ) ! record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( loc ( 11 ) )
+    loc ( 0 ) |-> resource ( table ( key , .Vars ) ! record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( loc ( 11 ) )
     ListItem ( loc ( 19 ) )
     ListItem ( loc ( 27 ) ) )
+    loc ( 1 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 2 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 3 ) |-> resource ( nat , ListItem ( 0 ) )
     loc ( 4 ) |-> resource ( table ( key , .Vars ) ! record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( loc ( 11 ) ) )
     loc ( 5 ) |-> resource ( Token , ListItem ( 0 ) )
     loc ( 6 ) |-> resource ( nat , ListItem ( 0 ) )
@@ -54,8 +54,8 @@
     loc ( 26 ) |-> resource ( Token , ListItem ( 6 ) )
     loc ( 27 ) |-> resource ( record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( key |-> loc ( 25 )
     value |-> loc ( 26 ) ) )
-    loc ( 28 ) |-> resource ( nat , ListItem ( 0 ) )
-    loc ( 29 ) |-> resource ( bool , ListItem ( true ) )
+    loc ( 28 ) |-> resource ( bool , ListItem ( true ) )
+    loc ( 29 ) |-> resource ( nat , ListItem ( 0 ) )
     loc ( 30 ) |-> resource ( bool , .List )
     loc ( 31 ) |-> resource ( nat , ListItem ( 0 ) )
     loc ( 32 ) |-> resource ( Token , ListItem ( 0 ) )

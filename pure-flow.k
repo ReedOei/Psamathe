@@ -352,14 +352,13 @@ module PURE-FLOW
     rule demoteValMap((X |-> V) Rest) => (X |-> demoteVal(V)) demoteValMap(Rest)
 
     syntax Locator ::= selectLocation(List, Resource)
-    rule selectLocation(.List, _) => .List
+    rule selectLocation(.List, _) => .List [structural]
     rule selectLocation(ListItem(selected(loc(I), loc(J))) Rest, R)
-          => checkIn(demoteVal(expand(R)), keysOf(demoteVal(expand(lookupSelected(selected(loc(I), loc(J)))))), ListItem(selected(loc(I), loc(J))),  selectLocation(Rest, R))
-          /* #if demoteVal(expand(R)) inList keysOf(demoteVal(expand(lookupSelected(selected(loc(I), loc(J)))))) #then */
-          /*       ListItem(selected(loc(I), loc(J))) */
-          /*    #else */
-          /*       selectLocation(Rest, R) */
-          /*    #fi */
+          => #if demoteVal(expand(R)) inList keysOf(demoteVal(expand(lookupSelected(selected(loc(I), loc(J)))))) #then
+                ListItem(selected(loc(I), loc(J)))
+             #else
+                selectLocation(Rest, R)
+             #fi
     rule selectLocation(ListItem(selected(L, amount(N))) Rest, resource(T, ListItem(M)))
          => #if N >=Int M #then
                 ListItem(selected(L, amount(M)))
@@ -367,11 +366,8 @@ module PURE-FLOW
                 selectLocation(Rest, resource(T, ListItem(M)))
             #fi
 
-    syntax Locator ::= checkIn(KItem, List, List, Locator)
-    rule checkIn(V, Vs, A, B) => #if V inList Vs #then A #else B #fi
-
     syntax Locator ::= selectLocations(List, List, List)
-    rule selectLocations(_, .List, Selected) => Selected
+    rule selectLocations(_, .List, Selected) => Selected [structural]
     rule selectLocations(.List, ListItem(_) _, _) => revert
     rule selectLocations(Ls, ListItem(Sel) Rest, Selected)
          => selectLocation(Ls, resolveSelected(Sel)) ~> selectLocations(Ls, Rest, Selected)

@@ -14,15 +14,15 @@
     .
   </k>
   <lookup>
-    accounts |-> selected ( loc ( 3 ) , loc ( 3 ) )
+    accounts |-> selected ( loc ( 0 ) , loc ( 0 ) )
   </lookup>
   <storage>
-    loc ( 0 ) |-> resource ( nat , ListItem ( 0 ) )
-    loc ( 1 ) |-> resource ( nat , ListItem ( 0 ) )
-    loc ( 2 ) |-> resource ( nat , ListItem ( 0 ) )
-    loc ( 3 ) |-> resource ( table ( .Vars ) ! record ( .Vars ) { name : any nat , balance : any nat , .VarDefs } , ListItem ( loc ( 9 ) )
+    loc ( 0 ) |-> resource ( table ( .Vars ) ! record ( .Vars ) { name : any nat , balance : any nat , .VarDefs } , ListItem ( loc ( 9 ) )
     ListItem ( loc ( 15 ) )
     ListItem ( loc ( 21 ) ) )
+    loc ( 1 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 2 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 3 ) |-> resource ( nat , ListItem ( 0 ) )
     loc ( 4 ) |-> resource ( table ( .Vars ) ! record ( .Vars ) { name : any nat , balance : any nat , .VarDefs } , ListItem ( loc ( 9 ) ) )
     loc ( 5 ) |-> resource ( record ( .Vars ) { name : any nat , balance : any nat , .VarDefs } , .List )
     loc ( 6 ) |-> resource ( nat , ListItem ( 0 ) )
