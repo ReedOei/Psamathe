@@ -140,7 +140,7 @@ Smart contracts cannot be patched after being deployed, even if a security vulne
 % Despite this extra care, discoveries of vulnerabilities still occur regularly, often costing large amounts of money.
 % Vulnerabilities still occur regularly, often costing large amounts of money.
 % The well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars.
-Some estimates suggest that as much as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
+Some estimates suggest that as many as 46\% of smart contracts may have some vulnerability~\cite{luuOyente}.
 \begin{figure}[!b]
     \centering
     \lstinputlisting[language=Solidity]{splash20-examples/erc20-transfer.sol}
@@ -162,7 +162,6 @@ Additionally, typical smart contracts are more \textbf{concise} in \langName tha
 Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
 Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which provide the benefits of \emph{linear types}, but give a more precise analysis of the flow of values in a program.
-% Type quantities provide a more precise analysis of the behavior of a program than linear types.
 None of the these languages have flows or provide support for all the modifiers that \langName does.
 
 \section{Language}\label{sec:lang}
