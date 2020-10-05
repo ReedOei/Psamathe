@@ -161,7 +161,7 @@ Additionally, typical smart contracts are more \textbf{concise} in \langName tha
 
 Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint, blackshear2019move, das2019nomos, coblenz2019obsidian, sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is a high-level language.
-Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which provide the benefits of \emph{linear types}, but give a more precise analysis of the flow of values in a program.
+Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which provide the benefits of \emph{linear types}, but allow a more precise analysis of the flow of values in a program.
 None of the these languages have flows or provide support for all the modifiers that \langName does.
 
 \section{Language}\label{sec:lang}
@@ -294,7 +294,7 @@ We have presented the \langName language for writing safer smart contracts.
 We showed two examples of smart contracts in both Solidity and \langName, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 
 In the future, we plan to implement the \langName language, and prove its safety properties.
-We also hope to study the benefits of the language via case studies, performance evaluation, and the application of flows to other domains.
+We also hope to study the benefits and costs of the language via case studies, performance evaluation, and the application of flows to other domains.
 Finally, we would also like to conduct a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity, which we hypothesize will show that developers write contracts with fewer asset management errors in \langName than in Solidity.
 
 %% The next two lines define the bibliography style to be used, and
