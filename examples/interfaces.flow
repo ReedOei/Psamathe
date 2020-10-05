@@ -1,75 +1,16 @@
-// A version with a special-cased fungible modifier which you can provide functions to
-contract C {
-    type SuffixString is fungible(myEmpty, mySingle, myCombine, mySelect) asset string
+interface Resource[asset alpha] {
+    type elem
+    type selectVals
 
-    view myEmpty() returns string := ""
-    view mySingle(str : string) returns string := str
-    view myCombine(str1 : string, str2 : string) returns option string := some(str1 ++ str2)
-    view mySelect(str1 : string, str2 : string) returns option (string * string) :=
-        if str1.endswith(str2) then
-            some(str1.take(str1.length - str2.length), str2)
-        else
-            emptyval
+    transformer equals(a : q alpha, b : r alpha) -> res : ! bool
+    transformer empty() -> res : empty alpha
+    transformer combine(a : q alpha, b : r alpha) -> res : (q + r) alpha
+
+    // Various selectors
+    transformer selectAll(a : q alpha) -> res : { newA : empty alpha, selected : q alpha }
+    transformer selectVals(a : q alpha, b : r alpha) -> res : { newA : (q - r) alpha, selected : r alpha }
+    transformer selectFilter(a : q alpha, b : r alpha) -> res : { newA : (q - r) alpha, selected : r alpha }
 }
 
-// Transformers are allowed to contain a mix of statements and expressions, but they
-//   cannot mutate contracts (they are typechecked in a context without a \this reference, so will be unable to unpack or pack).
-
-// Polymorphism version
-interface fungible(A) {
-    type Elem
-    type Selector
-
-    empty : {} ~> A
-    single : Elem ~> A
-    combine : A ~> A ~> option A
-    contains : A ~> Selector ~> bool
-    select : A ~> Selector ~> option { remaining : A, selected : A }
-
-    // Properties:
-    combine(x, empty) = combine(empty, x) = some(x)
-
-    if select(a, b) = some(x, y) then combine(x, y) = some(a)
-
-    // Note that these only apply if Selector = A.
-    select(a, a) = some({ remaining: empty, selected: a })
-    select(combine(a, b), b) = some({ remaining: a, selected: b })
-
-    if contains(a, b) then select(a, b) = some(...)
-}
-
-// Example: the actual implementation will be special cased, because flows rely on these operations being implemented in the first place.
-default implementation fungible(nat) {
-    type Elem is nat
-    type Selector is nat
-
-    transformer empty(_ : unit) returns nat := 0
-    transformer single(e : nat) returns nat := e
-    transformer combine(a : nat, b : nat) returns option nat := {
-        var res : nat
-        a --> res
-        b --> res
-        some(res)
-    }
-    transformer select(a : nat, b : nat) returns option nat := {
-        if b <= a {
-            var selected : nat
-            a --[ b ]-> selected
-            some({ remaining: a, selected: selected })
-        } else {
-            none
-        }
-    }
-}
-
-// We can select write a custom implementation:
-implementation MyToken of fungible(DollarBill) {
-    // implement everything here
-}
-
-// Then we can declare a type matches an interface by:
-type Token is fungible(MyToken) asset nat
-
-// If there is no argument to fungible (or any interface modifier), we use the default implementation, if any.
-// If there isn't exactly one default implementation that matches, we throw an error.
+;
 

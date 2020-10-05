@@ -15,10 +15,10 @@ module PURE-FLOW
     configuration
         <common />
         <k> $PGM:Program </k>
-        <functions> .Map </functions>
         <lookup> .Map </lookup>
         <storage> .Map </storage>
         <catchStack> .List </catchStack>
+        <createdVals> .Map </createdVals>
 
     syntax StorageLoc ::= loc(Int)
     syntax Resource ::= "error"
@@ -46,8 +46,7 @@ module PURE-FLOW
     // =================================
     // Declarations
     // =================================
-    syntax KItem ::= transformer(VarDef, VarDefs, Stmts)
-                   | typeDef(Set, BaseType)
+    syntax KItem ::= createdVals(List)
 
     rule <k> (transformer F(FormalArgs) -> Ret { Body }) Decls ; S => Decls ; S </k>
         <functions> ... .Map => F |-> transformer(Ret, FormalArgs, Body) ... </functions>
@@ -55,7 +54,11 @@ module PURE-FLOW
 
     rule <k> (type T is Ms BaseT) Decls ; S => Decls ; S </k>
         <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
-        [structural]
+        requires notBool(unique in modifiersToSet(Ms))
+    rule <k> (type T is Ms BaseT) Decls ; S => Decls ; S </k>
+        <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
+        <createdVals> ... .Map => T |-> createdVals(.List) ... </createdVals>
+        requires unique in modifiersToSet(Ms)
 
     rule .Decls ; S => S [structural]
 
@@ -152,7 +155,11 @@ module PURE-FLOW
 
     rule subtract(resource(nat, ListItem(A)), resource(nat, ListItem(B))) => resource(nat, ListItem(A -Int B))
 
-    rule subtract(resource(list R, A), resource(S, ListItem(B) Rest)) => subtract(resource(list R, remove(ListItem(B), A)), resource(S, Rest))
+    rule [[ subtract(resource(T, A), resource(_, B)) => withType(T, subtract(resource(BaseT, A), resource(BaseT, B))) ]]
+        <types> ... T |-> typeDef(Ms, BaseT) ... </types>
+        requires fungible in Ms
+
+    rule subtract(resource(table(Keys) T, A), resource(S, ListItem(B) Rest)) => subtract(resource(table(Keys) T, remove(ListItem(B), A)), resource(S, Rest))
 
     // =================================
     // Locate:
@@ -217,7 +224,7 @@ module PURE-FLOW
     syntax Locator ::= getFields(List, Var, List)
     rule getFields(.List, _, Ls) => Ls
     rule <k> getFields(ListItem(selected(_, loc(I))) Rest, X, Ls)
-             => getFields(Rest, X, Ls ListItem(selected(loc(I), XLoc))) ... </k>
+             => getFields(Rest, X, Ls ListItem(selected(XLoc, XLoc))) ... </k>
         <storage> ... loc(I) |-> resource(_, ListItem((X |-> XLoc) _)) ... </storage>
 
     rule <k> X => ListItem(Sel) ... </k>
@@ -254,7 +261,6 @@ module PURE-FLOW
     syntax List ::= keysOf(Resource) [function, functional]
                  | allKeys(Vars, Map) [function, functional]
                  | allKeysTable(BaseType, Vars, List) [function, functional]
-    // TODO: Need to demote here for when we eventually add asset keys
     rule keysOf(resource(T, .List)) => ListItem(resource(T, .List))
     rule keysOf(resource(nat, V)) => ListItem(resource(nat, V))
     rule keysOf(resource(bool, V)) => ListItem(resource(bool, V))
@@ -266,6 +272,9 @@ module PURE-FLOW
     rule keysOf(resource(table(Keys) Q T, Vs))
          => ListItem(resource(table(Keys) Q T, Vs))
             allKeysTable(T, Keys, Vs)
+
+    rule [[ keysOf(resource(T, V)) => keysOf(resource(demoteBaseType(T), V)) ]]
+        <types> ... T |-> _ ... </types>
 
     rule allKeys(.Vars, _) => .List
     rule allKeys((A, Rest), (A |-> V) M) => ListItem(V) allKeys(Rest, M)
@@ -312,16 +321,40 @@ module PURE-FLOW
     rule [[ expandEach((X : _, Rest), (X |-> XLoc) M) => (X |-> expand(R)) expandEach(Rest, M) ]]
         <storage> ... XLoc |-> R ... </storage>
 
-    syntax Resource ::= resolveSelected(Selected) [function]
-    rule [[ resolveSelected(selected(_, K)) => R ]]
+    syntax Resource ::= lookupSelected(Selected) [function]
+    rule [[ lookupSelected(selected(_, K)) => R ]]
         <storage> ... K |-> R </storage>
+    rule [[ lookupSelected(selected(L, amount(N))) => resource(T, ListItem(N)) ]]
+        <storage> ... L |-> resource(T, _) ... </storage>
+
+    syntax Resource ::= resolveSelected(Selected) [function]
+    rule [[ resolveSelected(selected(L, L)) => R ]]
+        <storage> ... L |-> R ... </storage>
+    rule [[ resolveSelected(selected(L, K)) => resource(T, ListItem(K)) ]]
+        <storage> ... L |-> resource(T, Vs) ... </storage>
+        requires K in Vs
     rule [[ resolveSelected(selected(L, amount(N))) => resource(T, ListItem(N)) ]]
         <storage> ... L |-> resource(T, _) ... </storage>
 
+    // Assumes that the resource is already expanded (i.e., only contains resources, not locations)
+    syntax Resource ::= demoteVal(Resource) [function, functional]
+    rule demoteVal(resource(T, V)) => resource(demoteBaseType(T), demoteValList(V))
+
+    syntax List ::= demoteValList(List) [function, functional]
+    rule demoteValList(.List) => .List
+    rule demoteValList(ListItem(N:Int) Rest) => ListItem(N) demoteValList(Rest)
+    rule demoteValList(ListItem(B:Bool) Rest) => ListItem(B) demoteValList(Rest)
+    rule demoteValList(ListItem(M:Map) Rest) => ListItem(demoteValMap(M)) demoteValList(Rest)
+    rule demoteValList(ListItem(A) Rest) => ListItem(demoteVal(A)) demoteValList(Rest)
+
+    syntax Map ::= demoteValMap(Map) [function, functional]
+    rule demoteValMap(.Map) => .Map
+    rule demoteValMap((X |-> V) Rest) => (X |-> demoteVal(V)) demoteValMap(Rest)
+
     syntax Locator ::= selectLocation(List, Resource)
-    rule selectLocation(.List, _) => .List
+    rule selectLocation(.List, _) => .List [structural]
     rule selectLocation(ListItem(selected(loc(I), loc(J))) Rest, R)
-          => #if expand(R) inList keysOf(expand(resolveSelected(selected(loc(I), loc(J))))) #then
+          => #if demoteVal(expand(R)) inList keysOf(demoteVal(expand(lookupSelected(selected(loc(I), loc(J)))))) #then
                 ListItem(selected(loc(I), loc(J)))
              #else
                 selectLocation(Rest, R)
@@ -334,14 +367,14 @@ module PURE-FLOW
             #fi
 
     syntax Locator ::= selectLocations(List, List, List)
-    rule selectLocations(_, .List, Selected) => Selected
+    rule selectLocations(_, .List, Selected) => Selected [structural]
     rule selectLocations(.List, ListItem(_) _, _) => revert
     rule selectLocations(Ls, ListItem(Sel) Rest, Selected)
          => selectLocation(Ls, resolveSelected(Sel)) ~> selectLocations(Ls, Rest, Selected)
     rule Loc:List ~> selectLocations(Ls, Rest, Selected)
-         => #if Loc ==K .List #then
+         => #if size(Loc) ==Int 0 #then
                 // This means that we didn't find one of the values we wanted to select in the source---an error.
-                selectLocations(Ls, Rest, Selected)
+                revert
             #else
                 selectLocations(removeList(Loc, Ls), Rest, Selected Loc)
             #fi
@@ -376,72 +409,38 @@ module PURE-FLOW
         <storage> ... .Map => loc(!I) |-> resource(record(Keys) { membersToDefs(Members) }, ListItem(.Map)) ... </storage>
     syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
 
-    syntax Stmt ::= allocate(StorageLoc, Selected)
-
-    rule <k> allocate(loc(I), selected(L, K)) => useResource(selected(L, K)) ... </k>
-        <storage> ... (K |-> R) (.Map => loc(I) |-> R) ... </storage>
-    rule <k> allocate(loc(I), selected(L, amount(N))) => useResource(selected(L, amount(N))) ... </k>
-        <storage> ... (L |-> resource(T, _)) (.Map => loc(I) |-> resource(T, ListItem(N))) ... </storage>
-
     context initRecord(_, _ : _ |-> HOLE , _ )
     rule initRecord(loc(I), .RecordMembers) => ListItem(selected(loc(I), loc(I)))
-    // TODO: How to not build the record unless necessary?
+    // TODO: How to not build the record unless necessary? Once we figure this out, can also use for the list literals
     rule <k> initRecord(Loc, (X : _ |-> ListItem(selected(L, K)), Rest))
-             => allocate(loc(!I), selected(L, K)) ~> initRecord(Loc, Rest) ... </k>
+             => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> allocate(loc(!I)) ~> initRecord(Loc, Rest) ... </k>
         <storage> ... (Loc |-> resource(_, ListItem(Fields => Fields (X |-> loc(!I))))) ... </storage>
-
-    // All types are always stored as their demoted value, so we simply need to demote the type.
-    syntax Resource ::= demoteVal(Resource) [function, functional]
-    rule demoteVal(resource(R, V)) => resource(demoteBaseType(R), V)
-
-    // =================================
-    // useResource
-    // =================================
-    syntax Stmt ::= useResource(Selected)
-
-    rule <k> useResource(selected(L, amount(N))) => . ... </k>
-        <storage> ... L |-> resource(_, ListItem(M => M -Int N)) ... </storage>
-        requires M >=Int N
-    rule <k> useResource(selected(L, amount(N))) => revert ... </k>
-        <storage> ... L |-> resource(_, ListItem(M => M -Int N)) ... </storage>
-        requires N >Int M
-    rule <k> useResource(selected(loc(I), loc(I))) => . ... </k>
-        <storage> ... loc(I) |-> (R => subtract(R, R)) ... </storage>
-    rule <k> useResource(selected(loc(I), loc(J))) => . ... </k>
-        <storage> ... loc(I) |-> resource(_, Vs => remove(loc(J), Vs)) ... </storage>
-        requires I =/=Int J andBool loc(J) in Vs
-    rule <k> useResource(selected(loc(I), loc(J))) => . ... </k>
-        <storage>
-            ...
-            loc(I) |-> resource(_, ListItem((_ |-> loc(J)) _))
-            loc(J) |-> (R => subtract(R, R))
-            ...
-        </storage>
 
     // =================================
     // Flow Value
     // =================================
     syntax Stmt ::= flowVal(Selected, StorageLoc)
-                  | selectVal(Selected, BaseType)
                   | combineWith(StorageLoc)
-                  | selectedVal(Resource)
+                  | subtractFrom(StorageLoc)
+                  | asType(BaseType)
+                  | allocate(StorageLoc)
 
-    rule <k> selectedVal(R) ~> combineWith(loc(J)) => . ... </k>
+    rule <k> R:Resource ~> allocate(loc(I)) => . ... </k>
+        <storage> ... .Map => loc(I) |-> R ... </storage>
+
+    rule <k> R:Resource ~> combineWith(loc(J)) => . ... </k>
         <storage> ... loc(J) |-> (RJ => combine(RJ, R)) ... </storage>
         requires combine(RJ, R) =/=K error
 
-    rule <k> selectVal(selected(L, K), T) => useResource(selected(L, K)) ~> selectedVal(resource(T, V)) ... </k>
-        <storage> ... K |-> resource(T, V) ... </storage>
-    rule selectVal(selected(L, amount(N)), T)
-         => useResource(selected(L, amount(N))) ~> selectedVal(resource(T, ListItem(N)))
-    rule <k> selectVal(selected(L, K), table(Keys) Q T)
-             => useResource(selected(L, K)) ~> selectedVal(resource(table(Keys) Q T, ListItem(loc(!I)))) ... </k>
-        <storage> ... (K |-> resource(T, V)) (.Map => loc(!I) |-> resource(T, V)) ... </storage>
-    rule <k> selectVal(selected(L, amount(N)), table(Keys) Q T)
-             => useResource(selected(L, amount(N))) ~> selectedVal(resource(table(Keys) Q T, ListItem(loc(!I)))) ... </k>
-        <storage> ... (L |-> resource(T, _)) (.Map => loc(!I) |-> resource(T, ListItem(N))) ... </storage>
+    rule <k> R:Resource ~> subtractFrom(loc(I)) => R ... </k>
+        <storage> ... loc(I) |-> (RI => subtract(RI, R)) ... </storage>
 
-    rule <k> flowVal(Sel, loc(J)) => selectVal(Sel, T) ~> combineWith(loc(J)) ... </k>
+    rule resource(T, V) ~> asType(T) => resource(T, V)
+    rule <k> resource(T, V) ~> asType(table(Keys) Q T) => resource(table(Keys) Q T, ListItem(loc(!I))) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(T, V) ... </storage>
+
+    rule <k> flowVal(selected(L, K), loc(J))
+             => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> asType(T) ~> combineWith(loc(J)) ... </k>
         <storage> ... loc(J) |-> resource(T, _) ... </storage>
 
     // =================================
@@ -490,6 +489,22 @@ module PURE-FLOW
         <storage> ... .Map => loc(!I) |-> resource(BaseT, .List) ... </storage>
         <types> ... T |-> typeDef(Ms, BaseT) ... </types>
         requires notBool(unique in Ms)
+
+    rule <k> createNew(T, Args)
+             => initializer(BaseT, Args) --> ListItem(selected(loc(!I), loc(!I))) ~>
+                checkUnique(T, selected(loc(!I), loc(!I))) ~> setType(loc(!I), T) ~>
+                ListItem(selected(loc(!I), loc(!I))) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(BaseT, .List) ... </storage>
+        <types> ... T |-> typeDef(Ms, BaseT) ... </types>
+        requires unique in Ms
+
+    syntax Stmt ::= checkUnique(Var, Selected)
+    rule <k> checkUnique(T, Sel) => . ... </k>
+        <createdVals> ... T |-> createdVals(Vs => Vs ListItem(expand(resolveSelected(Sel)))) ... </createdVals>
+        requires notBool(expand(resolveSelected(Sel)) inList Vs)
+    rule <k> checkUnique(T, Sel) => revert ... </k>
+        <createdVals> ... T |-> createdVals(Vs) ... </createdVals>
+        requires expand(resolveSelected(Sel)) inList Vs
 
     syntax Locator ::= initializer(BaseType, Locators) [function, functional]
 

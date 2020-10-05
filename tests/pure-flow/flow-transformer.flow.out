@@ -6,13 +6,13 @@
     <types>
       .Map
     </types>
+    <functions>
+      newAccount |-> transformer ( res : ! table ( .Vars ) ! record ( .Vars ) { name : any nat , balance : any nat , .VarDefs } , a : any nat , .VarDefs , [ ! record ( .Vars ) { name : any nat , balance : any nat , .VarDefs } ; record ( .Vars ) { name : any nat |-> a , balance : any nat |-> 0 , .RecordMembers } , .Vars ] --> res  .Stmts )
+    </functions>
   </common>
   <k>
     .
   </k>
-  <functions>
-    newAccount |-> transformer ( res : ! table ( .Vars ) ! record ( .Vars ) { name : any nat , balance : any nat , .VarDefs } , a : any nat , .VarDefs , [ ! record ( .Vars ) { name : any nat , balance : any nat , .VarDefs } ; record ( .Vars ) { name : any nat |-> a , balance : any nat |-> 0 , .RecordMembers } , .Vars ] --> res  .Stmts )
-  </functions>
   <lookup>
     accounts |-> selected ( loc ( 0 ) , loc ( 0 ) )
   </lookup>
@@ -48,4 +48,7 @@
   <catchStack>
     .List
   </catchStack>
+  <createdVals>
+    .Map
+  </createdVals>
 </generatedTop>
