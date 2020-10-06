@@ -63,33 +63,35 @@ Together with features such as \emph{modifiers}, flows provide a \textbf{concise
 Solidity, the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, does not provide analogous support for managing \assetTxt{}s.
 % Typical smart contracts are more concise in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
 A formalization of \langName is in progress~\cite{psamatheRepo}, with an \emph{executable semantics} implemented in the $\mathbb{K}$-framework~\cite{rosu-serbanuta-2010-jlap}, which is already capable of running the example shown in Figure~\ref{fig:erc20-transfer-flow}.
+An extended version~\cite{psamatheExtended} of this work explains the language in more detail, and shows more examples, such as a voting contract, highlighting the advantages we describe below.
 
 Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint,blackshear2019move,das2019nomos,coblenz2019obsidian,sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is intended to be a high-level language.
-Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which provide the benefits of linear types, but allow a more precise analysis of the flow of values in a program.
+Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which extend linear types to allow a more precise analysis of the flow of values in a program.
 % None of the these languages have flows, provide support for all the modifiers that \langName does, or have locators.
 % In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.
 
 \section{Language}\label{sec:lang}
 A \langName program is made of \emph{transformers} and \emph{type declarations}.
 Transformers contain \emph{flows} describing the how values are transferred between variables.
-Type declarations provide a way to mark values with \emph{modifiers}. % such as \flowinline{asset}, \flowinline{unique}, and \flowinline{consumable}, which control how values may be used to prevent many asset loss or duplication bugs.
+Type declarations provide a way to name types and to mark values with \emph{modifiers}, such as \flowinline{asset}.
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type and a transformer, which implements the core of ERC-20's \lstinline{transfer} function.
-ERC-20 is a standard providing a bare-bones interface for token contracts managing \emph{fungible} tokens---all tokens of an ERC-20 compliant contract are interchangeable (like most currencies), so it is only important how many tokens are owned by an entity, not \textbf{which} tokens.
+ERC-20 is a standard providing a bare-bones interface for token contracts managing \emph{fungible} tokens.
+Fungible tokens are interchangeable (like most currencies), so it is only important how many tokens are owned by an entity, not \textbf{which} tokens.
 
 \begin{figure}
     \vspace{-2em}
     \centering
     \lstinputlisting[language=flow, xrightmargin=-1.0em]{padl-21-examples/erc20-transfer.flow}
     \vspace{-1em}
-    \caption{A \langName contract with a simple \lstinline{transfer} function, which transfers \lstinline{amount} tokens from the sender's account to the destination account.
+    \caption{A \langName contract with a simple \flowinline{transfer} function, which transfers \flowinline{amount} tokens from the sender's account to the destination account.
 It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
     \label{fig:erc20-transfer-flow}
     \vspace{-2em}
 \end{figure}
 
 \langName is built around the concept of a flow.
-Using the more declarative, \emph{flow-based} approach provides the following advantages:
+Using the more declarative, \emph{flow-based} approach provides the following advantages over imperative state updates:
 \begin{itemize}
     \item \textbf{Static safety guarantees}: Each flow is guaranteed to preserve the total amount of assets (except for flows that explicitly consume or allocate assets). %, removing the need to verify such properties.
         The total amount of a nonconsumable asset never decreases.
@@ -107,7 +109,14 @@ Cannot flow <amount> Token from account[<src>] to account[<dst>]:
         Flows enable such messages by encoding information into the source code.
 \end{itemize}
 
-Each variable and function parameter has a \emph{type quantity}, approximating the number of values, which is one of: \flowinline{empty}, \flowinline{any}, \flowinline{!}, \flowinline{nonempty}, or \flowinline{every} (``\flowinline{!}'' means ``exactly one'').
+\begin{lstlisting}[language=flow]
+type User is unique { name : string, password : string }
+var users : set User <-- new User("foo", "bar")
+var admin : User <-- users[one such that isAdmin(_)]
+TODO: would like to showcase unique somehow
+\end{lstlisting}
+
+Each variable and function parameter has a \emph{type quantity}, approximating the number of values, which is one of: \flowinline{empty}, \flowinline{any}, \flowinline{one}, \flowinline{nonempty}, or \flowinline{every}.
 Only \flowinline{empty} asset variables may be dropped.
 Type quantities are inferred if omitted; every type quantity in Figure~\ref{fig:erc20-transfer-flow} can be omitted.
 
@@ -150,9 +159,9 @@ In this case, the sender's balance must be at least as large as \flowinline{amou
     \centering
     \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
     \vspace{-1em}
-    \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
+    \caption{An implementation of ERC-20's \lstinline[language=Solidity]{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
         All preconditions are checked manually.
-        Note that we must include the \lstinline{SafeMath} library (not shown) to use the \lstinline{add} and \lstinline{sub} functions, which check for underflow/overflow.}
+        Note that we must include the \lstinline[language=Solidity]{SafeMath} library (not shown) to use the \lstinline[language=Solidity]{add} and \lstinline[language=Solidity]{sub} functions, which check for underflow/overflow.}
     \label{fig:erc20-transfer-sol}
     \vspace{-2em}
 \end{figure}

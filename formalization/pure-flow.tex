@@ -166,7 +166,7 @@ where $\useField_{T,x}(f)$ is defined by:
     % \inferrule*[right=Filter]{
     %     \Gamma \flowproves \Loc : \mathcal{Q}~T \flowprovesout \Delta
     %     \\
-    %     \typeof(f, \overline{T}) = (\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,!~\boolt
+    %     \typeof(f, \overline{T}) = (\overline{x : \sigma}, y : \demoteT(\elemtype(T))) \to z : \,\,\exactlyone~\boolt
     %     \\
     %     \forall i. \demoteT(\Gamma(a_i)) = \sigma_i
     %     \\
@@ -513,7 +513,7 @@ Note that we write $(\mathcal{Q}~T) \oplus \mathcal{R}$ to mean $(\mathcal{Q} \o
     \begin{cases}
         \elemtype(T') & \tif T = \type~t~\is~\overline{M}~T' \\
         \tau & \tif T = \mathcal{C}~\tau \\
-        !~T & \owise
+        \exactlyone~T & \owise
     \end{cases}
 \end{align*}
 
