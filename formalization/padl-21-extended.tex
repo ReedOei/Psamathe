@@ -344,6 +344,7 @@ A blind auction is an auction in which bids are placed, but not revealed until t
 However, because transactions on the blockchain are publicly viewable, the bids must be blinded cryptographically, in this case, using the KECCAK-256~\cite{bertoni2013keccak} algorithm.
 Bidders sent the hashed bytes of their bid, that is, the value (in ether) and some secret string of bytes, along with a deposit of ether, which must be at least as large as the intended value of the bid for the bid to be valid.
 After bidding is over, they must \emph{reveal} their bid by sending a transaction revealing these details, which will be checked by the \flowinline{BlindAuction} contract.
+\reed{TODO, finish description, discussion}
 
 \begin{figure}
     \centering
