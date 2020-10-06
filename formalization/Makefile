@@ -23,6 +23,13 @@ padl-21: padl-21.tex
 	pdflatex padl-21.tex
 	xdg-open padl-21.pdf
 
+padl-21-extended: padl-21-extended.tex
+	pdflatex padl-21-extended.tex
+	bibtex padl-21-extended
+	pdflatex padl-21-extended.tex
+	pdflatex padl-21-extended.tex
+	xdg-open padl-21-extended.pdf
+
 reuse20-poster: reuse20-poster/poster.tex
 	( cd reuse20-poster && make )
 
