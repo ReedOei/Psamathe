@@ -41,12 +41,11 @@
            & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
            & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ & \\
            & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{\Loc})]$ \bnfalt $\consume$ & \\
-    $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
-            & \bnfalt & $\type~t[\overline{T_V}]~\is~\overline{M}~T$ & (type decl.) \\
     $\Trfm$ & \bnfdef & $\newc~t[\overline{T}](\overline{\Loc})$ \bnfalt $f[\overline{T}](\overline{\Loc})$ & (transformer calls) \\
     $\Stmt$ & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to \Trfm \to \Loc$ & (flows) \\
             & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & (try-catch) \\
     $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
+            & \bnfalt & $\type~t[\overline{T_V}]~\is~\overline{M}~T$ & (type decl.) \\
     $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$ & (programs)
 \end{tabular}
 

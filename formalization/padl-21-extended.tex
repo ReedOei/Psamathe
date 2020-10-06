@@ -158,12 +158,11 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
                & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
                & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ & \\
                & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f(\overline{\Loc})]$ \bnfalt $\consume$ & \\
-        $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
-                & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type decl.) \\
         $\Trfm$ & \bnfdef & $\newc~t(\overline{\Loc})$ \bnfalt $f(\overline{\Loc})$ & (transformer calls) \\
         $\Stmt$ & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to \Trfm \to \Loc$ & (flows) \\
                 & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & (try-catch) \\
         $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
+                & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type decl.) \\
         $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$ & (programs)
     \end{tabular}
     \caption{Syntax of the core calculus of \langName.}
@@ -340,11 +339,17 @@ Figure~\ref{fig:voting-impl-sol} shows an implementation of the same voting cont
 It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 
 \subsection{Blind Auction}\label{sec:blind-auction-impl}
+Figure~\ref{fig:blind-auction-impl-flow} shows an implementation of the \emph{reveal phase} of a \emph{blind auction} in \langName.
+A blind auction is an auction in which bids are placed, but not revealed until the auction has ended, meaning that other bidders have no way of knowing what bids have been placed so far.
+However, because transactions on the blockchain are publicly viewable, the bids must be blinded cryptographically, in this case, using the KECCAK-256~\cite{bertoni2013keccak} algorithm.
+Bidders sent the hashed bytes of their bid, that is, the value (in ether) and some secret string of bytes, along with a deposit of ether, which must be at least as large as the intended value of the bid for the bid to be valid.
+After bidding is over, they must \emph{reveal} their bid by sending a transaction revealing these details, which will be checked by the \flowinline{BlindAuction} contract.
+
 \begin{figure}
     \centering
     \lstinputlisting[language=flow]{padl-21-examples/blind-auction.flow}
     \vspace{-1em}
-    \caption{Implementation of a blind auction contract in \langName.}
+    \caption{Implementation of reveal phase of a blind auction contract in \langName.}
     \label{fig:blind-auction-impl-flow}
 \end{figure}
 
