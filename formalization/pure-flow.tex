@@ -40,7 +40,7 @@
     $\Loc$, $\LocK$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
            & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
            & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ & \\
-           & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ \bnfalt $\consume$ & \\
+           & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{\Loc})]$ \bnfalt $\consume$ & \\
     $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
             & \bnfalt & $\type~t[\overline{T_V}]~\is~\overline{M}~T$ & (type decl.) \\
     $\Trfm$ & \bnfdef & $\newc~t[\overline{T}](\overline{\Loc})$ \bnfalt $f[\overline{T}](\overline{\Loc})$ & (transformer calls) \\
@@ -52,9 +52,9 @@
 
 We use the following abbreviations
 \begin{itemize}
-    \item $(\map~\tau~\Rightarrow~\sigma) := \tableT(\texttt{key})~\{ \texttt{key} : \tau, \texttt{value} : \sigma \}$
-    \item $(\listq~\tau) := \tableT(\texttt{idx})~\{ \texttt{idx} : \natt, \texttt{value} : \tau \}$
-    \item $\{ \overline{x : \tau} \} := \tableT(\cdot)~\{ \overline{x : \tau} \}$
+    \item $\map~\tau~\Rightarrow~\sigma := \tableT(\texttt{key})~\exactlyone~\{ \texttt{key} : \tau, \texttt{value} : \sigma \}$
+    \item $\listq~\tau := \tableT(\texttt{idx})~\exactlyone~\{ \texttt{idx} : \natt, \texttt{value} : \tau \}$
+    \item $\setq~\tau) := \tableT(\cdot)~\tau$
 \end{itemize}
 
 \reed{TODO: Need type formation rules to make sure things like types that are used are declared and that the key variables are a subset of the fields of a table}
@@ -188,12 +188,12 @@ where
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 \reed{TODO: Not sure that the final update call is right in \textsc{Ok-Flow-Every}}
 \begin{mathpar}
-    \inferrule*[right=Ok-Flow-Every]{
+    \inferrule*[right=Ok-Flow]{
         \Gamma \flowproves \Loc : \mathcal{Q}~T ; u
         \\
         \Delta = u(\Gamma, (\mathcal{Q}'~T') \mapsto \emptyq~T')
         \\
-        \Delta \flowproves \LocK : \mathcal{R}~T ; v
+        \Delta \flowproves \LocK : \mathcal{R}~\demoteT(T) ; v
         \\
         u \neq \bot
         \\

@@ -62,7 +62,7 @@ Some estimates suggest that as many as 46\% of smart contracts may have vulnerab
 Together with features such as \emph{modifiers}, flows provide a \textbf{concise} way to write contracts that \textbf{safely} manage \assetTxt{}s (see Section~\ref{sec:lang}).
 Solidity, the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, does not provide analogous support for managing \assetTxt{}s.
 Typical smart contracts are more concise in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
-A formalization of \langName is in progress~\cite{psamatheRepo}, with an \emph{executable semantics} implemented in the $\mathbb{K}$-framework~\cite{rosu-serbanuta-2010-jlap}, which is already capable of running the example shown in Figure~\ref{fig:erc20-transfer-flow}.
+A formalization of \langName is in progress~\cite{psamatheRepo}, with an \emph{executable semantics} implemented in the $\mathbb{K}$-framework~\cite{rosu-serbanuta-2010-jlap}, which is already capable of running the examples shown in Figures~\ref{fig:erc20-transfer-flow} and~\ref{fig:voting-impl-flow} (ERC-20 and Voting).
 
 Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint,blackshear2019move,das2019nomos,coblenz2019obsidian,sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is intended to be a high-level language.
@@ -142,52 +142,163 @@ This line expresses that we wish to select exactly one user satisfying the predi
 There is no way to express this same constraint in Solidity (or most languages) without manually writing code to check it.
 Additionally, in Solidity, variables are initialized with default values, making uniqueness difficult to enforce.
 
-\subsection{Syntax}
-
 Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langName.
 \begin{figure}
     \centering
     \begin{align*}
         f &\in \textsc{TransformerNames} & t &\in \textsc{TypeNames} \\
-        a,x,y,z &\in \textsc{Identifiers} & \alpha, \beta &\in \textsc{TypeVariables} \\
+        a,x,y,z &\in \textsc{Identifiers} & \\
     \end{align*}
     \begin{tabular}{l r l l}
         $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
         $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
-        $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $\alpha$ \bnfalt $t[\overline{T}]$ \bnfalt $\tableT(\overline{x})~\{ \overline{x : \tau} \}$ & (base types) \\
+        $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $t$ \bnfalt $\tableT(\overline{x})~\{ \overline{x : \tau} \}$ & (base types) \\
         $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
-        $T_V$ & \bnfdef & $\alpha~\is~\overline{M}$ & (type variable declaration) \\
         $\Loc$, $\LocK$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
                & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
                & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ & \\
-               & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f[\overline{T}](\overline{L})]$ \bnfalt $\consume$ & \\
+               & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f(\overline{\Loc})]$ \bnfalt $\consume$ & \\
         $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
-                & \bnfalt & $\type~t[\overline{T_V}]~\is~\overline{M}~T$ & (type decl.) \\
-        $\Trfm$ & \bnfdef & $\newc~t[\overline{T}](\overline{\Loc})$ \bnfalt $f[\overline{T}](\overline{\Loc})$ & (transformer calls) \\
+                & \bnfalt & $\type~t~\is~\overline{M}~T$ & (type decl.) \\
+        $\Trfm$ & \bnfdef & $\newc~t(\overline{\Loc})$ \bnfalt $f(\overline{\Loc})$ & (transformer calls) \\
         $\Stmt$ & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to \Trfm \to \Loc$ & (flows) \\
                 & \bnfalt & $\tryS~\{ \overline{\Stmt} \}~\catchS~\{ \overline{\Stmt} \}$ & (try-catch) \\
-        $\Decl$ & \bnfdef & $\transformer~f[\overline{T_V}](\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
+        $\Decl$ & \bnfdef & $\transformer~f(\overline{x : \tau}) \to x : \tau ~\{ \overline{\Stmt} \}$ & (transformers) \\
         $\Prog$ & \bnfdef & $\overline{\Decl}; \overline{\Stmt}$ & (programs)
     \end{tabular}
     \caption{Syntax of the core calculus of \langName.}
     \label{fig:syntax}
 \end{figure}
 
-We use the following abbreviations
-\begin{itemize}
-    \item $\map~\tau~\Rightarrow~\sigma := \tableT(\texttt{key})~\exactlyone~\{ \texttt{key} : \tau, \texttt{value} : \sigma \}$
-    \item $\listq~\tau := \tableT(\texttt{idx})~\exactlyone~\{ \texttt{idx} : \natt, \texttt{value} : \tau \}$
-    \item $\setq~\tau) := \tableT(\cdot)~\tau$
-\end{itemize}
+\subsection{Formalization Fragment}
 
-\section{Examples and Comparison with Solidity}
+We now present typing and evaluation rules for a fragment of the core calculus, describing the basics of flows.
+
+\paragraph{Statics}
+Below we show the type rules needed to check flows between variables.
+We use $\Gamma$ and $\Delta$ as type environments, pairs of variables and types, identified with partial functions between the two.
+
+The functions $u$ are $v$ are \emph{updaters}, specifically, $u,v \in \curlys{\bot} \cup ((\Gamma \times (\tau \to \tau)) \to \Gamma)$, functions that modify an environment given some function on types.
+Define
+\[
+    u ||_T =
+    \begin{cases}
+        \bot & \tif T~\immutable \\
+        u & \owise
+    \end{cases}
+\]
+Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the best approximation by type quantity of $n$, i.e.,
+\[
+    \#(n) =
+    \begin{cases}
+        \emptyq & \tif n = 0 \\
+        \exactlyone & \tif n = 1 \\
+        \nonempty & \tif n > 1 \\
+        \every & \tif n = \infty \\
+    \end{cases}
+\]
+
+First, rules checking the types of the source and destination locators, and building up the appropriate updaters.
+
+\framebox{$\Gamma \flowproves_M (\Loc : \tau) ; u$} \textbf{Locator Typing}
+Here $M$ is a \emph{mode}, either $S$, meaning source, $D$, meaning destination, or $*$, meaning either mode is acceptable.
+This ensures that we don't use, for example, numeric literals as the destination of a flow.
+
+\begin{mathpar}
+    \inferrule*[right=Nat]{
+    }{ \Gamma \flowproves_S n : \#(n)~\natt; (\Delta, f) \mapsto \Delta }
+
+    \inferrule*[right=Var]{
+    }{ \Gamma, x : \mathcal{Q}~T \flowproves_* (x : \mathcal{Q}~T) ; ((\Delta, f) \mapsto \Delta[x \mapsto f(\Delta(x))])||_T }
+
+    \inferrule*[right=VarDef]{
+    }{ \Gamma \flowproves_D ((\var~x : T) : \emptyq~T) ; (\Delta, f) \mapsto \Delta[x \mapsto f(\emptyq~T)] }
+\end{mathpar}
+
+Below is the type rule checking whether a flow (without a transformer) is valid.
+
+\framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
+Here $\Gamma$ is the \emph{input environment} and $\Delta$ is the \emph{output environment}, used to track the flow of resources throughout a sequence of statements.
+
+In \textsc{Ok-Flow}, Checking $u \neq \bot$ and $v \neq \bot$ ensures that $\Loc$ and $\LocK$ are valid sources/destinations of the flow (e.g., not immutable).
+We check that $\Loc$ and $\LocK$ have the same base type, except that $\LocK$ may be \emph{demoted}, allowing us to select, for example, a \flowinline{Token}, whose \emph{underlying type} is \flowinline{uint256}, with a \flowinline{uint256}, as done in Figure~\ref{fig:erc20-transfer-flow}.
+We then use the updaters to clear out all the values in $\Loc$, using $u$, and add then to $\LocK$, using $v$.
+\begin{mathpar}
+    \inferrule*[right=Ok-Flow]{
+        \Gamma \flowproves_S \Loc : \mathcal{Q}~T ; u
+        \\
+        \Delta = u(\Gamma, (\mathcal{Q}'~T') \mapsto \emptyq~T')
+        \\
+        \Delta \flowproves_D \LocK : \mathcal{R}~\demoteT(T) ; v
+        \\
+        u \neq \bot
+        \\
+        v \neq \bot
+    }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout v(\Delta, \tau \mapsto \tau \oplus \mathcal{Q}) }
+\end{mathpar}
+
+\subsection{Dynamics}
+
+Below are the rules to evaluate statements of flows between variables.
+
+We introduce sorts for \emph{values}, \emph{resources}, values tagged with their type, and storage values.
+Storage values are either a natural number, indicating a location in the store, or $\amount(n)$, indicating $n$ of some resource.
+Locators evaluate to storage value pairs, i.e., $(\ell, k)$, where $\ell$ indicates the parent location of the value, and $k$ indicates which value to select from the parent location.
+If $\ell = k$, then every value should be selected.
+This is useful because it allows us to locate only part of a fungible resources, or a specific element inside a list.
+The $\select(\rho, \ell, k)$ construct resolves storage value pairs into the resource that should be selected.
+
+\begin{tabular}{l r l l}
+    $V$ & \bnfdef & $n$ & (values) \\
+    $R$ & \bnfdef & $(T, V)$ & (resources) \\
+    $\ell, k$ & \bnfdef & $n$ \bnfalt $\amount(n)$ & (storage values) \\
+    $\Loc$ & \bnfdef & $\ldots$ \bnfalt $(\ell, \ell)$
+\end{tabular}
+
+\begin{definition}
+    An environment $\Sigma$ is a tuple $(\mu, \rho)$ where $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N} \times \ell$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc R$ is the \emph{storage environment}.
+\end{definition}
+
+We now give rules for how to evaluate programs containing flows between natural numbers and variables.
+
+\framebox{$\angles{\Sigma, \overline{\Loc}} \to \angles{\Sigma, \overline{\Loc}}$} \textbf{Locator Evaluation}
+We begin with rules to evaluate locators.
+Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select$ when $\rho(\ell) = (T, n)$ for some fungible $T$.
+
+\begin{mathpar}
+    \inferrule*[right=Loc-Nat]{
+    }{ \angles{ \Sigma, n } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\natt, n)]], (\ell, \amount(n)) } }
+
+    \inferrule*[right=Loc-Id]{
+    }{ \angles{ \Sigma, x } \to \angles{ \Sigma, (\mu(x), \mu(x)) } }
+
+    \inferrule*[right=Loc-VarDef]{
+        \ell \not\in \dom(\rho)
+    }{ \angles{ \Sigma, \var~x : T } \to \angles{ \Sigma[\mu \mapsto \mu[x \mapsto \ell], \rho \mapsto \rho[\ell \mapsto (T, [])]], (\ell, \ell) } }
+\end{mathpar}
+
+\framebox{$\angles{\Sigma, \overline{\Stmt}} \to \angles{\Sigma, \overline{\Stmt}}$} \textbf{Statement Evaluation}
+Finally, the rule for the flows.
+We first resolve the selected resources, then subtract them from their parent locations, and finally add them all to the destination location.
+
+\begin{mathpar}
+    \inferrule*[right=Flow]{
+        \overline{\select(\rho, \ell, k) = R}
+        \\
+    }{ \angles{ \Sigma, \overline{(\ell, k)} \to (i, j) } \to \Sigma[\rho \mapsto \rho[\overline{\ell \mapsto \rho(\ell) - R}, j \mapsto \rho(j) + \sum \overline{R}]] }
+\end{mathpar}
+
+\section{Examples and Discussion}
+
+In thsi section, we present additional examples, showing that \langName and flows are useful for a variety of smart contracts.
+We also show examples of these same contracts in Solidity, and compare the \langName implementations to those in Solidity.
 
 \subsection{ERC-20 in Solidity}\label{sec:erc20-impl}
 Each ERC-20 contract manages the ``bank accounts'' for its own tokens, keeping track of how many tokens each account has; accounts are identified by addresses.
 We compare the \langName implementation in Figure~\ref{fig:erc20-transfer-flow} to Figure~\ref{fig:erc20-transfer-sol}, which shows a Solidity implementation of the same function.
 In this case, the sender's balance must be at least as large as \flowinline{amount}, and the destination's balance must not overflow when it receives the tokens.
 \langName automatically inserts code checking these two conditions, ensuring the checks are not forgotten.
-% As noted above, we can automatically generate descriptive error messages with no additional code, which are not present in the Solidity implementation.
+As noted above, we can automatically generate descriptive error messages with no additional code, which are not present in the Solidity implementation.
 \begin{figure}
     \vspace{-2em}
     \centering
@@ -205,6 +316,7 @@ One proposed use for blockchains is for voting~\cite{Elsden18:Making}.
 Figure~\ref{fig:voting-impl-flow} shows the core of an implementation of a voting contract in \langName.
 Each contract instance has several proposals, and users must be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
 Each user can vote exactly once for exactly one proposal, and the proposal with the most votes wins.
+This example shows \langName, as well as flows, are suited for a range of applications.
 \begin{figure}
     \vspace{-2em}
     \centering
@@ -215,7 +327,7 @@ Each user can vote exactly once for exactly one proposal, and the proposal with 
     \vspace{-1em}
 \end{figure}
 
-Figure~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a voting contract in Solidity and \langName, respectively, based on the Solidity by Example tutorial~\cite{solidityByExample}.
+Figure~\ref{fig:voting-impl-sol} shows an implementation of the same voting contract in Solidity, based on the Solidity by Example tutorial~\cite{solidityByExample}.
 \begin{figure}
     \vspace{-2em}
     \centering
@@ -225,8 +337,6 @@ Figure~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of
     \label{fig:voting-impl-sol}
     \vspace{-1em}
 \end{figure}
-
-This example shows \langName, as well as flows, are suited for a range of applications.
 It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 
 \subsection{Blind Auction}\label{sec:blind-auction-impl}
