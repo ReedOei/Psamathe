@@ -169,7 +169,7 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
     \label{fig:syntax}
 \end{figure}
 
-\subsection{Formalization Fragment}
+\subsection{Partial Formalization}
 
 We now present typing and evaluation rules for a fragment of the core calculus, describing the basics of flows.
 
@@ -236,8 +236,7 @@ We then use the updaters to clear out all the values in $\Loc$, using $u$, and a
     }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout v(\Delta, \tau \mapsto \tau \oplus \mathcal{Q}) }
 \end{mathpar}
 
-\subsection{Dynamics}
-
+\paragraph{Dynamics}
 Below are the rules to evaluate statements of flows between variables.
 
 We introduce sorts for \emph{values}, \emph{resources}, values tagged with their type, and storage values.
