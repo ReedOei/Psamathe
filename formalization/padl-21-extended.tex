@@ -390,7 +390,7 @@ Bidders sent the hashed bytes of their bid, that is, the value (in ether) and so
 After bidding is over, they must \emph{reveal} their bid by sending a transaction containing these details, which will be checked by the \flowinline{Auction} contract (line~\ref{line:auction-check-bid}).
 Any extra value in the bid (used to mask the true value of the bid), will be returned to the bidder.
 
-This example uses a pipline of locators and transformers (lines~\ref{line:auction-pipeline-start}-\ref{line:auction-pipeline-end}) to concisely process each revealed bid, showing another case in which flows provide a clean way to write smart contracts.
+This example uses a pipeline of locators and transformers (lines~\ref{line:auction-pipeline-start}-\ref{line:auction-pipeline-end}) to concisely process each revealed bid, showing another case in which flows provide a clean way to write smart contracts.
 
 \begin{figure}
     \centering
