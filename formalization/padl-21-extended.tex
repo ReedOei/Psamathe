@@ -18,8 +18,6 @@
 \usepackage[safe]{tipa}
 \usepackage[inline]{enumitem}
 
-\renewcommand\UrlFont{\color{blue}\rmfamily}
-
 \input{LaTeX/macros.tex}
 \input{solidity-latex-highlighting/solidity-highlighting.tex}
 \input{flow-highlighting.tex}
@@ -44,7 +42,7 @@
 
 \author{Michael Coblenz}
 \affiliation{%
-    \institution{University of Illinois}
+    \institution{University of Maryland}
     \city{College Park}
     \country{USA}
 }
@@ -79,8 +77,8 @@ Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, 
 Scilla and Move are intermediate-level languages, whereas \langName is intended to be a high-level language.
 Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which extend linear types to allow a more precise analysis of the flow of values in a program.
 None of the these languages have flows, provide support for all the modifiers that \langName does,
-\reed{FIX: or have locators.
-In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.}
+% \reed{FIX: or have locators.
+% In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.}
 
 \section{Language}\label{sec:lang}
 A \langName program is made of \emph{transformers} and \emph{type declarations}.
@@ -135,12 +133,14 @@ The modifiers \flowinline{unique} and \flowinline{immutable} provide the safety 
 % ERC-721 tokens are \flowinline{unique} and \flowinline{immutable}.
 
 We now give examples using modifiers and type quantities to guarantee additional correctness properties in the context of a lottery.
-% We create \flowinline{TicketOwner} and \flowinline{Ticket} types.
 The \flowinline{unique} and \flowinline{immutable} modifiers ensure users enter the lottery at most once, while \flowinline{asset} ensures that we do not accidentally lose tickets.
 We use \flowinline{consumable} because tickets no longer have any value when the lottery is over.
 \begin{lstlisting}[language=flow]
 type TicketOwner is unique immutable address
-type Ticket is consumable asset { owner : TicketOwner, guess : uint256 }
+type Ticket is consumable asset {
+    owner : TicketOwner,
+    guess : uint256
+}
 \end{lstlisting}
 Consider the code snippet in Figure~\ref{fig:lottery-end}, handling ending the lottery.
 The lottery cannot end before there is a winning ticket, enforced by the \flowinline{nonempty} in the \emph{filter} on line~\ref{line:lottery-filter}; note that, as \flowinline{winners} is \flowinline{nonempty}, there cannot be a divide-by-zero error.
@@ -162,24 +162,26 @@ tickets --> consume
     \label{fig:lottery-end}
 \end{figure}
 
-\reed{TODO: Discuss locators.
-\emph{Locators} are expressions access parts of complex structures while maintaining the safety properties of \langName.
-In Figure~\ref{fig:erc20-transfer-flow}
-}
-
-Programs in \langName are \emph{transactional}: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
-If a sequence of flows fails, the error propagates, like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.
-
 One could try automatically inserting dynamic checks in a language like Solidity, but in many cases it would require additional annotations.
 Such a system would essentially reimplement flows, providing some benefits of \langName, but not the same static guarantees.
 Some patchwork attempts already exist, such as the SafeMath library which checks for the specific case of underflow and overflow.
 For example, consider the following code snippet in \langName, which performs the task of selecting a user by some predicate \flowinline{P}.
 \begin{lstlisting}[language=flow]
-var user : User <-- users[! such that P(_)]
+var user : User <-- users[one such that P(_)]
 \end{lstlisting}
 This line expresses that we wish to select exactly one user satisfying the predicate.
 There is no way to express this same constraint in Solidity (or most languages) without manually writing code to check it.
 Additionally, in Solidity, variables are initialized with default values, making uniqueness difficult to enforce.
+
+% \reed{TODO: Discuss locators.
+% \emph{Locators} are expressions used to access parts of complex structures while maintaining linearity.
+% In Figure~\ref{fig:erc20-transfer-flow}, we use locators to both do map lookups and to specify the quantity of tokens to transfer.
+% We can also use more complicated locators
+% Figure~\ref{fig:syntax} shows the complete syntax for locators.
+% }
+
+Programs in \langName are \emph{transactional}: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
+If a sequence of flows fails, the error propagates, like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.
 
 Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langName.
 \begin{figure}
@@ -196,7 +198,7 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
         $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
         $\Loc$, $\LocK$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
                & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
-               & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ & \\
+               & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ \bnfalt $\zip(\overline{\Loc})$ & \\
                & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f(\overline{\Loc})]$ \bnfalt $\consume$ & \\
         $\Trfm$ & \bnfdef & $\newc~t(\overline{\Loc})$ \bnfalt $f(\overline{\Loc})$ & (transformer calls) \\
         $\Stmt$ & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to \Trfm \to \Loc$ & (flows) \\
@@ -326,7 +328,7 @@ We first resolve the selected resources, then subtract them from their parent lo
     }{ \angles{ \Sigma, \overline{(\ell, k)} \to (i, j) } \to \Sigma[\rho \mapsto \rho[\overline{\ell \mapsto \rho(\ell) - R}, j \mapsto \rho(j) + \sum \overline{R}]] }
 \end{mathpar}
 
-\section{Examples and Discussion}
+\section{Examples}
 
 In this section, we present additional examples, showing that \langName and flows are useful for a variety of smart contracts.
 We also show examples of these same contracts in Solidity, and compare the \langName implementations to those in Solidity.
@@ -350,32 +352,35 @@ As noted above, we can automatically generate descriptive error messages with no
 One proposed use for blockchains is for voting~\cite{Elsden18:Making}.
 Figure~\ref{fig:voting-impl-flow} shows the core of an implementation of a voting contract in \langName.
 Each contract instance has several proposals, and users must be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
-Each user can vote exactly once for exactly one proposal, and the proposal with the most votes wins.
-This example shows \langName, as well as flows, are suited for a range of applications.
+Each eligible voter can vote exactly once for exactly one proposal, and the proposal with the most votes wins.
+This example shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
+This example show that \langName, as well as flows, are suited to a wide range of common smart contract applications.
 \begin{figure}
     \centering
-    \lstinputlisting[language=flow]{padl-21-examples/voting.flow}
+    \lstinputlisting[language=flow, xleftmargin=-1em]{padl-21-examples/voting.flow}
     \caption{A simple voting contract in \langName.}
     \label{fig:voting-impl-flow}
 \end{figure}
 
 Figure~\ref{fig:voting-impl-sol} shows an implementation of the same voting contract in Solidity, based on the Solidity by Example tutorial~\cite{solidityByExample}.
+Again, we must manually check all preconditions
 \begin{figure}
     \centering
-    \lstinputlisting[language=Solidity]{padl-21-examples/voting.sol}
+    \lstinputlisting[language=Solidity, xleftmargin=-1em]{padl-21-examples/voting.sol}
     \caption{A simple voting contract in Solidity.}
     \label{fig:voting-impl-sol}
 \end{figure}
-It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 
 \subsection{Blind Auction}\label{sec:blind-auction-impl}
+Another proposed use of blockchains is auctions~\cite{Elsden18:Making}.
 Figure~\ref{fig:blind-auction-impl-flow} shows an implementation of the \emph{reveal phase} of a \emph{blind auction} in \langName.
 A blind auction is an auction in which bids are placed, but not revealed until the auction has ended, meaning that other bidders have no way of knowing what bids have been placed so far.
-However, because transactions on the blockchain are publicly viewable, the bids must be blinded cryptographically, in this case, using the KECCAK-256~\cite{bertoni2013keccak} algorithm.
+Because transactions on the Ethereum blockchain are publicly viewable, the bids must be blinded cryptographically, in this case, using the KECCAK-256 algorithm~\cite{bertoni2013keccak}.
 Bidders sent the hashed bytes of their bid, that is, the value (in ether) and some secret string of bytes, along with a deposit of ether, which must be at least as large as the intended value of the bid for the bid to be valid.
-After bidding is over, they must \emph{reveal} their bid by sending a transaction revealing these details, which will be checked by the \flowinline{BlindAuction} contract.
-Any extra value in the bid (used to mask the true value of the bid), will be returned to the bidder upon request.
-\reed{TODO, finish description, discussion}
+After bidding is over, they must \emph{reveal} their bid by sending a transaction containing these details, which will be checked by the \flowinline{Auction} contract.
+Any extra value in the bid (used to mask the true value of the bid), will be returned to the bidder.
+
+This example uses a pipline of locators and transformers (lines~\ref{line:auction-pipeline-start}-\ref{line:auction-pipeline-end}) to concisely process each revealed bid, showing another case in which flows provide a clean way to write smart contracts.
 
 \begin{figure}
     \centering
@@ -384,14 +389,15 @@ Any extra value in the bid (used to mask the true value of the bid), will be ret
     \label{fig:blind-auction-impl-flow}
 \end{figure}
 
+% \subsection{Discussion}
+
 \section{Conclusion and Future Work}
 
 We have presented the \langName language for writing safer smart contracts.
 \langName uses the new flow abstraction, \assetTxt{}s, and type quantities to provide its safety guarantees.
-We have shown an example smart contract in both \langName and Solidity, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
-% We have shown an example smart contract in both \langName and Solidity, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
+We have shown example smart contracts in both \langName and Solidity, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 
-In the future, we plan to implement the \langName language, and prove its safety properties.
+In the future, we plan to fully implement the \langName language, and prove its safety properties.
 We also hope to study the benefits and costs of the language via case studies, performance evaluation, and the application of flows to other domains.
 Finally, we would also like to conduct a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity, which we hypothesize will show that developers write contracts with fewer asset management errors in \langName than in Solidity.
 

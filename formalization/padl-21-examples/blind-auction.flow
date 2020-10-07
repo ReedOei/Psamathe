@@ -1,34 +1,30 @@
-type Bid is consumable asset { sender : address, blindedBid : bytes, deposit : ether }
+type Bid is consumable asset {
+  sender : address,
+  blindedBid : bytes,
+  deposit : ether
+}
 type Reveal is { value : nat, secret : bytes }
-type BlindAuction is asset {
+type Auction is asset {
   biddingEnd : nat, revealEnd : nat, ended : bool,
   bids : map address => list Bid,
   highestBidder : address, highestBid : ether,
   pendingReturns : map address => ether
 }
-
-transformer reveal(this : BlindAuction, reveals : list Reveal) {
+transformer reveal(this : Auction, reveals : list Reveal) {
   only when biddingEnd <= now and now <= revealEnd
-  zip(this.bids[msg.sender], reveals)
+  zip(this.bids[msg.sender], reveals) |\label{line:auction-pipeline-start}|
     --[ any such that _.fst.blindedBid = keccak256(_.snd) ]
-    --> revealBid(this, _) --> placeBid(this, _)
+    --> this.revealBid(_) |\label{line:auction-pipeline-end}|
 }
-transformer revealBid(this : BlindAuction, bid : Bid, reveal : Reveal)
-  -> toPlace : list { sender : address, value : ether } {
+transformer revealBid(this : Auction,
+                      bid : Bid, reveal : Reveal)
+    -> toPlace : list { sender : address, value : ether } {
   try {
     only when reveal.value >= this.highestBid
-    bid.deposit --[ reveal.value ]-> var value : ether
-    [ { sender $\texttt{|}$-> bid.sender, value $\texttt{|}$-> value } ] --> toPlace
+    this.highestBid --> this.pendingReturns[highestBidder]
+    bid.deposit --[ reveal.value ]-> this.highestBid
+    bid.sender --> this.highestBidder
   } catch {}
   bid.deposit --> bid.sender.balance
   bid --> consume
 }
-transformer placeBid(this : BlindAuction, toPlace : { sender : address, value : ether }) {
-  try {
-    only when highestBidder != 0x0
-    this.highestBid --> this.pendingReturns[highestBidder]
-  } catch { }
-  toPlace.sender --> highestBidder
-  toPlace.value --> highestBid
-}
-
