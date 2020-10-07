@@ -1,17 +1,6 @@
-% This is samplepaper.tex, a sample chapter demonstrating the
-% LLNCS macro package for Springer Computer Science proceedings;
-% Version 2.20 of 2017/10/04
-%
 \documentclass[dvipsnames,runningheads]{llncs}
 
 \usepackage{graphicx}
-% Used for displaying a sample figure. If possible, figure files should
-% be included in EPS format.
-%
-% If you use the hyperref package, please uncomment the following line
-% to display URLs in blue roman font according to Springer's eBook style:
-% \renewcommand\UrlFont{\color{blue}\rmfamily}
-
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{dblfloatfix}
@@ -30,6 +19,8 @@
 \usepackage[safe]{tipa}
 \usepackage[inline]{enumitem}
 
+\renewcommand\UrlFont{\color{blue}\rmfamily}
+
 \input{LaTeX/macros.tex}
 \input{solidity-latex-highlighting/solidity-highlighting.tex}
 \input{flow-highlighting.tex}
@@ -37,7 +28,7 @@
 
 \begin{document}
 
-\title{\langName: A Flow-Based DSL for Safe Blockchain \AssetTxt{}s}
+\title{\langName: A DSL with Flows for Safe Blockchain \AssetTxt{}s}
 
 \author{Reed Oei\inst{1} \and Michael Coblenz\inst{2} \and Jonathan Aldrich\inst{3}}
 \institute{University of Illinois, Urbana, IL, USA\\
@@ -67,7 +58,8 @@ A formalization of \langName is in progress~\cite{psamatheRepo}, with an \emph{e
 Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint,blackshear2019move,das2019nomos,coblenz2019obsidian,sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is intended to be a high-level language.
 Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which extend linear types to allow a more precise analysis of the flow of values in a program.
-\reed{FIX: None of the these languages have flows, provide support for all the modifiers that \langName does, or have locators.
+None of the these languages have flows, provide support for all the modifiers that \langName does,
+\reed{FIX: or have locators.
 In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.}
 
 \section{Language}\label{sec:lang}
@@ -124,6 +116,27 @@ The modifiers \flowinline{unique} and \flowinline{immutable} provide the safety 
 % A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow.
 % A \flowinline{unique} value only exists in at most one variable; it must be \flowinline{immutable} and an \flowinline{asset} to ensure it is not duplicated.
 % ERC-721 tokens are \flowinline{unique} and \flowinline{immutable}.
+
+We now give examples using modifiers and type quantities to guarantee additional correctness properties in the context of a lottery.
+% We create \flowinline{TicketOwner} and \flowinline{Ticket} types.
+The \flowinline{unique} and \flowinline{immutable} modifiers ensure users enter the lottery at most once, while \flowinline{asset} ensures that we do not accidentally lose tickets.
+We use \flowinline{consumable} because tickets no longer have any value when the lottery is over.
+\begin{lstlisting}[language=flow]
+type TicketOwner is unique immutable address
+type Ticket is consumable asset { owner : TicketOwner, guess : uint256 }
+\end{lstlisting}
+Consider the following code snippet, handling ending the lottery.
+The lottery cannot end before there is a winning ticket, enforced by the \flowinline{nonempty} in the \emph{filter} on line~\ref{line:lottery-filter}; note that, as \flowinline{winners} is \flowinline{nonempty}, there cannot be a divide-by-zero error.
+% The lottery cannot end before there is at least one winning ticket, enforced by the \flowinline{nonempty} in the \emph{filter} on line~\ref{line:lottery-filter}, at which point the jackpot is split evenly between the winners; note that, as \flowinline{winners} is \flowinline{nonempty}, there cannot be a divide-by-zero error.
+% \flowinline{jackpot / length(winners)} is guaranteed not to divide by zero.
+Without line~\ref{line:empty-lottery-balance}, \langName would give an error indicating \flowinline{balance} has type \flowinline{any ether}, not \flowinline{empty ether}---a true error, because in the case that the jackpot cannot be evenly split between the winners, there will be some ether left over.
+% Similarly, we use line~\ref{line:empty-ticket-list} to destroy the losing lottery tickets, now that lottery is over.
+\begin{lstlisting}[language=flow]
+var winners : list Ticket <-[ nonempty st ticketWins(winNum, _) ]-- tickets |\label{line:lottery-filter}|
+winners --> payEach(jackpot / length(winners), _) // Split jackpot among winners
+balance --> lotteryOwner.balance |\label{line:empty-lottery-balance}|
+tickets --> consume // Lottery is over, destroy losing tickets
+\end{lstlisting}
 
 \reed{TODO: Discuss locators.
 \emph{Locators} are expressions that allow accessing or modifying parts of complex structures while maintaining linearity.
@@ -221,15 +234,15 @@ Below is the type rule checking whether a flow (without a transformer) is valid.
 Here $\Gamma$ is the \emph{input environment} and $\Delta$ is the \emph{output environment}, used to track the flow of resources throughout a sequence of statements.
 
 In \textsc{Ok-Flow}, Checking $u \neq \bot$ and $v \neq \bot$ ensures that $\Loc$ and $\LocK$ are valid sources/destinations of the flow (e.g., not immutable).
-We check that $\Loc$ and $\LocK$ have the same base type, except that $\LocK$ may be \emph{demoted}, allowing us to select, for example, a \flowinline{Token}, whose \emph{underlying type} is \flowinline{uint256}, with a \flowinline{uint256}, as done in Figure~\ref{fig:erc20-transfer-flow}.
-We then use the updaters to clear out all the values in $\Loc$, using $u$, and add then to $\LocK$, using $v$.
+We check that $\Loc$ and $\LocK$ have the same base type.
+We then clear out all the values selected by $\Loc$, using $u$, and add them to $\LocK$, using $v$.
 \begin{mathpar}
     \inferrule*[right=Ok-Flow]{
         \Gamma \flowproves_S \Loc : \mathcal{Q}~T ; u
         \\
         \Delta = u(\Gamma, (\mathcal{Q}'~T') \mapsto \emptyq~T')
         \\
-        \Delta \flowproves_D \LocK : \mathcal{R}~\demoteT(T) ; v
+        \Delta \flowproves_D \LocK : \mathcal{R}~T ; v
         \\
         u \neq \bot
         \\
@@ -344,6 +357,7 @@ A blind auction is an auction in which bids are placed, but not revealed until t
 However, because transactions on the blockchain are publicly viewable, the bids must be blinded cryptographically, in this case, using the KECCAK-256~\cite{bertoni2013keccak} algorithm.
 Bidders sent the hashed bytes of their bid, that is, the value (in ether) and some secret string of bytes, along with a deposit of ether, which must be at least as large as the intended value of the bid for the bid to be valid.
 After bidding is over, they must \emph{reveal} their bid by sending a transaction revealing these details, which will be checked by the \flowinline{BlindAuction} contract.
+Any extra value in the bid (used to mask the true value of the bid), will be returned to the bidder upon request.
 \reed{TODO, finish description, discussion}
 
 \begin{figure}

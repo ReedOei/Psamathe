@@ -6,7 +6,7 @@ type Election is asset {
     proposals : map ProposalName => set Voter
 }
 transformer giveRightToVote(this : Election, voter : address) {
-    only when msg.sender = chairperson
+    only when msg.sender = this.chairperson
     new Voter(voter) --> this.eligibleVoters
 }
 transformer vote(this : Election, proposal : string) {
