@@ -1,4 +1,5 @@
-\documentclass[dvipsnames,runningheads]{llncs}
+% \documentclass[dvipsnames,runningheads]{llncs}
+\documentclass[nonacm, dvipsnames, sigconf]{acmart}
 
 \usepackage{graphicx}
 \usepackage{listings}
@@ -14,8 +15,6 @@
 \usepackage{float}
 \usepackage{subcaption}
 \usepackage{xcolor}
-\usepackage{amsmath}
-\usepackage{amssymb}
 \usepackage[safe]{tipa}
 \usepackage[inline]{enumitem}
 
@@ -30,13 +29,34 @@
 
 \title{\langName: A DSL with Flows for Safe Blockchain \AssetTxt{}s}
 
-\author{Reed Oei\inst{1} \and Michael Coblenz\inst{2} \and Jonathan Aldrich\inst{3}}
-\institute{University of Illinois, Urbana, IL, USA\\
-\email{reedoei2@illinois.edu}%
-\and University of Maryland, College Park, MD, USA\\
-\email{mcoblenz@umd.edu}%
-\and Carnegie Mellon University, Pittsburgh, PA, USA\\
-\email{jonathan.aldrich@cs.cmu.edu}}
+%% The "author" command and its associated commands are used to define
+%% the authors and their affiliations.
+%% Of note is the shared affiliation of the first two authors, and the
+%% "authornote" and "authornotemark" commands
+%% used to denote shared contribution to the research.
+\author{Reed Oei}
+\affiliation{%
+    \institution{University of Illinois}
+    \city{Urbana}
+    \country{USA}
+}
+\email{reedoei2@illinois.edu}
+
+\author{Michael Coblenz}
+\affiliation{%
+    \institution{University of Illinois}
+    \city{College Park}
+    \country{USA}
+}
+\email{mcoblenz@umd.edu}
+
+\author{Jonathan Aldrich}
+\affiliation{%
+    \institution{Carnegie Mellon University}
+    \city{Pittsburgh}
+    \country{USA}
+}
+\email{jonathan.aldrich@cs.cmu.edu}
 
 \maketitle
 
@@ -71,14 +91,11 @@ ERC-20 is a standard providing a bare-bones interface for token contracts managi
 Fungible tokens are interchangeable (like most currencies), so it is only important how many tokens are owned by an entity, not \textbf{which} tokens.
 
 \begin{figure}
-    \vspace{-2em}
     \centering
-    \lstinputlisting[language=flow, xrightmargin=-1.0em]{padl-21-examples/erc20-transfer.flow}
-    \vspace{-1em}
+    \lstinputlisting[language=flow, xleftmargin=-1em]{padl-21-examples/erc20-transfer.flow}
     \caption{A \langName contract with a simple \flowinline{transfer} function, which transfers \flowinline{amount} tokens from the sender's account to the destination account.
 It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
     \label{fig:erc20-transfer-flow}
-    \vspace{-2em}
 \end{figure}
 
 \subsection{Overview}
@@ -125,21 +142,29 @@ We use \flowinline{consumable} because tickets no longer have any value when the
 type TicketOwner is unique immutable address
 type Ticket is consumable asset { owner : TicketOwner, guess : uint256 }
 \end{lstlisting}
-Consider the following code snippet, handling ending the lottery.
+Consider the code snippet in Figure~\ref{fig:lottery-end}, handling ending the lottery.
 The lottery cannot end before there is a winning ticket, enforced by the \flowinline{nonempty} in the \emph{filter} on line~\ref{line:lottery-filter}; note that, as \flowinline{winners} is \flowinline{nonempty}, there cannot be a divide-by-zero error.
 % The lottery cannot end before there is at least one winning ticket, enforced by the \flowinline{nonempty} in the \emph{filter} on line~\ref{line:lottery-filter}, at which point the jackpot is split evenly between the winners; note that, as \flowinline{winners} is \flowinline{nonempty}, there cannot be a divide-by-zero error.
 % \flowinline{jackpot / length(winners)} is guaranteed not to divide by zero.
 Without line~\ref{line:empty-lottery-balance}, \langName would give an error indicating \flowinline{balance} has type \flowinline{any ether}, not \flowinline{empty ether}---a true error, because in the case that the jackpot cannot be evenly split between the winners, there will be some ether left over.
 % Similarly, we use line~\ref{line:empty-ticket-list} to destroy the losing lottery tickets, now that lottery is over.
-\begin{lstlisting}[language=flow]
-var winners : list Ticket <-[ nonempty st ticketWins(winNum, _) ]-- tickets |\label{line:lottery-filter}|
-winners --> payEach(jackpot / length(winners), _) // Split jackpot among winners
+\begin{figure}
+    \centering
+\begin{lstlisting}[language=flow, xleftmargin=-1em]
+var winners : list Ticket <-- tickets[ nonempty st ticketWins(winNum, _) ] |\label{line:lottery-filter}|
+// Split jackpot among winners
+winners --> payEach(jackpot / length(winners), _)
 balance --> lotteryOwner.balance |\label{line:empty-lottery-balance}|
-tickets --> consume // Lottery is over, destroy losing tickets
+// Lottery is over, destroy losing tickets
+tickets --> consume
 \end{lstlisting}
+    \caption{A code snippet that handles the process of ending a lottery.}
+    \label{fig:lottery-end}
+\end{figure}
 
 \reed{TODO: Discuss locators.
-\emph{Locators} are expressions that allow accessing or modifying parts of complex structures while maintaining linearity.
+\emph{Locators} are expressions access parts of complex structures while maintaining the safety properties of \langName.
+In Figure~\ref{fig:erc20-transfer-flow}
 }
 
 Programs in \langName are \emph{transactional}: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
@@ -165,7 +190,8 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
     \end{align*}
     \begin{tabular}{l r l l}
         $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
-        $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable \bnfalt \consumable \bnfalt \asset & (type declaration modifiers) \\
+        $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable & (modifiers) \\
+            & \bnfalt & \consumable \bnfalt \asset & (modifiers) \\
         $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $t$ \bnfalt $\tableT(\overline{x})~\{ \overline{x : \tau} \}$ & (base types) \\
         $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
         $\Loc$, $\LocK$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
@@ -312,15 +338,12 @@ In this case, the sender's balance must be at least as large as \flowinline{amou
 \langName automatically inserts code checking these two conditions, ensuring the checks are not forgotten.
 As noted above, we can automatically generate descriptive error messages with no additional code, which are not present in the Solidity implementation.
 \begin{figure}
-    \vspace{-2em}
     \centering
     \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
-    \vspace{-1em}
     \caption{An implementation of ERC-20's \lstinline[language=Solidity]{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
         All preconditions are checked manually.
         Note that we must include the \lstinline[language=Solidity]{SafeMath} library (not shown) to use the \lstinline[language=Solidity]{add} and \lstinline[language=Solidity]{sub} functions, which check for underflow/overflow.}
     \label{fig:erc20-transfer-sol}
-    \vspace{-2em}
 \end{figure}
 
 \subsection{Voting}\label{sec:voting-impl}
@@ -330,24 +353,18 @@ Each contract instance has several proposals, and users must be given permission
 Each user can vote exactly once for exactly one proposal, and the proposal with the most votes wins.
 This example shows \langName, as well as flows, are suited for a range of applications.
 \begin{figure}
-    \vspace{-2em}
     \centering
     \lstinputlisting[language=flow]{padl-21-examples/voting.flow}
-    \vspace{-1em}
     \caption{A simple voting contract in \langName.}
     \label{fig:voting-impl-flow}
-    \vspace{-1em}
 \end{figure}
 
 Figure~\ref{fig:voting-impl-sol} shows an implementation of the same voting contract in Solidity, based on the Solidity by Example tutorial~\cite{solidityByExample}.
 \begin{figure}
-    \vspace{-2em}
     \centering
     \lstinputlisting[language=Solidity]{padl-21-examples/voting.sol}
-    \vspace{-1em}
     \caption{A simple voting contract in Solidity.}
     \label{fig:voting-impl-sol}
-    \vspace{-1em}
 \end{figure}
 It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
 
@@ -363,7 +380,6 @@ Any extra value in the bid (used to mask the true value of the bid), will be ret
 \begin{figure}
     \centering
     \lstinputlisting[language=flow]{padl-21-examples/blind-auction.flow}
-    \vspace{-1em}
     \caption{Implementation of reveal phase of a blind auction contract in \langName.}
     \label{fig:blind-auction-impl-flow}
 \end{figure}
