@@ -13,12 +13,10 @@ type Auction is asset {
 transformer reveal(this : Auction, reveals : list Reveal) {
   only when biddingEnd <= now and now <= revealEnd
   zip(this.bids[msg.sender], reveals) |\label{line:auction-pipeline-start}|
-    --[ any such that _.fst.blindedBid = keccak256(_.snd) ]
-    --> this.revealBid(_) |\label{line:auction-pipeline-end}|
+    --[ any such that _.fst.blindedBid = keccak256(_.snd) ] |\label{line:auction-check-bid}|
+    --> this.revealBid(_.fst, _.snd) |\label{line:auction-pipeline-end}|
 }
-transformer revealBid(this : Auction,
-                      bid : Bid, reveal : Reveal)
-    -> toPlace : list { sender : address, value : ether } {
+transformer revealBid(this : Auction, bid : Bid, reveal : Reveal) {
   try {
     only when reveal.value >= this.highestBid
     this.highestBid --> this.pendingReturns[highestBidder]

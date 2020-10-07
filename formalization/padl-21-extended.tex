@@ -56,6 +56,14 @@
 }
 \email{jonathan.aldrich@cs.cmu.edu}
 
+\begin{abstract}
+Blockchains host smart contracts for crowdfunding, tokens, and many other purposes.
+Vulnerabilities in contracts are often discovered, leading to the loss of large quantities of money.
+Psamathe is a new language we are designing around a new flow abstraction, reducing asset bugs and making contracts more concise than in existing languages.
+We present an overview of Psamathe, including a partial formalization.
+We also discuss several example contracts in Psamathe, and compare the Psamathe examples to the same contracts written in Solidity.
+\end{abstract}
+
 \maketitle
 
 \section{Introduction}
@@ -66,6 +74,7 @@ Smart contracts often manage \emph{digital assets}, such as cryptocurrencies, or
 % Token contracts are common on the Ethereum blockchain~\cite{wood2014ethereum}---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
 These contracts cannot be patched after deployment, even if security vulnerabilities are discovered.
 Some estimates suggest that as many as 46\% of smart contracts may have vulnerabilities~\cite{luuOyente}.
+Vulnerabilities in smart contracts can lead to the loss of large quantities of money---the well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars.
 
 \langName (\langNamePronounce) is a new programming language we are designing around \emph{flows}, which are a new abstraction representing an atomic transfer operation.
 Together with features such as \emph{modifiers}, flows provide a \textbf{concise} way to write contracts that \textbf{safely} manage \assetTxt{}s (see Section~\ref{sec:lang}).
@@ -76,7 +85,7 @@ A formalization of \langName is in progress~\cite{psamatheRepo}, with an \emph{e
 Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint,blackshear2019move,das2019nomos,coblenz2019obsidian,sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is intended to be a high-level language.
 Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which extend linear types to allow a more precise analysis of the flow of values in a program.
-None of the these languages have flows, provide support for all the modifiers that \langName does,
+None of the these languages have flows or provide support for all the modifiers that \langName does.
 % \reed{FIX: or have locators.
 % In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.}
 
@@ -84,6 +93,7 @@ None of the these languages have flows, provide support for all the modifiers th
 A \langName program is made of \emph{transformers} and \emph{type declarations}.
 Transformers contain \emph{flows} describing the how values are transferred between variables.
 Type declarations provide a way to name types and to mark values with \emph{modifiers}, such as \flowinline{asset}.
+
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type and a transformer, which implements the core of ERC-20's \flowinline{transfer} function.
 ERC-20 is a standard providing a bare-bones interface for token contracts managing \emph{fungible} tokens.
 Fungible tokens are interchangeable (like most currencies), so it is only important how many tokens are owned by an entity, not \textbf{which} tokens.
@@ -150,8 +160,8 @@ Without line~\ref{line:empty-lottery-balance}, \langName would give an error ind
 % Similarly, we use line~\ref{line:empty-ticket-list} to destroy the losing lottery tickets, now that lottery is over.
 \begin{figure}
     \centering
-\begin{lstlisting}[language=flow, xleftmargin=-1em]
-var winners : list Ticket <-- tickets[ nonempty st ticketWins(winNum, _) ] |\label{line:lottery-filter}|
+\begin{lstlisting}[language=flow, xleftmargin=-0.5em]
+var winners : list Ticket <-- tickets[nonempty st ticketWins(winNum, _)] |\label{line:lottery-filter}|
 // Split jackpot among winners
 winners --> payEach(jackpot / length(winners), _)
 balance --> lotteryOwner.balance |\label{line:empty-lottery-balance}|
@@ -314,7 +324,7 @@ Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select
 
     \inferrule*[right=Loc-VarDef]{
         \ell \not\in \dom(\rho)
-    }{ \angles{ \Sigma, \var~x : T } \to \angles{ \Sigma[\mu \mapsto \mu[x \mapsto \ell], \rho \mapsto \rho[\ell \mapsto (T, [])]], (\ell, \ell) } }
+    }{ \angles{ \Sigma, \var~x : T } \to \angles{ \Sigma[\mu \mapsto \mu[x \mapsto \ell], \rho \mapsto \rho[\ell \mapsto \emptyVal(T)]], (\ell, \ell) } }
 \end{mathpar}
 
 \framebox{$\angles{\Sigma, \overline{\Stmt}} \to \angles{\Sigma, \overline{\Stmt}}$} \textbf{Statement Evaluation}
@@ -341,7 +351,7 @@ In this case, the sender's balance must be at least as large as \flowinline{amou
 As noted above, we can automatically generate descriptive error messages with no additional code, which are not present in the Solidity implementation.
 \begin{figure}
     \centering
-    \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
+    \lstinputlisting[language=Solidity, xleftmargin=-0.5em]{padl-21-examples/erc20-transfer.sol}
     \caption{An implementation of ERC-20's \lstinline[language=Solidity]{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
         All preconditions are checked manually.
         Note that we must include the \lstinline[language=Solidity]{SafeMath} library (not shown) to use the \lstinline[language=Solidity]{add} and \lstinline[language=Solidity]{sub} functions, which check for underflow/overflow.}
@@ -363,7 +373,7 @@ This example show that \langName, as well as flows, are suited to a wide range o
 \end{figure}
 
 Figure~\ref{fig:voting-impl-sol} shows an implementation of the same voting contract in Solidity, based on the Solidity by Example tutorial~\cite{solidityByExample}.
-Again, we must manually check all preconditions
+Again, we must manually check all preconditions.
 \begin{figure}
     \centering
     \lstinputlisting[language=Solidity, xleftmargin=-1em]{padl-21-examples/voting.sol}
@@ -377,7 +387,7 @@ Figure~\ref{fig:blind-auction-impl-flow} shows an implementation of the \emph{re
 A blind auction is an auction in which bids are placed, but not revealed until the auction has ended, meaning that other bidders have no way of knowing what bids have been placed so far.
 Because transactions on the Ethereum blockchain are publicly viewable, the bids must be blinded cryptographically, in this case, using the KECCAK-256 algorithm~\cite{bertoni2013keccak}.
 Bidders sent the hashed bytes of their bid, that is, the value (in ether) and some secret string of bytes, along with a deposit of ether, which must be at least as large as the intended value of the bid for the bid to be valid.
-After bidding is over, they must \emph{reveal} their bid by sending a transaction containing these details, which will be checked by the \flowinline{Auction} contract.
+After bidding is over, they must \emph{reveal} their bid by sending a transaction containing these details, which will be checked by the \flowinline{Auction} contract (line~\ref{line:auction-check-bid}).
 Any extra value in the bid (used to mask the true value of the bid), will be returned to the bidder.
 
 This example uses a pipline of locators and transformers (lines~\ref{line:auction-pipeline-start}-\ref{line:auction-pipeline-end}) to concisely process each revealed bid, showing another case in which flows provide a clean way to write smart contracts.
