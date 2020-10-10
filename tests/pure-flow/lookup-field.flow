@@ -1,6 +1,6 @@
 ;
 
-{ l : ! bool |-> true, r : ! bool |-> false } --> var c : { l : ! bool, r : ! bool }
+{ l : one bool |-> true, r : one bool |-> false } --> var c : { l : one bool, r : one bool }
 
 c.l --> var d : bool
 

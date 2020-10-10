@@ -1,5 +1,5 @@
-transformer newAccount(a : any nat) -> res : ! list ! { name : any nat, balance : any nat } {
-    [ ! { name : any nat, balance : any nat } ;
+transformer newAccount(a : any nat) -> res : one list one { name : any nat, balance : any nat } {
+    [ one { name : any nat, balance : any nat } ;
         {
             name : any nat |-> a,
             balance : any nat |-> 0
@@ -9,5 +9,5 @@ transformer newAccount(a : any nat) -> res : ! list ! { name : any nat, balance 
 
 ;
 
-[ any nat ; 0,1,2 ] --> newAccount() --> var accounts : list ! { name : any nat, balance : any nat }
+[ any nat ; 0,1,2 ] --> newAccount() --> var accounts : list one { name : any nat, balance : any nat }
 

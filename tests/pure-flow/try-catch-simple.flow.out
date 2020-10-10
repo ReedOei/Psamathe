@@ -1,5 +1,8 @@
 <generatedTop>
   <common>
+    <k>
+      .
+    </k>
     <typeEnv>
       .Map
     </typeEnv>
@@ -7,13 +10,10 @@
       .Map
     </types>
     <functions>
-      idBool |-> transformer ( res : ! bool , a : ! bool , .VarDefs , copy ( a ) --> res  .Stmts )
-      notBool |-> transformer ( res : ! bool , a : ! bool , .VarDefs , try { copy ( a ) [ ! such that idBool ( .Vars ) ] --> var y : bool  false --> res  .Stmts } catch { true --> res  .Stmts }  .Stmts )
+      idBool |-> transformer ( res : one bool , a : one bool , .VarDefs , copy ( a ) --> res  .Stmts )
+      notBool |-> transformer ( res : one bool , a : one bool , .VarDefs , try { copy ( a ) [ one such that idBool ( .Vars ) ] --> var y : bool  false --> res  .Stmts } catch { true --> res  .Stmts }  .Stmts )
     </functions>
   </common>
-  <k>
-    .
-  </k>
   <lookup>
     b |-> selected ( loc ( 0 ) , loc ( 0 ) )
     c |-> selected ( loc ( 2 ) , loc ( 2 ) )

@@ -1,10 +1,10 @@
-transformer idBool(a : ! bool) -> res : ! bool {
+transformer idBool(a : one bool) -> res : one bool {
     copy(a) --> res
 }
 
-transformer notBool(a : ! bool) -> res : ! bool {
+transformer notBool(a : one bool) -> res : one bool {
     try {
-        copy(a)[! such that idBool()] --> var y : bool
+        copy(a)[one such that idBool()] --> var y : bool
         false --> res
     } catch {
         true --> res
@@ -14,5 +14,5 @@ transformer notBool(a : ! bool) -> res : ! bool {
 ;
 
 false --> var b : bool
-b[! such that notBool() ] --> var c : bool
+b[one such that notBool() ] --> var c : bool
 

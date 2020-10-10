@@ -77,6 +77,11 @@ if [[ "$1" == "test" ]]; then
         exit 1
     fi
 
+    if [[ -e "$fname.pat" ]]; then
+        FLAGS+=("--pattern")
+        FLAGS+=("$(cat "$fname.pat")")
+    fi
+
     result="fail"
     if [[ -e "$fname.out" ]]; then
         if "$KDISTR/krun" "${FLAGS[@]}" --directory "$directory" "$@" | diff - "$fname.out"; then

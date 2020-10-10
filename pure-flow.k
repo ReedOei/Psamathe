@@ -14,7 +14,6 @@ module PURE-FLOW
 
     configuration
         <common />
-        <k> $PGM:Program </k>
         <lookup> .Map </lookup>
         <storage> .Map </storage>
         <catchStack> .List </catchStack>
@@ -48,19 +47,19 @@ module PURE-FLOW
     // =================================
     syntax KItem ::= createdVals(List)
 
-    rule <k> (transformer F(FormalArgs) -> Ret { Body }) Decls ; S => Decls ; S </k>
+    rule <k> transformer F(FormalArgs) -> Ret { Body } => . ... </k>
         <functions> ... .Map => F |-> transformer(Ret, FormalArgs, Body) ... </functions>
         [structural]
 
-    rule <k> (type T is Ms BaseT) Decls ; S => Decls ; S </k>
+    rule <k> type T is Ms BaseT => . ... </k>
         <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
         requires notBool(unique in modifiersToSet(Ms))
-    rule <k> (type T is Ms BaseT) Decls ; S => Decls ; S </k>
+        [structural]
+    rule <k> type T is Ms BaseT => . ... </k>
         <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
         <createdVals> ... .Map => T |-> createdVals(.List) ... </createdVals>
         requires unique in modifiersToSet(Ms)
-
-    rule .Decls ; S => S [structural]
+        [structural]
 
     // =================================
     // Environment Helpers
@@ -290,7 +289,7 @@ module PURE-FLOW
 
     syntax Type ::= getFieldType(Var, BaseType) [function, functional]
     rule getFieldType(A, record(_) { A : T, _ }) => T
-    rule getFieldType(A, record(Keys) { B : _, Rest }) => getFieldType(A, record(Keys) { Rest })
+    rule getFieldType(A, record(Keys) { B : _ _, Rest }) => getFieldType(A, record(Keys) { Rest })
         requires A =/=K B
 
     // Takes a resource and resolves all references in it (e.g., fields) so that the entire value is contained in the resource
@@ -318,7 +317,7 @@ module PURE-FLOW
 
     syntax Map ::= expandEach(VarDefs, Map) [function]
     rule expandEach(.VarDefs, .Map) => .Map
-    rule [[ expandEach((X : _, Rest), (X |-> XLoc) M) => (X |-> expand(R)) expandEach(Rest, M) ]]
+    rule [[ expandEach((X : _:Type, Rest), (X |-> XLoc) M) => (X |-> expand(R)) expandEach(Rest, M) ]]
         <storage> ... XLoc |-> R ... </storage>
 
     syntax Resource ::= lookupSelected(Selected) [function]
@@ -385,7 +384,7 @@ module PURE-FLOW
     rule Ls:List[Q such that F(Args)] => locateFilter(makeAllLocations(Ls), Q, F, Args, .List)
 
     rule locateFilter(.List, empty, _, _, Ls) => #if size(Ls) ==Int 0 #then .List #else revert #fi
-    rule locateFilter(.List, !, _, _, Ls) => #if size(Ls) ==Int 1 #then Ls #else revert #fi
+    rule locateFilter(.List, one, _, _, Ls) => #if size(Ls) ==Int 1 #then Ls #else revert #fi
     rule locateFilter(.List, nonempty, _, _, Ls) => #if size(Ls) >=Int 1 #then Ls #else revert #fi
     rule locateFilter(.List, any, _, _, Ls) => Ls
 
@@ -409,10 +408,10 @@ module PURE-FLOW
         <storage> ... .Map => loc(!I) |-> resource(record(Keys) { membersToDefs(Members) }, ListItem(.Map)) ... </storage>
     syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
 
-    context initRecord(_, _ : _ |-> HOLE , _ )
+    context initRecord(_, _:VarDef |-> HOLE , _ )
     rule initRecord(loc(I), .RecordMembers) => ListItem(selected(loc(I), loc(I)))
     // TODO: How to not build the record unless necessary? Once we figure this out, can also use for the list literals
-    rule <k> initRecord(Loc, (X : _ |-> ListItem(selected(L, K)), Rest))
+    rule <k> initRecord(Loc, (X : _:Type |-> ListItem(selected(L, K)), Rest))
              => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> allocate(loc(!I)) ~> initRecord(Loc, Rest) ... </k>
         <storage> ... (Loc |-> resource(_, ListItem(Fields => Fields (X |-> loc(!I))))) ... </storage>
 
@@ -515,7 +514,7 @@ module PURE-FLOW
 
     syntax RecordMembers ::= makeRecordMembers(VarDefs, Locators) [function, functional]
     rule makeRecordMembers(.VarDefs, .Locators) => .RecordMembers
-    rule makeRecordMembers((X : T, Fields), (L, Ls)) => (X : T |-> L), makeRecordMembers(Fields, Ls)
+    rule makeRecordMembers((X : Q T, Fields), (L, Ls)) => (X : Q T |-> L), makeRecordMembers(Fields, Ls)
 
     // =================================
     // Transformer calls:

@@ -1,5 +1,8 @@
 <generatedTop>
   <common>
+    <k>
+      .
+    </k>
     <typeEnv>
       .Map
     </typeEnv>
@@ -10,9 +13,6 @@
       .Map
     </functions>
   </common>
-  <k>
-    .
-  </k>
   <lookup>
     b |-> selected ( loc ( 0 ) , loc ( 0 ) )
     x |-> selected ( loc ( 2 ) , loc ( 2 ) )
@@ -20,7 +20,7 @@
   <storage>
     loc ( 0 ) |-> resource ( bool , .List )
     loc ( 1 ) |-> resource ( bool , .List )
-    loc ( 2 ) |-> resource ( table ( .Vars ) ! bool , ListItem ( loc ( 3 ) )
+    loc ( 2 ) |-> resource ( table ( .Vars ) one bool , ListItem ( loc ( 3 ) )
     ListItem ( loc ( 5 ) ) )
     loc ( 3 ) |-> resource ( bool , ListItem ( true ) )
     loc ( 4 ) |-> resource ( bool , .List )

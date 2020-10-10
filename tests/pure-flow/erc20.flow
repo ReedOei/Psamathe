@@ -1,8 +1,8 @@
 type Token is fungible asset nat
 
-transformer newAccount(a : any nat) -> res : ! map any nat => any Token {
+transformer newAccount(a : any nat) -> res : one map any nat => any Token {
     new Token(0) --> var balance : Token
-    [ ! record(key) { key : any nat, value : any Token } ;
+    [ record(key) { key : any nat, value : any Token } ;
         record(key) {
             key : any nat |-> a,
             value : any Token |-> balance
@@ -10,13 +10,13 @@ transformer newAccount(a : any nat) -> res : ! map any nat => any Token {
     ] --> res
 }
 
-transformer mint(balances : any map any nat => any Token, dst : any nat, amt : any nat) -> success : ! bool {
+transformer mint(balances : any map any nat => any Token, dst : any nat, amt : any nat) -> success : one bool {
     new Token(amt) --> var balance : Token
     balance --> balances[dst].value
     true --> success
 }
 
-transformer transfer(balances : any map any nat => any Token, src : any nat, dst : any nat, amt : any nat) -> success : ! bool {
+transformer transfer(balances : any map any nat => any Token, src : any nat, dst : any nat, amt : any nat) -> success : one bool {
     balances[src].value --[ amt ]-> balances[dst].value
     true --> success
 }

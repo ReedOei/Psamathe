@@ -1,5 +1,8 @@
 <generatedTop>
   <common>
+    <k>
+      .
+    </k>
     <typeEnv>
       .Map
     </typeEnv>
@@ -7,18 +10,15 @@
       .Map
     </types>
     <functions>
-      idBool |-> transformer ( res : ! bool , a : ! bool , .VarDefs , copy ( a ) --> res  .Stmts )
+      idBool |-> transformer ( res : one bool , a : one bool , .VarDefs , copy ( a ) --> res  .Stmts )
     </functions>
   </common>
-  <k>
-    .
-  </k>
   <lookup>
     x |-> selected ( loc ( 0 ) , loc ( 0 ) )
     y |-> selected ( loc ( 7 ) , loc ( 7 ) )
   </lookup>
   <storage>
-    loc ( 0 ) |-> resource ( table ( .Vars ) ! bool , ListItem ( loc ( 4 ) )
+    loc ( 0 ) |-> resource ( table ( .Vars ) one bool , ListItem ( loc ( 4 ) )
     ListItem ( loc ( 5 ) )
     ListItem ( loc ( 6 ) ) )
     loc ( 1 ) |-> resource ( bool , .List )
@@ -27,7 +27,7 @@
     loc ( 4 ) |-> resource ( bool , ListItem ( true ) )
     loc ( 5 ) |-> resource ( bool , ListItem ( true ) )
     loc ( 6 ) |-> resource ( bool , ListItem ( false ) )
-    loc ( 7 ) |-> resource ( table ( .Vars ) ! bool , ListItem ( loc ( 4 ) )
+    loc ( 7 ) |-> resource ( table ( .Vars ) one bool , ListItem ( loc ( 4 ) )
     ListItem ( loc ( 5 ) ) )
     loc ( 9 ) |-> resource ( bool , .List )
     loc ( 11 ) |-> resource ( bool , .List )

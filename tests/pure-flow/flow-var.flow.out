@@ -1,5 +1,8 @@
 <generatedTop>
   <common>
+    <k>
+      .
+    </k>
     <typeEnv>
       .Map
     </typeEnv>
@@ -10,9 +13,6 @@
       .Map
     </functions>
   </common>
-  <k>
-    .
-  </k>
   <lookup>
     k |-> selected ( loc ( 6 ) , loc ( 6 ) )
     m |-> selected ( loc ( 4 ) , loc ( 4 ) )

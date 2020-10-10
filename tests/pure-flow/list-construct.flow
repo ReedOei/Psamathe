@@ -1,7 +1,7 @@
 ;
 
 true --> var b : bool
-[ ! bool ; b ] --> var x : list ! bool
+[ one bool ; b ] --> var x : list one bool
 true --> b
-[ ! bool ; b ] --> x
+[ one bool ; b ] --> x
 

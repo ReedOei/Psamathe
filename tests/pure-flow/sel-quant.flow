@@ -1,10 +1,10 @@
-transformer idBool(a : ! bool) -> res : ! bool {
+transformer idBool(a : one bool) -> res : one bool {
     copy(a) --> res
 }
 
 ;
 
-[ ! bool ; true, true, false ] --> var x : list ! bool
+[ one bool ; true, true, false ] --> var x : list one bool
 
-x[ any such that idBool() ] --> var y : list ! bool
+x[ any such that idBool() ] --> var y : list one bool
 
