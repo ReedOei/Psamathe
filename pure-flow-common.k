@@ -7,8 +7,8 @@ module VARS
     syntax Vars ::= List{Var, ","} [klabel(locators)]
 
     // Some special variables
-    syntax Var ::= "bool" | "uint" | "address" | "string" | "nat"
-    syntax Var ::= "this" | "msg" | "sender" | "key" | "value"
+    syntax Var ::= "bool" | "uint" | "address" | "string" | "nat" | "uint256"
+    syntax Var ::= "this" | "msg" | "sender" | "key" | "value" | "success"
 endmodule
 
 module PURE-FLOW-COMMON-SYNTAX
@@ -20,7 +20,7 @@ module PURE-FLOW-COMMON-SYNTAX
                       | "unique"
                       | "consumable"
                       | "asset"
-    syntax Modifiers ::= List{Modifier, ""}
+    syntax Modifiers ::= List{Modifier, " "}
 
     syntax TypeQuant ::= "one" | "any" | "nonempty" | "empty" | "every"
     syntax BaseType ::= Var
@@ -65,12 +65,13 @@ module PURE-FLOW-COMMON-SYNTAX
                   | Var "(" Locators ")" "-->" Locator
                   | "new" Var "(" Locators ")" "-->" Locator
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
-    syntax Stmts ::= List{Stmt, ""} [klabel(stmts)]
+    syntax Stmts ::= List{Stmt, " "} [klabel(stmts)]
 
     syntax Decl ::= "#nopreprocess"
                   | "type" Id "is" Modifiers BaseType
                   | "transformer" Id "(" VarDefs ")" "->" VarDef "{" Stmts "}"
-    syntax Decls ::= List{Decl, ""}
+                  | "transformer" Id "(" VarDefs ")" "{" Stmts "}"
+    syntax Decls ::= List{Decl, " "}
 
     syntax Program ::= Decls ";" Stmts
 
@@ -91,11 +92,17 @@ module PURE-FLOW-COMMON-SYNTAX
     rule initLocs(_:Locator) => .Locators
     rule initLocs(A, B, Rest) => A, initLocs(B, Rest)
 
-    // Expand syntactic sugar for flows
+    // Expand syntactic sugar
     rule A --[ L:Locator ]-> B => A[L] --> B [macro-rec]
     rule A --[ Q such that F(Args) ]-> B => A[Q such that F(Args)] --> B [macro-rec]
     rule (F:Var(Args:Locators) --> B):Stmt => lastLoc(Args) --> F(initLocs(Args)) --> B [macro-rec]
     rule new T(Args) --> B => lastLoc(Args) --> new T(initLocs(Args)) --> B [macro-rec]
+
+    syntax Stmts ::= appendStmt(Stmts, Stmt) [function, functional]
+    rule appendStmt(.Stmts, S) => S
+    rule appendStmt((S1:Stmt Rest), S2) => S1 appendStmt(Rest, S2)
+
+    rule transformer F(Args) { Body } => transformer F(Args) -> success : one bool { appendStmt(Body, (true --> success)) } [macro-rec]
 endmodule
 
 module PURE-FLOW-COMMON

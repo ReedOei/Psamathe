@@ -5,15 +5,13 @@ transformer newAccount(a : nat) -> res : map nat => Token {
     [ { key |-> a, value |-> balance } ] --> res
 }
 
-transformer mint(balances : map nat => Token, dst : nat, amt : nat) -> success : bool {
+transformer mint(balances : map nat => Token, dst : nat, amt : nat) {
     new Token(amt) --> var balance : Token
     balance --> balances[dst].value
-    true --> success
 }
 
-transformer transfer(balances : map nat => Token, src : nat, dst : nat, amt : nat) -> success : bool {
+transformer transfer(balances : map nat => Token, src : nat, dst : nat, amt : nat) {
     balances[src].value --[ amt ]-> balances[dst].value
-    true --> success
 }
 
 ;
