@@ -142,8 +142,9 @@ module PURE-FLOW-COMMON
              annotateLocator(B, flowType(typeof(Env, A), typeof(Env, B))))
             preprocessStmts(Env declaredVars(B), Rest)
 
+    // TODO: Would be nice to do a little better job here
     rule [[ preprocessStmts(Env, (A --> F(Args) --> B):Stmt Rest)
-            => (annotateLocator(A, flowType(typeof(Env, A), some(baseTypeOf(lastVDef(FormalArgs)))))
+            => (annotateLocator(A, inferQuantities(table(.Vars) flowType(typeof(Env, A), some(baseTypeOf(lastVDef(FormalArgs))))))
                 --> F(Args) -->
                 annotateLocator(B, flowType(some(baseTypeOf(Ret)), typeof(Env, B))))
                preprocessStmts(Env declaredVars(B), Rest)
@@ -151,7 +152,7 @@ module PURE-FLOW-COMMON
          <functions> ... F |-> transformer(Ret, FormalArgs, _) ... </functions>
 
     rule [[ preprocessStmts(Env, (A --> new T(Args) --> B):Stmt Rest)
-            => (annotateLocator(A, flowType(typeof(Env, A), some(baseTypeOf(lastVDef(getConstructorArgs(BaseT))))))
+            => (annotateLocator(A, inferQuantities(table(.Vars) flowType(typeof(Env, A), some(baseTypeOf(lastVDef(getConstructorArgs(BaseT)))))))
                 --> new T(Args) -->
                 annotateLocator(B, flowType(some(T), typeof(Env, B))))
                preprocessStmts(Env declaredVars(B), Rest)
@@ -167,7 +168,7 @@ module PURE-FLOW-COMMON
     rule annotateLocator(B:Bool, _) => B
     rule annotateLocator(X:Var, _) => X
     rule annotateLocator([ Q T ; Ls ], _) => [ Q T ; annotateEach(Ls, T) ]:Locator
-    rule annotateLocator([ Ls ], T) => [ inferQuantitiesType(T) ; annotateEach(Ls, T) ]:Locator
+    rule annotateLocator([ Ls ], table(_) Q T) => [ Q T ; annotateEach(Ls, T) ]:Locator
     rule annotateLocator(var X : T, _) => var X : inferQuantities(T)
     rule annotateLocator(record(Keys) { Members:RecordMembers }, record(_) { Fields })
          => record(Keys) { annotateEach(Members, Fields) }

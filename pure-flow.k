@@ -418,8 +418,7 @@ module PURE-FLOW
     // =================================
     // Flow Value
     // =================================
-    syntax Stmt ::= flowVal(Selected, StorageLoc)
-                  | combineWith(StorageLoc)
+    syntax Stmt ::= combineWith(StorageLoc)
                   | subtractFrom(StorageLoc)
                   | asType(BaseType)
                   | allocate(StorageLoc)
@@ -434,13 +433,16 @@ module PURE-FLOW
     rule <k> R:Resource ~> subtractFrom(loc(I)) => R ... </k>
         <storage> ... loc(I) |-> (RI => subtract(RI, R)) ... </storage>
 
+    // It's fine if the keys don't match up, as long as all the fields do. In an actual implementation, we might need to change how things are stored, but not in the formalization.
     rule resource(T, V) ~> asType(T) => resource(T, V)
+    rule resource(record(_) { Fields }, V) ~> asType(record(Keys) { Fields })
+         => resource(record(Keys) { Fields }, V)
     rule <k> resource(T, V) ~> asType(table(Keys) Q T) => resource(table(Keys) Q T, ListItem(loc(!I))) ... </k>
         <storage> ... .Map => loc(!I) |-> resource(T, V) ... </storage>
-
-    rule <k> flowVal(selected(L, K), loc(J))
-             => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> asType(T) ~> combineWith(loc(J)) ... </k>
-        <storage> ... loc(J) |-> resource(T, _) ... </storage>
+    rule <k> resource(record(_) { Fields }, V) ~> asType(table(Keys) Q record(Keys) { Fields })
+             => resource(table(Keys) Q record(Keys) { Fields }, ListItem(loc(!I))) ... </k>
+        <storage> ... .Map => loc(!I) |-> resource(record(Keys) { Fields }, V) ... </storage>
+    // TODO: Should all casting table(_) Q T into a T if it contains at most one thing, otherwise revert.
 
     // =================================
     // Flows
@@ -450,8 +452,10 @@ module PURE-FLOW
     context _ --> HOLE
 
     rule .List --> ListItem(_) => . [structural]
-    rule (ListItem(Sel) Rest) --> ListItem(selected(P, J))
-         => flowVal(Sel, J) ~> Rest --> ListItem(selected(P, J))
+    rule <k> (ListItem(selected(L, K)) Rest) --> ListItem(selected(P, loc(J)))
+         => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> asType(T) ~> combineWith(loc(J)) ~>
+            Rest --> ListItem(selected(P, loc(J))) ... </k>
+        <storage> ... loc(J) |-> resource(T, _) ... </storage>
 
     // Flow Transformer
     context (HOLE --> _(_) --> _):Stmt

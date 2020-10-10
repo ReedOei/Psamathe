@@ -64,20 +64,14 @@ module PURE-FLOW-COMPILER
 
     configuration
         <common />
-        <k> $PGM:Program </k>
         <typeNameMap> .Map </typeNameMap>
         <structs> .Map </structs>
         <fields> .Map </fields>
-        <functions> .Map </functions>
         <compiled> .SolStmts </compiled>
         <typeEncoding> .Map </typeEncoding>
 
-    syntax KItem ::= translateDecls(Decls)
-                   | translateDecl(Decl)
-
-    syntax KItem ::= "done"
-
-    rule (Decls ; Stmts):Program => checkDecls(Decls) ~> checkStmts(Stmts) ~> translateDecls(Decls) ~> Stmts ~> done
+    syntax KItem ::= translateDecl(Decl)
+                   | "done"
 
     syntax KItem ::= checkDecls(Decls)
                    | checkDecl(Decl)
@@ -102,6 +96,8 @@ module PURE-FLOW-COMPILER
     rule .Stmts => . [structural]
     rule S1:Stmt Rest:Stmts => S1 ~> Rest [structural]
 
+    rule D:Decl => translateDecl(D)
+
     syntax SolDecls ::= List2SolDecls(List) [function, functional]
     rule List2SolDecls(.List) => .SolDecls
     rule List2SolDecls(ListItem(D:SolDecl) Rest) => D List2SolDecls(Rest)
@@ -124,12 +120,9 @@ module PURE-FLOW-COMPILER
         <structs> Structs </structs>
         <functions> Functions </functions>
 
-    rule translateDecls(.Decls) => .
-    rule translateDecls(D Ds) => translateDecl(D) ~> translateDecls(Ds)
-
     rule <k> translateDecl(type T is Ms BaseT) => . ... </k>
         <structs> Structs => Structs defineStructs(T, BaseT) </structs>
-        <types> ... .Map => T |-> (type T is Ms BaseT) ... </types>
+        <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
         <typeEncoding> ... .Map => T |-> encodeType(T, BaseT) ... </typeEncoding>
 
     syntax KItem ::= setupArgs(VarDefs)
@@ -148,9 +141,9 @@ module PURE-FLOW-COMPILER
     rule defineStructs(_, string) => .Map
     rule defineStructs(_, address) => .Map
     rule defineStructs(_, bool) => .Map
-    rule defineStructs(_, list _ T) => defineStructs(nameOf(T), T)
+    rule defineStructs(_, table(_) _ T) => defineStructs(nameOf(T), T)
     rule defineStructs(_, _:Var) => .Map
-    rule defineStructs(T, { Fields }) => (T |-> struct T { encodeFields(Fields) }) defineVarDefsStructs(Fields)
+    rule defineStructs(T, record(_) { Fields }) => (T |-> struct T { encodeFields(Fields) }) defineVarDefsStructs(Fields)
     rule defineStructs(T, map _ T1 => _ T2) => T |-> struct T {
                                                         mapping (baseTypeToSolType(T1) => baseTypeToSolType(T2)) underlying_map;
                                                         baseTypeToSolType(T1)[] keys;
@@ -183,7 +176,7 @@ module PURE-FLOW-COMPILER
     rule <k> flow(X:Var, Y:Var) => . ... </k>
         <typeEnv>
             ...
-            (X |-> list ! { key : K, value : V })
+            (X |-> list one { key : K, value : V })
             (Y |-> map K => V)
             ...
         </typeEnv>
@@ -241,18 +234,22 @@ module PURE-FLOW-COMPILER
 
     syntax Var ::= nameOf(BaseType) [function, functional]
     rule nameOf(X:Var) => X
-    rule nameOf({ Fields }) => String2Id(genName(Fields))
-    rule nameOf(map T1 => T2) => String2Id(baseTypeToString(map T1 => T2))
+    rule nameOf(record(Keys) { Fields }) => String2Id("record_" +String varsName(Keys) +String "_" +String genName(Fields))
+    rule nameOf(table (_) T) => String2Id("table_" +String typeToString(T))
 
     syntax String ::= typeToString(Type) [function, functional]
                     | baseTypeToString(BaseType) [function, functional]
                     | quantToString(TypeQuant) [function, functional]
+                    | varsName(Vars) [function, functional]
                     | genName(VarDefs) [function, functional]
     rule genName(.VarDefs) => ""
     rule genName(X : T, Fields) => baseTypeToString(X) +String "__" +String typeToString(T) +String genName(Fields)
 
+    rule varsName(.Vars) => ""
+    rule varsName(X:Var, Xs) => baseTypeToString(X) +String "_" +String varsName(Xs)
+
     rule quantToString(any) => "any"
-    rule quantToString(!) => "one"
+    rule quantToString(one) => "one"
     rule quantToString(nonempty) => "nonempty"
     rule quantToString(empty) => "empty"
     rule quantToString(every) => "every"
@@ -268,7 +265,7 @@ module PURE-FLOW-COMPILER
     rule baseTypeToString(value) => "value"
     rule baseTypeToString(X:Id) => Id2String(X)
     rule baseTypeToString(X.Y) => baseTypeToString(X) +String "___" +String baseTypeToString(Y)
-    rule baseTypeToString({ Fields }) => genName(Fields)
+    rule baseTypeToString(record(Keys) { Fields }) => "record_" +String varsName(Keys) +String "_" +String genName(Fields)
     rule baseTypeToString(map T1 => T2) => "map_" +String typeToString(T1) +String "_to_" +String typeToString(T2)
 
     syntax Id ::= genVar(Int) [function, functional]
@@ -285,7 +282,7 @@ module PURE-FLOW-COMPILER
     rule [[ baseTypeToSolType(X:Var) => SolT ]]
         <typeEncoding> ... X |-> SolT ... </typeEncoding>
     rule baseTypeToSolType(map T1 => T2) => nameOf(map T1 => T2)
-    rule baseTypeToSolType({ Fields }) => nameOf({ Fields })
+    rule baseTypeToSolType(record(Keys) { Fields }) => nameOf(record(Keys) { Fields })
 
     syntax SolType ::= encodeType(Var, BaseType) [function, functional]
     rule encodeType(_, nat) => baseTypeToSolType(nat)
@@ -293,7 +290,7 @@ module PURE-FLOW-COMPILER
     rule encodeType(_, address) => baseTypeToSolType(address)
     rule encodeType(_, bool) => baseTypeToSolType(bool)
     rule encodeType(_, map T1 => T2) => baseTypeToSolType(map T1 => T2)
-    rule encodeType(T, { _ }) => T
+    rule encodeType(T, record(_) { _ }) => T
 
     syntax SolVarDefs ::= encodeFields(VarDefs) [function, functional]
     rule encodeFields(.VarDefs) => .SolVarDefs
