@@ -1,0 +1,67 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <typeEnv>
+      .Map
+    </typeEnv>
+    <types>
+      Election |-> typeDef ( SetItem ( asset ) , record ( .Vars ) { eligibleVoters : any table ( .Vars ) one Voter , proposals : any table ( key , .Vars ) one record ( key , .Vars ) { key : one ProposalName , value : any table ( .Vars ) one Voter , .VarDefs } , .VarDefs } )
+      ProposalName |-> typeDef ( SetItem ( asset )
+      SetItem ( immutable )
+      SetItem ( unique ) , nat )
+      Voter |-> typeDef ( SetItem ( asset )
+      SetItem ( immutable )
+      SetItem ( unique ) , nat )
+    </types>
+    <functions>
+      createProposal |-> transformer ( success : one bool , this : one Election , proposal : any nat , .VarDefs , proposal --> new ProposalName ( .Vars ) --> var name : ProposalName  [ one Voter ; .Vars ] --> var voters : table ( .Vars ) one Voter  [ one record ( key , .Vars ) { key : one ProposalName , value : any table ( .Vars ) one Voter , .VarDefs } ; record ( key , .Vars ) { key : one ProposalName |-> name , value : any table ( .Vars ) one Voter |-> voters , .RecordMembers } , .Vars ] --> this . proposals  .Stmts )
+      giveRightToVote |-> transformer ( success : one bool , this : one Election , voter : any nat , .VarDefs , voter --> new Voter ( .Vars ) --> this . eligibleVoters  true --> success  .Stmts )
+      vote |-> transformer ( success : one bool , this : one Election , voter : any nat , proposal : any nat , .VarDefs , this . eligibleVoters [ voter ] --> this . proposals [ proposal ] . value  true --> success  .Stmts )
+    </functions>
+  </common>
+  <lookup>
+    election |-> selected ( loc ( 2 ) , loc ( 2 ) )
+    eligibleVoters |-> selected ( loc ( 0 ) , loc ( 0 ) )
+    proposals |-> selected ( loc ( 1 ) , loc ( 1 ) )
+    success |-> selected ( loc ( 7 ) , loc ( 7 ) )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( table ( .Vars ) one Voter , .List )
+    loc ( 1 ) |-> resource ( table ( key , .Vars ) one record ( key , .Vars ) { key : one ProposalName , value : any table ( .Vars ) one Voter , .VarDefs } , .List )
+    loc ( 2 ) |-> resource ( Election , ListItem ( eligibleVoters |-> loc ( 5 )
+    proposals |-> loc ( 6 ) ) )
+    loc ( 3 ) |-> resource ( Election , .List )
+    loc ( 4 ) |-> resource ( record ( .Vars ) { eligibleVoters : any table ( .Vars ) one Voter , proposals : any table ( key , .Vars ) one record ( key , .Vars ) { key : one ProposalName , value : any table ( .Vars ) one Voter , .VarDefs } , .VarDefs } , .List )
+    loc ( 5 ) |-> resource ( table ( .Vars ) one Voter , ListItem ( loc ( 20 ) ) )
+    loc ( 6 ) |-> resource ( table ( key , .Vars ) one record ( key , .Vars ) { key : one ProposalName , value : any table ( .Vars ) one Voter , .VarDefs } , ListItem ( loc ( 16 ) ) )
+    loc ( 7 ) |-> resource ( bool , ListItem ( true ) )
+    loc ( 8 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 9 ) |-> resource ( bool , .List )
+    loc ( 10 ) |-> resource ( ProposalName , .List )
+    loc ( 11 ) |-> resource ( ProposalName , .List )
+    loc ( 12 ) |-> resource ( table ( .Vars ) one Voter , .List )
+    loc ( 13 ) |-> resource ( record ( key , .Vars ) { key : one ProposalName , value : any table ( .Vars ) one Voter , .VarDefs } , .List )
+    loc ( 14 ) |-> resource ( ProposalName , ListItem ( 0 ) )
+    loc ( 15 ) |-> resource ( table ( .Vars ) one Voter , ListItem ( loc ( 20 ) ) )
+    loc ( 16 ) |-> resource ( record ( key , .Vars ) { key : one ProposalName , value : any table ( .Vars ) one Voter , .VarDefs } , ListItem ( key |-> loc ( 14 )
+    value |-> loc ( 15 ) ) )
+    loc ( 17 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 18 ) |-> resource ( bool , .List )
+    loc ( 19 ) |-> resource ( Voter , .List )
+    loc ( 20 ) |-> resource ( Voter , ListItem ( 1 ) )
+    loc ( 21 ) |-> resource ( bool , .List )
+    loc ( 22 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 23 ) |-> resource ( bool , .List )
+    loc ( 24 ) |-> resource ( nat , ListItem ( 1 ) )
+    loc ( 25 ) |-> resource ( bool , .List )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+  <createdVals>
+    ProposalName |-> createdVals ( ListItem ( resource ( nat , ListItem ( 0 ) ) ) )
+    Voter |-> createdVals ( ListItem ( resource ( nat , ListItem ( 1 ) ) ) )
+  </createdVals>
+</generatedTop>

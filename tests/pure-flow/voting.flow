@@ -1,0 +1,43 @@
+#nopreprocess
+
+type Voter is unique immutable asset nat
+
+type ProposalName is unique immutable asset nat
+
+type Election is asset {
+    eligibleVoters : any list one Voter,
+    proposals : any map one ProposalName => any list one Voter
+}
+
+transformer createProposal(this : one Election, proposal : any nat) -> success : one bool {
+    new ProposalName(proposal) --> var name : ProposalName
+    [ one Voter ; ] --> var voters : list one Voter
+    [ one record(key) { key : one ProposalName, value : any list one Voter } ;
+        record(key) {
+            key : one ProposalName |-> name,
+            value : any list one Voter |-> voters
+        }
+    ] --> this.proposals
+}
+
+transformer giveRightToVote(this : one Election, voter : any nat) -> success : one bool {
+    new Voter(voter) --> this.eligibleVoters
+    true --> success
+}
+
+transformer vote(this : one Election, voter : any nat, proposal : any nat) -> success : one bool {
+    this.eligibleVoters --[ voter ]-> this.proposals[proposal].value
+    true --> success
+}
+
+;
+
+[ one Voter ; ] --> var eligibleVoters : list one Voter
+[ one record(key) { key : one ProposalName, value : any list one Voter} ; ] --> var proposals : map one ProposalName => any list one Voter
+new Election(eligibleVoters, proposals) --> var election : Election
+
+createProposal(election, 0) --> var success : bool
+/* giveRightToVote(election, 0) --> success */
+giveRightToVote(election, 1) --> success
+vote(election, 1, 0) --> success
+

@@ -1,0 +1,82 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <typeEnv>
+      .Map
+    </typeEnv>
+    <types>
+      Token |-> typeDef ( SetItem ( asset )
+      SetItem ( fungible ) , nat )
+    </types>
+    <functions>
+      mint |-> transformer ( success : one bool , balances : any table ( key , .Vars ) one record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , dst : any nat , amt : any nat , .VarDefs , amt --> new Token ( .Vars ) --> var balance : Token  balance --> balances [ dst ] . value  true --> success  .Stmts )
+      newAccount |-> transformer ( res : any table ( key , .Vars ) one record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , a : any nat , .VarDefs , 0 --> new Token ( .Vars ) --> var balance : Token  [ one record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } ; record ( .Vars ) { key : any nat |-> a , value : any Token |-> balance , .RecordMembers } , .Vars ] --> res  .Stmts )
+      transfer |-> transformer ( success : one bool , balances : any table ( key , .Vars ) one record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , src : any nat , dst : any nat , amt : any nat , .VarDefs , balances [ src ] . value [ amt ] --> balances [ dst ] . value  true --> success  .Stmts )
+    </functions>
+  </common>
+  <lookup>
+    balances |-> selected ( loc ( 0 ) , loc ( 0 ) )
+    succeeded |-> selected ( loc ( 28 ) , loc ( 28 ) )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( table ( key , .Vars ) one record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( loc ( 11 ) )
+    ListItem ( loc ( 19 ) )
+    ListItem ( loc ( 27 ) ) )
+    loc ( 1 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 2 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 3 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 4 ) |-> resource ( table ( key , .Vars ) one record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( loc ( 11 ) ) )
+    loc ( 5 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 6 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 7 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 8 ) |-> resource ( record ( .Vars ) { key : any nat , value : any Token , .VarDefs } , .List )
+    loc ( 9 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 10 ) |-> resource ( Token , ListItem ( 1 ) )
+    loc ( 11 ) |-> resource ( record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( key |-> loc ( 9 )
+    value |-> loc ( 10 ) ) )
+    loc ( 12 ) |-> resource ( table ( key , .Vars ) one record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( loc ( 19 ) ) )
+    loc ( 13 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 14 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 15 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 16 ) |-> resource ( record ( .Vars ) { key : any nat , value : any Token , .VarDefs } , .List )
+    loc ( 17 ) |-> resource ( nat , ListItem ( 1 ) )
+    loc ( 18 ) |-> resource ( Token , ListItem ( 3 ) )
+    loc ( 19 ) |-> resource ( record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( key |-> loc ( 17 )
+    value |-> loc ( 18 ) ) )
+    loc ( 20 ) |-> resource ( table ( key , .Vars ) one record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( loc ( 27 ) ) )
+    loc ( 21 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 22 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 23 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 24 ) |-> resource ( record ( .Vars ) { key : any nat , value : any Token , .VarDefs } , .List )
+    loc ( 25 ) |-> resource ( nat , ListItem ( 2 ) )
+    loc ( 26 ) |-> resource ( Token , ListItem ( 6 ) )
+    loc ( 27 ) |-> resource ( record ( key , .Vars ) { key : any nat , value : any Token , .VarDefs } , ListItem ( key |-> loc ( 25 )
+    value |-> loc ( 26 ) ) )
+    loc ( 28 ) |-> resource ( bool , ListItem ( true ) )
+    loc ( 29 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 30 ) |-> resource ( bool , .List )
+    loc ( 31 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 32 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 33 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 34 ) |-> resource ( bool , .List )
+    loc ( 35 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 36 ) |-> resource ( bool , .List )
+    loc ( 37 ) |-> resource ( nat , ListItem ( 2 ) )
+    loc ( 38 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 39 ) |-> resource ( Token , ListItem ( 0 ) )
+    loc ( 40 ) |-> resource ( bool , .List )
+    loc ( 41 ) |-> resource ( nat , ListItem ( 3 ) )
+    loc ( 42 ) |-> resource ( bool , .List )
+    loc ( 43 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 44 ) |-> resource ( nat , ListItem ( 1 ) )
+    loc ( 45 ) |-> resource ( bool , .List )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+  <createdVals>
+    .Map
+  </createdVals>
+</generatedTop>
