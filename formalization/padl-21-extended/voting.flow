@@ -1,0 +1,15 @@
+type Voter is unique immutable asset address
+type ProposalName is unique immutable asset string
+type Election is asset {
+  chairperson : address,
+  eligibleVoters : set Voter,
+  proposals : map ProposalName => set Voter
+}
+transformer giveRightToVote(this : Election, voter : address) {
+  only when msg.sender = this.chairperson
+  new Voter(voter) --> this.eligibleVoters
+}
+transformer vote(this : Election, proposal : string) {
+  this.eligibleVoters --[ msg.sender ]-> this.proposals[proposal]
+}
+

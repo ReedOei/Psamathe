@@ -18,8 +18,8 @@
 \usepackage[safe]{tipa}
 \usepackage[inline]{enumitem}
 
-\input{LaTeX/macros.tex}
-\input{solidity-latex-highlighting/solidity-highlighting.tex}
+\input{latex-macros.tex}
+\input{solidity-highlighting.tex}
 \input{flow-highlighting.tex}
 \input{macros.tex}
 
@@ -100,7 +100,7 @@ Fungible tokens are interchangeable (like most currencies), so it is only import
 
 \begin{figure}
     \centering
-    \lstinputlisting[language=flow, xleftmargin=-1em]{padl-21-examples/erc20-transfer.flow}
+    \lstinputlisting[language=flow, xleftmargin=0.3em]{erc20-transfer.flow}
     \caption{A \langName contract with a simple \flowinline{transfer} function, which transfers \flowinline{amount} tokens from the sender's account to the destination account.
 It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.}
     \label{fig:erc20-transfer-flow}
@@ -224,6 +224,7 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
 \subsection{Partial Formalization}
 
 We now present typing and evaluation rules for a fragment of the core calculus, describing the basics of flows.
+This fragment is the smallest fragment capable of defining complete, simple programs in \langName.
 
 \paragraph{Statics}
 Below we show the type rules needed to check flows between variables.
@@ -351,7 +352,7 @@ In this case, the sender's balance must be at least as large as \flowinline{amou
 As noted above, we can automatically generate descriptive error messages with no additional code, which are not present in the Solidity implementation.
 \begin{figure}
     \centering
-    \lstinputlisting[language=Solidity, xleftmargin=-0.5em]{padl-21-examples/erc20-transfer.sol}
+    \lstinputlisting[language=Solidity, xleftmargin=-0.5em]{erc20-transfer.sol}
     \caption{An implementation of ERC-20's \lstinline[language=Solidity]{transfer} function in Solidity from one of the reference implementations~\cite{erc20Consensys}.
         All preconditions are checked manually.
         Note that we must include the \lstinline[language=Solidity]{SafeMath} library (not shown) to use the \lstinline[language=Solidity]{add} and \lstinline[language=Solidity]{sub} functions, which check for underflow/overflow.}
@@ -367,7 +368,7 @@ This example shows some uses of the $\unique$ modifier; in this contract, $\uniq
 This example show that \langName, as well as flows, are suited to a wide range of common smart contract applications.
 \begin{figure}
     \centering
-    \lstinputlisting[language=flow, xleftmargin=-1em]{padl-21-examples/voting.flow}
+    \lstinputlisting[language=flow, xleftmargin=-1em]{voting.flow}
     \caption{A simple voting contract in \langName.}
     \label{fig:voting-impl-flow}
 \end{figure}
@@ -376,7 +377,7 @@ Figure~\ref{fig:voting-impl-sol} shows an implementation of the same voting cont
 Again, we must manually check all preconditions.
 \begin{figure}
     \centering
-    \lstinputlisting[language=Solidity, xleftmargin=-1em]{padl-21-examples/voting.sol}
+    \lstinputlisting[language=Solidity, xleftmargin=-1em]{voting.sol}
     \caption{A simple voting contract in Solidity.}
     \label{fig:voting-impl-sol}
 \end{figure}
@@ -394,7 +395,7 @@ This example uses a pipeline of locators and transformers (lines~\ref{line:aucti
 
 \begin{figure}
     \centering
-    \lstinputlisting[language=flow]{padl-21-examples/blind-auction.flow}
+    \lstinputlisting[language=flow]{blind-auction.flow}
     \caption{Implementation of reveal phase of a blind auction contract in \langName.}
     \label{fig:blind-auction-impl-flow}
 \end{figure}

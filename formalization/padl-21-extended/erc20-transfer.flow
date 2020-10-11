@@ -1,0 +1,6 @@
+type Token is fungible asset uint256
+transformer transfer(balances : any map one address => any Token,
+                     dst : one address, amount : any uint256) {
+  balances[msg.sender] --[ amount ]-> balances[dst] |\label{line:erc20-flow-ex}|
+}
+

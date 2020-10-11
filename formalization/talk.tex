@@ -1,0 +1,218 @@
+\documentclass[leqno,presentation,usenames,dvipsnames]{beamer}
+\DeclareGraphicsExtensions{.eps,.jpg,.png,.tif}
+\usepackage{amssymb, amsmath, pdfpages, amsfonts, calc, times, type1cm, latexsym, xcolor, colortbl, hyperref, bookmark}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{mathpartir}
+\usepackage{xspace}
+\usepackage{tipa}
+
+\usepackage[latin1]{inputenc}
+\usepackage[english]{babel}
+
+\usetheme{Szeged}
+\usecolortheme{beaver}
+
+\definecolor{websiteGreen}{RGB}{107, 224, 134}
+\definecolor{silvery}{RGB}{232, 241, 248}
+\definecolor{deepOrange}{RGB}{209, 126, 0}
+
+\definecolor{softTan}{RGB}{240, 240, 223}
+\definecolor{deepGreen}{RGB}{87, 149, 115}
+\definecolor{lilac}{RGB}{199, 164, 202}
+\definecolor{lightOlive}{RGB}{168, 166, 96}
+\definecolor{deepOlive}{RGB}{101, 109, 41}
+
+\setbeamercolor*{palette primary}{bg=websiteGreen}
+\setbeamercolor*{palette secondary}{bg=white}
+\setbeamercolor*{palette tertiary}{bg=silvery}
+\setbeamercolor*{palette quaternary}{bg=websiteGreen}
+
+\setbeamercolor{section in head/foot}{fg=deepOrange}
+\setbeamerfont{section in head/foot}{series=\bfseries}
+
+\setbeamercolor{titlelike}{parent=palette primary,bg=websiteGreen,fg=white}
+\setbeamercolor{frametitle}{parent=palette primary,bg=websiteGreen, fg=white}
+
+\addtobeamertemplate{frametitle}{\vspace*{-0.65\baselineskip}}{}
+
+\newcommand{\Int}{\textbf{Int}\xspace}
+\newcommand{\overbar}[1]{\mkern1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern1.5mu}
+\newcommand{\highlight}[1]{
+  \addtolength{\fboxrule}{.2ex}
+  \begin{block}{}
+    \begin{quote}#1
+    \end{quote}
+  \end{block}
+}
+
+\newtheorem*{conjecture}{Conjecture}
+\newtheorem*{proposition}{Proposition}
+
+\title{Psamathe: A DSL with Flows for Safer Blockchain Assets}
+\author{\textbf{Reed Oei}}
+\institute{University of Illinois, Urbana, US\\
+\url{reedoei2@illinois.edu}}
+\date{\today}
+
+\input{flow-highlighting}
+\input{solidity-latex-highlighting/solidity-highlighting}
+\input{LaTeX/macros.tex}
+\input{macros.tex}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Introduction}
+    \begin{itemize}
+        \item Blockchains and smart contracts used/considered for:
+            \begin{itemize}
+                \item Supply chain management
+                \item \emph{Token contracts}
+                \item Voting
+                \item Crowdfunding
+                \item etc.
+            \end{itemize}
+
+        \item Smart contracts manage (and lose!) a lot of money: the DAO contract lost over \$40 million dollars due to a simple reentrancy bug
+
+        \item Smart contracts cannot be patched after being deployed
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Psamathe}
+    \begin{itemize}
+        \item \langName (\langNamePronounce) is a new programming language we are designing for writing smart contracts
+        \item It uses a new \emph{flow} abstraction, representing an atomic transfer operation
+        \item It also has features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible
+    \end{itemize}
+
+    \lstinputlisting[language=flow, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]{padl-21-examples/erc20-transfer.flow}
+\end{frame}
+
+\begin{frame}[fragile]{Advantages}
+    \begin{itemize}
+        \item Using the more declarative, \emph{flow-based} approach provides the following advantages over imperative state updates:
+        \item \textbf{Static safety guarantees}: Each flow is guaranteed to preserve the total amount of assets (except for flows that explicitly consume or allocate assets)
+        \item \textbf{Dynamic safety guarantees}: \langName automatically inserts dynamic checks of a flow's validity
+            The \flowinline{unique} modifier, which restrict values to never be created more than once, is also checked dynamically.
+        % \item \textbf{Data-flow tracking}: provide a clearer way of specifying how resources flow in the code itself, which may be less apparent using other approaches, especially in complicated contracts
+            % Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
+        \item \textbf{Error messages}: When a flow fails, the \langName runtime provides automatic, descriptive error messages, such as
+\begin{lstlisting}[numbers=none, basicstyle=\footnotesize\ttfamily, xleftmargin=-4.5em]
+Cannot flow <amount> Token from account[<src>] to account[<dst>]:
+    source only has <balance> Token.
+\end{lstlisting}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Type quantities, Modifiers}
+    \begin{itemize}
+        \item Type quantities: used to approximate the number of values in a variable (e.g., \flowinline{empty}, \flowinline{any}, \flowinline{one}, \flowinline{nonempty}), to track which variables can be dropped
+            \begin{itemize}
+                \item Can often be inferred (all type quantities int he previous example can be omitted)
+            \end{itemize}
+
+        \item Modifiers: Use to specify how variables of a type can be used (e.g., \flowinline{asset}, \flowinline{unique}, \flowinline{fungible})
+    \end{itemize}
+
+    \lstinputlisting[language=flow, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]{padl-21-examples/erc20-transfer-no-type-quants.flow}
+\end{frame}
+
+\begin{frame}[fragile]{Example: Type quantities, Modifiers}
+    \begin{itemize}
+        \item Example using modifiers and type quantities to guarantee additional correctness properties in the context of a lottery:
+    \end{itemize}
+\begin{lstlisting}[language=flow, xleftmargin=-0.2em, basicstyle=\scriptsize\ttfamily]
+type TicketOwner is unique immutable address
+type Ticket is consumable asset {
+    owner : TicketOwner,
+    guess : uint256
+}
+// ...
+// End the lottery:
+var winners : list Ticket <-- tickets[nonempty st isWinner(winNum, _)] |\label{line:lottery-filter}|
+// Split among winners
+winners --> payEach(jackpot / length(winners), _)
+balance --> lotteryOwner.balance |\label{line:empty-lottery-balance}|
+// Lottery is over, destroy losing tickets
+tickets --> consume
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Comparison with Solidity}
+    \begin{itemize}
+        \item Solidity is the most commonly-used smart contract language on the Ethereum blockchain
+        \item It does not provide analogous support for managing assets
+    \end{itemize}
+
+\lstinputlisting[language=flow, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]{padl-21-examples/erc20-transfer-no-type-quants.flow}
+\lstinputlisting[language=Solidity, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]{padl-21-examples/erc20-transfer.sol}
+\end{frame}
+
+\begin{frame}[fragile]{Implementation (in progress)}
+    \begin{itemize}
+        \item The $\mathbb{K}$ Framework is a framework for specifying programming languages
+        \item An implementation in $\mathbb{K}$ of the formalization is in progress
+        \item It is currently capable of running the ERC-20 example, as well as some other, more complicated programs (such as a voting contract)
+    \end{itemize}
+
+\begin{lstlisting}[xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]
+// ...
+rule <k> N:Int => ListItem(selected(loc(!I), amount(N))) ... </k>
+<storage> ... .Map => loc(!I) |-> resource(nat, N) ... </storage>
+requires N >=Int 0
+// ...
+rule <k> flowVal(selected(L, K), loc(J))
+     => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~>
+         asType(T) ~> combineWith(loc(J)) ... </k>
+<storage> ... loc(J) |-> resource(T, _) ... </storage>
+// ...
+\end{lstlisting}
+\end{frame}
+
+% \begin{frame}{Formalization (in progress)}
+%     \begin{itemize}
+%         \item The $\mathbb{K}$ Framework is a framework for specifying programming languages
+%     \end{itemize}
+% \end{frame}
+
+\begin{frame}{Future Work}
+    \begin{itemize}
+        \item Fully implement the \langName language, and prove its safety properties
+        \item Study the benefits and costs of the language via case studies, performance evaluation, and the application of flows to other domains
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Conclusion and Future Work}
+    \begin{itemize}
+        \item We have presented the \langName language for writing safer smart contracts
+        \item \langName uses the new flow abstraction, \assetTxt{}s, and modifiers to provide safety guarantees for smart contracts
+        \item We showed two examples of smart contracts in both Solidity and \langName, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Questions?}
+    \begin{itemize}
+        \item Questions?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Other Random Stuff}
+    \begin{itemize}
+        \item Next meeting: probably type theory
+        \item SPLASH conference is happening in about a month: talks will probably be streamed on YouTube
+            \begin{itemize}
+                \item Also, lots of other talks archived at: \url{https://www.youtube.com/channel/UCwG9512Wm7jSS6Iqshz4Dpg}
+            \end{itemize}
+        \item \#PLTalk stream: \url{https://www.twitch.tv/jeanqasaur}
+        \item New proof of a better traveling salesman approximation algorithm: \url{https://arxiv.org/abs/2007.01409}
+    \end{itemize}
+\end{frame}
+
+\end{document}
+

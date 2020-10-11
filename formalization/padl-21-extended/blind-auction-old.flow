@@ -1,0 +1,55 @@
+type Bid is consumable asset {
+  sender : address,
+  blindedBid : bytes,
+  deposit : ether
+}
+type Reveal is { value : nat, secret : bytes }
+type BlindAuction is asset {
+  beneficiary : address,
+  biddingEnd : nat,
+  revealEnd : nat,
+  ended : bool,
+  bids : map address => list Bid,
+  highestBidder : address,
+  highestBid : ether,
+  pendingReturns : map address => ether
+}
+
+transformer bid(this : BlindAuction, bid : bytes) {
+  only when now <= this.biddingEnd
+  [ new Bid(msg.sender, big, msg.value) ] --> this.bids[msg.sender]
+}
+transformer reveal(this : BlindAuction, reveals : list Reveal) {
+  only when biddingEnd <= now and now <= revealEnd
+  zip(this.bids[msg.sender], reveals)
+    --[ any such that _.fst.blindedBid = keccak256(_.snd) ]
+    --> revealBid(this, _)
+    --> placeBid(this, _)
+}
+transformer revealBid(this : BlindAuction, bid : Bid, reveal : Reveal)
+  -> toPlace : list { sender : address, value : ether } {
+  try {
+    only when reveal.value >= this.highestBid
+    bid.deposit --[ reveal.value ]-> var value : ether
+    [ { sender ||-> bid.sender, value ||-> value } ] --> toPlace
+  } catch {}
+  bid.deposit --> bid.sender.balance
+  bid --> consume
+}
+transformer placeBid(this : BlindAuction, toPlace : { sender : address, value : ether }) {
+  try {
+    only when highestBidder != 0x0
+    this.highestBid --> this.pendingReturns[highestBidder]
+  } catch { }
+  toPlace.sender --> highestBidder
+  toPlace.value --> highestBid
+}
+transformer withdraw(this : BlindAuction) {
+  this.pendingReturns[msg.sender] --> msg.sender.balance
+}
+transformer auctionEnd(this : BlindAuction) {
+  only when now >= this.revealEnd and not this.ended
+  true --> this.ended
+  highestBid --> beneficiary.balance
+}
+

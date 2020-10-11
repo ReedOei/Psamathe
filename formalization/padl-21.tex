@@ -40,6 +40,10 @@
 
 \maketitle
 
+% \begin{abstract}
+% Blockchains host smart contracts for crowdfunding, tokens, and many other purposes. Vulnerabilities in contracts are often discovered, leading to the loss of large quantities of money. Psamathe is a new language we are designing around a new flow abstraction, reducing asset bugs and making contracts more concise than in existing languages. We present an overview of Psamathe, and an examples contract in Psamathe, and compare it to the same program written in Solidity.
+% \end{abstract}
+
 \section{Introduction}
 \vspace{-0.5em}
 Blockchains are increasingly used as platforms for applications called \emph{smart contracts}~\cite{Szabo97:Formalizing}, which automatically manage transactions in an mutually agreed-upon way.
@@ -74,7 +78,7 @@ An ERC-20 contract manages ``bank accounts'' for its tokens, keeping track of ho
 \begin{figure}
     \vspace{-2em}
     \centering
-    \lstinputlisting[language=flow, xrightmargin=-1.0em]{padl-21-examples/erc20-transfer.flow}
+    \lstinputlisting[language=flow, xleftmargin=-0.2em]{padl-21-examples/erc20-transfer.flow}
     \vspace{-1em}
     \caption{A \langName contract with a simple \flowinline{transfer} function, which transfers \flowinline{amount} tokens from the sender's account to the destination account.
 It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.
@@ -116,24 +120,24 @@ The lottery cannot end before there is a winning ticket, enforced by the \flowin
 % \flowinline{jackpot / length(winners)} is guaranteed not to divide by zero.
 Without line~\ref{line:empty-lottery-balance}, \langName would give an error indicating \flowinline{balance} has type \flowinline{any ether}, not \flowinline{empty ether}---a true error, because in the case that the jackpot cannot be evenly split between the winners, there will be some ether left over.
 % Similarly, we use line~\ref{line:empty-ticket-list} to destroy the losing lottery tickets, now that lottery is over.
-\begin{lstlisting}[language=flow]
-var winners : list Ticket <-[ nonempty st ticketWins(winNum, _) ]-- tickets |\label{line:lottery-filter}|
-winners --> payEach(jackpot / length(winners), _) // Split jackpot among winners
+\begin{lstlisting}[language=flow, xleftmargin=-0.2em]
+var winners : list Ticket <-[nonempty st ticketWins(winNum, _)]-- tickets |\label{line:lottery-filter}|
+winners --> payEach(jackpot / length(winners), _) // Split among winners
 balance --> lotteryOwner.balance |\label{line:empty-lottery-balance}|
 tickets --> consume // Lottery is over, destroy losing tickets
 \end{lstlisting}
 
-One could try automatically inserting such dynamic checks in a language like Solidity, but it would often require additional annotations (e.g., \flowinline{nonempty}).
+One could try automatically inserting such dynamic checks in a language like Solidity, but it would require extending Solidity with annotations (e.g., \flowinline{nonempty}).
 Such a system would essentially reimplement flows, providing some benefits of \langName, but not the same static guarantees.
 
-\paragraph{Comparison with ERC-20 in Solidity}\label{sec:erc20-impl}
+\paragraph{\textbf{Comparison with ERC-20 in Solidity}}\label{sec:erc20-impl}
 Figure~\ref{fig:erc20-transfer-sol} shows a Solidity implementation of the same function as Figure~\ref{fig:erc20-transfer-flow}.
 The sender's balance must be at least as large as \flowinline{amount}, and the destination's balance must not overflow when it receives the tokens.
 \langName automatically inserts code checking these two conditions, ensuring the checks are not forgotten.
 \begin{figure}
     \vspace{-2em}
     \centering
-    \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
+    \lstinputlisting[language=Solidity, xleftmargin=-0.2em]{padl-21-examples/erc20-transfer.sol}
     \vspace{-1em}
     \caption{An excerpt from a Solidity reference implementation~\cite{erc20Consensys} of the \lstinline[language=Solidity]{transfer} function.
         Preconditions are checked manually.
@@ -145,7 +149,7 @@ The sender's balance must be at least as large as \flowinline{amount}, and the d
 \section{Conclusion and Future Work}
 
 We have presented the \langName language for writing safer smart contracts.
-\langName uses the new flow abstraction, \assetTxt{}s, and type quantities to provide its safety guarantees.
+\langName uses flows, \assetTxt{}s, and type quantities to provide its safety guarantees.
 We have shown an example smart contract in both \langName and Solidity, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 % We have shown an example smart contract in both \langName and Solidity, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 
