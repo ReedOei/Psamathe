@@ -300,10 +300,11 @@ This is useful because it allows us to locate only part of a fungible resources,
 The $\select(\rho, \ell, k)$ construct resolves storage value pairs into the resource that should be selected.
 
 \begin{tabular}{l r l l}
-    $V$ & \bnfdef & $n$ & (values) \\
+    $V$ & \bnfdef & $n$ \bnfalt $\error$ & (values) \\
     $R$ & \bnfdef & $(T, V)$ & (resources) \\
     $\ell, k$ & \bnfdef & $n$ \bnfalt $\amount(n)$ & (storage values) \\
-    $\Loc$ & \bnfdef & $\ldots$ \bnfalt $(\ell, \ell)$
+    $\Loc$ & \bnfdef & $\ldots$ \bnfalt $(\ell, \ell)$ \\
+    $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\revert$ \\
 \end{tabular}
 
 \begin{definition}
@@ -336,7 +337,14 @@ We first resolve the selected resources, then subtract them from their parent lo
     \inferrule*[right=Flow]{
         \overline{\select(\rho, \ell, k) = R}
         \\
+        \rho(j) + \sum \overline{R} \neq \error
     }{ \angles{ \Sigma, \overline{(\ell, k)} \to (i, j) } \to \Sigma[\rho \mapsto \rho[\overline{\ell \mapsto \rho(\ell) - R}, j \mapsto \rho(j) + \sum \overline{R}]] }
+
+    \inferrule*[right=Flow-Error]{
+        \overline{\select(\rho, \ell, k) = R}
+        \\
+        \rho(j) + \sum \overline{R} = \error
+    }{ \angles{ \Sigma, \overline{(\ell, k)} \to (i, j) } \to \angles{ \Sigma, \revert } }
 \end{mathpar}
 
 \section{Examples}
