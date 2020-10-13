@@ -27,11 +27,6 @@
 
 \title{\langName: A DSL with Flows for Safe Blockchain \AssetTxt{}s}
 
-%% The "author" command and its associated commands are used to define
-%% the authors and their affiliations.
-%% Of note is the shared affiliation of the first two authors, and the
-%% "authornote" and "authornotemark" commands
-%% used to denote shared contribution to the research.
 \author{Reed Oei}
 \affiliation{%
     \institution{University of Illinois}
@@ -137,10 +132,6 @@ A \flowinline{consumable} value is an \flowinline{asset} that it may be appropri
 For example, while bids should not be lost \textbf{during} an auction, it is safe to dispose of them after the auction ends.
 A \flowinline{fungible} value can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
 The modifiers \flowinline{unique} and \flowinline{immutable} provide the safety guarantees mentioned above.
-% For example, ERC-20 tokens are \flowinline{fungible}.
-% A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow.
-% A \flowinline{unique} value only exists in at most one variable; it must be \flowinline{immutable} and an \flowinline{asset} to ensure it is not duplicated.
-% ERC-721 tokens are \flowinline{unique} and \flowinline{immutable}.
 
 We now give examples using modifiers and type quantities to guarantee additional correctness properties in the context of a lottery.
 The \flowinline{unique} and \flowinline{immutable} modifiers ensure users enter the lottery at most once, while \flowinline{asset} ensures that we do not accidentally lose tickets.

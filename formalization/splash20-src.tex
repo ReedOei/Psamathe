@@ -155,6 +155,7 @@ Some estimates suggest that as many as 46\% of smart contracts may have some vul
 % which is useful in smart contracts managing digital \assetTxt{}s.
 Flows allow encoding semantic information about the flow of \assetTxt{}s into the code.
 The \langName language will also provide features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible.
+% A formalization of \langName is in progress~\cite{psamatheRepo}, with an \emph{executable semantics} implemented in the $\mathbb{K}$-framework~\cite{rosu-serbanuta-2010-jlap}, which is already capable of running the examples shown in Figures~\ref{fig:erc20-transfer-flow} and~\ref{fig:voting-impl-flow}.
 
 Solidity is the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, and does not provide analogous support for managing \assetTxt{}s.
 Additionally, typical smart contracts are more \textbf{concise} in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
@@ -197,17 +198,18 @@ Cannot flow <amount> Token from account[<src>] to account[<dst>]:
         Flows enable such messages by encoding all the necessary information into the program.%, instead of using low-level operations like increment and decrement.
 \end{itemize}
 
-Each variable, field, and function parameter has a \emph{type quantity}, approximating the number of values in the variable, which is one of: $\emptyq$, $\any$, $\exactlyone$, $\nonempty$, $\every$ (``$\exactlyone$'' means ``exactly one'').
-Type quantities are inferred if omitted.
+Each variable, field, and function parameter has a \emph{type quantity}, approximating the number of values in the variable, which is one of: \flowinline{empty}, \flowinline{any}, \flowinline{one}, \flowinline{nonempty}, or \flowinline{every}.
+Type quantities are inferred if omitted; every type quantity in Figure~\ref{fig:erc20-transfer-flow} can be inferred.
 Only $\emptyq$ \assetTxt variables may be dropped.
 
-\emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
+\emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, and \flowinline{consumable}.
+% \emph{Modifiers} can be used to place constraints on how values are managed: \flowinline{asset}, \flowinline{fungible}, \flowinline{unique}, \flowinline{immutable}, and \flowinline{consumable}.
 An \flowinline{asset} is a value that must not be reused or accidentally lost.
 A \flowinline{fungible} value represents a quantity that can be \textbf{merged}, and it is \textbf{not} \flowinline{unique}.
 For example, ERC-20 tokens are \flowinline{fungible}.
-A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow.
-A \flowinline{unique} value only exists in at most one variable; it must be \flowinline{immutable} and an \flowinline{asset} to ensure it is not duplicated.
-ERC-721 tokens are \flowinline{unique} and \flowinline{immutable}.
+% A \flowinline{immutable} value cannot be changed; in particular, it cannot be the source or destination of a flow.
+A \flowinline{unique} value only exists in at most one variable, enforced by a dynamic check when the value is created; it must be an \flowinline{asset} to ensure it is not duplicated.
+ERC-721 tokens are \flowinline{unique}. % and \flowinline{immutable}.
 A \flowinline{consumable} value is an \flowinline{asset} that it may be appropriate to dispose of, done via the \flowinline{consume} construct, documenting that the disposal is intentional.
 
 \langName has transactional semantics: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
@@ -281,6 +283,8 @@ One proposed use for blockchains is for voting~\cite{Elsden18:Making}.
 Figures~\ref{fig:voting-impl-sol} and~\ref{fig:voting-impl-flow} show the core of an implementation of a voting contract in Solidity and \langName, respectively, based on the Solidity by Example tutorial~\cite{solidityByExample}.
 Each contract instance has several proposals, and users must be given permission to vote by the chairperson, assigned in the constructor of the contract (not shown).
 Each user can vote exactly once for exactly one proposal, and the proposal with the most votes wins.
+Note that we can use values of type \flowinline{address} to \emph{select} values of type \flowinline{Voter}, as done on line~\ref{line:select-voter-by-addr}.
+We can do this because the \emph{underlying type} of \flowinline{Voter} is \flowinline{address}; this feature allows referring to assets without the asset itself, which is a necessary part of writing such contracts.
 
 This example shows \langName is suited for a range of applications.
 It also shows some uses of the $\unique$ modifier; in this contract, $\unique$ ensures that each user, represented by an \lstinline{address}, can be given permission to vote at most once, while the use of $\asset$ ensures that votes are not lost or double-counted.
