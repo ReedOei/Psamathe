@@ -29,12 +29,31 @@ module PURE-FLOW
     // selected(L, V) represents a pair with a "parent" location and a value in that parent location, which may itself be a location.
     // If L = V, that means that the entire value of L was selected, and it will be emptied out if flowed.
     syntax Selected ::= selected(StorageLoc, StorageVal)
+                      | selectedList(BaseType, List) // List Selected
+                      /* | selectedRecord(BaseType, Map) // Map Var => Selected */
 
-    syntax Locator ::= List // So that we can use a list of Selected values as the result value of a locator.
-    syntax KResult ::= List // A list of Locations
+    syntax Locator ::= Selected // So that we can use Selected values as the result value of a locator
+    syntax KResult ::= Selected
+
+    syntax BaseType ::= resourceType(Resource) [function, functional]
+    rule resourceType(resource(T, _)) => T
 
     syntax List ::= valueOf(Resource) [function]
     rule valueOf(resource(_, V)) => V
+
+    rule run(Decls ; Stmts) => checkOk(Decls ; Stmts) ~> Decls ~> Stmts [structural]
+
+    // =================================
+    // Typechecking
+    // =================================
+    syntax KItem ::= checkOk(Program)
+    rule checkOk(Decls ; Stmts) => checkDecls(Decls) ~> checkStmts(Stmts)
+
+    syntax KItem ::= checkDecls(Decls)
+                   | checkDecl(Decl)
+
+    syntax KItem ::= checkStmts(Stmts)
+                   | checkStmt(Stmt)
 
     // =================================
     // Sequence
@@ -64,24 +83,21 @@ module PURE-FLOW
     // =================================
     // Environment Helpers
     // =================================
-    syntax Stmt ::= insert(Var, Selected)
-                  | setLookup(Map)
-
+    syntax KItem ::= insert(Var, Selected)
+                   | setLookup(Map)
     rule <k> insert(X, Sel) => . ... </k>
         <lookup> ... .Map => X |-> Sel ... </lookup>
     rule <k> setLookup(Lookup) => . ... </k>
         <lookup> _ => Lookup </lookup>
 
-    syntax Stmt ::= drop(Var)
-                  | dropLoc(StorageLoc)
+    syntax KItem ::= drop(Var)
+                   | dropLoc(StorageLoc)
     rule <k> drop(X) => . ... </k>
         <lookup> ... X |-> _ => .Map ... </lookup>
-
     rule <k> dropLoc(Loc) => . ... </k>
         <storage> ... Loc |-> _ => .Map ... </storage>
 
-    syntax Stmt ::= setType(StorageLoc, BaseType)
-
+    syntax KItem ::= setType(StorageLoc, BaseType)
     rule <k> setType(L, T) => . ... </k>
         <storage> ... L |-> resource(_ => T, _) ... </storage>
 
@@ -89,9 +105,9 @@ module PURE-FLOW
     // Try-Catch:
     // =================================
     // Stores the variable/type to catch, the handler, the lookup table, the storage to restore to, and the continuation.
-    syntax Stmt ::= catch(Stmts, Map, Map, K)
-                  | "revert"
-                  | "dropCatch"
+    syntax KItem ::= catch(Stmts, Map, Map, K)
+                   | "revert"
+                   | "dropCatch"
 
     rule <k> try { S1 } catch { S2 } ~> K => S1 ~> dropCatch ~> K </k>
         <lookup> Lookup </lookup>
@@ -165,26 +181,28 @@ module PURE-FLOW
     // =================================
 
     // Literals
-    rule <k> N:Int => ListItem(selected(loc(!I), amount(N))) ... </k>
+    rule <k> N:Int => selected(loc(!I), amount(N)) ... </k>
         <storage> ... .Map => loc(!I) |-> resource(nat, ListItem(N)) ... </storage>
         requires N >=Int 0
 
-    rule <k> B:Bool => ListItem(selected(loc(!I), loc(!I))) ... </k>
+    rule <k> B:Bool => selected(loc(!I), loc(!I)) ... </k>
         <storage> ... .Map => loc(!I) |-> resource(bool, ListItem(B)) ... </storage>
 
     // Variable declaration
-    rule <k> var X : T => ListItem(selected(loc(!I), loc(!I))) ... </k>
+    rule <k> var X : T => selected(loc(!I), loc(!I)) ... </k>
         <lookup> ... .Map => X |-> selected(loc(!I), loc(!I)) ... </lookup>
         <storage> ... .Map => loc(!I) |-> resource(T, .List) ... </storage>
 
     // copy
     context copy(HOLE)
-    rule <k> copy(ListItem(selected(_, K))) => deepCopy(loc(!I), Vs) ~> ListItem(selected(loc(!I), loc(!I))) ... </k>
-        <storage> ... (K |-> resource(T, Vs)) (.Map => loc(!I) |-> resource(demoteBaseType(T), .List)) ... </storage>
-    rule <k> copy(ListItem(selected(L, amount(N)))) => ListItem(selected(loc(!I), loc(!I))) ... </k>
-        <storage> ... (L |-> resource(T, _)) (.Map => loc(!I) |-> resource(demoteBaseType(T), ListItem(N))) ... </storage>
+    rule copy(Sel:Selected) => resolveSelected(Sel) ~> doCopy(loc(!_)) [structural]
 
-    syntax Stmt ::= deepCopy(StorageLoc, List)
+    syntax KItem ::= doCopy(StorageLoc)
+
+    rule <k> resource(T, Vs) ~> doCopy(loc(I)) => deepCopy(loc(I), Vs) ... </k>
+        <storage> ... .Map => loc(I) |-> resource(demoteBaseType(T), .List) ... </storage>
+
+    syntax KItem ::= deepCopy(StorageLoc, List)
 
     rule deepCopy(_, .List) => .
     rule <k> deepCopy(L, ListItem(loc(I)) Rest) => deepCopy(loc(!J), Ws) ~> deepCopy(L, Rest) ... </k>
@@ -218,24 +236,25 @@ module PURE-FLOW
 
     // Field access
     context (HOLE._):Locator
-    rule (Ls:List).X => getFields(Ls, X, .List)
+    rule Sel.X => resolveSelected(Sel) ~> getFields(X, .List)
 
-    syntax Locator ::= getFields(List, Var, List)
-    rule getFields(.List, _, Ls) => Ls
-    rule <k> getFields(ListItem(selected(_, loc(I))) Rest, X, Ls)
-             => getFields(Rest, X, Ls ListItem(selected(XLoc, XLoc))) ... </k>
+    syntax Locator ::= getFields(Var, List)
+    rule resource(_, .List) ~> getFields(_, Ls) => Ls
+    rule resource(_, ListItem((X |-> XLoc) _)) ~> getFields(X, _) => selected(XLoc, XLoc)
+    rule <k> resource(T, ListItem(loc(I)) Rest) ~> getFields(X, Ls)
+             => resource(T, Rest) ~> getFields(X, Ls ListItem(selected(XLoc, XLoc))) ... </k>
         <storage> ... loc(I) |-> resource(_, ListItem((X |-> XLoc) _)) ... </storage>
 
-    rule <k> X => ListItem(Sel) ... </k>
-        <lookup> ... X |-> Sel ... </lookup>
+    rule <k> X => Sel ... </k>
+        <lookup> ... X |-> Sel:Selected ... </lookup>
 
-    rule <k> [ _ ; Locs ] => locatorList(Locs, .List) ... </k>
+    rule <k> [ _ T ; Locs ] => locatorList(T, Locs, .List) ... </k>
 
-    syntax Locator ::= locatorList(Locators, List)
-    context locatorList((HOLE:Locator, _), _)
+    syntax Locator ::= locatorList(BaseType, Locators, List)
+    context locatorList(_, (HOLE:Locator, _), _)
 
-    rule locatorList(.Locators, Selected) => Selected
-    rule locatorList((ListItem(selected(L, K)), Rest), Selected) => locatorList(Rest, Selected ListItem(selected(L, K)))
+    rule locatorList(T, .Locators, Selected) => selectedList(T, Selected)
+    rule locatorList(T, (Sel:Selected, Rest), Selected) => locatorList(T, Rest, Selected ListItem(Sel))
 
     // Select list.
     // TODO: Need to make sure that we're expanding everywhere correctly.
@@ -247,15 +266,15 @@ module PURE-FLOW
     rule makeLocations(L, ListItem(_:Bool)) => ListItem(selected(L, L))
     rule makeLocations(L, ListItem(N:Int)) => ListItem(selected(L, amount(N)))
 
-    syntax List ::= makeAllLocations(List) [function]
-    rule makeAllLocations(.List) => .List
-    rule [[ makeAllLocations(ListItem(selected(_, K)) Rest) => makeLocations(K, Vs) makeAllLocations(Rest) ]]
+    syntax List ::= makeAllLocations(Selected) [function]
+    rule [[ makeAllLocations(selected(_, K)) => makeLocations(K, Vs) ]]
         <storage> ... K |-> resource(_, Vs) ... </storage>
-    rule makeAllLocations(ListItem(selected(L, amount(N))) Rest) => ListItem(selected(L, amount(N))) makeAllLocations(Rest)
+    rule makeAllLocations(selectedList(_, Sels)) => Sels
+    /* rule makeAllLocations(selectedRecord(T, M)) => ListItem(selectedRecord(T, M)) */
 
     context (HOLE[_]):Locator
     context (_[HOLE]):Locator
-    rule Ls:List[Ks:List] => selectLocations(makeAllLocations(Ls), makeAllLocations(Ks), .List)
+    rule Ls:Selected[Ks:Selected] => selectLocations(makeAllLocations(Ls), makeAllLocations(Ks), .List)
 
     syntax List ::= keysOf(Resource) [function, functional]
                  | allKeys(Vars, Map) [function, functional]
@@ -325,6 +344,8 @@ module PURE-FLOW
         <storage> ... K |-> R </storage>
     rule [[ lookupSelected(selected(L, amount(N))) => resource(T, ListItem(N)) ]]
         <storage> ... L |-> resource(T, _) ... </storage>
+    rule lookupSelected(selectedList(T, .List)) => resource(T, .List)
+    rule lookupSelected(selectedList(T, ListItem(Sel) Rest)) => combine(lookupSelected(Sel), lookupSelected(selectedList(T, Rest)))
 
     syntax Resource ::= resolveSelected(Selected) [function]
     rule [[ resolveSelected(selected(L, L)) => R ]]
@@ -352,9 +373,9 @@ module PURE-FLOW
 
     syntax Locator ::= selectLocation(List, Resource)
     rule selectLocation(.List, _) => .List [structural]
-    rule selectLocation(ListItem(selected(loc(I), loc(J))) Rest, R)
-          => #if demoteVal(expand(R)) inList keysOf(demoteVal(expand(lookupSelected(selected(loc(I), loc(J)))))) #then
-                ListItem(selected(loc(I), loc(J)))
+    rule selectLocation(ListItem(Sel) Rest, R)
+          => #if demoteVal(expand(R)) inList keysOf(demoteVal(expand(lookupSelected(Sel)))) #then
+                ListItem(Sel)
              #else
                 selectLocation(Rest, R)
              #fi
@@ -380,8 +401,8 @@ module PURE-FLOW
 
     syntax Locator ::= locateFilter(List, TypeQuant, Var, Locators, List)
 
-    context HOLE[_ such that _(_)]
-    rule Ls:List[Q such that F(Args)] => locateFilter(makeAllLocations(Ls), Q, F, Args, .List)
+    context HOLE[_:TypeQuant such that _(_)]
+    rule Ls:Selected[Q such that F(Args)] => locateFilter(makeAllLocations(Ls), Q, F, Args, .List)
 
     rule locateFilter(.List, empty, _, _, Ls) => #if size(Ls) ==Int 0 #then .List #else revert #fi
     rule locateFilter(.List, one, _, _, Ls) => #if size(Ls) ==Int 1 #then Ls #else revert #fi
@@ -389,16 +410,16 @@ module PURE-FLOW
     rule locateFilter(.List, any, _, _, Ls) => Ls
 
     rule locateFilter(ListItem(L) Rest, Q, F, Args, Ls)
-         => execute(F, appendLoc(Args, ListItem(L))) ~> check(L) ~>
+         => execute(F, appendLoc(Args, L)) ~> check(L) ~>
             locateFilter(Rest, Q, F, Args, Ls)
 
-    syntax Stmt ::= check(Selected)
-                  | execute(Var, Locators)
+    syntax KItem ::= check(Selected)
+                   | execute(Var, Locators)
 
-    rule <k> ListItem(selected(_, Loc)) ~> check(L) ~> locateFilter(Ls, Q, F, Args, Ks)
+    rule <k> selected(_, Loc) ~> check(L) ~> locateFilter(Ls, Q, F, Args, Ks)
              => locateFilter(Ls, Q, F, Args, Ks ListItem(L)) ... </k>
         <storage> ... (Loc |-> resource(bool, ListItem(true))) => .Map ... </storage>
-    rule <k> ListItem(selected(_, Loc)) ~> check(_) ~> locateFilter(Ls, Q, F, Args, Ks)
+    rule <k> selected(_, Loc) ~> check(_) ~> locateFilter(Ls, Q, F, Args, Ks)
              => locateFilter(Ls, Q, F, Args, Ks) ... </k>
         <storage> ... (Loc |-> resource(bool, ListItem(false))) => .Map ... </storage>
         requires Q =/=K every // If Q is every, the check **must** succeed for every element.
@@ -406,19 +427,21 @@ module PURE-FLOW
     // Records
     rule <k> record(Keys) { Members } => initRecord(loc(!I), Members) ... </k>
         <storage> ... .Map => loc(!I) |-> resource(record(Keys) { membersToDefs(Members) }, ListItem(.Map)) ... </storage>
-    syntax Stmt ::= initRecord(StorageLoc, RecordMembers)
+    syntax KItem ::= initRecord(StorageLoc, RecordMembers)
 
     context initRecord(_, _:VarDef |-> HOLE , _ )
-    rule initRecord(loc(I), .RecordMembers) => ListItem(selected(loc(I), loc(I)))
+    rule initRecord(loc(I), .RecordMembers) => selected(loc(I), loc(I))
     // TODO: How to not build the record unless necessary? Once we figure this out, can also use for the list literals
-    rule <k> initRecord(Loc, (X : _:Type |-> ListItem(selected(L, K)), Rest))
+    // TODO: Related to above, need to implement a new selectedRecord Selected constructor to be used here
+    // TODO: Should allow any kind of Selected to be used, not just selected(L, K)
+    rule <k> initRecord(Loc, (X : _:Type |-> selected(L, K)), Rest)
              => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> allocate(loc(!I)) ~> initRecord(Loc, Rest) ... </k>
         <storage> ... (Loc |-> resource(_, ListItem(Fields => Fields (X |-> loc(!I))))) ... </storage>
 
     // =================================
     // Flow Value
     // =================================
-    syntax Stmt ::= combineWith(StorageLoc)
+    syntax KItem ::= combineWith(StorageLoc)
                   | subtractFrom(StorageLoc)
                   | asType(BaseType)
                   | allocate(StorageLoc)
@@ -442,7 +465,7 @@ module PURE-FLOW
     rule <k> resource(record(_) { Fields }, V) ~> asType(table(Keys) Q record(Keys) { Fields })
              => resource(table(Keys) Q record(Keys) { Fields }, ListItem(loc(!I))) ... </k>
         <storage> ... .Map => loc(!I) |-> resource(record(Keys) { Fields }, V) ... </storage>
-    // TODO: Should all casting table(_) Q T into a T if it contains at most one thing, otherwise revert.
+    // TODO: Should allow casting table(_) Q T into a T if it contains at most one thing, otherwise revert.
 
     // =================================
     // Flows
@@ -451,57 +474,62 @@ module PURE-FLOW
     context HOLE --> _
     context _ --> HOLE
 
-    rule .List --> ListItem(_) => . [structural]
-    rule <k> (ListItem(selected(L, K)) Rest) --> ListItem(selected(P, loc(J)))
-         => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> asType(T) ~> combineWith(loc(J)) ~>
-            Rest --> ListItem(selected(P, loc(J))) ... </k>
+    rule <k> selected(L, K) --> selected(_, loc(J))
+         => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> asType(T) ~> combineWith(loc(J)) ... </k>
         <storage> ... loc(J) |-> resource(T, _) ... </storage>
+
+    rule selectedList(_, .List) --> _:Selected => . [structural]
+    rule selectedList(T, ListItem(Sel) Rest) --> Dest:Selected
+         => (Sel --> Dest) ~> (selectedList(T, Rest) --> Dest)
 
     // Flow Transformer
     context (HOLE --> _(_) --> _):Stmt
     context (_ --> _(_) --> HOLE):Stmt
 
-    rule (.List --> _(_) --> _:List):Stmt => . [structural]
-    rule <k> (ListItem(selected(L, L)) --> F(Args) --> ListItem(selected(P, J))):Stmt
-             => makeLocations(L, Vs) --> F(Args) --> ListItem(selected(P, J)) ... </k>
-        <storage> ... L |-> resource(_, Vs) ... </storage>
-    rule (ListItem(selected(L, K)) Rest) --> F(Args) --> Dest:List
-         => execute(F, appendLoc(Args, ListItem(selected(L, K)))) ~>
-            transform(Dest) ~>
-            Rest --> F(Args) --> Dest
+    rule <k> (selected(L, L) --> F(Args) --> Dest:Selected):Stmt
+             => selectedList(T, makeLocations(L, Vs)) --> F(Args) --> Dest ... </k>
+        <storage> ... L |-> resource(T, Vs) ... </storage>
+    rule (selected(L, K) --> F(Args) --> Dest:Selected):Stmt
+         => execute(F, appendLoc(Args, selected(L, K))) ~> transform(Dest)
         requires L =/=K K
 
-    syntax Stmt ::= transform(Locator)
-    rule ListItem(selected(L, K)) ~> transform(Sel) => ListItem(selected(L, K)) --> Sel [structural]
+    rule (selectedList(_, .List) --> _(_) --> _:Selected):Stmt => . [structural]
+    rule (selectedList(T, ListItem(Sel) Rest) --> F(Args) --> Dest:Selected):Stmt
+         => (Sel --> F(Args) --> Dest) ~>
+            (selectedList(T, Rest) --> F(Args) --> Dest)
 
-    context HOLE --> new _(_) --> _
-    context _ --> new _(_) --> HOLE
+    syntax KItem ::= transform(Selected)
+    rule Res:Selected ~> transform(Sel) => Res --> Sel [structural]
+
+    context (HOLE --> new _(_) --> _):Stmt
+    /* context _ --> new _(_) --> HOLE */
 
     // If the type is unique, we need to ensure that the request value has never been created before
-    rule .List --> new _(_) --> _:List => . [structural]
-    rule (ListItem(Sel) Rest) --> new T(Args) --> Dest:List
-         => createNew(T, appendLoc(Args, ListItem(Sel))) ~> transform(Dest) ~>
-            Rest --> new T(Args) --> Dest
+    /* rule selectedList(_, .List) --> new _(_) --> _:Selected => . [structural] */
+    /* rule selected(L,K) --> new T(Args) --> Dest:Selected */
+    /*      => createNew(T, appendLoc(Args, selected(L, K))) ~> transform(Dest) */
+    /* rule selectedList(T, ListItem(Sel) Rest) --> new T(Args) --> Dest:Selected */
+    /*      => (Sel --> new T(Args) --> Dest) ~> */
+    /*         (selectedList(T, Rest) --> new T(Args) --> Dest) */
 
     syntax Locator ::= createNew(Var, Locators)
 
-    // TODO: Implement unique modifier
     rule <k> createNew(T, Args)
-             => initializer(BaseT, Args) --> ListItem(selected(loc(!I), loc(!I))) ~> setType(loc(!I), T) ~>
-                ListItem(selected(loc(!I), loc(!I))) ... </k>
+             => initializer(BaseT, Args) --> selected(loc(!I), loc(!I)) ~> setType(loc(!I), T) ~>
+                selected(loc(!I), loc(!I)) ... </k>
         <storage> ... .Map => loc(!I) |-> resource(BaseT, .List) ... </storage>
         <types> ... T |-> typeDef(Ms, BaseT) ... </types>
         requires notBool(unique in Ms)
 
     rule <k> createNew(T, Args)
-             => initializer(BaseT, Args) --> ListItem(selected(loc(!I), loc(!I))) ~>
+             => initializer(BaseT, Args) --> selected(loc(!I), loc(!I)) ~>
                 checkUnique(T, selected(loc(!I), loc(!I))) ~> setType(loc(!I), T) ~>
-                ListItem(selected(loc(!I), loc(!I))) ... </k>
+                selected(loc(!I), loc(!I)) ... </k>
         <storage> ... .Map => loc(!I) |-> resource(BaseT, .List) ... </storage>
         <types> ... T |-> typeDef(Ms, BaseT) ... </types>
         requires unique in Ms
 
-    syntax Stmt ::= checkUnique(Var, Selected)
+    syntax KItem ::= checkUnique(Var, Selected)
     rule <k> checkUnique(T, Sel) => . ... </k>
         <createdVals> ... T |-> createdVals(Vs => Vs ListItem(expand(resolveSelected(Sel)))) ... </createdVals>
         requires notBool(expand(resolveSelected(Sel)) inList Vs)
@@ -510,7 +538,6 @@ module PURE-FLOW
         requires expand(resolveSelected(Sel)) inList Vs
 
     syntax Locator ::= initializer(BaseType, Locators) [function, functional]
-
     rule initializer(nat, L:Locator) => L
     rule initializer(bool, L:Locator) => L
     rule initializer(record(Keys) { Fields }, Ls) => record(Keys) { makeRecordMembers(Fields, Ls) }
@@ -523,8 +550,13 @@ module PURE-FLOW
     // =================================
     // Transformer calls:
     // =================================
-    syntax Stmt ::= setupArgs(VarDefs)
-                  | initArgs(List, VarDefs)
+    syntax KItem ::= setupArgs(VarDefs)
+                   | initArgs(List, VarDefs)
+                   | locateArgs(Locators, List)
+
+    context locateArgs((HOLE:Locator, _), _)
+    rule locateArgs(.Locators, Ls) => Ls
+    rule locateArgs((Sel:Selected, Rest), Ls) => locateArgs(Rest, Ls ListItem(Sel))
 
     rule <k> Ls:List ~> setupArgs(FormalArgs) => initArgs(Ls, FormalArgs) ... </k>
         <lookup> _ => .Map </lookup>
@@ -534,7 +566,7 @@ module PURE-FLOW
         <lookup> ... .Map => X |-> Sel ... </lookup>
 
     rule <k> execute(F, Args)
-             => locatorList(Args, .List) ~> setupArgs(FormalArgs) ~>
+             => locateArgs(Args, .List) ~> setupArgs(FormalArgs) ~>
                 insert(RetVar, selected(loc(!I), loc(!I))) ~> Body ~>
                 setLookup(Lookup) ~>
                 ListItem(selected(loc(!I), loc(!I))) ... </k>

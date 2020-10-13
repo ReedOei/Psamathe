@@ -52,6 +52,7 @@ module PURE-FLOW-COMMON-SYNTAX
                      | "var" Var ":" BaseType
                      | Locator "[" Locator "]"
                      | Locator "[" TypeQuant "such" "that" Var "(" Locators ")" "]"
+                     | Locator "[" TypeQuant "st" Var "(" Locators ")" "]"
                      | "(" Locator ")" [bracket]
                      | "consume"
     syntax Locators ::= List{Locator, ","} [klabel(locators), strict]
@@ -62,8 +63,9 @@ module PURE-FLOW-COMMON-SYNTAX
                   | Locator "-->" "new" Var "(" Locators ")" "-->" Locator
                   | Locator "--[" Locator "]->" Locator
                   | Locator "--[" TypeQuant "such" "that" Var "(" Locators ")" "]->" Locator
+                  | Locator "--[" TypeQuant "st" Var "(" Locators ")" "]->" Locator
                   | Var "(" Locators ")" "-->" Locator
-                  | "new" Var "(" Locators ")" "-->" Locator
+                  | "new" Id "(" Locators ")" "-->" Locator
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
     syntax Stmts ::= List{Stmt, " "} [klabel(stmts)]
 
@@ -98,6 +100,9 @@ module PURE-FLOW-COMMON-SYNTAX
     rule (F:Var(Args:Locators) --> B):Stmt => lastLoc(Args) --> F(initLocs(Args)) --> B [macro-rec]
     rule new T(Args) --> B => lastLoc(Args) --> new T(initLocs(Args)) --> B [macro-rec]
 
+    rule A --[ Q st F(Args) ]-> B => A[Q such that F(Args)] --> B [macro-rec]
+    rule A[Q st F(Args)] --> B => A[Q such that F(Args)] --> B [macro-rec]
+
     syntax Stmts ::= appendStmt(Stmts, Stmt) [function, functional]
     rule appendStmt(.Stmts, S) => S
     rule appendStmt((S1:Stmt Rest), S2) => S1 appendStmt(Rest, S2)
@@ -120,14 +125,14 @@ module PURE-FLOW-COMMON
     syntax KItem ::= transformer(VarDef, VarDefs, Stmts)
                    | typeDef(Set, BaseType)
 
-    rule Decls ; Stmts => Decls ~> Stmts
-
     rule .Decls => . [structural]
     rule D:Decl Decls => D ~> Decls [structural]
 
+    syntax KItem ::= run(Program)
+
     syntax KItem ::= preprocessProgram(Program)
-    rule preprocessProgram(.Decls ; Stmts) => preprocessStmts(.Map, Stmts) [structural]
-    rule preprocessProgram(#nopreprocess Decls ; Stmts) => Decls ~> Stmts [structural]
+    rule preprocessProgram(.Decls ; Stmts) => run( .Decls ; preprocessStmts(.Map, Stmts)) [structural]
+    rule preprocessProgram(#nopreprocess Decls ; Stmts) => run(Decls ; Stmts) [structural]
     rule preprocessProgram(D:Decl Decls ; Stmts)
          => preprocessDecl(D) ~> preprocessProgram(Decls ; Stmts)
          requires D =/=K #nopreprocess
