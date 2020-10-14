@@ -221,15 +221,6 @@ This fragment is the smallest fragment capable of defining complete, simple prog
 Below we show the type rules needed to check flows between variables.
 We use $\Gamma$ and $\Delta$ as type environments, pairs of variables and types, identified with partial functions between the two.
 
-The functions $u$ are $v$ are \emph{updaters}, specifically, $u,v \in \curlys{\bot} \cup ((\Gamma \times (\tau \to \tau)) \to \Gamma)$, functions that modify an environment given some function on types.
-Define
-\[
-    u ||_T =
-    \begin{cases}
-        \bot & \tif T~\immutable \\
-        u & \owise
-    \end{cases}
-\]
 Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the best approximation by type quantity of $n$, i.e.,
 \[
     \#(n) =
@@ -243,41 +234,37 @@ Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the bes
 
 First, rules checking the types of the source and destination locators, and building up the appropriate updaters.
 
-\framebox{$\Gamma \flowproves_M (\Loc : \tau) ; u$} \textbf{Locator Typing}
+\framebox{$\Gamma \flowproves_M (\Loc : \tau) ; f \flowprovesout \Delta $} \textbf{Locator Typing}
 Here $M$ is a \emph{mode}, either $S$, meaning source, $D$, meaning destination, or $*$, meaning either mode is acceptable.
+We use $\Gamma$ as the \emph{input environment} and $\Delta$ as the \emph{output environment}.
+We use $f$ to refer to a function on types ($\tau \to \tau$).
 This ensures that we don't use, for example, numeric literals as the destination of a flow.
 
 \begin{mathpar}
     \inferrule*[right=Nat]{
-    }{ \Gamma \flowproves_S n : \#(n)~\natt; (\Delta, f) \mapsto \Delta }
+    }{ \Gamma \flowproves_S n : \#(n)~\natt; f \flowprovesout \Gamma }
 
     \inferrule*[right=Var]{
-    }{ \Gamma, x : \mathcal{Q}~T \flowproves_* (x : \mathcal{Q}~T) ; ((\Delta, f) \mapsto \Delta[x \mapsto f(\Delta(x))])||_T }
+        f = \id{\tau} \tor \lnot(\tau~\immutable)
+    }{ \Gamma, x : \tau \flowproves_* (x : \tau) ; f \flowprovesout \Gamma, x : f(\tau) }
 
     \inferrule*[right=VarDef]{
-    }{ \Gamma \flowproves_D ((\var~x : T) : \emptyq~T) ; (\Delta, f) \mapsto \Delta[x \mapsto f(\emptyq~T)] }
+    }{ \Gamma \flowproves_D ((\var~x : T) : \emptyq~T) ; f \flowprovesout \Gamma, x : f(\emptyq~T) }
 \end{mathpar}
 
 Below is the type rule checking whether a flow (without a transformer) is valid.
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
-Here $\Gamma$ is the \emph{input environment} and $\Delta$ is the \emph{output environment}, used to track the flow of resources throughout a sequence of statements.
 
 In \textsc{Ok-Flow}, Checking $u \neq \bot$ and $v \neq \bot$ ensures that $\Loc$ and $\LocK$ are valid sources/destinations of the flow (e.g., not immutable).
 We check that $\Loc$ and $\LocK$ have the same base type.
 We then clear out all the values selected by $\Loc$, using $u$, and add them to $\LocK$, using $v$.
 \begin{mathpar}
     \inferrule*[right=Ok-Flow]{
-        \Gamma \flowproves_S \Loc : \mathcal{Q}~T ; u
+        \Gamma \flowproves_S \Loc : \mathcal{Q}~T ; (\mathcal{Q}'~T' \mapsto \emptyq~T') \flowprovesout \Delta
         \\
-        \Delta = u(\Gamma, (\mathcal{Q}'~T') \mapsto \emptyq~T')
-        \\
-        \Delta \flowproves_D \LocK : \mathcal{R}~T ; v
-        \\
-        u \neq \bot
-        \\
-        v \neq \bot
-    }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout v(\Delta, \tau \mapsto \tau \oplus \mathcal{Q}) }
+        \Delta \flowproves_D \LocK : \mathcal{R}~T ; (\tau \mapsto \tau \oplus \mathcal{Q}) \flowprovesout \Xi
+    }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout \Xi }
 \end{mathpar}
 
 \paragraph{Dynamics}
