@@ -128,11 +128,11 @@ module PURE-FLOW-COMMON
     rule .Decls => . [structural]
     rule D:Decl Decls => D ~> Decls [structural]
 
-    syntax KItem ::= run(Program)
+    syntax KItem ::= run(Stmts)
 
     syntax KItem ::= preprocessProgram(Program)
-    rule preprocessProgram(.Decls ; Stmts) => run( .Decls ; preprocessStmts(.Map, Stmts)) [structural]
-    rule preprocessProgram(#nopreprocess Decls ; Stmts) => run(Decls ; Stmts) [structural]
+    rule preprocessProgram(.Decls ; Stmts) => run(preprocessStmts(.Map, Stmts)) [structural]
+    rule preprocessProgram(#nopreprocess _Decls ; Stmts) => run(Stmts) [structural]
     rule preprocessProgram(D:Decl Decls ; Stmts)
          => preprocessDecl(D) ~> preprocessProgram(Decls ; Stmts)
          requires D =/=K #nopreprocess

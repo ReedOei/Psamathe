@@ -41,19 +41,124 @@ module PURE-FLOW
     syntax List ::= valueOf(Resource) [function]
     rule valueOf(resource(_, V)) => V
 
-    rule run(Decls ; Stmts) => checkOk(Decls ; Stmts) ~> Decls ~> Stmts [structural]
+    rule run(Stmts) => checkStmts(Stmts) ~> Stmts [structural]
 
     // =================================
     // Typechecking
     // =================================
-    syntax KItem ::= checkOk(Program)
-    rule checkOk(Decls ; Stmts) => checkDecls(Decls) ~> checkStmts(Stmts)
-
-    syntax KItem ::= checkDecls(Decls)
-                   | checkDecl(Decl)
+    syntax KItem ::= checkDecl(Decl)
 
     syntax KItem ::= checkStmts(Stmts)
                    | checkStmt(Stmt)
+
+    rule checkStmts(.Stmts) => .
+    rule checkStmts(S1:Stmt Rest) => checkStmt(S1) ~> checkStmts(Rest)
+
+    syntax Mode ::= "Source" | "Destination"
+    syntax KItem ::= Mode "|-" Locator ":" Type ";" Updater
+
+    rule checkStmt(S --> D)
+         => Source |- S : ?Q ?T ; ?U ~>
+            runUpdater(?U, withQuant(empty)) ~>
+            Destination |- D : ?R ?T ; ?V ~>
+            runUpdater(?V, combineQuant(?Q)) // TODO: Finish this rule
+
+    syntax TypeQuant ::= natToQuant(Int) [function, functional]
+    rule natToQuant(0) => empty
+    rule natToQuant(1) => one
+    rule natToQuant(I) => nonempty
+        requires I >Int 1
+
+    // ************* Locator typing ***************
+    rule Source |- I:Int : natToQuant(I) nat ; idUpdater => .
+        requires I >=Int 0
+
+    rule Source |- _:Bool : one bool ; idUpdater => .
+
+    rule Source |- [ T ; Ls ] : natToQuant(sizeLocators(Ls)) list T ; listUpdater(Updaters)
+         => checkEach(Source, T, Ls, Updaters)
+
+    rule Destination |- (var X : T) : empty T ; insertVar(X, empty T) => .
+
+    rule <k> _ |- X : T ; updateVar(X) => . ... </k>
+        <typeEnv> ... X |-> T ... </typeEnv>
+
+    syntax KItem ::= checkEach(Mode, Type, Locators, List)
+    rule checkEach(_, _, .Locators, .List) => .
+    rule checkEach(M, T, (L:Locator, Ls), ListItem(U) Us) => (M |- L : T ; U) ~> checkEach(M, T, Ls, Us)
+
+    syntax Int ::= sizeLocators(Locators) [function, functional]
+    rule sizeLocators(.Locators) => 0
+    rule sizeLocators(_:Locator, Ls) => 1 +Int sizeLocators(Ls)
+
+    // ************* Updaters **************
+    syntax Bot ::= "bot"
+    syntax Updater ::= updateVar(Var)
+                     | insertVar(Var, Type)
+                     | listUpdater(List)
+                     | "idUpdater"
+                     | Bot
+    syntax TypeFunc ::= withQuant(TypeQuant)
+                      | combineQuant(TypeQuant)
+    syntax KItem ::= runUpdater(Updater, TypeFunc)
+                   | runFunc(TypeFunc, Type) [function, functional]
+
+    rule runUpdater(idUpdater, _) => .
+
+    rule <k> runUpdater(updateVar(X), F) => . ... </k>
+        <typeEnv> ... X |-> (T => runFunc(F, T)) ... </typeEnv>
+
+    rule <k> runUpdater(insertVar(X, T), F) => . ... </k>
+        <typeEnv> ... .Map => X |-> runFunc(F, T) ... </typeEnv>
+
+    rule runUpdater(listUpdater(.List), _) => .
+    rule runUpdater(listUpdater(ListItem(U) Rest), F) => runUpdater(U, F) ~> runUpdater(listUpdater(Rest), F)
+
+    rule runFunc(withQuant(Q), _ T) => Q T
+    rule runFunc(combineQuant(Q), R T) => (Q + R) T
+
+    // =======================================
+    // Type Quantity Operators
+    // =======================================
+    syntax Bool ::= TypeQuant "<Q" TypeQuant [function, functional]
+                  | TypeQuant "<=Q" TypeQuant [function, functional]
+    rule empty <Q Q => Q =/=K empty
+    rule any <Q one => true
+    rule any <Q nonempty => true
+    rule any <Q every => true
+    rule one <Q nonempty => true
+    rule one <Q every => true
+    rule nonempty <Q every => true
+    rule _ <Q _ => false [owise]
+
+    rule Q <=Q R => Q <Q R orBool Q ==K R
+
+    syntax TypeQuant ::= min(TypeQuant, TypeQuant) [function, functional]
+                       | max(TypeQuant, TypeQuant) [function, functional]
+    rule min(Q, R) => #if Q <Q R #then Q #else R #fi
+    rule max(Q, R) => #if Q <Q R #then R #else Q #fi
+
+    syntax TypeQuant ::= TypeQuant "+" TypeQuant [function, functional, comm, assoc]
+                       | TypeQuant "-" TypeQuant [function, functional]
+
+    rule Q + empty => Q
+    rule empty + R => R
+    rule _ + every => every
+    rule every + _ => every
+    rule nonempty + R => nonempty requires empty <Q R andBool R <Q every
+    rule Q + nonempty => nonempty requires empty <Q Q andBool Q <Q every
+    rule one + R => nonempty requires empty <Q R andBool R <Q every
+    rule Q + one => nonempty requires empty <Q Q andBool Q <Q every
+    rule any + any => any
+
+    rule Q - empty => Q
+    rule empty - _ => empty
+    rule _ - every => empty
+    rule every - R => every requires R <Q every
+    rule nonempty - R => any requires empty <Q R andBool R <Q every
+    rule one - R => empty requires one <=Q R
+    rule one - any => any
+    rule any - R => any requires empty <Q R andBool R <Q every
 
     // =================================
     // Sequence
@@ -66,15 +171,15 @@ module PURE-FLOW
     // =================================
     syntax KItem ::= createdVals(List)
 
-    rule <k> transformer F(FormalArgs) -> Ret { Body } => . ... </k>
+    rule <k> transformer F(FormalArgs) -> Ret { Body } => checkDecl(transformer F(FormalArgs) -> Ret { Body }) ... </k>
         <functions> ... .Map => F |-> transformer(Ret, FormalArgs, Body) ... </functions>
         [structural]
 
-    rule <k> type T is Ms BaseT => . ... </k>
+    rule <k> type T is Ms BaseT => checkDecl(type T is Ms BaseT) ... </k>
         <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
         requires notBool(unique in modifiersToSet(Ms))
         [structural]
-    rule <k> type T is Ms BaseT => . ... </k>
+    rule <k> type T is Ms BaseT => checkDecl(type T is Ms BaseT) ... </k>
         <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
         <createdVals> ... .Map => T |-> createdVals(.List) ... </createdVals>
         requires unique in modifiersToSet(Ms)
