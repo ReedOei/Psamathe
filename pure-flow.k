@@ -41,12 +41,74 @@ module PURE-FLOW
     syntax List ::= valueOf(Resource) [function]
     rule valueOf(resource(_, V)) => V
 
-    rule run(Stmts) => checkStmts(Stmts) ~> Stmts [structural]
+    /* rule run(Stmts) => checkStmts(Stmts) ~> Stmts [structural] */
+    rule run(Stmts) => checkStmts(Stmts) [structural]
 
     // =================================
     // Typechecking
     // =================================
     syntax KItem ::= checkDecl(Decl)
+
+    rule <k> checkDecl(type T is _ BaseT) => modsOk(Ms) ~> typeWf(BaseT) ... </k>
+        <types> ... T |-> typeDef(Ms, BaseT) ... </types>
+        requires isAsset(BaseT) impliesBool (asset in Ms)
+
+    rule checkDecl(transformer _(FormalArgs) -> Ret : RetType { Body })
+         // TODO: Determine which all arguments that are unmoved?
+         => declareVars(Ret : RetType, FormalArgs) ~>
+            checkStmts(Body) ~>
+            (Source |- Ret : RetType ; idFunc) ~>
+            clearTypeEnv(SetItem(Ret))
+
+    syntax KItem ::= declareVars(VarDefs)
+    rule declareVars(.VarDefs) => .
+    rule <k> declareVars(X : T, Rest) => declareVars(Rest) ... </k>
+        <typeEnv> ... .Map => X |-> T ... </typeEnv>
+
+    syntax KItem ::= clearTypeEnv(Set)
+    rule <k> clearTypeEnv(Vs) ... </k>
+        <typeEnv> ... (X |-> T) => .Map ... </typeEnv>
+        requires (X in Vs) orBool notBool(isAssetType(T))
+    rule <k> clearTypeEnv(_) => . ... </k>
+        <typeEnv> .Map </typeEnv>
+
+    syntax KItem ::= modsOk(Set)
+    rule modsOk(_) => . // TODO: Implement this
+
+    syntax KItem ::= typeWf(BaseType)
+    rule typeWf(nat) => .
+    rule typeWf(bool) => .
+    rule typeWf(string) => .
+    rule typeWf(address) => .
+    rule typeWf(record(Keys) { Fields }) => noDuplicates(Fields, .Set) ~> keysValid(Keys, keys(makeEnv(Fields)))
+    rule typeWf(table(.Vars) _ T) => typeWf(T)
+    rule typeWf(table(Keys1) _ record(Keys2) { Fields }) => typeWf(record(Keys2) { Fields })
+        requires varsToSet(Keys1) <=Set varsToSet(Keys2)
+
+    syntax KItem ::= keysValid(Vars, Set)
+    rule keysValid(.Vars, _) => .
+    rule keysValid((X:Var, Xs), Vs) => keysValid(Xs, Vs)
+        requires X in Vs
+
+    syntax KItem ::= noDuplicates(VarDefs, Set)
+    rule noDuplicates(.VarDefs, _) => .
+    rule noDuplicates((X : _, Rest), Vs) => noDuplicates(Rest, SetItem(X) Vs)
+        requires notBool(X in Vs)
+
+    syntax Bool ::= isAssetType(Type) [function, functional]
+    rule isAssetType(Q T) => Q =/=K empty andBool isAsset(T)
+
+    syntax Bool ::= isAsset(BaseType) [function, functional]
+    rule isAsset(nat) => false
+    rule isAsset(bool) => false
+    rule isAsset(string) => false
+    rule isAsset(address) => false
+    rule isAsset(record(_) { Fields }) => anyAreAssets(Fields)
+    rule isAsset(table(_) T) => isAssetType(T)
+
+    syntax Bool ::= anyAreAssets(VarDefs) [function, functional]
+    rule anyAreAssets(.VarDefs) => false
+    rule anyAreAssets(_ : T, Rest) => isAssetType(T) orBool anyAreAssets(Rest)
 
     syntax KItem ::= checkStmts(Stmts)
                    | checkStmt(Stmt)
@@ -55,13 +117,11 @@ module PURE-FLOW
     rule checkStmts(S1:Stmt Rest) => checkStmt(S1) ~> checkStmts(Rest)
 
     syntax Mode ::= "Source" | "Destination"
-    syntax KItem ::= Mode "|-" Locator ":" Type ";" Updater
+    syntax KItem ::= Mode "|-" Locator ":" Type ";" TypeFunc
 
     rule checkStmt(S --> D)
-         => Source |- S : ?Q ?T ; ?U ~>
-            runUpdater(?U, withQuant(empty)) ~>
-            Destination |- D : ?R ?T ; ?V ~>
-            runUpdater(?V, combineQuant(?Q)) // TODO: Finish this rule
+         => Source |- S : ?Q ?T ; withQuant(empty) ~>
+            Destination |- D : ?_ ?T ; combineQuant(?Q) // TODO: Finish this rule
 
     syntax TypeQuant ::= natToQuant(Int) [function, functional]
     rule natToQuant(0) => empty
@@ -70,50 +130,42 @@ module PURE-FLOW
         requires I >Int 1
 
     // ************* Locator typing ***************
-    rule Source |- I:Int : natToQuant(I) nat ; idUpdater => .
+    rule Source |- I:Int : natToQuant(I) nat ; _ => .
         requires I >=Int 0
 
-    rule Source |- _:Bool : one bool ; idUpdater => .
+    rule Source |- _:Bool : one bool ; _ => .
 
-    rule Source |- [ T ; Ls ] : natToQuant(sizeLocators(Ls)) list T ; listUpdater(Updaters)
-         => checkEach(Source, T, Ls, Updaters)
+    rule Source |- [ T ; Ls ] : natToQuant(sizeLocators(Ls)) list T ; F
+         => checkEach(Source, T, Ls, F)
 
-    rule Destination |- (var X : T) : empty T ; insertVar(X, empty T) => .
+    rule <k> Destination |- (var X : T) : empty T ; F => . ... </k>
+        <typeEnv> ... .Map => X |-> runFunc(F, empty T) ... </typeEnv>
 
-    rule <k> _ |- X : T ; updateVar(X) => . ... </k>
-        <typeEnv> ... X |-> T ... </typeEnv>
+    rule <k> _ |- X : T ; F => . ... </k>
+        <typeEnv> ... X |-> (T => runFunc(F, T)) ... </typeEnv>
+        requires F ==K idFunc orBool notBool(isImmutable(T))
 
-    syntax KItem ::= checkEach(Mode, Type, Locators, List)
-    rule checkEach(_, _, .Locators, .List) => .
-    rule checkEach(M, T, (L:Locator, Ls), ListItem(U) Us) => (M |- L : T ; U) ~> checkEach(M, T, Ls, Us)
+    syntax KItem ::= checkEach(Mode, Type, Locators, TypeFunc)
+    rule checkEach(_, _, .Locators, _) => .
+    rule checkEach(M, T, (L:Locator, Ls), F) => (M |- L : T ; F) ~> checkEach(M, T, Ls, F)
+
+    syntax Bool ::= isImmutable(Type) [function, functional]
+    rule [[ isImmutable(_ T) => true ]]
+        <types> ... T |-> typeDef(Ms, _) ... </types>
+        requires immutable in Ms
+    rule isImmutable(_) => false [owise]
 
     syntax Int ::= sizeLocators(Locators) [function, functional]
     rule sizeLocators(.Locators) => 0
     rule sizeLocators(_:Locator, Ls) => 1 +Int sizeLocators(Ls)
 
-    // ************* Updaters **************
-    syntax Bot ::= "bot"
-    syntax Updater ::= updateVar(Var)
-                     | insertVar(Var, Type)
-                     | listUpdater(List)
-                     | "idUpdater"
-                     | Bot
+    // ************* TypeFuncs **************
     syntax TypeFunc ::= withQuant(TypeQuant)
                       | combineQuant(TypeQuant)
-    syntax KItem ::= runUpdater(Updater, TypeFunc)
-                   | runFunc(TypeFunc, Type) [function, functional]
+                      | "idFunc"
+    syntax Type ::= runFunc(TypeFunc, Type) [function, functional]
 
-    rule runUpdater(idUpdater, _) => .
-
-    rule <k> runUpdater(updateVar(X), F) => . ... </k>
-        <typeEnv> ... X |-> (T => runFunc(F, T)) ... </typeEnv>
-
-    rule <k> runUpdater(insertVar(X, T), F) => . ... </k>
-        <typeEnv> ... .Map => X |-> runFunc(F, T) ... </typeEnv>
-
-    rule runUpdater(listUpdater(.List), _) => .
-    rule runUpdater(listUpdater(ListItem(U) Rest), F) => runUpdater(U, F) ~> runUpdater(listUpdater(Rest), F)
-
+    rule runFunc(idFunc, Q T) => Q T
     rule runFunc(withQuant(Q), _ T) => Q T
     rule runFunc(combineQuant(Q), R T) => (Q + R) T
 

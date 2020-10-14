@@ -359,5 +359,9 @@ module PURE-FLOW-COMMON
     rule X inList (ListItem(Y) Rest) => X inList Rest
         requires X =/=K Y
 
+    syntax Set ::= varsToSet(Vars) [function, functional]
+    rule varsToSet(.Vars) => .Set
+    rule varsToSet((X:Var, Xs)) => SetItem(X) varsToSet(Xs)
+
 endmodule
 
