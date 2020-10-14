@@ -236,9 +236,9 @@ First, rules checking the types of the source and destination locators, and buil
 
 \framebox{$\Gamma \flowproves_M (\Loc : \tau) ; f \flowprovesout \Delta $} \textbf{Locator Typing}
 Here $M$ is a \emph{mode}, either $S$, meaning source, $D$, meaning destination, or $*$, meaning either mode is acceptable.
+This ensures that we don't use, for example, numeric literals as the destination of a flow.
 We use $\Gamma$ as the \emph{input environment} and $\Delta$ as the \emph{output environment}.
 We use $f$ to refer to a function on types ($\tau \to \tau$).
-This ensures that we don't use, for example, numeric literals as the destination of a flow.
 
 \begin{mathpar}
     \inferrule*[right=Nat]{
