@@ -55,7 +55,7 @@ module PURE-FLOW
 
     rule checkDecl(transformer _(FormalArgs) -> Ret : RetType { Body })
          // TODO: Determine which all arguments that are unmoved?
-         => declareVars(Ret : RetType, FormalArgs) ~>
+         => declareVars(Ret : runFunc(withQuant(empty), RetType), FormalArgs) ~>
             checkStmts(Body) ~>
             (Source |- Ret : RetType ; idFunc) ~>
             clearTypeEnv(SetItem(Ret))
@@ -133,14 +133,26 @@ module PURE-FLOW
     rule Source |- I:Int : natToQuant(I) nat ; _ => .
         requires I >=Int 0
 
+    rule Source |- demote(L) : demoteType(T) ; idFunc => Source |- L : T ; idFunc
+    rule Source |- copy(L) : demoteType(T) ; _ => Source |- L : T ; idFunc
+
     rule Source |- _:Bool : one bool ; _ => .
 
     rule Source |- [ T ; Ls ] : natToQuant(sizeLocators(Ls)) list T ; F
          => checkEach(Source, T, Ls, F)
 
+    rule M |- L [ Q such that F(Args) ] : Q T ; Func
+         => (M |- L : ?R T ; join(Func)) ~>
+            checkAtLeast(?R, Q) // TODO: Finish typechecking based on F
+
+    syntax KItem ::= checkAtLeast(TypeQuant, TypeQuant)
+    rule checkAtLeast(Q, R) => .
+        requires R <=Q Q
+
     rule <k> Destination |- (var X : T) : empty T ; F => . ... </k>
         <typeEnv> ... .Map => X |-> runFunc(F, empty T) ... </typeEnv>
 
+    // TODO: Need to consider
     rule <k> _ |- X : T ; F => . ... </k>
         <typeEnv> ... X |-> (T => runFunc(F, T)) ... </typeEnv>
         requires F ==K idFunc orBool notBool(isImmutable(T))
@@ -162,12 +174,14 @@ module PURE-FLOW
     // ************* TypeFuncs **************
     syntax TypeFunc ::= withQuant(TypeQuant)
                       | combineQuant(TypeQuant)
+                      | join(TypeFunc)
                       | "idFunc"
     syntax Type ::= runFunc(TypeFunc, Type) [function, functional]
 
     rule runFunc(idFunc, Q T) => Q T
     rule runFunc(withQuant(Q), _ T) => Q T
     rule runFunc(combineQuant(Q), R T) => (Q + R) T
+    rule runFunc(join(F), Q T) => joinType(runFunc(F, Q T), Q T)
 
     // =======================================
     // Type Quantity Operators
@@ -211,6 +225,15 @@ module PURE-FLOW
     rule one - R => empty requires one <=Q R
     rule one - any => any
     rule any - R => any requires empty <Q R andBool R <Q every
+
+    syntax TypeQuant ::= joinQuant(TypeQuant, TypeQuant) [function, functional]
+    rule joinQuant(Q, Q) => Q
+    rule joinQuant(one, every) => nonempty
+    rule joinQuant(every, one) => nonempty
+    rule joinQuant(_, _) => any [owise]
+
+    syntax Type ::= joinType(Type, Type) [function, functional]
+    rule joinType(Q T, R T) => joinQuant(Q, R) T
 
     // =================================
     // Sequence
