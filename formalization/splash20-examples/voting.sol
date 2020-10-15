@@ -1,11 +1,9 @@
 contract Ballot {
   struct Voter { uint weight; bool voted; uint vote; }
   struct Proposal { bytes32 name; uint voteCount; }
-
   address public chairperson;
   mapping(address => Voter) public voters;
   Proposal[] public proposals;
-
   function giveRightToVote(address voter) public {
     require(msg.sender == chairperson,
       "Only chairperson can give right to vote.");
