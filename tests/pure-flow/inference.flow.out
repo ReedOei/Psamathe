@@ -1,0 +1,36 @@
+<generatedTop>
+  <common>
+    <k>
+      .
+    </k>
+    <typeEnv>
+      .Map
+    </typeEnv>
+    <types>
+      .Map
+    </types>
+    <functions>
+      .Map
+    </functions>
+  </common>
+  <lookup>
+    m |-> selected ( loc ( 0 ) , loc ( 0 ) )
+    x |-> selected ( loc ( 1 ) , loc ( 1 ) )
+  </lookup>
+  <storage>
+    loc ( 0 ) |-> resource ( table ( key , .Vars ) one record ( key , .Vars ) { key : any nat , value : any nat , .VarDefs } , .List )
+    loc ( 1 ) |-> resource ( record ( .Vars ) { k : any nat , v : any nat , .VarDefs } , ListItem ( k |-> loc ( 4 )
+    v |-> loc ( 6 ) ) )
+    loc ( 2 ) |-> resource ( record ( .Vars ) { k : any nat , v : any nat , .VarDefs } , .List )
+    loc ( 3 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 4 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 5 ) |-> resource ( nat , ListItem ( 0 ) )
+    loc ( 6 ) |-> resource ( nat , ListItem ( 0 ) )
+  </storage>
+  <catchStack>
+    .List
+  </catchStack>
+  <createdVals>
+    .Map
+  </createdVals>
+</generatedTop>

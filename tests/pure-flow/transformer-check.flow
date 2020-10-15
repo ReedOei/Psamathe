@@ -1,0 +1,6 @@
+transformer idNat(a : any nat) -> res : any nat {
+    a --> res
+}
+
+;
+

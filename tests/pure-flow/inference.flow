@@ -1,0 +1,6 @@
+;
+
+[] --> var m : map nat => nat
+
+{ k |-> 0, v |-> 0 } --> var x : { k : nat, v : nat }
+
