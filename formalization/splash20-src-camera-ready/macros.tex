@@ -1,0 +1,208 @@
+\lstset{
+  frame=none,
+  xleftmargin=2pt,
+  stepnumber=1,
+  numbers=left,
+  numbersep=5pt,
+  numberstyle=\ttfamily\tiny\color[gray]{0.3},
+  belowcaptionskip=\bigskipamount,
+  captionpos=b,
+  escapeinside={*'}{'*},
+  tabsize=2,
+  emphstyle={\bf},
+  commentstyle=\it,
+  stringstyle=\mdseries\rmfamily,
+  showspaces=false,
+  keywordstyle=\bfseries\rmfamily,
+  columns=flexible,
+  basicstyle=\small\sffamily,
+  showstringspaces=false,
+}
+
+\renewcommand{\setbuild}[2]{\ensuremath{\left\{ {#1} ~|~ {#2} \right\}}}
+\renewcommand{\true}{\textbf{\texttt{true}}\xspace}
+\renewcommand{\false}{\textbf{\texttt{false}}\xspace}
+% \Leftrightarrow is shorter than \iff
+\renewcommand{\iff}{\Leftrightarrow}
+\renewcommand{\implies}{\Rightarrow}
+
+\newcommand{\putS}{\textbf{\texttt{put}}\xspace}
+\newcommand{\evaluates}{\to}
+\newcommand{\compat}{\text{compat}\xspace}
+\newcommand{\resolve}{\textbf{\texttt{resolve}}\xspace}
+\newcommand{\values}{\text{values}\xspace}
+\newcommand{\storage}{\text{storage}\xspace}
+\newcommand{\loc}{\text{loc}\xspace}
+\newcommand{\Loc}{\mathcal{L}}
+\newcommand{\LocK}{\mathcal{K}}
+\newcommand{\copyC}{\textbf{\texttt{copy}}\xspace}
+\newcommand{\Trfm}{\textbf{\texttt{Trfm}}\xspace}
+\newcommand{\tableT}{\textbf{\texttt{table}}\xspace}
+\newcommand{\Env}{\textbf{Env}\xspace}
+\newcommand{\useField}{\text{useField}\xspace}
+\newcommand{\emptyVal}{\text{empty}\xspace}
+\newcommand{\amount}{\text{amount}\xspace}
+
+% \newcommand{\langName}{LANGUAGE-NAME\xspace}
+\newcommand{\langName}{Psamathe\xspace}
+\newcommand{\langNamePronounce}{/\textipa{sAmATi}/}
+
+\newcommand{\assetTxt}{asset\xspace}
+\newcommand{\AssetTxt}{Asset\xspace}
+
+\newcommand{\typeQuantity}{type quantity\xspace}
+\newcommand{\typeQuantities}{type quantities\xspace}
+
+\newcommand{\guard}{\bigg|\bigg|}
+\newcommand{\newc}{\textbf{\texttt{new}}}
+\newcommand{\everything}{\textbf{\texttt{everything}}}
+\newcommand{\nothing}{\textbf{\texttt{nothing}}}
+\newcommand{\then}{\textbf{\texttt{then}}}
+\newcommand{\this}{\textbf{\texttt{this}}}
+\newcommand{\fields}{\text{fields}}
+\newcommand{\decls}{\textbf{\texttt{decls}}}
+\newcommand{\consumes}[1]{\stackrel{#1}{\consumesarr}}
+\newcommand{\sends}[1]{\xrightarrow{#1}}
+
+\newcommand{\isAsset}{\text{isAsset}\xspace}
+
+\newcommand{\asset}{\textbf{\texttt{asset}}\xspace}
+\newcommand{\fungible}{\textbf{\texttt{fungible}}\xspace}
+\newcommand{\nonfungible}{\textbf{\texttt{nonfungible}}\xspace}
+\newcommand{\consumable}{\textbf{\texttt{consumable}}\xspace}
+\newcommand{\immutable}{\textbf{\texttt{immutable}}\xspace}
+\newcommand{\unique}{\textbf{\texttt{unique}}\xspace}
+
+\newcommand{\flowError}{\textbf{\texttt{error}}\xspace}
+
+\newcommand{\dom}{\textbf{\texttt{dom}}\xspace}
+\newcommand{\img}{\textbf{\texttt{img}}\xspace}
+
+\newcommand{\addresst}{\textbf{\texttt{address}}\xspace}
+\newcommand{\stringt}{\textbf{\texttt{string}}\xspace}
+\newcommand{\boolt}{\textbf{\texttt{bool}}\xspace}
+\newcommand{\natt}{\textbf{\texttt{nat}}\xspace}
+\newcommand{\voidt}{\textbf{\texttt{void}}\xspace}
+
+\newcommand{\byt}{\textbf{\texttt{by}}\xspace}
+\newcommand{\map}{\textbf{\texttt{map}}\xspace}
+\newcommand{\mapitem}{\textbf{\texttt{mapitem}}\xspace}
+\newcommand{\linking}{\textbf{\texttt{linking}}\xspace}
+\newcommand{\link}{\textbf{\texttt{link}}\xspace}
+\newcommand{\transformer}{\textbf{\texttt{transformer}}\xspace}
+
+\newcommand{\stores}{\textbf{\texttt{stores}}\xspace}
+\newcommand{\provides}{\textbf{\texttt{provides}}\xspace}
+\newcommand{\accepts}{\textbf{\texttt{accepts}}\xspace}
+
+\newcommand{\suchthat}{\textbf{s.t.}\xspace}
+\newcommand{\returns}{\textbf{\texttt{returns}}\xspace}
+\newcommand{\merge}{\rightsquigarrow}
+\newcommand{\flowsto}{\Rrightarrow}
+\newcommand{\heldby}{\rightarrowtail}
+
+\newcommand{\ifS}{\textbf{\texttt{if}}\xspace}
+\newcommand{\thenS}{\textbf{\texttt{then}}\xspace}
+\newcommand{\elseS}{\textbf{\texttt{else}}\xspace}
+\newcommand{\tryS}{\textbf{\texttt{try}}\xspace}
+\newcommand{\catchS}{\textbf{\texttt{catch}}\xspace}
+
+\newcommand{\contract}{\textbf{\texttt{contract}}\xspace}
+\newcommand{\interface}{\textbf{\texttt{interface}}\xspace}
+\newcommand{\oncreate}{\textbf{\texttt{on create}}\xspace}
+\newcommand{\constructor}{\textbf{\texttt{constructor}}\xspace}
+
+\newcommand{\Quant}{\textbf{Quant}\xspace}
+
+\newcommand{\Con}{\textbf{\texttt{Con}}\xspace}
+\newcommand{\Decl}{\textbf{\texttt{Decl}}\xspace}
+\newcommand{\Trig}{\textbf{\texttt{Trig}}\xspace}
+\newcommand{\Prog}{\textbf{\texttt{Prog}}\xspace}
+\newcommand{\Stmt}{\textbf{\texttt{Stmt}}\xspace}
+
+\newcommand{\type}{\textbf{\texttt{type}}\xspace}
+\newcommand{\is}{\textbf{\texttt{is}}\xspace}
+
+\newcommand{\one}{\textbf{\texttt{one}}\xspace}
+\newcommand{\setq}{\textbf{\texttt{set}}\xspace}
+\newcommand{\listq}{\textbf{\texttt{list}}\xspace}
+\newcommand{\optionq}{\textbf{\texttt{option}}\xspace}
+
+\newcommand{\single}{\textbf{\texttt{single}}\xspace}
+
+\newcommand{\zip}{\textbf{\texttt{zip}}\xspace}
+
+\newcommand{\emptyq}{\textbf{\texttt{empty}}\xspace}
+\newcommand{\atmostone}{?}
+\newcommand{\nonempty}{\textbf{\texttt{nonempty}}\xspace}
+\newcommand{\any}{\textbf{\texttt{any}}\xspace}
+\newcommand{\every}{\textbf{\texttt{every}}\xspace}
+\newcommand{\exactlyone}{\textbf{\texttt{one}}\xspace}
+
+% Symbol versions of the type quantities:
+% \newcommand{\emptyq}{\bm{0}}
+% \newcommand{\atmostone}{?}
+% \newcommand{\nonempty}{+}
+% \newcommand{\some}{\_}
+% \newcommand{\any}{*}
+% \newcommand{\every}{\infty}
+% \newcommand{\exactlyone}{!}
+
+\newcommand{\resolvable}{\textbf{\texttt{resolvable}}\xspace}
+\newcommand{\matches}{\textbf{\texttt{matches}}\xspace}
+
+\newcommand{\elemtype}{\text{elemtype}\xspace}
+
+\newcommand{\consume}{\textbf{\texttt{consume}}\xspace}
+\newcommand{\emptyval}{\textbf{\texttt{emptyval}}\xspace}
+
+\newcommand{\pack}{\textbf{\texttt{pack}}\xspace}
+\newcommand{\unpack}{\textbf{\texttt{unpack}}\xspace}
+
+\newcommand{\validSelect}{\textbf{\texttt{validSelect}}\xspace}
+
+\newcommand{\total}{\textbf{\texttt{total}}\xspace}
+
+\newcommand{\transaction}{\textbf{\texttt{transaction}}\xspace}
+\newcommand{\private}{\textbf{\texttt{private}}\xspace}
+\newcommand{\doC}{\textbf{\texttt{do}}\xspace}
+\newcommand{\view}{\textbf{\texttt{view}}\xspace}
+
+\newcommand{\emit}{\textbf{\texttt{emit}}\xspace}
+\newcommand{\event}{\textbf{\texttt{event}}\xspace}
+\newcommand{\revert}{\textbf{\texttt{revert}}\xspace}
+\newcommand{\call}{\textbf{\texttt{call}}\xspace}
+\newcommand{\asserting}{\textbf{\texttt{asserting}}\xspace}
+
+\newcommand{\selects}{\textbf{\texttt{selects}}\xspace}
+
+\newcommand{\modifiers}{\text{modifiers}\xspace}
+\newcommand{\declaration}{\textbf{\texttt{declaration}}\xspace}
+
+\newcommand{\select}{\textbf{\texttt{select}}\xspace}
+\newcommand{\combine}{\textbf{\texttt{combine}}\xspace}
+\newcommand{\update}{\text{update}\xspace}
+
+\newcommand{\typeof}{\textbf{\texttt{typeof}}\xspace}
+
+\newcommand{\pass}{\textbf{\texttt{pass}}\xspace}
+
+\newcommand{\ok}{\textbf{ok}\xspace}
+\newcommand{\consumesarr}{\hskip -0.15em\mathrel{\rotatebox[origin=c]{270}{${\looparrowright}$}}}
+\newcommand{\fillsarr}{\hskip -0.15em\mathrel{\rotatebox[origin=c]{270}{${\looparrowleft}$}}}
+
+\newcommand{\demote}{\textbf{\texttt{demote}}\xspace}
+\newcommand{\demoteT}{\text{demote}\xspace}
+\newcommand{\transforms}{\rightsquigarrow}
+\newcommand{\orop}{\textbf{\texttt{or}}\xspace}
+\newcommand{\andop}{\textbf{\texttt{and}}\xspace}
+\newcommand{\var}{\textbf{\texttt{var}}\xspace}
+\newcommand{\letvar}{\textbf{\texttt{let}}\xspace}
+\newcommand{\varin}{\textbf{\texttt{in}}\xspace}
+\newcommand{\from}{\textbf{\texttt{from}}\xspace}
+
+% \newcommand{\flowproves}{\mathbin{|\hskip -0.1em\scalebox{0.7}[1]{$\leadsto$}}}
+\newcommand{\flowproves}{\proves}
+% \newcommand{\flowprovesout}{\mathbin{\scalebox{0.7}[1]{$\leadsto$}\hskip -0.13em|}}
+\newcommand{\flowprovesout}{\dashv}
+
