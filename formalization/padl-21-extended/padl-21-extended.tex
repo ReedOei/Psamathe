@@ -330,6 +330,9 @@ Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select
     \inferrule*[right=Loc-Nat]{
     }{ \angles{ \Sigma, n } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\natt, n)]], (\ell, \amount(n)) } }
 
+    \inferrule*[right=Loc-Bool]{
+    }{ \angles{ \Sigma, b } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\boolt, b)]], (\ell, \ell) } }
+
     \inferrule*[right=Loc-Id]{
     }{ \angles{ \Sigma, x } \to \angles{ \Sigma, (\mu(x), \mu(x)) } }
 
