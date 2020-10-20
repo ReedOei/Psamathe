@@ -235,21 +235,47 @@ Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the bes
 First, rules checking the types of the source and destination locators, and building up the appropriate updaters.
 
 \framebox{$\Gamma \flowproves_M (\Loc : \tau) ; f \flowprovesout \Delta $} \textbf{Locator Typing}
-Here $M$ is a \emph{mode}, either $S$, meaning source, $D$, meaning destination, or $*$, meaning either mode is acceptable.
+Here $M$ is a \emph{mode}, either $S$, meaning source, or $D$, meaning destination.
 This ensures that we don't use, for example, numeric literals as the destination of a flow.
 We use $\Gamma$ as the \emph{input environment} and $\Delta$ as the \emph{output environment}.
-We use $f$ to refer to a function on types ($\tau \to \tau$).
+We use $f$ to refer to a function on types ($\tau \to \tau$), and we write $\id{\tau}$ for the identity function.
 
 \begin{mathpar}
     \inferrule*[right=Nat]{
     }{ \Gamma \flowproves_S n : \#(n)~\natt; f \flowprovesout \Gamma }
 
+    \inferrule*[right=Bool]{
+        b \in \curlys{ \true, \false }
+    }{ \Gamma \flowproves_S b : \exactlyone~\boolt; f \flowprovesout \Gamma }
+
     \inferrule*[right=Var]{
         f = \id{\tau} \tor \lnot(\tau~\immutable)
-    }{ \Gamma, x : \tau \flowproves_* (x : \tau) ; f \flowprovesout \Gamma, x : f(\tau) }
+    }{ \Gamma, x : \tau \flowproves_M (x : \tau) ; f \flowprovesout \Gamma, x : f(\tau) }
 
     \inferrule*[right=VarDef]{
     }{ \Gamma \flowproves_D ((\var~x : T) : \emptyq~T) ; f \flowprovesout \Gamma, x : f(\emptyq~T) }
+
+    \inferrule*[right=Copy]{
+        \Gamma \proves_S \Loc : \tau ; \id{\tau} \flowprovesout \Gamma
+    }{ \Gamma \flowproves_S \copyC(\Loc) : \demoteT(\tau); f \flowprovesout \Gamma }
+
+    \inferrule*[right=Demote]{
+        \Gamma \proves_S \Loc : \tau ; \id{\tau} \flowprovesout \Gamma
+    }{ \Gamma \flowproves_S \demote(\Loc) : \demoteT(\tau); \id{\tau} \flowprovesout \Gamma }
+
+    \inferrule*[right=List]{
+        \Gamma \flowproves_S \overline{L : \tau ; f} \flowprovesout \Delta
+    }{ \Gamma \flowproves_S [ \tau ; \overline{L} ] : \#(|\overline{L}|)~\tableT(\cdot)~\tau ; f \flowprovesout \Delta }
+
+    \inferrule*[right=Filter]{
+        \Gamma \flowproves_M \Loc : \mathcal{R}~T ; (\tau \mapsto \tau \ominus \mathcal{Q}) \flowprovesout \Delta
+        \\
+        \mathcal{R} \geq \mathcal{Q}
+        \\
+        \transformer f(\overline{x : \tau}, y : \elemtype(T)) \to \one~\boolt~\{ \overline{\Stmt} \}
+        \\
+        \Delta \flowproves \overline{\LocK : \tau} ; (\mathcal{Q}'~T' \mapsto \emptyq~T') \flowprovesout \Delta
+    }{ \Gamma \flowproves_M \Loc[\mathcal{Q}~\tsuchthat~f(\overline{\LocK})] : \mathcal{Q}~T ; f \flowprovesout \Delta }
 \end{mathpar}
 
 Below is the type rule checking whether a flow (without a transformer) is valid.
