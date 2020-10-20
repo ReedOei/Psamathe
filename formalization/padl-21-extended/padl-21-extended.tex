@@ -240,6 +240,7 @@ This ensures that we don't use, for example, numeric literals as the destination
 We use $\Gamma$ as the \emph{input environment} and $\Delta$ as the \emph{output environment}.
 We use $f$ to refer to a function on types ($\tau \to \tau$), and we write $\id{\tau}$ for the identity function.
 
+Constants of type $\natt$ or $\boolt$ can only be used as sources---it doesn't make sense to flow values to a constant.
 \begin{mathpar}
     \inferrule*[right=Nat]{
     }{ \Gamma \flowproves_S n : \#(n)~\natt; f \flowprovesout \Gamma }
@@ -276,6 +277,10 @@ We use $f$ to refer to a function on types ($\tau \to \tau$), and we write $\id{
         \\
         \Delta \flowproves \overline{\LocK : \tau} ; (\mathcal{Q}'~T' \mapsto \emptyq~T') \flowprovesout \Delta
     }{ \Gamma \flowproves_M \Loc[\mathcal{Q}~\tsuchthat~f(\overline{\LocK})] : \mathcal{Q}~T ; f \flowprovesout \Delta }
+
+    \inferrule*[right=Consume]{
+        T~\consumable
+    }{ \Gamma \flowproves_D \consume : \emptyq~T ; f \flowprovesout \Gamma }
 \end{mathpar}
 
 Below is the type rule checking whether a flow (without a transformer) is valid.
@@ -412,8 +417,6 @@ This example uses a pipeline of locators and transformers (lines~\ref{line:aucti
     \label{fig:blind-auction-impl-flow}
 \end{figure}
 
-% \subsection{Discussion}
-
 \section{Conclusion and Future Work}
 
 We have presented the \langName language for writing safer smart contracts.
@@ -424,7 +427,8 @@ In the future, we plan to fully implement the \langName language, and prove its 
 We also hope to study the benefits and costs of the language via case studies, performance evaluation, and the application of flows to other domains.
 Finally, we would also like to conduct a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity, which we hypothesize will show that developers write contracts with fewer asset management errors in \langName than in Solidity.
 
-\bibliographystyle{splncs04}
+\reed{TODO: For some reason the references stopped showing up...???}
+\bibliographystyle{ACM-Reference-Format}
 \bibliography{biblio}
 
 \end{document}
