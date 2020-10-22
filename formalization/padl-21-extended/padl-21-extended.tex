@@ -242,15 +242,23 @@ We use $f$ to refer to a function on types ($\tau \to \tau$), and we write $\id{
 We call such functions \emph{updaters}.
 
 Constants of type $\natt$ or $\boolt$ can only be used as sources---it doesn't make sense to flow values to a constant.
-We may type a $\natt$ with any quantity that is compatible with it's actual quantity; for example, if $n = 1$, we can use $\exactlyone$, $\nonempty$, or $\any$, but if $n = 0$, we cannot use $\nonempty$.
 \begin{mathpar}
     \inferrule*[right=Nat]{
-        \#(n) \sqsubseteq \mathcal{Q}
-    }{ \Gamma \flowproves_S n : \mathcal{Q}~\natt; f \flowprovesout \Gamma }
+    }{ \Gamma \flowproves_S n : \#(n)~\natt; f \flowprovesout \Gamma }
 
     \inferrule*[right=Bool]{
         b \in \curlys{ \true, \false }
     }{ \Gamma \flowproves_S b : \exactlyone~\boolt; f \flowprovesout \Gamma }
+\end{mathpar}
+
+We may take any locator and type it with a less specific, but compatible, quantity.
+For example, if we know that $\Loc : \exactlyone~T$, then we can also say that $\Loc : \nonempty~T$ or $\Loc : \any~T$; however, if we have $\Loc : \any~T$, we cannot say that $\Loc : \exactlyone~T$.
+\begin{mathpar}
+    \inferrule*[right=Subquant]{
+        \Gamma \flowproves \Loc : \mathcal{R}~T ; f \flowprovesout \Delta
+        \\
+        \mathcal{R} \sqsubseteq \mathcal{R}
+    }{ \Gamma \flowproves \Loc : \mathcal{Q}~T ; f \flowprovesout \Delta }
 \end{mathpar}
 
 Variables may be used as either sources or destinations, as long as they are not immutable.
@@ -285,9 +293,7 @@ For this reason, the resulting type of a copy is the \emph{demoted} type of $\ta
 \begin{mathpar}
     \inferrule*[right=List]{
         \Gamma \flowproves_S \overline{\Loc : \tau ; f} \flowprovesout \Delta
-        \\
-        \#(|\overline{\Loc}|) \sqsubseteq \mathcal{Q}
-    }{ \Gamma \flowproves_S [ \tau ; \overline{\Loc} ] : \mathcal{Q}~\tableT(\cdot)~\tau ; f \flowprovesout \Delta }
+    }{ \Gamma \flowproves_S [ \tau ; \overline{\Loc} ] : \#(|\overline{\Loc}|)~\tableT(\cdot)~\tau ; f \flowprovesout \Delta }
 \end{mathpar}
 
 The \textsc{Filter} rule has several parts.
