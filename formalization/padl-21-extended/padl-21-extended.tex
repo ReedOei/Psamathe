@@ -242,9 +242,11 @@ We use $f$ to refer to a function on types ($\tau \to \tau$), and we write $\id{
 We call such functions \emph{updaters}.
 
 Constants of type $\natt$ or $\boolt$ can only be used as sources---it doesn't make sense to flow values to a constant.
+We may type a $\natt$ with any quantity that is compatible with it's actual quantity; for example, if $n = 1$, we can use $\exactlyone$, $\nonempty$, or $\any$, but if $n = 0$, we cannot use $\nonempty$.
 \begin{mathpar}
     \inferrule*[right=Nat]{
-    }{ \Gamma \flowproves_S n : \#(n)~\natt; f \flowprovesout \Gamma }
+        \#(n) \sqsubseteq \mathcal{Q}
+    }{ \Gamma \flowproves_S n : \mathcal{Q}~\natt; f \flowprovesout \Gamma }
 
     \inferrule*[right=Bool]{
         b \in \curlys{ \true, \false }
@@ -283,7 +285,9 @@ For this reason, the resulting type of a copy is the \emph{demoted} type of $\ta
 \begin{mathpar}
     \inferrule*[right=List]{
         \Gamma \flowproves_S \overline{\Loc : \tau ; f} \flowprovesout \Delta
-    }{ \Gamma \flowproves_S [ \tau ; \overline{\Loc} ] : \#(|\overline{\Loc}|)~\tableT(\cdot)~\tau ; f \flowprovesout \Delta }
+        \\
+        \#(|\overline{\Loc}|) \sqsubseteq \mathcal{Q}
+    }{ \Gamma \flowproves_S [ \tau ; \overline{\Loc} ] : \mathcal{Q}~\tableT(\cdot)~\tau ; f \flowprovesout \Delta }
 \end{mathpar}
 
 The \textsc{Filter} rule has several parts.
@@ -319,15 +323,28 @@ Below is the type rule checking whether a flow (without a transformer) is valid.
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
 
-In \textsc{Ok-Flow}, Checking $u \neq \bot$ and $v \neq \bot$ ensures that $\Loc$ and $\LocK$ are valid sources/destinations of the flow (e.g., not immutable).
 We check that $\Loc$ and $\LocK$ have the same base type.
-We then clear out all the values selected by $\Loc$, using $u$, and add them to $\LocK$, using $v$.
+All the values selected by $\Loc$ are cleared out and added to $\LocK$, using the updaters.
 \begin{mathpar}
     \inferrule*[right=Ok-Flow]{
         \Gamma \flowproves_S \Loc : \mathcal{Q}~T ; (\mathcal{Q}'~T' \mapsto \emptyq~T') \flowprovesout \Delta
         \\
         \Delta \flowproves_D \LocK : \mathcal{R}~T ; (\tau \mapsto \tau \oplus \mathcal{Q}) \flowprovesout \Xi
     }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout \Xi }
+\end{mathpar}
+
+\framebox{$\flowproves \Decl~\ok$} \textbf{Declaration Well-formedness}
+
+\begin{mathpar}
+    \inferrule*[right=Ok-Type]{
+        T~\asset \implies \asset \in \overline{M}
+    }{ \proves (\type~t~\is~\overline{M}~T)~\ok }
+
+    % \inferrule*[right=Ok-Transformer]{
+    %     x : \tau, y : \emptyq~T \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, y : \mathcal{Q}~T
+    %     \\
+    %     \forall z : \sigma \in \Delta. \lnot(\sigma~\asset)
+    % }{ \proves (\transformer f(\overline{x : \tau}) \to y : \mathcal{Q}~T ~\{ \overline{\Stmt} \})~\ok }
 \end{mathpar}
 
 \paragraph{Dynamics}
