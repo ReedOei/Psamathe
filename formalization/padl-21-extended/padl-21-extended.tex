@@ -199,7 +199,7 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
         $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
         $\Loc$, $\LocK$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
                & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
-               & \bnfalt & $\demote(\Loc)$ \bnfalt $\copyC(\Loc)$ \bnfalt $\zip(\overline{\Loc})$ & \\
+               & \bnfalt & $\copyC(\Loc)$ \bnfalt $\zip(\overline{\Loc})$ & \\
                & \bnfalt & $\Loc[\Loc]$ \bnfalt $\Loc[\mathcal{Q} \tsuchthat f(\overline{\Loc})]$ \bnfalt $\consume$ & \\
         $\Trfm$ & \bnfdef & $\newc~t(\overline{\Loc})$ \bnfalt $f(\overline{\Loc})$ & (transformer calls) \\
         $\Stmt$ & \bnfdef & $\Loc \to \Loc$ \bnfalt $\Loc \to \Trfm \to \Loc$ & (flows) \\
@@ -235,21 +235,84 @@ Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the bes
 First, rules checking the types of the source and destination locators, and building up the appropriate updaters.
 
 \framebox{$\Gamma \flowproves_M (\Loc : \tau) ; f \flowprovesout \Delta $} \textbf{Locator Typing}
-Here $M$ is a \emph{mode}, either $S$, meaning source, $D$, meaning destination, or $*$, meaning either mode is acceptable.
+Here $M$ is a \emph{mode}, either $S$, meaning source, or $D$, meaning destination.
 This ensures that we don't use, for example, numeric literals as the destination of a flow.
 We use $\Gamma$ as the \emph{input environment} and $\Delta$ as the \emph{output environment}.
-We use $f$ to refer to a function on types ($\tau \to \tau$).
+We use $f$ to refer to a function on types ($\tau \to \tau$), and we write $\id{\tau}$ for the identity function on types.
+We call such functions \emph{updaters}.
 
+Constants of type $\natt$ or $\boolt$ can only be used as sources---it doesn't make sense to flow values to a constant.
 \begin{mathpar}
     \inferrule*[right=Nat]{
     }{ \Gamma \flowproves_S n : \#(n)~\natt; f \flowprovesout \Gamma }
 
+    \inferrule*[right=Bool]{
+        b \in \curlys{ \true, \false }
+    }{ \Gamma \flowproves_S b : \exactlyone~\boolt; f \flowprovesout \Gamma }
+\end{mathpar}
+
+Variables may be used as either sources or destinations, as long as they are not immutable.
+We may also use them to select resources (in which case $f = \id{\tau}$), even if immutable.
+\begin{mathpar}
     \inferrule*[right=Var]{
         f = \id{\tau} \tor \lnot(\tau~\immutable)
-    }{ \Gamma, x : \tau \flowproves_* (x : \tau) ; f \flowprovesout \Gamma, x : f(\tau) }
+    }{ \Gamma, x : \tau \flowproves_M (x : \tau) ; f \flowprovesout \Gamma, x : f(\tau) }
+\end{mathpar}
 
+Variable definitions must be destinations, as newly defined variables are always empty, so there is no reason to use them as sources. \reed{though it's not strictly \textbf{wrong}}
+\begin{mathpar}
     \inferrule*[right=VarDef]{
     }{ \Gamma \flowproves_D ((\var~x : T) : \emptyq~T) ; f \flowprovesout \Gamma, x : f(\emptyq~T) }
+\end{mathpar}
+
+If we want to leave the original located value unchanged, we may use $\copyC(\Loc)$ to deep-copy whatever $\Loc$ locates.
+Because the original value will be unchanged, we use $\id{\tau}$ as the updater.
+Copied values have two restrictions: 1) they must only be sources, because there would be no way to refer to the values if used as a destination; and 2) they must be non-assets, because copying an asset is forbidden.
+For this reason, the resulting type of a copy is the \emph{demoted} type of $\tau$, which is never an asset.
+\begin{mathpar}
+    \inferrule*[right=Copy]{
+        \Gamma \proves_S \Loc : \tau ; \id{\tau} \flowprovesout \Gamma
+    }{ \Gamma \flowproves_S \copyC(\Loc) : \demoteT(\tau); f \flowprovesout \Gamma }
+
+    % \inferrule*[right=Demote]{
+    %     \Gamma \proves_S \Loc : \tau ; \id{\tau} \flowprovesout \Gamma
+    % }{ \Gamma \flowproves_S \demote(\Loc) : \demoteT(\tau); \id{\tau} \flowprovesout \Gamma }
+\end{mathpar}
+
+\reed{TODO: Need to ensure that $f$ works on list elements, not the whole list (otherwise we need to ``translate'' it)}
+\begin{mathpar}
+    \inferrule*[right=List]{
+        \Gamma \flowproves_S \overline{\Loc : \tau ; f} \flowprovesout \Delta
+    }{ \Gamma \flowproves_S [ \tau ; \overline{\Loc} ] : \#(|\overline{\Loc}|)~\tableT(\cdot)~\tau ; f \flowprovesout \Delta }
+\end{mathpar}
+
+The \textsc{Filter} rule has several parts.
+We must ensure that the predicate, $p$, really is a predicate: it works on $\elemtype(T)$ and returns $\exactlyone~\boolt$.
+Next, we check that the location being filtered is of the right type, and updates its type, as appropriate.
+We use $\tau \mapsto \max(f(\tau), \tau \ominus \mathcal{Q})$ to capture whether $f$ is $\id{\tau}$ or performs some modification.
+For example, suppose $f(\mathcal{Q}~T) = \emptyq~T$.
+Then the intention is to select every located value---but we will only locate $\mathcal{Q}$ values, so we should only subtract $\mathcal{Q}$ values, and we will have $\max(f(\mathcal{R}~T), (\mathcal{R}~T) \ominus \mathcal{Q}) = \max(\emptyq~T, (\mathcal{R}~T) \ominus \mathcal{Q}) = (\mathcal{R}~T) \ominus \mathcal{Q}$, as desired.
+Next, we add the condition that $\mathcal{R} \geq \mathcal{Q}$, catching any flows that will obviously fail at runtime (e.g., $\Loc[\nonempty~\tsuchthat~p(\overline{\LocK})]$ where $\Loc$ is $\emptyq$).
+This condition is not strictly necessary, as it would be caught by the dynamic check.
+\begin{mathpar}
+    \inferrule*[right=Filter]{
+        \transformer f(\overline{x : \tau}, y : \elemtype(T)) \to \one~\boolt~\{ \overline{\Stmt} \}
+        \\
+        \Gamma \flowproves_M \Loc : \mathcal{R}~T ; (\tau \mapsto \max(f(\tau), \tau \ominus \mathcal{Q})) \flowprovesout \Delta
+        \\
+        \mathcal{R} \geq \mathcal{Q}
+        \\
+        \Delta \flowproves \overline{\LocK : \tau} ; (\mathcal{Q}'~T' \mapsto \emptyq~T') \flowprovesout \Delta
+    }{ \Gamma \flowproves_M \Loc[\mathcal{Q}~\tsuchthat~p(\overline{\LocK})] : \mathcal{Q}~T ; f \flowprovesout \Delta }
+\end{mathpar}
+\reed{TODO: It might actually be good to let function types say which arguments can be changed; if we do this, then we can have a less restrictive check on the types of arguments in \textsc{Filter}}
+
+We may only use $\consume$ as a destination, and only if $T$ is a consumable type.
+We arbitrarily choose $\emptyq$ as the type quantity for $\consume$. \reed{I don't think it matters at all which one is chosen}
+\begin{mathpar}
+    \inferrule*[right=Consume]{
+        T~\consumable
+    }{ \Gamma \flowproves_D \consume : \emptyq~T ; f \flowprovesout \Gamma }
 \end{mathpar}
 
 Below is the type rule checking whether a flow (without a transformer) is valid.
@@ -298,6 +361,9 @@ Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select
 \begin{mathpar}
     \inferrule*[right=Loc-Nat]{
     }{ \angles{ \Sigma, n } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\natt, n)]], (\ell, \amount(n)) } }
+
+    \inferrule*[right=Loc-Bool]{
+    }{ \angles{ \Sigma, b } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\boolt, b)]], (\ell, \ell) } }
 
     \inferrule*[right=Loc-Id]{
     }{ \angles{ \Sigma, x } \to \angles{ \Sigma, (\mu(x), \mu(x)) } }
@@ -386,8 +452,6 @@ This example uses a pipeline of locators and transformers (lines~\ref{line:aucti
     \label{fig:blind-auction-impl-flow}
 \end{figure}
 
-% \subsection{Discussion}
-
 \section{Conclusion and Future Work}
 
 We have presented the \langName language for writing safer smart contracts.
@@ -398,7 +462,8 @@ In the future, we plan to fully implement the \langName language, and prove its 
 We also hope to study the benefits and costs of the language via case studies, performance evaluation, and the application of flows to other domains.
 Finally, we would also like to conduct a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity, which we hypothesize will show that developers write contracts with fewer asset management errors in \langName than in Solidity.
 
-\bibliographystyle{splncs04}
+\reed{TODO: For some reason the references stopped showing up...???}
+\bibliographystyle{ACM-Reference-Format}
 \bibliography{biblio}
 
 \end{document}
