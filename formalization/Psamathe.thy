@@ -6,12 +6,15 @@ datatype TyQuant = empty | any | one | nonempty
 datatype BaseTy = natural | boolean
 type_synonym Type = "TyQuant \<times> BaseTy"
 datatype Mode = s | d
-datatype Locator = N nat | B bool | V string 
+datatype SVal = SLoc nat | Amount nat
+type_synonym StorageLoc = "nat \<times> SVal" 
+datatype Stored = V string | Loc StorageLoc
+datatype Locator = N nat | B bool | S Stored
                  | VDef string BaseTy ("var _ : _")
 datatype Stmt = Flow Locator Locator
 datatype Prog = Prog "Stmt list"
 
-type_synonym Env = "(string, Type) map"
+type_synonym Env = "(Stored, Type) map"
 
 definition toQuant :: "nat \<Rightarrow> TyQuant" where
   "toQuant n \<equiv> (if n = 0 then empty else if n = 1 then one else nonempty)"
@@ -20,26 +23,25 @@ inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> Locator \<Rightarrow
   ("_ \<turnstile>{_} _ : _ ; _ \<stileturn> _") where
   Nat: "\<Gamma> \<turnstile>{s} (N n) : (toQuant(n), natural) ; f \<stileturn> \<Gamma>"
 | Bool: "\<Gamma> \<turnstile>{s} (B b) : (one, boolean) ; f \<stileturn> \<Gamma>"
-| Var: "\<lbrakk> \<Gamma> x = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} (V x) : \<tau> ; f \<stileturn> (\<Gamma>(x \<mapsto> f(\<tau>)))"
-| VarDef: "\<lbrakk> x \<notin> dom \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{d} (var x : t) : (empty, t) ; f \<stileturn> (\<Gamma>(x \<mapsto> f(empty, t)))"
+| Var: "\<lbrakk> \<Gamma> x = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} (S x) : \<tau> ; f \<stileturn> (\<Gamma>(x \<mapsto> f(\<tau>)))"
+| VarDef: "\<lbrakk> V x \<notin> dom \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{d} (var x : t) : (empty, t) ; f \<stileturn> (\<Gamma>(V x \<mapsto> f(empty, t)))"
 
 datatype Val = Num nat | Bool bool | error
-datatype Loc = SLoc nat | Amount nat
 type_synonym Resource = "BaseTy \<times> Val"
-type_synonym Store = "(string, nat \<times> Loc) map \<times> (nat, Resource) map"
+type_synonym Store = "(string, StorageLoc) map \<times> (nat, Resource) map"
 
 fun emptyVal :: "BaseTy \<Rightarrow> Val" where
   "emptyVal natural = Num 0"
 | "emptyVal boolean = Bool False"
 
-inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightarrow> (Locator + Loc \<times> Loc) \<Rightarrow> bool"
+inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightarrow> Locator \<Rightarrow> bool"
   ("< _ , _ > \<rightarrow> < _ , _ >") where
-  ENat: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (natural, Num n))), Inr (SLoc l, Amount n) >"
-| EBool: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b))), Inr (SLoc l, SLoc l) >"
-| EVar: "\<lbrakk> \<mu> x = Some (l, k) \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), V x > \<rightarrow> < (\<mu>, \<rho>), Inr (SLoc l, k) >"
+  ENat: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (natural, Num n))), S (Loc (l, Amount n)) >"
+| EBool: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b))), S (Loc (l, SLoc l)) >"
+| EVar: "\<lbrakk> \<mu> x = Some l \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), S (V x) > \<rightarrow> < (\<mu>, \<rho>), S (Loc l) >"
 | EVarDef: "\<lbrakk> x \<notin> dom \<mu> ; l \<notin> dom \<rho> \<rbrakk> 
             \<Longrightarrow> < (\<mu>, \<rho>), var x : t > 
-                \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> (t, emptyVal t))), Inr (SLoc l, SLoc l) >"
+                \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> (t, emptyVal t))), S (Loc (l, SLoc l)) >"
 
 fun addQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> TyQuant" ("_ \<oplus> _") where
   "(q \<oplus> empty) = q"
@@ -50,8 +52,11 @@ fun addQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> TyQuant" ("_ \<oplu
 | "(r \<oplus> one) = nonempty"
 | "(any \<oplus> any) = any"
 
+definition var_dom :: "Env \<Rightarrow> string set" where
+  "var_dom \<Gamma> \<equiv> { x . V x \<in> dom \<Gamma> }"
+
 fun compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" ("_ \<leftrightarrow> _") where
-  "compat \<Gamma> (\<mu>, \<rho>) = ((dom \<Gamma> = Map.dom \<mu>) \<and> 
+  "compat \<Gamma> (\<mu>, \<rho>) = ((var_dom \<Gamma> = dom \<mu>) \<and> 
                       (\<forall>x l k. \<mu> x = Some (l, k) \<longrightarrow> \<rho> l \<noteq> None))"
 
 lemma
@@ -70,10 +75,10 @@ proof(induction rule: loc_type.induct)
     show "\<exists>\<mu>'. \<exists>\<rho>'. \<exists>\<L>'. (\<Gamma> \<leftrightarrow> (\<mu>', \<rho>')) \<and> < (\<mu>, \<rho>), N n > \<rightarrow> < (\<mu>', \<rho>'), \<L>' >" 
     proof(rule exI[where x = "\<mu>"], 
           rule exI[where x = "\<rho>(l \<mapsto> (natural, Num n))"], 
-          rule exI[where x = "Inr (SLoc l, Amount n)"],
+          rule exI[where x = "S (Loc (l, Amount n))"],
           rule conjI)
       from env_compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> (natural, Num n)))" by auto
-      from has_loc show " < (\<mu>, \<rho>) , N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (natural, Num n))) , Inr (SLoc l, Amount n) >"
+      from has_loc show " < (\<mu>, \<rho>) , N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (natural, Num n))) , S (Loc (l, Amount n)) >"
         by (rule ENat)
     qed
   qed
@@ -86,10 +91,10 @@ next
     show "\<exists>\<mu>'. \<exists>\<rho>'. \<exists>\<L>'. (\<Gamma> \<leftrightarrow> (\<mu>', \<rho>')) \<and> < (\<mu>, \<rho>), B b > \<rightarrow> < (\<mu>', \<rho>'), \<L>' >" 
     proof(rule exI[where x = "\<mu>"], 
           rule exI[where x = "\<rho>(l \<mapsto> (boolean, Bool b))"], 
-          rule exI[where x = "Inr (SLoc l, SLoc l)"],
+          rule exI[where x = "S (Loc (l, SLoc l))"],
           rule conjI)
       from env_compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b)))" by auto
-      from has_loc show " < (\<mu>, \<rho>) , B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b))) , Inr (SLoc l, SLoc l) >"
+      from has_loc show " < (\<mu>, \<rho>) , B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b))) , S (Loc (l, SLoc l)) >"
         by (rule EBool)
     qed
   qed
