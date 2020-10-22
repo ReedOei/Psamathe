@@ -58,82 +58,91 @@ definition var_dom :: "Env \<Rightarrow> string set" where
 fun compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" ("_ \<leftrightarrow> _") where
   "compat \<Gamma> (\<mu>, \<rho>) = ((var_dom \<Gamma> = dom \<mu>) \<and> 
                       (\<forall>x l k. \<mu> x = Some (l, k) \<longrightarrow> \<rho> l \<noteq> None))"
+                      (* (\<forall>x q t. \<Gamma>(V x) = Some (q,t) \<longrightarrow> (\<exists>l v. \<rho> l = Some (t, v))))" *)
 
-lemma
-  fixes "\<Gamma>" and "\<L>" and "q" and "t" and "\<Delta>" and "\<mu>" and "\<rho>" and "l"
-  assumes "\<Gamma> \<turnstile>{s} \<L> : (q,t) ; (\<lambda>(_, t'). (empty, t')) \<stileturn> \<Delta>"
+definition located :: "Locator \<Rightarrow> bool" where
+  "located \<L> \<equiv> case \<L> of S (Loc _) \<Rightarrow> True | _ \<Rightarrow> False"
+
+lemma locator_progress:
+  fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>" and "\<mu>" and "\<rho>" and "l"
+  assumes "\<Gamma> \<turnstile>{s} \<L> : \<tau> ; (\<lambda>(_, t'). (empty, t')) \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)"
-      and "l \<notin> Map.dom \<rho>" (* For convenience only *)
-   shows "\<exists>\<mu>'. \<exists>\<rho>'. \<exists>\<L>'. (\<Delta> \<leftrightarrow> (\<mu>', \<rho>')) \<and> < (\<mu>, \<rho>), \<L> > \<rightarrow> < (\<mu>', \<rho>'), \<L>' >"
+      and "l \<notin> dom \<rho>" (* For convenience only *)
+   shows "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. (\<Delta> \<leftrightarrow> (\<mu>', \<rho>')) \<and> < (\<mu>, \<rho>), \<L> > \<rightarrow> < (\<mu>', \<rho>'), \<L>' >)"
   using assms
 proof(induction rule: loc_type.induct)
   case (Nat \<Gamma> n f)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
-        and has_loc: "l \<notin> Map.dom \<rho>" by auto
-  then show ?case
-  proof - 
-    show "\<exists>\<mu>'. \<exists>\<rho>'. \<exists>\<L>'. (\<Gamma> \<leftrightarrow> (\<mu>', \<rho>')) \<and> < (\<mu>, \<rho>), N n > \<rightarrow> < (\<mu>', \<rho>'), \<L>' >" 
-    proof(rule exI[where x = "\<mu>"], 
-          rule exI[where x = "\<rho>(l \<mapsto> (natural, Num n))"], 
-          rule exI[where x = "S (Loc (l, Amount n))"],
-          rule conjI)
-      from env_compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> (natural, Num n)))" by auto
-      from has_loc show " < (\<mu>, \<rho>) , N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (natural, Num n))) , S (Loc (l, Amount n)) >"
-        by (rule ENat)
-    qed
+        and has_loc: "l \<notin> dom \<rho>" by auto
+  show ?case
+  proof(rule disjI2,
+        rule exI[where x = "\<mu>"], 
+        rule exI[where x = "\<rho>(l \<mapsto> (natural, Num n))"], 
+        rule exI[where x = "S (Loc (l, Amount n))"],
+        rule conjI)
+    from env_compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> (natural, Num n)))" by auto
+    from has_loc show " < (\<mu>, \<rho>) , N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (natural, Num n))) , S (Loc (l, Amount n)) >"
+      by (rule ENat)
   qed
 next
   case (Bool \<Gamma> b f)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
-        and has_loc: "l \<notin> Map.dom \<rho>" by auto
-  then show ?case
-  proof - 
-    show "\<exists>\<mu>'. \<exists>\<rho>'. \<exists>\<L>'. (\<Gamma> \<leftrightarrow> (\<mu>', \<rho>')) \<and> < (\<mu>, \<rho>), B b > \<rightarrow> < (\<mu>', \<rho>'), \<L>' >" 
-    proof(rule exI[where x = "\<mu>"], 
-          rule exI[where x = "\<rho>(l \<mapsto> (boolean, Bool b))"], 
-          rule exI[where x = "S (Loc (l, SLoc l))"],
-          rule conjI)
-      from env_compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b)))" by auto
-      from has_loc show " < (\<mu>, \<rho>) , B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b))) , S (Loc (l, SLoc l)) >"
-        by (rule EBool)
-    qed
+        and has_loc: "l \<notin> dom \<rho>" by auto
+  show ?case
+  proof(rule disjI2,
+        rule exI[where x = "\<mu>"], 
+        rule exI[where x = "\<rho>(l \<mapsto> (boolean, Bool b))"], 
+        rule exI[where x = "S (Loc (l, SLoc l))"],
+        rule conjI)
+    from env_compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b)))" by auto
+    from has_loc show " < (\<mu>, \<rho>) , B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b))) , S (Loc (l, SLoc l)) >"
+      by (rule EBool)
   qed
 next
   case (Var \<Gamma> x \<tau> m f)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)"
         and x_in_env: "\<Gamma> x = Some \<tau>" by auto
-  then have "x \<in> Map.dom \<mu>" by auto
-  then obtain xl and k where in_lookup: "\<mu> x = Some (xl, k)" by auto
-  then show ?case
-  proof -
-    show "\<exists>\<mu>'. \<exists>\<rho>'. \<exists>\<L>'. (\<Gamma>(x \<mapsto> f(\<tau>)) \<leftrightarrow> (\<mu>', \<rho>')) \<and> < (\<mu>, \<rho>) , V x > \<rightarrow> < (\<mu>', \<rho>') , \<L>' >"
-    proof(rule exI[where x = "\<mu>"],
+  then show ?case 
+  proof(cases x)
+    case (V x1)
+    from this and env_compat and x_in_env 
+    have "x1 \<in> dom \<mu>" and eq: "x = V x1" by (auto simp: var_dom_def)
+    then obtain k where in_lookup: "\<mu> x1 = Some k" by auto
+    show ?thesis
+    proof(rule disjI2,
+          rule exI[where x = "\<mu>"],
           rule exI[where x = "\<rho>"],
-          rule exI[where x = "Inr (SLoc xl, k)"],
+          rule exI[where x = "S (Loc k)"],
           rule conjI)
-      from env_compat and x_in_env show "\<Gamma>(x \<mapsto> f(\<tau>)) \<leftrightarrow> (\<mu>, \<rho>)" by auto
-      from in_lookup show "< (\<mu>, \<rho>) , V x > \<rightarrow> < (\<mu>, \<rho>) , Inr (SLoc xl, k) >" by (rule EVar)
+      from env_compat and x_in_env show "\<Gamma>(x \<mapsto> f(\<tau>)) \<leftrightarrow> (\<mu>, \<rho>)" by (auto simp: var_dom_def)
+      from in_lookup and eq show "< (\<mu>, \<rho>) , S x > \<rightarrow> < (\<mu>, \<rho>) , S (Loc k) >" 
+        apply auto
+        by (rule EVar, auto)
+    qed
+  next
+    case (Loc x2)
+    then have eq: "x = Loc x2" by auto
+    show ?thesis
+    proof(rule disjI1)
+      from eq show "located (S x)" by (auto simp: located_def)
     qed
   qed
 next
   case (VarDef x \<Gamma> t f)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
-        and has_loc: "l \<notin> Map.dom \<rho>"
-        and not_in_lookup: "x \<notin> Map.dom \<mu>" by auto
-  then show ?case
-  proof -
-    show "\<exists>\<mu>' \<rho>' \<L>'. ((\<Gamma>(x \<mapsto> f(empty, t))) \<leftrightarrow> (\<mu>', \<rho>')) \<and> 
-                     < (\<mu>, \<rho>) , var x : t > \<rightarrow> < (\<mu>', \<rho>') , \<L>' >"
-    proof(rule exI[where x = "\<mu>(x \<mapsto> (l, SLoc l))"],
-          rule exI[where x = "\<rho>(l \<mapsto> (t, emptyVal t))"],
-          rule exI[where x = "Inr (SLoc l, SLoc l)"],
-          rule conjI)
-      from env_compat show "(\<Gamma>(x \<mapsto> f (empty, t))) \<leftrightarrow> (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> (t, emptyVal t)))"
-        by auto
-      from not_in_lookup and has_loc
-      show "< (\<mu>, \<rho>) , var x : t > \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> (t, emptyVal t))) , Inr (SLoc l, SLoc l) >"
-        by (rule EVarDef)
-    qed
+        and has_loc: "l \<notin> dom \<rho>"
+        and not_in_lookup: "x \<notin> dom \<mu>" by (auto simp: var_dom_def)
+  show ?case
+  proof(rule disjI2,
+        rule exI[where x = "\<mu>(x \<mapsto> (l, SLoc l))"],
+        rule exI[where x = "\<rho>(l \<mapsto> (t, emptyVal t))"],
+        rule exI[where x = "S (Loc (l, SLoc l))"],
+        rule conjI)
+    from env_compat show "(\<Gamma>(V x \<mapsto> f (empty, t))) \<leftrightarrow> (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> (t, emptyVal t)))"
+      by (auto simp: var_dom_def)
+    from not_in_lookup and has_loc
+    show "< (\<mu>, \<rho>) , var x : t > \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> (t, emptyVal t))) , S (Loc (l, SLoc l)) >"
+      by (rule EVarDef)
   qed
 qed
 

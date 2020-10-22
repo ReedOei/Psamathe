@@ -100,8 +100,8 @@ module PURE-FLOW-COMMON-SYNTAX
     rule (F:Var(Args:Locators) --> B):Stmt => lastLoc(Args) --> F(initLocs(Args)) --> B [macro-rec]
     rule new T(Args) --> B => lastLoc(Args) --> new T(initLocs(Args)) --> B [macro-rec]
 
-    rule A --[ Q st F(Args) ]-> B => A[Q such that F(Args)] --> B [macro-rec]
-    rule A[Q st F(Args)] --> B => A[Q such that F(Args)] --> B [macro-rec]
+    /* rule A --[ Q st F(Args) ]-> B => A[Q such that F(Args)] --> B [macro-rec] */
+    /* rule A[Q st F(Args)] --> B => A[Q such that F(Args)] --> B [macro-rec] */
 
     syntax Stmts ::= appendStmt(Stmts, Stmt) [function, functional]
     rule appendStmt(.Stmts, S) => S

@@ -57,7 +57,7 @@ module PURE-FLOW
          // TODO: Determine which all arguments that are unmoved?
          => declareVars(Ret : runFunc(withQuant(empty), RetType), FormalArgs) ~>
             checkStmts(Body) ~>
-            (Source |- Ret : RetType ; idFunc) ~>
+            (FlowSource |- Ret : RetType ; idFunc) ~>
             clearTypeEnv(SetItem(Ret))
 
     syntax KItem ::= declareVars(VarDefs)
@@ -116,12 +116,34 @@ module PURE-FLOW
     rule checkStmts(.Stmts) => .
     rule checkStmts(S1:Stmt Rest) => checkStmt(S1) ~> checkStmts(Rest)
 
-    syntax Mode ::= "Source" | "Destination"
+    syntax Mode ::= "FlowSource" | "FlowDestination"
     syntax KItem ::= Mode "|-" Locator ":" Type ";" TypeFunc
 
     rule checkStmt(S --> D)
-         => Source |- S : ?Q ?T ; withQuant(empty) ~>
-            Destination |- D : ?_ ?T ; combineQuant(?Q) // TODO: Finish this rule
+         => FlowSource |- S : ?Q ?T ; withQuant(empty) ~>
+            FlowDestination |- D : ?_ ?T ; combineQuant(?Q)
+
+    rule <k> checkStmt(S --> new T(Args) --> D)
+             => FlowSource |- S : ?Q ?T1 ; withQuant(empty) ~>
+                checkArgs(Args, getConstructorArgs(BaseT)) ~>
+                FlowDestination |- D : ?_ ?T2 ; combineQuant(?Q) ~>
+                typeCompat(T, ?T2) ... </k>
+        <types> ... T |-> typeDef(_, BaseT) ... </types>
+
+    syntax KItem ::= checkArgs(Locators, VarDefs)
+    rule checkArgs(.Locators, .VarDefs) => .
+    rule checkArgs((L:Locator, Ls), (X : T, Rest))
+         => (FlowSource |- L : T ; idFunc) ~> // TODO: idFunc isn't right, fix
+            checkArgs(Ls, Rest)
+
+    syntax KItem ::= typeCompat(BaseType, BaseType)
+    rule typeCompat(T, T) => .
+    rule typeCompat(table(_) _ T, T) => .
+    rule typeCompat(T, table(_) _ T) => .
+
+    syntax Type ::= elemtype(Type) [function, functional]
+    rule elemtype(_ table(_) Q T) => Q T
+    rule elemtype(Q T) => Q T [owise]
 
     syntax TypeQuant ::= natToQuant(Int) [function, functional]
     rule natToQuant(0) => empty
@@ -130,16 +152,19 @@ module PURE-FLOW
         requires I >Int 1
 
     // ************* Locator typing ***************
-    rule Source |- I:Int : natToQuant(I) nat ; _ => .
+    // TODO: Not sure the best way to implement this subtyping rule
+    /* rule M |- L : Q T ; Func => M |- L : ?R T ; Func ~> checkSubQuant(?R, Q) */
+
+    rule FlowSource |- I:Int : natToQuant(I) nat ; _ => .
         requires I >=Int 0
 
-    rule Source |- demote(L) : demoteType(T) ; idFunc => Source |- L : T ; idFunc
-    rule Source |- copy(L) : demoteType(T) ; _ => Source |- L : T ; idFunc
+    rule FlowSource |- demote(L) : demoteType(T) ; idFunc => FlowSource |- L : T ; idFunc
+    rule FlowSource |- copy(L) : demoteType(T) ; _ => FlowSource |- L : T ; idFunc
 
-    rule Source |- _:Bool : one bool ; _ => .
+    rule FlowSource |- _:Bool : one bool ; _ => .
 
-    rule Source |- [ T ; Ls ] : natToQuant(sizeLocators(Ls)) list T ; F
-         => checkEach(Source, T, Ls, F)
+    rule FlowSource |- [ T ; Ls ] : natToQuant(sizeLocators(Ls)) list T ; F
+         => checkEach(FlowSource, T, Ls, F)
 
     rule M |- L [ Q such that F(Args) ] : Q T ; Func
          => (M |- L : ?R T ; join(Func)) ~>
@@ -149,7 +174,11 @@ module PURE-FLOW
     rule checkAtLeast(Q, R) => .
         requires R <=Q Q
 
-    rule <k> Destination |- (var X : T) : empty T ; F => . ... </k>
+    syntax KItem ::= checkSubQuant(TypeQuant, TypeQuant)
+    rule checkSubQuant(Q, R) => .
+        requires Q [= R
+
+    rule <k> FlowDestination |- (var X : T) : empty T ; F => . ... </k>
         <typeEnv> ... .Map => X |-> runFunc(F, empty T) ... </typeEnv>
 
     // TODO: Need to consider
@@ -188,6 +217,8 @@ module PURE-FLOW
     // =======================================
     syntax Bool ::= TypeQuant "<Q" TypeQuant [function, functional]
                   | TypeQuant "<=Q" TypeQuant [function, functional]
+                  | TypeQuant "[" TypeQuant [function, functional]
+                  | TypeQuant "[=" TypeQuant [function, functional]
     rule empty <Q Q => Q =/=K empty
     rule any <Q one => true
     rule any <Q nonempty => true
@@ -198,6 +229,9 @@ module PURE-FLOW
     rule _ <Q _ => false [owise]
 
     rule Q <=Q R => Q <Q R orBool Q ==K R
+
+    rule Q [ R => (Q =/=K any andBool R ==K any) orBool (Q in (SetItem(one) SetItem(every)) andBool R ==K nonempty)
+    rule Q [= R => Q [ R orBool Q ==K R
 
     syntax TypeQuant ::= min(TypeQuant, TypeQuant) [function, functional]
                        | max(TypeQuant, TypeQuant) [function, functional]
@@ -681,7 +715,7 @@ module PURE-FLOW
     syntax KItem ::= transform(Selected)
     rule Res:Selected ~> transform(Sel) => Res --> Sel [structural]
 
-    context (HOLE --> new _(_) --> _):Stmt
+    /* context (HOLE --> new _(_) --> _):Stmt */
     /* context _ --> new _(_) --> HOLE */
 
     // If the type is unique, we need to ensure that the request value has never been created before
