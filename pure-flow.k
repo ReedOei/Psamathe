@@ -124,15 +124,16 @@ module PURE-FLOW
             FlowDestination |- D : ?_ ?T ; combineQuant(?Q)
 
     rule <k> checkStmt(S --> new T(Args) --> D)
-             => FlowSource |- S : ?Q ?T1 ; withQuant(empty) ~>
-                checkArgs(Args, getConstructorArgs(BaseT)) ~>
-                FlowDestination |- D : ?_ ?T2 ; combineQuant(?Q) ~>
+             => FlowSource |- S : ?Q1 ?T1 ; withQuant(empty) ~>
+                checkArgs(Args, init(getConstructorArgs(BaseT))) ~>
+                FlowDestination |- D : ?Q2 ?T2 ; combineQuant(?Q1) ~>
                 typeCompat(T, ?T2) ... </k>
         <types> ... T |-> typeDef(_, BaseT) ... </types>
+        requires elemtype(?Q1 ?T1) ==K last(getConstructorArgs(BaseT))
 
-    syntax KItem ::= checkArgs(Locators, VarDefs)
-    rule checkArgs(.Locators, .VarDefs) => .
-    rule checkArgs((L:Locator, Ls), (X : T, Rest))
+    syntax KItem ::= checkArgs(Locators, List)
+    rule checkArgs(.Locators, .List) => .
+    rule checkArgs((L:Locator, Ls), ListItem(T) Rest)
          => (FlowSource |- L : T ; idFunc) ~> // TODO: idFunc isn't right, fix
             checkArgs(Ls, Rest)
 
@@ -155,16 +156,19 @@ module PURE-FLOW
     // TODO: Not sure the best way to implement this subtyping rule
     /* rule M |- L : Q T ; Func => M |- L : ?R T ; Func ~> checkSubQuant(?R, Q) */
 
-    rule FlowSource |- I:Int : natToQuant(I) nat ; _ => .
-        requires I >=Int 0
+    rule FlowSource |- I:Int : Q nat ; _ => .
+        requires I >=Int 0 andBool natToQuant(I) [= Q
 
-    rule FlowSource |- demote(L) : demoteType(T) ; idFunc => FlowSource |- L : T ; idFunc
-    rule FlowSource |- copy(L) : demoteType(T) ; _ => FlowSource |- L : T ; idFunc
+    rule FlowSource |- demote(L) : TDem ; idFunc => FlowSource |- L : ?T ; idFunc
+        requires demoteType(?T) ==K TDem
+    rule FlowSource |- copy(L) : TDem ; _ => FlowSource |- L : ?T ; idFunc
+        requires demoteType(?T) ==K TDem
 
     rule FlowSource |- _:Bool : one bool ; _ => .
 
-    rule FlowSource |- [ T ; Ls ] : natToQuant(sizeLocators(Ls)) list T ; F
+    rule FlowSource |- [ T ; Ls ] : Q list T ; F
          => checkEach(FlowSource, T, Ls, F)
+         requires natToQuant(sizeLocators(Ls)) [= Q
 
     rule M |- L [ Q such that F(Args) ] : Q T ; Func
          => (M |- L : ?R T ; join(Func)) ~>
@@ -181,7 +185,6 @@ module PURE-FLOW
     rule <k> FlowDestination |- (var X : T) : empty T ; F => . ... </k>
         <typeEnv> ... .Map => X |-> runFunc(F, empty T) ... </typeEnv>
 
-    // TODO: Need to consider
     rule <k> _ |- X : T ; F => . ... </k>
         <typeEnv> ... X |-> (T => runFunc(F, T)) ... </typeEnv>
         requires F ==K idFunc orBool notBool(isImmutable(T))
@@ -408,7 +411,7 @@ module PURE-FLOW
         <storage> ... .Map => loc(!I) |-> resource(T, .List) ... </storage>
 
     // copy
-    context copy(HOLE)
+    /* context copy(HOLE) */
     rule copy(Sel:Selected) => resolveSelected(Sel) ~> doCopy(loc(!_)) [structural]
 
     syntax KItem ::= doCopy(StorageLoc)
@@ -449,7 +452,7 @@ module PURE-FLOW
         [owise]
 
     // Field access
-    context (HOLE._):Locator
+    /* context (HOLE._):Locator */
     rule Sel.X => resolveSelected(Sel) ~> getFields(X, .List)
 
     syntax Locator ::= getFields(Var, List)
@@ -465,7 +468,7 @@ module PURE-FLOW
     rule <k> [ _ T ; Locs ] => locatorList(T, Locs, .List) ... </k>
 
     syntax Locator ::= locatorList(BaseType, Locators, List)
-    context locatorList(_, (HOLE:Locator, _), _)
+    /* context locatorList(_, (HOLE:Locator, _), _) */
 
     rule locatorList(T, .Locators, Selected) => selectedList(T, Selected)
     rule locatorList(T, (Sel:Selected, Rest), Selected) => locatorList(T, Rest, Selected ListItem(Sel))
@@ -486,8 +489,8 @@ module PURE-FLOW
     rule makeAllLocations(selectedList(_, Sels)) => Sels
     /* rule makeAllLocations(selectedRecord(T, M)) => ListItem(selectedRecord(T, M)) */
 
-    context (HOLE[_]):Locator
-    context (_[HOLE]):Locator
+    /* context (HOLE[_]):Locator */
+    /* context (_[HOLE]):Locator */
     rule Ls:Selected[Ks:Selected] => selectLocations(makeAllLocations(Ls), makeAllLocations(Ks), .List)
 
     syntax List ::= keysOf(Resource) [function, functional]
@@ -615,7 +618,7 @@ module PURE-FLOW
 
     syntax Locator ::= locateFilter(List, TypeQuant, Var, Locators, List)
 
-    context HOLE[_:TypeQuant such that _(_)]
+    /* context HOLE[_:TypeQuant such that _(_)] */
     rule Ls:Selected[Q such that F(Args)] => locateFilter(makeAllLocations(Ls), Q, F, Args, .List)
 
     rule locateFilter(.List, empty, _, _, Ls) => #if size(Ls) ==Int 0 #then .List #else revert #fi
@@ -643,7 +646,7 @@ module PURE-FLOW
         <storage> ... .Map => loc(!I) |-> resource(record(Keys) { membersToDefs(Members) }, ListItem(.Map)) ... </storage>
     syntax KItem ::= initRecord(StorageLoc, RecordMembers)
 
-    context initRecord(_, _:VarDef |-> HOLE , _ )
+    /* context initRecord(_, _:VarDef |-> HOLE , _ ) */
     rule initRecord(loc(I), .RecordMembers) => selected(loc(I), loc(I))
     // TODO: How to not build the record unless necessary? Once we figure this out, can also use for the list literals
     // TODO: Related to above, need to implement a new selectedRecord Selected constructor to be used here
@@ -685,8 +688,8 @@ module PURE-FLOW
     // Flows
     // =================================
     // TODO: Make seqstrict?
-    context HOLE --> _
-    context _ --> HOLE
+    /* context HOLE --> _ */
+    /* context _ --> HOLE */
 
     rule <k> selected(L, K) --> selected(_, loc(J))
          => resolveSelected(selected(L, K)) ~> subtractFrom(L) ~> asType(T) ~> combineWith(loc(J)) ... </k>
@@ -697,8 +700,8 @@ module PURE-FLOW
          => (Sel --> Dest) ~> (selectedList(T, Rest) --> Dest)
 
     // Flow Transformer
-    context (HOLE --> _(_) --> _):Stmt
-    context (_ --> _(_) --> HOLE):Stmt
+    /* context (HOLE --> _(_) --> _):Stmt */
+    /* context (_ --> _(_) --> HOLE):Stmt */
 
     rule <k> (selected(L, L) --> F(Args) --> Dest:Selected):Stmt
              => selectedList(T, makeLocations(L, Vs)) --> F(Args) --> Dest ... </k>
@@ -768,7 +771,7 @@ module PURE-FLOW
                    | initArgs(List, VarDefs)
                    | locateArgs(Locators, List)
 
-    context locateArgs((HOLE:Locator, _), _)
+    /* context locateArgs((HOLE:Locator, _), _) */
     rule locateArgs(.Locators, Ls) => Ls
     rule locateArgs((Sel:Selected, Rest), Ls) => locateArgs(Rest, Ls ListItem(Sel))
 

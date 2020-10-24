@@ -1,75 +1,39 @@
-// Based on the Obsidian Prescription example
-
-/* A Pharmacy keeps a record of all the prescriptions that patients have submitted as well as how many times each prescription has been filled.
- * Before filling a prescription, the pharmacy must make sure that there is at least one refill available.
- */
-main contract Pharmacy {
-    PharmacyPrescriptionRecordList@Shared prescriptionList;
-
-    // I'm thinking of nonfungible like "unique".
-    // Maybe that's not the right interpretaton, and the keyword should be changed to "unique" so it's more clear what it means?
-    // Note that nonfugible types must also be immutable, because otherwise you could potentially change part of it to obtain
-    //   someone else's prescription, which would be bad. This works the same as the Obsidian version, but more implicitly.
-    type Prescription is nonfungible consumable asset {
-        prescriptionText : string,
-        refills : nat,
-        patientName : string
-    }
-
-    type PharmacyPrescriptionRecord is asset {
-        fillsLeft : nat,
-        prescription : Prescription
-    }
-
-    prescriptions : set Prescription
-
-	// Must be called before the patient can fill a new prescription.
-    // A simple version where you just pass every parameter of the Prescription structure.
-	transaction depositPrescription(text : string, refills : nat, name : string):
-    // To avoid having to pass all of these parameters, can introduce "demoted"
-    // Basically, demoted Prescription is contains the same information as a Prescription, but isn't
-    //  an asset (and it can't be used in place of Prescription, just for selection purposes)
-    // At any rate, I imagine having a "demote(T)" function that does this, because it seems useful for the
-    //  compiler/formalization: you can select elements of `x : set T` using `s : demote(T)`
-    //  So if `x : set Voter`, and
-    //  type Voter is nonfungible asset string
-    //  Then demote(Voter) = string
-    // But I'm not sure if this is actually a good idea in the surface language. It seems useful here, at any rate.
-    // My idea would be that prescription : Prescription could never actually be called, except from inside this contract,
-    //  because we can't trust actually trust any other contract to hold these resources.
-	transaction depositPrescription(prescription : demoted Prescription):
-        // Can't create the same prescription twice, so it's impossible to create the same prescription twice.
-        // Would probably want some condition like the following in the real version:
-        // only when msg.sender in prescribers
-        Prescription(prescription) --> prescriptions
-
-	transaction fillPrescription(prescription : demoted Prescription):
-        var record : PharmacyPrescriptionRecord
-        prescriptions --[ prescription ]-> record
-        consume 1 from record.fillsLeft
-
-        // Because of the limitations on transaction calls, we can't quit replicate the Obsidian example, but this is pretty close.
-        on success:
-            call doFill(record)
-
-	private transaction doFill(record : PharmacyPrescriptionRecord):
-		// This code, which is not shown, notifies the pharmacist to actually fill the prescription.
-        if record.refills > 0 then
-            record --> prescriptions
-        else
-            consume record
+type Prescription is immutable asset {
+    text : string,
+    refills : nat,
+    patientName : string
 }
 
-contract Patient {
-	name : string
-
-    transaction depositPrescription(pharmacy : Pharmacy, prescription : demoted Prescription):
-        // Strictly speaking, we need "on success", because that's the only way to do external calls.
-        // We could implicitly add it whenever the whole body of a transaction is ONLY actions.
-        on success: call pharmacy.depositPrescription(prescription)
-
-	// Assume that this prescription is for this patient; no separate checking is needed.
-	transaction fillPrescription(pharmacy : Pharmacy, prescription : Prescription):
-        on success: call pharmacy.fillPrescription(prescription)
+type PharmacyPrescriptionRecord is asset {
+    prescription : Prescription,
+    fillsLeft : nat
 }
+
+type Pharmacy is asset {
+    records : map nat => Prescription,
+    nextId : nat
+}
+
+transformer depositPrescription(this : Pharmacy, prescription : Prescription) -> id : nat {
+    copy(this.nextId) --> id
+    prescription --> this.records[this.nextId]
+    1 --> this.nextId
+}
+
+transformer fillPrescription(this : Pharmacy, id : nat) {
+    records[id].fillsLeft --[ 1 ]-> consume
+    requestFillFromPharmacist(this, id)
+}
+
+transformer requestFillFromPharmacist(this : Pharmacy, id : nat) {
+    // Stuff
+}
+
+transformer getMedicine(pharmacy1 : Pharmacy, pharmacy2 : Pharmacy, prescription : Prescription) {
+    depositPrescription(pharmacy1, prescription)
+    // The next line will fail: prescription is now of type empty Prescription, not one Prescription
+    depositPrescription(pharmacy2, prescription)
+}
+
+;
 

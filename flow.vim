@@ -26,7 +26,7 @@ syntax keyword stateCheck in
 syntax keyword new new
 syntax keyword boolOps and or not
 
-syntax keyword specialKeywords try catch constant unique immutable fungible emit let consume consumable return total copy demote via var transformer pass
+syntax keyword specialKeywords try catch constant unique asset immutable fungible emit let consume consumable return total copy demote via var transformer pass
 syntax keyword specialVars msg this one any nonempty empty one every
 
 syntax match variable '\<[A-Z][A-Za-z0-9]*'
@@ -44,7 +44,7 @@ syntax region string start='\'' end='\'' skip='\\\''
 syntax keyword type nat int bool bytes address string ether uint256 set linking map option list link mapitem
 
 syntax keyword contract contract state storage source sink pool interface
-syntax keyword contractModifiers main asset
+syntax keyword contractModifiers main
 
 hi def link transaction Function
 hi def link specialTransactions Statement
