@@ -189,7 +189,7 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
     \centering
     \begin{align*}
         f &\in \textsc{TransformerNames} & t &\in \textsc{TypeNames} \\
-        a,x,y,z &\in \textsc{Identifiers} & \\
+        a,x,y,z &\in \textsc{Identifiers} & n,m &\in \N \\
     \end{align*}
     \begin{tabular}{l r l l}
         $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
@@ -241,6 +241,9 @@ We use $\Gamma$ as the \emph{input environment} and $\Delta$ as the \emph{output
 We use $f$ to refer to a function on types ($\tau \to \tau$), and we write $\id{\tau}$ for the identity function on types.
 We call such functions \emph{updaters}.
 
+Note that we write $\Gamma \flowproves_M \overline{\Loc : \tau ; f} \flowprovesout \Delta$ where $|\overline{\Loc}| = n$ to mean
+for all $1 \leq i \leq n$, $\Gamma_i \flowproves_M \Loc_i : \tau_i ; f_i \flowprovesout \Delta_i$ so that $\Gamma = \Gamma_1$, and $\Delta = \Delta_n$.
+
 Constants of type $\natt$ or $\boolt$ can only be used as sources---it doesn't make sense to flow values to a constant.
 \begin{mathpar}
     \inferrule*[right=Nat]{
@@ -255,10 +258,10 @@ We may take any locator and type it with a less specific, but compatible, quanti
 For example, if we know that $\Loc : \exactlyone~T$, then we can also say that $\Loc : \nonempty~T$ or $\Loc : \any~T$; however, if we have $\Loc : \any~T$, we cannot say that $\Loc : \exactlyone~T$.
 \begin{mathpar}
     \inferrule*[right=Subquant]{
-        \Gamma \flowproves \Loc : \mathcal{R}~T ; f \flowprovesout \Delta
+        \Gamma \flowproves_M \Loc : \mathcal{R}~T ; f \flowprovesout \Delta
         \\
-        \mathcal{R} \sqsubseteq \mathcal{R}
-    }{ \Gamma \flowproves \Loc : \mathcal{Q}~T ; f \flowprovesout \Delta }
+        \mathcal{R} \sqsubseteq \mathcal{Q}
+    }{ \Gamma \flowproves_M \Loc : \mathcal{Q}~T ; f \flowprovesout \Delta }
 \end{mathpar}
 
 Variables may be used as either sources or destinations, as long as they are not immutable.
@@ -269,7 +272,7 @@ We may also use them to select resources (in which case $f = \id{\tau}$), even i
     }{ \Gamma, x : \tau \flowproves_M (x : \tau) ; f \flowprovesout \Gamma, x : f(\tau) }
 \end{mathpar}
 
-Variable definitions must be destinations, as newly defined variables are always empty, so there is no reason to use them as sources. \reed{though it's not strictly \textbf{wrong}}
+Variable definitions must be destinations, as newly defined variables are always empty, so there is no reason to use them as sources.
 \begin{mathpar}
     \inferrule*[right=VarDef]{
     }{ \Gamma \flowproves_D ((\var~x : T) : \emptyq~T) ; f \flowprovesout \Gamma, x : f(\emptyq~T) }
@@ -289,12 +292,21 @@ For this reason, the resulting type of a copy is the \emph{demoted} type of $\ta
     % }{ \Gamma \flowproves_S \demote(\Loc) : \demoteT(\tau); \id{\tau} \flowprovesout \Gamma }
 \end{mathpar}
 
-\reed{TODO: Need to ensure that $f$ works on list elements, not the whole list (otherwise we need to ``translate'' it)}
 \begin{mathpar}
     \inferrule*[right=List]{
-        \Gamma \flowproves_S \overline{\Loc : \tau ; f} \flowprovesout \Delta
+        \Gamma \flowproves_S \overline{\Loc : \tau} ; \updateElem(f) \flowprovesout \Delta
     }{ \Gamma \flowproves_S [ \tau ; \overline{\Loc} ] : \#(|\overline{\Loc}|)~\tableT(\cdot)~\tau ; f \flowprovesout \Delta }
 \end{mathpar}
+
+where
+\reed{I think this is right, but it's a little messy.}
+\[
+    \updateElem(f) =
+    \begin{cases}
+        f & \tif f = \id{\tau} \tor f = \mathcal{Q}~T \mapsto \emptyq~T \\
+        \mathcal{Q}~T \mapsto (\mathcal{Q} \sqcup \emptyq)~\tau & \owise
+    \end{cases}
+\]
 
 The \textsc{Filter} rule has several parts.
 We must ensure that the predicate, $p$, really is a predicate: it works on $\elemtype(T)$ and returns $\exactlyone~\boolt$.
@@ -367,7 +379,7 @@ The $\select(\rho, \ell, k)$ construct resolves storage value pairs into the res
     $V$ & \bnfdef & $n$ \bnfalt $\error$ & (values) \\
     $R$ & \bnfdef & $(T, V)$ & (resources) \\
     $\ell, k$ & \bnfdef & $n$ \bnfalt $\amount(n)$ & (storage values) \\
-    $\Loc$ & \bnfdef & $\ldots$ \bnfalt $(\ell, \ell)$ \\
+    $\Loc$ & \bnfdef & $\ldots$ \bnfalt $(n, \ell)$ \\
     $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\revert$ \\
 \end{tabular}
 
@@ -377,23 +389,33 @@ The $\select(\rho, \ell, k)$ construct resolves storage value pairs into the res
 
 We now give rules for how to evaluate programs containing flows between natural numbers and variables.
 
-\framebox{$\angles{\Sigma, \overline{\Loc}} \to \angles{\Sigma, \overline{\Loc}}$} \textbf{Locator Evaluation}
+\framebox{$\angles{\Sigma, \Loc} \to \angles{\Sigma, \Loc}$} \textbf{Locator Evaluation}
 We begin with rules to evaluate locators.
 Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select$ when $\rho(\ell) = (T, n)$ for some fungible $T$.
 
 \begin{mathpar}
     \inferrule*[right=Loc-Nat]{
-    }{ \angles{ \Sigma, n } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\natt, n)]], (\ell, \amount(n)) } }
+        m \not\in \dom(\rho)
+    }{ \angles{ \Sigma, n } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\natt, n)]], (m, \amount(n)) } }
 
     \inferrule*[right=Loc-Bool]{
-    }{ \angles{ \Sigma, b } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\boolt, b)]], (\ell, \ell) } }
+        n \not\in \dom(\rho)
+    }{ \angles{ \Sigma, b } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\boolt, b)]], (n, n) } }
 
     \inferrule*[right=Loc-Id]{
-    }{ \angles{ \Sigma, x } \to \angles{ \Sigma, (\mu(x), \mu(x)) } }
+        \mu(x) \neq \bot
+    }{ \angles{ \Sigma, x } \to \angles{ \Sigma, \mu(x) } }
 
     \inferrule*[right=Loc-VarDef]{
-        \ell \not\in \dom(\rho)
-    }{ \angles{ \Sigma, \var~x : T } \to \angles{ \Sigma[\mu \mapsto \mu[x \mapsto \ell], \rho \mapsto \rho[\ell \mapsto \emptyVal(T)]], (\ell, \ell) } }
+        n \not\in \dom(\rho)
+    }{ \angles{ \Sigma, \var~x : T } \to \angles{ (\mu[x \mapsto \ell], \rho[\ell \mapsto \emptyVal(T)]), (n, n) } }
+
+    \inferrule*[right=Loc-List]{
+        \angles{ \Sigma, \mathcal{L} } \to \angles{\Sigma', \mathcal{L}' }
+    }{ \angles{ \Sigma, [ \tau ; \overline{(n, k)}, \mathcal{L}, \overline{\mathcal{K}} ] }
+        \to
+        \angles{ \Sigma', [ \tau ; \overline{(n, k)}, \mathcal{L}', \overline{\mathcal{K}} ] }
+    }
 \end{mathpar}
 
 \framebox{$\angles{\Sigma, \overline{\Stmt}} \to \angles{\Sigma, \overline{\Stmt}}$} \textbf{Statement Evaluation}
@@ -402,17 +424,37 @@ We first resolve the selected resources, then subtract them from their parent lo
 
 \begin{mathpar}
     \inferrule*[right=Flow]{
-        \overline{\select(\rho, \ell, k) = R}
+        \select(\rho, n, \ell) = R
         \\
-        \rho(j) + \sum \overline{R} \neq \error
-    }{ \angles{ \Sigma, \overline{(\ell, k)} \to (i, j) } \to \Sigma[\rho \mapsto \rho[\overline{\ell \mapsto \rho(\ell) - R}, j \mapsto \rho(j) + \sum \overline{R}]] }
+        \rho(m) + R \neq \error
+    }{ \angles{ \Sigma, (n, \ell) \to (m, k) } \to \Sigma[\rho \mapsto \rho[n \mapsto \rho(n) - R, m \mapsto \rho(m) + R]] }
 
     \inferrule*[right=Flow-Error]{
-        \overline{\select(\rho, \ell, k) = R}
+        \select(\rho, n, \ell) = R
         \\
-        \rho(j) + \sum \overline{R} = \error
-    }{ \angles{ \Sigma, \overline{(\ell, k)} \to (i, j) } \to \angles{ \Sigma, \revert } }
+        \rho(m) + R = \error
+    }{ \angles{ \Sigma, (n, \ell) \to (m, k) } \to \angles{ \Sigma, \revert } }
+
+    \inferrule*[right=Flow-List]{
+        \overline{\select(\rho, n, \ell) = R}
+    }{ \angles{ \Sigma, [ \tau ; \overline{(n, \ell)} ] \to (m,k) } \to \Sigma[\rho \mapsto \rho[n \mapsto \rho(n) - R, m \mapsto \rho(m) + R]] }
 \end{mathpar}
+
+\reed{TODO: Need to finish \textsc{Flow-List} (needs to prperly select and remove and add)}
+
+\framebox{$\Gamma \compat \Sigma$} \textbf{Environment compatibility}
+\reed{This is only necessary for the proofs}
+We check that every variable in $\Gamma$ appears in the variable lookup environment $\mu$ and vice versa.
+Additionally, every variable $x$ in the variable lookup environment must map to some value in the storage environment, which must be compatible with the type of $x$ in $\Gamma$; that is, the \emph{exact type} of $\select(\rho, \mu(x))$ must be at least as specific as the type of $x$ in the environment.
+
+\begin{mathpar}
+    \inferrule*[right=Compat]{
+        \dom(\Gamma) = \dom(\mu) \\
+        \forall x : \tau \in \Gamma. \exactType(\select(\rho, \mu(x))) \sqsubseteq_{\tau} \tau
+    }{ \Gamma \compat \Sigma }
+\end{mathpar}
+
+where $\mathcal{Q}~T \sqsubseteq_{\tau} \mathcal{R}~T' \iff \mathcal{Q} \sqsubseteq \mathcal{R} \tand T = T'$.
 
 \section{Examples}
 
