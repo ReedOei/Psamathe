@@ -234,12 +234,15 @@ Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the bes
 
 First, rules checking the types of the source and destination locators, and building up the appropriate updaters.
 
-\framebox{$\Gamma \flowproves_M (\Loc : \tau) ; f \flowprovesout \Delta $} \textbf{Locator Typing}
+\framebox{$\Gamma \flowproves_M \Loc : \tau ; f \flowprovesout \Delta $} \textbf{Locator Typing}
+\reed{TODO: Write how this should be read (same for other judgements)}
 Here $M$ is a \emph{mode}, either $S$, meaning source, or $D$, meaning destination.
 This ensures that we don't use, for example, numeric literals as the destination of a flow.
 We use $\Gamma$ as the \emph{input environment} and $\Delta$ as the \emph{output environment}.
-We use $f$ to refer to a function on types ($\tau \to \tau$), and we write $\id{\tau}$ for the identity function on types.
+
+We use $f$ to refer to a function on types ($\types \to \types$), and we write $\id{\types}$ for the identity function on types.
 We call such functions \emph{updaters}.
+We write $\lambda \mathcal{Q}~T. E$ to define updaters; i.e., if $f = \lambda \mathcal{Q}~T. E$, then $f(\mathcal{Q}~T) = E$.
 
 Note that we write $\Gamma \flowproves_M \overline{\Loc : \tau ; f} \flowprovesout \Delta$ where $|\overline{\Loc}| = n$ to mean
 for all $1 \leq i \leq n$, $\Gamma_i \flowproves_M \Loc_i : \tau_i ; f_i \flowprovesout \Delta_i$ so that $\Gamma = \Gamma_1$, and $\Delta = \Delta_n$.
@@ -265,10 +268,10 @@ For example, if we know that $\Loc : \exactlyone~T$, then we can also say that $
 \end{mathpar}
 
 Variables may be used as either sources or destinations, as long as they are not immutable.
-We may also use them to select resources (in which case $f = \id{\tau}$), even if immutable.
+We may also use them to select resources (in which case $f = \id{\types}$), even if immutable.
 \begin{mathpar}
     \inferrule*[right=Var]{
-        f = \id{\tau} \tor \lnot(\tau~\immutable)
+        f = \id{\types} \tor \lnot(\tau~\immutable)
     }{ \Gamma, x : \tau \flowproves_M (x : \tau) ; f \flowprovesout \Gamma, x : f(\tau) }
 \end{mathpar}
 
@@ -279,17 +282,17 @@ Variable definitions must be destinations, as newly defined variables are always
 \end{mathpar}
 
 If we want to leave the original located value unchanged, we may use $\copyC(\Loc)$ to deep-copy whatever $\Loc$ locates.
-Because the original value will be unchanged, we use $\id{\tau}$ as the updater.
+Because the original value will be unchanged, we use $\id{\types}$ as the updater.
 Copied values have two restrictions: 1) they must only be sources, because there would be no way to refer to the values if used as a destination; and 2) they must be non-assets, because copying an asset is forbidden.
 For this reason, the resulting type of a copy is the \emph{demoted} type of $\tau$, which is never an asset.
 \begin{mathpar}
     \inferrule*[right=Copy]{
-        \Gamma \proves_S \Loc : \tau ; \id{\tau} \flowprovesout \Gamma
+        \Gamma \proves_S \Loc : \tau ; \id{\types} \flowprovesout \Gamma
     }{ \Gamma \flowproves_S \copyC(\Loc) : \demoteT(\tau); f \flowprovesout \Gamma }
 
     % \inferrule*[right=Demote]{
-    %     \Gamma \proves_S \Loc : \tau ; \id{\tau} \flowprovesout \Gamma
-    % }{ \Gamma \flowproves_S \demote(\Loc) : \demoteT(\tau); \id{\tau} \flowprovesout \Gamma }
+    %     \Gamma \proves_S \Loc : \tau ; \id{\types} \flowprovesout \Gamma
+    % }{ \Gamma \flowproves_S \demote(\Loc) : \demoteT(\tau); \id{\types} \flowprovesout \Gamma }
 \end{mathpar}
 
 \begin{mathpar}
@@ -303,28 +306,28 @@ where
 \[
     \updateElem(f) =
     \begin{cases}
-        f & \tif f = \id{\tau} \tor f = \mathcal{Q}~T \mapsto \emptyq~T \\
-        \mathcal{Q}~T \mapsto (\mathcal{Q} \sqcup \emptyq)~\tau & \owise
+        f & \tif f = \id{\types} \tor f = \lambda \mathcal{Q}~T. \emptyq~T \\
+        \lambda \mathcal{Q}~T. (\mathcal{Q} \sqcup \emptyq)~T & \owise
     \end{cases}
 \]
 
 The \textsc{Filter} rule has several parts.
 We must ensure that the predicate, $p$, really is a predicate: it works on $\elemtype(T)$ and returns $\exactlyone~\boolt$.
 Next, we check that the location being filtered is of the right type, and updates its type, as appropriate.
-We use $\tau \mapsto \max(f(\tau), \tau \ominus \mathcal{Q})$ to capture whether $f$ is $\id{\tau}$ or performs some modification.
+We use $\lambda \mathcal{Q}'~T'. \max(f(\mathcal{Q}'~T'), (\mathcal{Q}' \ominus \mathcal{Q})~T')$ to capture whether $f$ is $\id{\types}$ or performs some modification.
 For example, suppose $f(\mathcal{Q}~T) = \emptyq~T$.
 Then the intention is to select every located value---but we will only locate $\mathcal{Q}$ values, so we should only subtract $\mathcal{Q}$ values, and we will have $\max(f(\mathcal{R}~T), (\mathcal{R}~T) \ominus \mathcal{Q}) = \max(\emptyq~T, (\mathcal{R}~T) \ominus \mathcal{Q}) = (\mathcal{R}~T) \ominus \mathcal{Q}$, as desired.
 Next, we add the condition that $\mathcal{R} \geq \mathcal{Q}$, catching any flows that will obviously fail at runtime (e.g., $\Loc[\nonempty~\tsuchthat~p(\overline{\LocK})]$ where $\Loc$ is $\emptyq$).
 This condition is not strictly necessary, as it would be caught by the dynamic check.
 \begin{mathpar}
     \inferrule*[right=Filter]{
-        \flowproves p : (\overline{x : \tau}); y : \elemtype(T) \transforms \one~\boolt
+        \transformer~p(\overline{x : \tau}, y : \elemtype(T)) \to \one~\boolt~\{ \overline{\Stmt} \}
         \\
-        \Gamma \flowproves_M \Loc : \mathcal{R}~T ; (\tau \mapsto \max(f(\tau), \tau \ominus \mathcal{Q})) \flowprovesout \Delta
+        \Gamma \flowproves_M \Loc : \mathcal{R}~T ; (\lambda \mathcal{Q}'~T'. \max(f(\mathcal{Q}'~T'), (\mathcal{Q}' \ominus \mathcal{Q})~T') \flowprovesout \Delta
         \\
         \mathcal{R} \geq \mathcal{Q}
         \\
-        \Delta \flowproves \overline{\LocK : \tau} ; \id{\tau} \flowprovesout \Delta
+        \Gamma \flowproves \overline{\LocK : \tau} ; \id{\types} \flowprovesout \Gamma
     }{ \Gamma \flowproves_M \Loc[\mathcal{Q}~\tsuchthat~p(\overline{\LocK})] : \mathcal{Q}~T ; f \flowprovesout \Delta }
 \end{mathpar}
 
@@ -344,23 +347,14 @@ We check that $\Loc$ and $\LocK$ have the same base type.
 All the values selected by $\Loc$ are cleared out and added to $\LocK$, using the updaters.
 \begin{mathpar}
     \inferrule*[right=Ok-Flow]{
-        \Gamma \flowproves_S \Loc : \mathcal{Q}~T ; (\mathcal{Q}'~T' \mapsto \emptyq~T') \flowprovesout \Delta
+        \Gamma \flowproves_S \Loc : \mathcal{Q}~T ; (\lambda \mathcal{Q}'~T'. \emptyq~T') \flowprovesout \Delta
         \\
-        \Delta \flowproves_D \LocK : \mathcal{R}~T ; (\tau \mapsto \tau \oplus \mathcal{Q}) \flowprovesout \Xi
+        \Delta \flowproves_D \LocK : \mathcal{R}~T ; (\lambda \mathcal{Q}'~t'. (\mathcal{Q}' \oplus \mathcal{Q})~T') \flowprovesout \Xi
     }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout \Xi }
 \end{mathpar}
 
 \framebox{$\flowproves f : (\overline{x : \tau}) ; y : \sigma \transforms z : \pi$} \textbf{Transformer Typing}
 \reed{TODO: I think, here, we also need to ensure that not only do the arguments that don't change have the same type, they can never be \emph{moved} (i.e., appear ``bare'' on the LHS of a flow)}
-\begin{mathpar}
-    \inferrule*[right=Transformer]{
-        \transformer f(\overline{x : \tau}, y : \mathcal{Q}_y~T_y) \to \mathcal{Q}_z~T_z~\{ \overline{\Stmt} \}
-        \\
-        \overline{x : \tau}, y : \mathcal{Q}_y~T_y, z : \emptyq~T_z \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, \overline{x : \tau}, z : \mathcal{Q}_z~T_z
-        \\
-        \forall v : \sigma \in \Delta. \lnot(\sigma~\asset)
-    }{ \flowproves f : (\overline{x : \tau}) ; y : \mathcal{Q}_y~T_y \transforms z : \mathcal{Q}_z~T_z }
-\end{mathpar}
 
 \framebox{$\flowproves \Decl~\ok$} \textbf{Declaration Well-formedness}
 
@@ -368,12 +362,14 @@ All the values selected by $\Loc$ are cleared out and added to $\LocK$, using th
     \inferrule*[right=Ok-Type]{
         T~\asset \implies \asset \in \overline{M}
     }{ \proves (\type~t~\is~\overline{M}~T)~\ok }
+\end{mathpar}
 
-    % \inferrule*[right=Ok-Transformer]{
-    %     x : \tau, y : \emptyq~T \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, y : \mathcal{Q}~T
-    %     \\
-    %     \forall z : \sigma \in \Delta. \lnot(\sigma~\asset)
-    % }{ \proves (\transformer f(\overline{x : \tau}) \to y : \mathcal{Q}~T ~\{ \overline{\Stmt} \})~\ok }
+\begin{mathpar}
+    \inferrule*[right=Ok-Transformer]{
+        \overline{x : \tau}, y : \mathcal{Q}_y~T_y, z : \emptyq~T_z \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, \overline{x : \tau}, z : \mathcal{Q}_z~T_z
+        \\
+        \forall v : \sigma \in \Delta. \lnot(\sigma~\asset)
+    }{ (\transformer f(\overline{x : \tau}, y : \mathcal{Q}_y~T_y) \to \mathcal{Q}_z~T_z~\{ \overline{\Stmt} \}) ~\ok }
 \end{mathpar}
 
 \paragraph{Dynamics}

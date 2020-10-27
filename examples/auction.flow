@@ -11,11 +11,11 @@ type Message is consumable asset {
     value : ether
 }
 
-transformer bid(this : Auction, msg : Message, bid : ether) {
-    only when this.open
+transformer bid(this : Auction, msg : Message) {
+    only when this.open // Syntactic sugar for `this.open --[ true ]-> this.open`
 
     try {
-        only when msg.value > maxBid
+        only when msg.value > maxBid // Syntactic sugar for `msg.value --[ maxBid ]-> msg.value`
 
         maxBid --> pendingReturns[maxBidder]
 
@@ -47,7 +47,7 @@ type Message is consumable asset {
     value : ether
 }
 
-transformer bid(this : Auction, msg : Message, bid : ether) {
+transformer bid(this : Auction, msg : Message) {
     only when this.open
 
     try {
