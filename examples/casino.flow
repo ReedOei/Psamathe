@@ -1,0 +1,67 @@
+type Token is fungible asset nat
+
+type Bet is consumable asset {
+    prediction : nat,
+    wager : Token
+}
+
+type Message is consumable asset {
+    sender : address,
+    value : Token
+}
+
+type Casino is asset {
+    casinoPot : token,
+    bets : map address => Bet,
+    game : Game
+}
+
+type Game is {
+    beforePlay : bool,
+    playing : bool,
+    result : nat
+}
+
+transformer placeBet(this : Casino, msg : Message, prediction : nat) -> oldTokens : Token {
+    only when this.game.beforePlay
+
+    try {
+        this.bets[msg.sender] --> var oldBet : Bet
+
+        oldBet.wager --> oldTokens
+        oldBet --> consume
+    } catch {}
+
+    new Bet(prediction, msg.value) --> this.bets[msg.sender]
+}
+
+transformer collectWinnings(this : Casino, sender : address) -> winnings : Token {
+    this.bets --[ sender ]-> var bet : Bet
+    try {
+        bet[ ! such that correctGuess(this.game, _) ].wager --> winnings
+    } catch {
+        bet.wager --> this.casinoPot
+    }
+    bet --> consume
+}
+
+transformer correctGuess(this : Game, guess : nat) -> isCorrect : bool {
+    try {
+        only when this.game.result = guess
+        true --> isCorrect
+    } catch {
+        false --> isCorrect
+    }
+}
+
+transformer startGame(this : Game) {
+    this.beforePlay --[ true ]-> this.playing
+}
+
+transformer endGame(this : Game) {
+    this.playing --[ true ]-> consume
+    42 --> this.result
+}
+
+;
+

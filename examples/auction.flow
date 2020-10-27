@@ -1,0 +1,68 @@
+type Auction is asset {
+    seller : address,
+    maxBid : ether,
+    maxBidder : address,
+    open : bool,
+    pendingReturns : map address => ether
+}
+
+type Message is consumable asset {
+    sender : address,
+    value : ether
+}
+
+transformer bid(this : Auction, msg : Message, bid : ether) {
+    only when this.open
+
+    try {
+        only when msg.value > maxBid
+
+        maxBid --> pendingReturns[maxBidder]
+
+        msg.value --> maxBid
+        msg.sender --> maxBidder
+    } catch {
+        msg.value --> pendingReturns[msg.sender]
+    }
+}
+
+transformer withdraw(this : Auction, sender : address) {
+    this.pendingReturns[sender] --> sender.balance
+}
+
+// Same as above, but without pendingReturns
+// Safe because:
+// 1. Flows by default decrement before adding, so the maxBid becomes 0 **before** sending it to the maxBidder, so calling the function again doesn't actually do anything
+//      a. Although in this case because you have to send more money than the maxBid to call the function anyway, not sure it really matters.
+// 2. Reentrancy checking, if implemented as planned
+type Auction is asset {
+    seller : address,
+    maxBid : ether,
+    maxBidder : address,
+    open : bool
+}
+
+type Message is consumable asset {
+    sender : address,
+    value : ether
+}
+
+transformer bid(this : Auction, msg : Message, bid : ether) {
+    only when this.open
+
+    try {
+        only when msg.value > maxBid
+
+        maxBid --> maxBidder.balance
+
+        msg.value --> maxBid
+        msg.sender --> maxBidder
+    } catch {
+        msg.value --> msg.sender.balance
+    }
+}
+
+;
+
+new Auction(me, 0, me, true) --> var auction : Auction
+

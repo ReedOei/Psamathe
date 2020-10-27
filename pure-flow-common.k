@@ -156,15 +156,15 @@ module PURE-FLOW-COMMON
 
     // TODO: Would be nice to do a little better job here
     rule [[ preprocessStmts(Env, (A --> F(Args) --> B):Stmt Rest)
-            => (annotateLocator(A, inferQuantities(table(.Vars) flowType(typeof(Env, A), some(baseTypeOf(lastVDef(FormalArgs))))))
+            => (annotateLocator(A, inferQuantities(table(.Vars) flowType(typeof(Env, A), some(lastBaseType(vDefTypes(FormalArgs))))))
                 --> F(Args) -->
-                annotateLocator(B, flowType(some(baseTypeOf(Ret)), typeof(Env, B))))
+                annotateLocator(B, flowType(some(T), typeof(Env, B))))
                preprocessStmts(Env declaredVars(B), Rest)
          ]]
-         <functions> ... F |-> transformer(Ret, FormalArgs, _) ... </functions>
+         <functions> ... F |-> transformer(_ : _ T, FormalArgs, _) ... </functions>
 
     rule [[ preprocessStmts(Env, (A --> new T(Args) --> B):Stmt Rest)
-            => (annotateLocator(A, inferQuantities(table(.Vars) flowType(typeof(Env, A), some(baseTypeOf(lastVDef(getConstructorArgs(BaseT)))))))
+            => (annotateLocator(A, inferQuantities(table(.Vars) flowType(typeof(Env, A), some(lastBaseType(getConstructorArgs(BaseT))))))
                 --> new T(Args) -->
                 annotateLocator(B, flowType(some(T), typeof(Env, B))))
                preprocessStmts(Env declaredVars(B), Rest)
@@ -309,23 +309,44 @@ module PURE-FLOW-COMMON
     rule demoteVarDefs(X : Q T, Rest) => X : Q demoteBaseType(T), demoteVarDefs(Rest)
 
     syntax VarDef ::= lastVDef(VarDefs) [function, functional]
-    rule lastVDef(X : Q T) => X : Q T
-    rule lastVDef(_:VarDef, X : Q T, Rest) => lastVDef(X : Q T, Rest)
+    rule lastVDef(X : T) => X : T
+    rule lastVDef(_:VarDef, X : T, Rest) => lastVDef(X : T, Rest)
+
+    syntax VarDefs ::= initVDefs(VarDefs) [function, functional]
+    rule initVDefs(_ : _) => .VarDefs
+    rule initVDefs(X : T1, Y : T2, Rest) => X : T1, initVDefs(Y : T2, Rest)
 
     syntax BaseType ::= baseTypeOf(VarDef) [function, functional]
     rule baseTypeOf(_ : _ T) => T
+
+    syntax Type ::= vdefType(VarDef) [function, functional]
+    rule vdefType(_ : T) => T
 
     syntax VarDefs ::= tailVDefs(VarDefs) [function, functional]
     rule tailVDefs(.VarDefs) => .VarDefs
     rule tailVDefs(_:VarDef, Tail) => Tail
 
-    syntax VarDefs ::= getConstructorArgs(BaseType) [function, functional]
-    rule getConstructorArgs(nat) => !_:Id : any nat
-    rule getConstructorArgs(string) => !_:Id : one string
-    rule getConstructorArgs(bool) => !_:Id : one bool
-    rule getConstructorArgs(address) => !_:Id : one address
-    rule getConstructorArgs(table(Keys) Q T) => !_:Id : any table(Keys) Q T
-    rule getConstructorArgs(record(_) { Fields }) => Fields
+    syntax List ::= vDefTypes(VarDefs) [function, functional]
+    rule vDefTypes(.VarDefs) => .List
+    rule vDefTypes(_ : T, Rest) => ListItem(T) vDefTypes(Rest)
+
+    // TODO: This duplication is really obnoxious...
+    syntax KItem ::= last(List) [function, functional]
+    rule last(_ ListItem(A)) => A
+    syntax BaseType ::= lastBaseType(List) [function, functional]
+    rule lastBaseType(_ ListItem(A)) => A
+
+    syntax List ::= init(List) [function, functional]
+    rule init(Init ListItem(_)) => Init
+    rule init(.List) => .List
+
+    syntax List ::= getConstructorArgs(BaseType) [function, functional]
+    rule getConstructorArgs(nat) => ListItem(any nat)
+    rule getConstructorArgs(string) => ListItem(one string)
+    rule getConstructorArgs(bool) => ListItem(one bool)
+    rule getConstructorArgs(address) => ListItem(one address)
+    rule getConstructorArgs(table(Keys) Q T) => ListItem(any table(Keys) Q T)
+    rule getConstructorArgs(record(_) { Fields }) => vDefTypes(Fields)
 
     syntax VarDefs ::= membersToDefs(RecordMembers) [function, functional]
     rule membersToDefs(.RecordMembers) => .VarDefs
