@@ -318,16 +318,15 @@ Next, we add the condition that $\mathcal{R} \geq \mathcal{Q}$, catching any flo
 This condition is not strictly necessary, as it would be caught by the dynamic check.
 \begin{mathpar}
     \inferrule*[right=Filter]{
-        \transformer f(\overline{x : \tau}, y : \elemtype(T)) \to \one~\boolt~\{ \overline{\Stmt} \}
+        \flowproves p : (\overline{x : \tau}); y : \elemtype(T) \transforms \one~\boolt
         \\
         \Gamma \flowproves_M \Loc : \mathcal{R}~T ; (\tau \mapsto \max(f(\tau), \tau \ominus \mathcal{Q})) \flowprovesout \Delta
         \\
         \mathcal{R} \geq \mathcal{Q}
         \\
-        \Delta \flowproves \overline{\LocK : \tau} ; (\mathcal{Q}'~T' \mapsto \emptyq~T') \flowprovesout \Delta
+        \Delta \flowproves \overline{\LocK : \tau} ; \id{\tau} \flowprovesout \Delta
     }{ \Gamma \flowproves_M \Loc[\mathcal{Q}~\tsuchthat~p(\overline{\LocK})] : \mathcal{Q}~T ; f \flowprovesout \Delta }
 \end{mathpar}
-\reed{TODO: It might actually be good to let function types say which arguments can be changed; if we do this, then we can have a less restrictive check on the types of arguments in \textsc{Filter}}
 
 We may only use $\consume$ as a destination, and only if $T$ is a consumable type.
 We arbitrarily choose $\emptyq$ as the type quantity for $\consume$. \reed{I don't think it matters at all which one is chosen}
@@ -349,6 +348,18 @@ All the values selected by $\Loc$ are cleared out and added to $\LocK$, using th
         \\
         \Delta \flowproves_D \LocK : \mathcal{R}~T ; (\tau \mapsto \tau \oplus \mathcal{Q}) \flowprovesout \Xi
     }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout \Xi }
+\end{mathpar}
+
+\framebox{$\flowproves f : (\overline{x : \tau}) ; y : \sigma \transforms z : \pi$} \textbf{Transformer Typing}
+\reed{TODO: I think, here, we also need to ensure that not only do the arguments that don't change have the same type, they can never be \emph{moved} (i.e., appear ``bare'' on the LHS of a flow)}
+\begin{mathpar}
+    \inferrule*[right=Transformer]{
+        \transformer f(\overline{x : \tau}, y : \mathcal{Q}_y~T_y) \to \mathcal{Q}_z~T_z~\{ \overline{\Stmt} \}
+        \\
+        \overline{x : \tau}, y : \mathcal{Q}_y~T_y, z : \emptyq~T_z \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, \overline{x : \tau}, z : \mathcal{Q}_z~T_z
+        \\
+        \forall v : \sigma \in \Delta. \lnot(\sigma~\asset)
+    }{ \flowproves f : (\overline{x : \tau}) ; y : \mathcal{Q}_y~T_y \transforms z : \mathcal{Q}_z~T_z }
 \end{mathpar}
 
 \framebox{$\flowproves \Decl~\ok$} \textbf{Declaration Well-formedness}
