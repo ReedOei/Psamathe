@@ -65,6 +65,7 @@ module PURE-FLOW-COMMON-SYNTAX
                   | Locator "--[" TypeQuant "such" "that" Var "(" Locators ")" "]->" Locator
                   | Locator "--[" TypeQuant "st" Var "(" Locators ")" "]->" Locator
                   | Var "(" Locators ")" "-->" Locator
+                  | "only" "when" Var
                   | "new" Id "(" Locators ")" "-->" Locator
                   | "try" "{" Stmts "}" "catch" "{" Stmts "}"
     syntax Stmts ::= List{Stmt, " "} [klabel(stmts)]
@@ -99,6 +100,7 @@ module PURE-FLOW-COMMON-SYNTAX
     rule A --[ Q such that F(Args) ]-> B => A[Q such that F(Args)] --> B [macro-rec]
     rule (F:Var(Args:Locators) --> B):Stmt => lastLoc(Args) --> F(initLocs(Args)) --> B [macro-rec]
     rule new T(Args) --> B => lastLoc(Args) --> new T(initLocs(Args)) --> B [macro-rec]
+    rule only when X:Var => X --[ true ]-> X [macro-rec]
 
     /* rule A --[ Q st F(Args) ]-> B => A[Q such that F(Args)] --> B [macro-rec] */
     /* rule A[Q st F(Args)] --> B => A[Q such that F(Args)] --> B [macro-rec] */
