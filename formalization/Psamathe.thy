@@ -171,9 +171,9 @@ fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" where
 fun var_dom :: "Env \<Rightarrow> string set" where
   "var_dom \<Gamma> = { x . V x \<in> dom \<Gamma> }"
 
-(* This is a weaker version of compatibility (tentatively, locator compatibility)
+(* This is a weaker version of compatibility (tentatively, "locator compatibility")
   This is needed, because while evaluating locators, the type environments won't agree with the 
-  actual state of the store (TODO: Could resolve this by going to old updater system),
+  actual state of the store,
   because the type environment represents the state of the store *after* the flow occurs. 
   So we will need some separate "statement compatibility" definition, which includes stronger
   conditions on the state of the store (e.g., type quantities being correct, the only strengthening
@@ -191,9 +191,26 @@ lemma gen_loc:
   obtains "l" where "l \<notin> dom m"
   using ex_new_if_finite is_fin by auto
 
-(* TODO: Will need to update this eventually when adding in records *)
 definition type_preserving :: "(Type \<Rightarrow> Type) \<Rightarrow> bool" where
   "type_preserving f \<equiv> \<forall>\<tau>. base_type_compat (snd \<tau>) (snd (f \<tau>))"
+
+instantiation TyQuant :: linorder
+begin
+
+definition less_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
+  "less_TyQuant q1 q2 \<equiv> True"
+
+definition less_eq_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
+  "less_eq_TyQuant q1 q2 \<equiv> True"
+instance
+  apply unfold_locales
+
+
+definition type_leq :: "Type \<Rightarrow> Type \<Rightarrow> bool" ("_ \<le> _") where
+  "(q1, t1) \<le> (q2, t2) \<equiv> q1 \<le> q2"
+
+definition mode_compat :: "Mode \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> bool" where
+  "mode_compat m f \<equiv> case m of s \<Rightarrow> \<forall>\<tau>. f \<tau> \<le> \<tau> | d \<Rightarrow> \<forall>\<tau>. \<tau> \<le> f \<tau>"
 
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
@@ -221,8 +238,8 @@ next
     then show ?thesis using Var.prems
       by (cases \<Sigma>, simp add: domIff)
   qed
-
 (*
+  This is part of the proof for the full version of locator compatiblity; still unfinished
     then show ?thesis using Var.prems x_in_dom
       apply (cases \<Sigma>, simp add: domIff)
     proof((rule allI)+, clarsimp)
@@ -268,7 +285,7 @@ next
     have "x1 \<in> dom \<mu>" and eq: "x = V x1" by auto
     then obtain k where in_lookup: "\<mu> x1 = Some k" by auto
     show ?thesis
-    proof(rule disjI2, (rule exI)+)
+    proof(intro disjI2 exI)
       from in_lookup and eq show "< (\<mu>, \<rho>) , S x > \<rightarrow> < (\<mu>, \<rho>) , S (Loc k) >"
         by (simp add: EVar) 
     qed
@@ -283,7 +300,7 @@ next
         and not_in_lookup: "x \<notin> dom \<mu>" by auto
   then obtain l where has_loc: "l \<notin> dom \<rho>" using gen_loc by blast
   show ?case
-  proof(rule disjI2, (rule exI)+)
+  proof(intro disjI2 exI)
     from not_in_lookup and has_loc
     show "< (\<mu>, \<rho>) , var x : t > \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t))) , S (Loc (l, SLoc l)) >"
       by (rule EVarDef)
@@ -337,17 +354,20 @@ lemma locator_preservation:
       and "finite_store \<Sigma>"
     shows "finite_store \<Sigma>' 
       \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} \<L>' : \<tau> ; f \<stileturn> \<Delta>'))"
-(*TODO: We may need some compatibility condition between \<Gamma> and \<Gamma>' and \<Delta> and \<Delta>' *)
+(*TODO: We probably need some compatibility condition between \<Gamma> and \<Gamma>' and \<Delta> and \<Delta>' *)
   using assms
 proof(induction arbitrary: \<Gamma> \<tau> \<Delta>)
 case (ENat l \<rho> \<mu> n)
   then show ?case
   proof(safe)
-    show "finite_store (\<mu>, \<rho>(l \<mapsto> (natural, Num n)))" using ENat.prems by simp
-    have "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> (natural, Num n)))" using ENat.prems
-    proof(auto)
-      fix x q t
-      have "\<exists>l v. \<rho> l = Some (t, v)"
+    show "finite_store (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by simp
+    have compat: "\<Gamma>(S (Loc (l, Amount n)) \<mapsto> (toQuant n, nat)) 
+                  \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by auto
+    have "\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))) \<and> 
+                  (\<Gamma>' \<turnstile>{s} S (Loc (l, Amount n)) : \<tau> ; f \<stileturn> \<Delta>')"
+    proof(intro exI conjI)
+      from compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" by simp
+      show "\<Gamma> \<turnstile>{s} S (Loc (l, Amount n)) : \<tau> ; f \<stileturn> \<Gamma>(Loc (l, Amount n) \<mapsto> "
 next
   case (EBool l \<rho> \<mu> b)
   then show ?case sorry
