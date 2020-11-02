@@ -1,5 +1,5 @@
 theory Psamathe
-  imports Main
+  imports Main "HOL-Library.Rewrite"
 begin
 
 datatype TyQuant = empty | any | one | nonempty
@@ -31,16 +31,16 @@ fun addQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> TyQuant" ("_ \<oplu
 | "(r \<oplus> one) = nonempty"
 | "(any \<oplus> any) = any"
 
-inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> Locator \<Rightarrow> Type \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> Env \<Rightarrow> bool"
-  ("_ \<turnstile>{_} _ : _ ; _ \<stileturn> _") where
-  Nat: "\<Gamma> \<turnstile>{s} (N n) : (toQuant(n), natural) ; f \<stileturn> \<Gamma>"
-| Bool: "\<Gamma> \<turnstile>{s} (B b) : (one, boolean) ; f \<stileturn> \<Gamma>"
-| Var: "\<lbrakk> \<Gamma> x = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} (S x) : \<tau> ; f \<stileturn> (\<Gamma>(x \<mapsto> f(\<tau>)))"
-| VarDef: "\<lbrakk> V x \<notin> dom \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{d} (var x : t) : (empty, t) ; f \<stileturn> (\<Gamma>(V x \<mapsto> f(empty, t)))"
-| EmptyList: "\<Gamma> \<turnstile>{s} [ \<tau> ; ] : (empty, table [] \<tau>) ; f \<stileturn> \<Gamma>"
-| ConsList: "\<lbrakk> \<Gamma> \<turnstile>{s} \<L> : \<tau> ; f \<stileturn> \<Delta> ;
-              \<Delta> \<turnstile>{s} Tail : (q, table [] \<tau>) ; f \<stileturn> \<Xi> \<rbrakk> 
-             \<Longrightarrow> \<Gamma> \<turnstile>{s} [ \<tau> ; \<L>, Tail ] : (one \<oplus> q, table [] \<tau>) ; f \<stileturn> \<Xi>"
+inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> Locator \<Rightarrow> Type \<Rightarrow> Env \<Rightarrow> bool"
+  ("_ \<turnstile>{_} _ ; _ : _ \<stileturn> _") where
+  Nat: "\<Gamma> \<turnstile>{s} f ; (N n) : (toQuant(n), natural) \<stileturn> \<Gamma>"
+| Bool: "\<Gamma> \<turnstile>{s} f ; (B b) : (one, boolean) \<stileturn> \<Gamma>"
+| Var: "\<lbrakk> \<Gamma> x = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; (S x) : \<tau> \<stileturn> (\<Gamma>(x \<mapsto> f(\<tau>)))"
+| VarDef: "\<lbrakk> V x \<notin> dom \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{d} f ; (var x : t) : (empty, t) \<stileturn> (\<Gamma>(V x \<mapsto> f(empty, t)))"
+| EmptyList: "\<Gamma> \<turnstile>{s} f ; [ \<tau> ; ] : (empty, table [] \<tau>) \<stileturn> \<Gamma>"
+| ConsList: "\<lbrakk> \<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta> ;
+              \<Delta> \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi> \<rbrakk> 
+             \<Longrightarrow> \<Gamma> \<turnstile>{s} f ; [ \<tau> ; \<L>, Tail ] : (one \<oplus> q, table [] \<tau>) \<stileturn> \<Xi>"
 
 datatype Val = Num nat | Bool bool 
   | Table "StorageLoc list"
@@ -84,76 +84,54 @@ inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightar
 (* Auxiliary definitions *)
 
 (* TODO: Update when adding new types *)
-
-inductive base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" where
-  ReflN: "base_type_compat natural natural"
-| ReflB: "base_type_compat boolean boolean"
-| Table: "\<lbrakk> base_type_compat t1 t2 \<rbrakk> \<Longrightarrow> base_type_compat (table keys1 (q1,t1)) (table keys2 (q2,t2))"
-
-(*
-lemma compat_table_with_table:
-  fixes k1 q1 t1 t
-  assumes "base_type_compat (table k1 (q1,t1)) t"
-  shows "\<exists>k2 q2 t2. t = table k2 (q2,t2)"
-  using assms
-  by (rule base_type_compat.cases, auto)
-
-lemma base_type_compat_trans: 
-  "\<lbrakk> base_type_compat t1 t2 ; base_type_compat t2 t3 \<rbrakk> \<Longrightarrow> base_type_compat t1 t3"
-  apply (induction rule: base_type_compat.induct)
-    apply (induction rule: base_type_compat.induct)
-  apply (auto simp: ReflN ReflB Table)
-  apply (induction rule: base_type_compat.induct)
-  apply auto
-
 fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" where
   "base_type_compat natural natural = True"
 | "base_type_compat boolean boolean = True"
 | "base_type_compat (table ks1 (q1,t1)) (table ks2 (q2,t2)) = base_type_compat t1 t2"
 | "base_type_compat _ _ = False"
 
-lemma compat_table_with_table:
-  fixes k1 q1 t1 t
-  assumes "base_type_compat (table k1 (q1,t1)) t"
-  obtains k2 and q2 and t2 where "t = table k2 (q2,t2)"
-  using assms
+lemma base_type_compat_refl:
+  fixes t
+  shows "base_type_compat t t"
   by (induction t, auto)
-
-lemma
-  fixes t1 and t2
-  assumes "P natural natural" and "P boolean boolean"
-      and "\<And>k1 q1 t1 k2 q2 t2. \<lbrakk> base_type_compat t1 t2 ; P t1 t2 \<rbrakk> 
-              \<Longrightarrow> P (table k1 (q1, t1)) (table k2 (q2, t2))"
-      and "base_type_compat t1 t2"  
-    shows "P t1 t2"
-  using assms
-  apply (cases t1)
-  apply (cases t2, auto)
-   apply (cases t2, auto)
-  apply (frule compat_table_with_table)
-  apply auto
 
 lemma base_type_compat_sym:
   fixes t1 and t2
   assumes "base_type_compat t1 t2"
   shows "base_type_compat t2 t1"
   using assms
-  apply (cases t1)
-  apply (cases t2, auto)
-   apply (cases t2, auto)
-  apply (cases t2, auto)
+proof(induction t1 arbitrary: t2)
+  case natural
+  then show ?case by (cases t2, auto)
+next
+  case boolean
+  then show ?case by (cases t2, auto)
+next
+  case (table k1 e1)
+  then obtain q1 and t1e where "e1 = (q1,t1e)" by (cases e1)
+  then show ?case using table by (cases t2, auto)
+qed
 
-lemma base_type_compat_trans:
+thm base_type_compat.induct
+
+lemma base_type_compat_trans: 
   fixes t1 and t2 and t3
   assumes "base_type_compat t1 t2" and "base_type_compat t2 t3"
   shows "base_type_compat t1 t3"
   using assms
-  apply induction
-  apply auto
-   apply (cases t3)
-  apply auto
-
-*)
+proof(induction t1 arbitrary: t2 t3)
+  case natural
+  then show ?case by (cases t2, cases t3, auto)
+next
+  case boolean
+  then show ?case by (cases t2, cases t3, auto)
+next
+  case (table k1 e1)
+  then obtain q1 t1e and k2 q2 t2e and k3 q3 t3e 
+    where "e1 = (q1,t1e)" and "t2 = table k2 (q2,t2e)" and "t3 = table k3 (q3,t3e)"
+    by (metis BaseTy.distinct(4) BaseTy.inject BaseTy.simps(7) base_type_compat.elims(2))
+  then show ?case using table by fastforce
+qed
 
 fun selectLoc :: "Store \<Rightarrow> StorageLoc \<Rightarrow> Resource" where
   "selectLoc (\<mu>, \<rho>) (l, Amount n) = 
@@ -238,17 +216,17 @@ definition mode_compat :: "Mode \<Rightarrow> (Type \<Rightarrow> Type) \<Righta
 
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
-  assumes "\<Gamma> \<turnstile>{m} \<L> : \<tau> ; f \<stileturn> \<Delta>"
+  assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> \<Sigma>"
       and "located \<L>"
       and "type_preserving f"
     shows "\<Delta> \<leftrightarrow> \<Sigma>"
   using assms
 proof(induction arbitrary: \<Sigma>)
-  case (Nat \<Gamma> n f)
+  case (Nat \<Gamma> f n)
   then show ?case by simp
 next
-  case (Bool \<Gamma> b f)
+  case (Bool \<Gamma> f b)
   then show ?case by simp
 next
   case (Var \<Gamma> x \<tau> m f)
@@ -274,29 +252,29 @@ next
       show "ty_res_compat (q, t) (selectLoc (\<mu>, \<rho>) x2)"
   qed *)
 next
-  case (VarDef x \<Gamma> t f)
+  case (VarDef x \<Gamma> f t)
   then show ?case by simp 
 next
-  case (EmptyList \<Gamma> \<tau> f)
+  case (EmptyList \<Gamma> f \<tau>)
   then show ?case by simp
 next
-  case (ConsList \<Gamma> \<L> \<tau> f \<Delta> Tail q \<Xi>)
+  case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
   then show ?case by simp 
 qed
 
 lemma locator_progress:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
-  assumes "\<Gamma> \<turnstile>{m} \<L> : \<tau> ; f \<stileturn> \<Delta>"
+  assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)"
       and "finite (dom \<rho>)"
       and "type_preserving f"
   shows "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. <(\<mu>, \<rho>), \<L>> \<rightarrow> <(\<mu>', \<rho>'), \<L>'> )"
   using assms
 proof(induction arbitrary: \<mu> \<rho> m rule: loc_type.induct)
-  case (Nat \<Gamma> n f)
+  case (Nat \<Gamma> f n)
   then show ?case by (meson ENat gen_loc)
 next
-  case (Bool \<Gamma> b f)
+  case (Bool \<Gamma> f b)
   then show ?case by (meson EBool gen_loc)
 next
   case (Var \<Gamma> x \<tau> m f)
@@ -318,7 +296,7 @@ next
     then show ?thesis by simp
   qed
 next
-  case (VarDef x \<Gamma> t f)
+  case (VarDef x \<Gamma> f t)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
         and "finite (dom \<rho>)"
         and not_in_lookup: "x \<notin> dom \<mu>" by auto
@@ -330,13 +308,13 @@ next
       by (rule EVarDef)
   qed
 next
-  case (EmptyList \<Gamma> \<tau> f)
+  case (EmptyList \<Gamma> f t)
   then show ?case by simp
 next
-  case (ConsList \<Gamma> \<L> \<tau> f \<Delta> Tail q \<Xi>)
+  case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
-        and loc_typed: "\<Gamma> \<turnstile>{s} \<L> : \<tau> ; f \<stileturn> \<Delta>"
-        and tail_typed: "\<Delta> \<turnstile>{s} Tail : (q, table [] \<tau>) ; f \<stileturn> \<Xi>"
+        and loc_typed: "\<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>"
+        and tail_typed: "\<Delta> \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>"
         and loc_induct: "located \<L> 
                          \<or> (\<exists>\<mu>' \<rho>' \<L>''. <(\<mu>, \<rho>) , \<L>> \<rightarrow> <(\<mu>', \<rho>') , \<L>''>)"
         and tail_induct: "\<And>\<mu> \<rho>. \<lbrakk>\<Delta> \<leftrightarrow> (\<mu>, \<rho>); finite (dom \<rho>)\<rbrakk>
@@ -373,14 +351,14 @@ fun finite_store :: "Store \<Rightarrow> bool" where
 lemma locator_preservation:
   fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
   assumes "<\<Sigma>, \<L>> \<rightarrow> <\<Sigma>', \<L>'>"
-      and "\<Gamma> \<turnstile>{s} \<L> : \<tau> ; f \<stileturn> \<Delta>"
+      and "\<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> \<Sigma>"
       and "finite_store \<Sigma>"
     shows "finite_store \<Sigma>' 
-      \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} \<L>' : \<tau> ; f \<stileturn> \<Delta>'))"
+      \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau> \<stileturn> \<Delta>'))"
 (*TODO: We probably need some compatibility condition between \<Gamma> and \<Gamma>' and \<Delta> and \<Delta>' *)
   using assms
-proof(induction arbitrary: \<Gamma> \<tau> \<Delta>)
+proof(induction arbitrary: \<Gamma> \<tau> f \<Delta>)
 case (ENat l \<rho> \<mu> n)
   then show ?case
   proof(safe)
@@ -388,10 +366,10 @@ case (ENat l \<rho> \<mu> n)
     have compat: "\<Gamma>(S (Loc (l, Amount n)) \<mapsto> (toQuant n, nat)) 
                   \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by auto
     have "\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))) \<and> 
-                  (\<Gamma>' \<turnstile>{s} S (Loc (l, Amount n)) : \<tau> ; f \<stileturn> \<Delta>')"
+                  (\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> \<Delta>')"
     proof(intro exI conjI)
       from compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" by simp
-      show "\<Gamma> \<turnstile>{s} S (Loc (l, Amount n)) : \<tau> ; f \<stileturn> \<Gamma>(Loc (l, Amount n) \<mapsto> "
+      show "\<Gamma> \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> \<Gamma>(Loc (l, Amount n) \<mapsto> "
 next
   case (EBool l \<rho> \<mu> b)
   then show ?case sorry
