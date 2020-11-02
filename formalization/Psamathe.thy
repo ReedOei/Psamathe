@@ -44,8 +44,7 @@ inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> Locator \<Rightarrow
 
 datatype Val = Num nat | Bool bool 
   | Table "StorageLoc list"
-  | error
-type_synonym Resource = "BaseTy \<times> Val"
+datatype Resource = Res "BaseTy \<times> Val" | error
 type_synonym Store = "(string, StorageLoc) map \<times> (nat, Resource) map"
 
 fun emptyVal :: "BaseTy \<Rightarrow> Val" where
@@ -61,12 +60,12 @@ fun located :: "Locator \<Rightarrow> bool" where
 
 inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightarrow> Locator \<Rightarrow> bool"
   ("< _ , _ > \<rightarrow> < _ , _ >") where
-  ENat: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (natural, Num n))), S (Loc (l, Amount n)) >"
-| EBool: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (boolean, Bool b))), S (Loc (l, SLoc l)) >"
+  ENat: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n))), S (Loc (l, Amount n)) >"
+| EBool: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> Res (boolean, Bool b))), S (Loc (l, SLoc l)) >"
 | EVar: "\<lbrakk> \<mu> x = Some l \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), S (V x) > \<rightarrow> < (\<mu>, \<rho>), S (Loc l) >"
 | EVarDef: "\<lbrakk> x \<notin> dom \<mu> ; l \<notin> dom \<rho> \<rbrakk> 
             \<Longrightarrow> < (\<mu>, \<rho>), var x : t > 
-                \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> (t, emptyVal t))), S (Loc (l, SLoc l)) >"
+                \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t))), S (Loc (l, SLoc l)) >"
 | EConsListHeadCongr: "\<lbrakk> < \<Sigma>, \<L> > \<rightarrow> < \<Sigma>', \<L>' > \<rbrakk>
                    \<Longrightarrow> < \<Sigma>, [ \<tau> ; \<L>, Tail ] > \<rightarrow> < \<Sigma>', [ \<tau> ; \<L>', Tail ] >"
 | EConsListTailCongr: "\<lbrakk> located \<L> ; < \<Sigma>, Tail > \<rightarrow> < \<Sigma>', Tail' > \<rbrakk>
@@ -82,8 +81,95 @@ inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightar
                \<Longrightarrow> < (\<mu>, \<rho>), [ \<tau> ; ] > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> (table [] \<tau>, Table []))), S (Loc (l, SLoc l)) >"
 *)
 
-definition var_dom :: "Env \<Rightarrow> string set" where
-  "var_dom \<Gamma> \<equiv> { x . V x \<in> dom \<Gamma> }"
+(* Auxiliary definitions *)
+
+(* TODO: Update when adding new types *)
+
+inductive base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" where
+  ReflN: "base_type_compat natural natural"
+| ReflB: "base_type_compat boolean boolean"
+| Table: "\<lbrakk> base_type_compat t1 t2 \<rbrakk> \<Longrightarrow> base_type_compat (table keys1 (q1,t1)) (table keys2 (q2,t2))"
+
+(*
+lemma compat_table_with_table:
+  fixes k1 q1 t1 t
+  assumes "base_type_compat (table k1 (q1,t1)) t"
+  shows "\<exists>k2 q2 t2. t = table k2 (q2,t2)"
+  using assms
+  by (rule base_type_compat.cases, auto)
+
+lemma base_type_compat_trans: 
+  "\<lbrakk> base_type_compat t1 t2 ; base_type_compat t2 t3 \<rbrakk> \<Longrightarrow> base_type_compat t1 t3"
+  apply (induction rule: base_type_compat.induct)
+    apply (induction rule: base_type_compat.induct)
+  apply (auto simp: ReflN ReflB Table)
+  apply (induction rule: base_type_compat.induct)
+  apply auto
+
+fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" where
+  "base_type_compat natural natural = True"
+| "base_type_compat boolean boolean = True"
+| "base_type_compat (table ks1 (q1,t1)) (table ks2 (q2,t2)) = base_type_compat t1 t2"
+| "base_type_compat _ _ = False"
+
+lemma compat_table_with_table:
+  fixes k1 q1 t1 t
+  assumes "base_type_compat (table k1 (q1,t1)) t"
+  obtains k2 and q2 and t2 where "t = table k2 (q2,t2)"
+  using assms
+  by (induction t, auto)
+
+lemma
+  fixes t1 and t2
+  assumes "P natural natural" and "P boolean boolean"
+      and "\<And>k1 q1 t1 k2 q2 t2. \<lbrakk> base_type_compat t1 t2 ; P t1 t2 \<rbrakk> 
+              \<Longrightarrow> P (table k1 (q1, t1)) (table k2 (q2, t2))"
+      and "base_type_compat t1 t2"  
+    shows "P t1 t2"
+  using assms
+  apply (cases t1)
+  apply (cases t2, auto)
+   apply (cases t2, auto)
+  apply (frule compat_table_with_table)
+  apply auto
+
+lemma base_type_compat_sym:
+  fixes t1 and t2
+  assumes "base_type_compat t1 t2"
+  shows "base_type_compat t2 t1"
+  using assms
+  apply (cases t1)
+  apply (cases t2, auto)
+   apply (cases t2, auto)
+  apply (cases t2, auto)
+
+lemma base_type_compat_trans:
+  fixes t1 and t2 and t3
+  assumes "base_type_compat t1 t2" and "base_type_compat t2 t3"
+  shows "base_type_compat t1 t3"
+  using assms
+  apply induction
+  apply auto
+   apply (cases t3)
+  apply auto
+
+*)
+
+fun selectLoc :: "Store \<Rightarrow> StorageLoc \<Rightarrow> Resource" where
+  "selectLoc (\<mu>, \<rho>) (l, Amount n) = 
+                              (case \<rho> l of Some (Res (t,_)) \<Rightarrow> Res (t, Num n) | _ \<Rightarrow> error)"
+| "selectLoc (\<mu>, \<rho>) (l, SLoc k) = (case \<rho> k of None \<Rightarrow> error | Some r \<Rightarrow> r)"
+
+fun select :: "Store \<Rightarrow> Stored \<Rightarrow> Resource" where
+  "select (\<mu>, \<rho>) (V x) = (case \<mu> x of Some l \<Rightarrow> selectLoc (\<mu>, \<rho>) l | None \<Rightarrow> error)"
+| "select \<Sigma> (Loc l) = selectLoc \<Sigma> l"
+
+fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" where
+  "ty_res_compat (q,t1) (Res (t2,_)) = base_type_compat t1 t2"
+| "ty_res_compat _ error = False"
+
+fun var_dom :: "Env \<Rightarrow> string set" where
+  "var_dom \<Gamma> = { x . V x \<in> dom \<Gamma> }"
 
 (* This is a weaker version of compatibility (tentatively, locator compatibility)
   This is needed, because while evaluating locators, the type environments won't agree with the 
@@ -94,61 +180,10 @@ definition var_dom :: "Env \<Rightarrow> string set" where
   I think we will need)*)
 fun compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" ("_ \<leftrightarrow> _") where
   "compat \<Gamma> (\<mu>, \<rho>) = ((var_dom \<Gamma> = dom \<mu>) \<and> 
-                      (\<forall>x l k. \<mu> x = Some (l, k) \<longrightarrow> \<rho> l \<noteq> None) \<and>
-                      (\<forall>x q t. \<Gamma>(V x) = Some (q,t) \<longrightarrow> (\<exists>l v. \<rho> l = Some (t, v))))" 
-
-(* Might not work. 
-The type rule gives the type environment after the entire thing has been evaluated, not one step...
-lemma compat_progress:
-  fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>" and "\<Sigma>" and "\<Sigma>'" and "\<L>'" and "m"
-  assumes "< \<Sigma>, \<L> > \<rightarrow> < \<Sigma>', \<L>' >"
-      and "\<Gamma> \<turnstile>{m} \<L> : \<tau> ; f \<stileturn> \<Delta>"
-      and "\<Gamma> \<leftrightarrow> \<Sigma>"
-    shows "\<Delta> \<leftrightarrow> \<Sigma>'"
-  using assms
-proof(induction arbitrary: \<Gamma> \<Delta> \<tau> f m rule: loc_eval.induct)
-  case (ENat l \<rho> \<mu> n)
-  then show ?case
-(* TODO: Why do I have to write it like this? *)
-    by simp (erule loc_type.cases, auto)
-next
-  case (EBool l \<rho> \<mu> b)
-  then show ?case
-    by simp (erule loc_type.cases, auto)
-next
-  case (EVar \<mu> x l \<rho>)
-  then show ?case 
-    by simp (erule loc_type.cases, auto simp: var_dom_def)
-next
-  case (EVarDef x \<mu> l \<rho> t)
-  then show ?case
-    by simp (erule loc_type.cases, auto simp: var_dom_def)
-next
-  case (EConsListHeadCongr \<Sigma> \<L> \<Sigma>' \<L>' \<tau>' Tail)
-  then have eval: "< \<Sigma> , \<L> > \<rightarrow> < \<Sigma>' , \<L>' >"
-    and induct: "\<And>\<Gamma>' \<Delta>' m \<sigma> g. \<lbrakk>\<Gamma>' \<turnstile>{m} \<L> : \<sigma> ; g \<stileturn> \<Delta>'; \<Gamma>' \<leftrightarrow> \<Sigma>\<rbrakk> \<Longrightarrow> \<Delta>' \<leftrightarrow> \<Sigma>'"
-    and typed: "\<Gamma> \<turnstile>{m} [ \<tau>' ; \<L> , Tail ] : \<tau> ; f \<stileturn> \<Delta>"
-    and compat: "\<Gamma> \<leftrightarrow> \<Sigma>"
-    by auto
-
-  (* Why does this need to be split into so many steps... *)
-  have "\<Gamma> \<turnstile>{m} [ \<tau>' ; \<L> , Tail ] : \<tau> ; f \<stileturn> \<Delta> \<Longrightarrow> \<exists>\<Delta>'. (\<Gamma> \<turnstile>{m} \<L> : \<tau>' ; f \<stileturn> \<Delta>') \<and> (\<exists>q. (\<Delta>' \<turnstile>{m} Tail : (q, table [] \<tau>') ; f \<stileturn> \<Delta>))"
-    apply (erule loc_type.cases)
-    by auto
-  from this and typed have "\<exists>\<Delta>'. (\<Gamma> \<turnstile>{m} \<L> : \<tau>' ; f \<stileturn> \<Delta>') \<and> (\<exists>q. (\<Delta>' \<turnstile>{m} Tail : (q, table [] \<tau>') ; f \<stileturn> \<Delta>))" 
-    by auto
-  then obtain \<Delta>' and q 
-    where loc_type_env: "\<Gamma> \<turnstile>{m} \<L> : \<tau>' ; f \<stileturn> \<Delta>'" 
-    and   tail_type_env: "\<Delta>' \<turnstile>{m} Tail : (q, table [] \<tau>') ; f \<stileturn> \<Delta>" by auto
-
-  from compat and induct and loc_type_env have "\<Delta>' \<leftrightarrow> \<Sigma>'" by auto
-  from this and induct and tail_type_env have "\<Delta> \<leftrightarrow> \<Sigma>'" by auto
-
-  then show ?case
-next
-  case (EConsListTailCongr \<L> \<Sigma> Tail \<Sigma>' Tail' \<tau>)
-  then show ?case sorry
-qed *)
+                      (\<forall>x l k. \<mu> x = Some (l, k) \<longrightarrow> \<rho> l \<noteq> None))"
+(* TODO: Need to eventually put this next line back. This is the part of type compatibility 
+    that I think should be retained by locator evaluation *)
+                     (* (\<forall>x q t. \<Gamma> x = Some (q,t) \<longrightarrow> ty_res_compat (q,t) (select (\<mu>, \<rho>) x)))" *)
 
 lemma gen_loc:
   fixes m :: "(nat, 'a) map"
@@ -156,11 +191,16 @@ lemma gen_loc:
   obtains "l" where "l \<notin> dom m"
   using ex_new_if_finite is_fin by auto
 
+(* TODO: Will need to update this eventually when adding in records *)
+definition type_preserving :: "(Type \<Rightarrow> Type) \<Rightarrow> bool" where
+  "type_preserving f \<equiv> \<forall>\<tau>. base_type_compat (snd \<tau>) (snd (f \<tau>))"
+
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} \<L> : \<tau> ; f \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> \<Sigma>"
       and "located \<L>"
+      and "type_preserving f"
     shows "\<Delta> \<leftrightarrow> \<Sigma>"
   using assms
 proof(induction arbitrary: \<Sigma>)
@@ -171,6 +211,7 @@ next
   then show ?case by simp
 next
   case (Var \<Gamma> x \<tau> m f)
+  then have x_in_dom: "x \<in> dom \<Gamma>" by auto
   then show ?case 
   proof(cases x)
     case (V x1)
@@ -178,8 +219,19 @@ next
   next
     case (Loc x2)
     then show ?thesis using Var.prems
-      by (cases \<Sigma>, simp add: domIff var_dom_def)+
+      by (cases \<Sigma>, simp add: domIff)
   qed
+
+(*
+    then show ?thesis using Var.prems x_in_dom
+      apply (cases \<Sigma>, simp add: domIff)
+    proof((rule allI)+, clarsimp)
+      fix \<mu> \<rho> q t
+      assume "type_preserving f"
+      then have "base_type_compat (snd (f \<tau>)) t" 
+        apply (auto simp: type_preserving_def)
+      show "ty_res_compat (q, t) (selectLoc (\<mu>, \<rho>) x2)"
+  qed *)
 next
   case (VarDef x \<Gamma> t f)
   then show ?case by simp 
@@ -196,10 +248,8 @@ lemma locator_progress:
   assumes "\<Gamma> \<turnstile>{m} \<L> : \<tau> ; f \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)"
       and "finite (dom \<rho>)"
-  shows "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. <(\<mu>, \<rho>), \<L>> \<rightarrow> <(\<mu>', \<rho>'), \<L>'>)"
-(* Premise was too strong, combined elements of progress and preservation...TODO: take some of this
-    shows "(located \<L> \<and> (\<Delta> \<leftrightarrow> (\<mu>, \<rho>)) \<and> finite (dom \<rho>))
-           \<or> (\<exists>\<mu>' \<rho>' \<L>'. (\<Delta> \<leftrightarrow> (\<mu>', \<rho>')) \<and> finite (dom \<rho>') \<and> < (\<mu>, \<rho>), \<L> > \<rightarrow> < (\<mu>', \<rho>'), \<L>' >)" *)
+      and "type_preserving f"
+  shows "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. <(\<mu>, \<rho>), \<L>> \<rightarrow> <(\<mu>', \<rho>'), \<L>'> )"
   using assms
 proof(induction arbitrary: \<mu> \<rho> m rule: loc_type.induct)
   case (Nat \<Gamma> n f)
@@ -215,7 +265,7 @@ next
   proof(cases x)
     case (V x1)
     from this and env_compat and x_in_env 
-    have "x1 \<in> dom \<mu>" and eq: "x = V x1" by (auto simp: var_dom_def)
+    have "x1 \<in> dom \<mu>" and eq: "x = V x1" by auto
     then obtain k where in_lookup: "\<mu> x1 = Some k" by auto
     show ?thesis
     proof(rule disjI2, (rule exI)+)
@@ -230,12 +280,12 @@ next
   case (VarDef x \<Gamma> t f)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
         and "finite (dom \<rho>)"
-        and not_in_lookup: "x \<notin> dom \<mu>" by (auto simp: var_dom_def)
+        and not_in_lookup: "x \<notin> dom \<mu>" by auto
   then obtain l where has_loc: "l \<notin> dom \<rho>" using gen_loc by blast
   show ?case
   proof(rule disjI2, (rule exI)+)
     from not_in_lookup and has_loc
-    show "< (\<mu>, \<rho>) , var x : t > \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> (t, emptyVal t))) , S (Loc (l, SLoc l)) >"
+    show "< (\<mu>, \<rho>) , var x : t > \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t))) , S (Loc (l, SLoc l)) >"
       by (rule EVarDef)
   qed
 next
@@ -264,12 +314,10 @@ next
       from this and loc_l show ?thesis by simp
     next
       case False
-      from loc_typed and env_compat and loc_l have "\<Delta> \<leftrightarrow> (\<mu>, \<rho>)" using located_env_compat
-        by blast
+      from loc_l have "\<Delta> \<leftrightarrow> (\<mu>, \<rho>)" using located_env_compat ConsList by blast
       then have "\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >"
-        using tail_induct ConsList.prems(2) False by blast
-      then show ?thesis
-        using EConsListTailCongr loc_l by blast
+        using tail_induct ConsList False by blast
+      then show ?thesis using EConsListTailCongr loc_l by blast
     qed
   next
     case False
@@ -284,16 +332,22 @@ fun finite_store :: "Store \<Rightarrow> bool" where
 lemma locator_preservation:
   fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
   assumes "<\<Sigma>, \<L>> \<rightarrow> <\<Sigma>', \<L>'>"
-      and "\<Gamma> \<turnstile>{s} \<L> : \<tau> ; (\<lambda>(_, t'). (empty, t')) \<stileturn> \<Delta>"
+      and "\<Gamma> \<turnstile>{s} \<L> : \<tau> ; f \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> \<Sigma>"
       and "finite_store \<Sigma>"
     shows "finite_store \<Sigma>' 
-      \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} \<L>' : \<tau> ; (\<lambda>(_, t'). (empty, t')) \<stileturn> \<Delta>'))"
+      \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} \<L>' : \<tau> ; f \<stileturn> \<Delta>'))"
 (*TODO: We may need some compatibility condition between \<Gamma> and \<Gamma>' and \<Delta> and \<Delta>' *)
   using assms
 proof(induction arbitrary: \<Gamma> \<tau> \<Delta>)
 case (ENat l \<rho> \<mu> n)
   then show ?case
+  proof(safe)
+    show "finite_store (\<mu>, \<rho>(l \<mapsto> (natural, Num n)))" using ENat.prems by simp
+    have "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> (natural, Num n)))" using ENat.prems
+    proof(auto)
+      fix x q t
+      have "\<exists>l v. \<rho> l = Some (t, v)"
 next
   case (EBool l \<rho> \<mu> b)
   then show ?case sorry
