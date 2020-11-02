@@ -194,23 +194,47 @@ lemma gen_loc:
 definition type_preserving :: "(Type \<Rightarrow> Type) \<Rightarrow> bool" where
   "type_preserving f \<equiv> \<forall>\<tau>. base_type_compat (snd \<tau>) (snd (f \<tau>))"
 
+
 instantiation TyQuant :: linorder
 begin
 
-definition less_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
-  "less_TyQuant q1 q2 \<equiv> True"
+fun less_eq_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
+  "less_eq_TyQuant empty r = True"
+| "less_eq_TyQuant any r = (r \<notin> {empty})"
+| "less_eq_TyQuant one r = (r \<notin> {empty,any})"
+ (* Kind of redundant for now, but if we put every back, it will not be *)
+| "less_eq_TyQuant nonempty r = (r \<notin> {empty,any,one})"
 
-definition less_eq_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
-  "less_eq_TyQuant q1 q2 \<equiv> True"
+fun less_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
+  "less_TyQuant q r = ((q \<le> r) \<and> (q \<noteq> r))"
+
 instance
-  apply unfold_locales
+proof
+  fix x y :: TyQuant
+  show "(x < y) = (x \<le> y \<and> \<not> y \<le> x)" 
+    by (cases x, (cases y, auto)+)
+next
+  fix x :: TyQuant
+  show "x \<le> x" by (cases x, auto)
+next
+  fix x y z :: TyQuant
+  assume "x \<le> y" and "y \<le> z"
+  then show "x \<le> z" by (cases x, (cases y, cases z, auto)+)
+next
+  fix x y :: TyQuant
+  assume "x \<le> y" and "y \<le> x"
+  then show "x = y" by (cases x, (cases y, auto)+)
+next
+  fix x y :: TyQuant
+  show "x \<le> y \<or> y \<le> x" by (cases x, (cases y, auto)+)
+qed
+end
 
-
-definition type_leq :: "Type \<Rightarrow> Type \<Rightarrow> bool" ("_ \<le> _") where
-  "(q1, t1) \<le> (q2, t2) \<equiv> q1 \<le> q2"
+fun less_eq_Type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<le>\<^sub>\<tau>" 50) where
+  "less_eq_Type (q1,t1) (q2, t2) = (q1 \<le> q2)"
 
 definition mode_compat :: "Mode \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> bool" where
-  "mode_compat m f \<equiv> case m of s \<Rightarrow> \<forall>\<tau>. f \<tau> \<le> \<tau> | d \<Rightarrow> \<forall>\<tau>. \<tau> \<le> f \<tau>"
+  "mode_compat m f \<equiv> case m of s \<Rightarrow> \<forall>\<tau>. f \<tau> \<le>\<^sub>\<tau> \<tau> | d \<Rightarrow> \<forall>\<tau>. \<tau> \<le>\<^sub>\<tau> f \<tau>"
 
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
