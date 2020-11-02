@@ -303,6 +303,7 @@ For this reason, the resulting type of a copy is the \emph{demoted} type of $\ta
     % }{ \Gamma \flowproves_S \demote(\Loc) : \demoteT(\tau); \id{\types} \flowprovesout \Gamma }
 \end{mathpar}
 
+List literals are also only allowed to be used as sources; we use $\updateElem$ to modify the updater $f$ as appropriate to work on the elements of the list, rather than the whole list.
 \begin{mathpar}
     \inferrule*[right=List]{
         \Gamma \flowproves_S \updateElem(f) ; \overline{\Loc : \tau} \flowprovesout \Delta
@@ -317,6 +318,14 @@ where
         (\id{\types} \sqcup~\with_{\emptyq}) & \owise
     \end{cases}
 \]
+
+Next, we consider record literals, which can also only be used as sources.
+We use $\updateElem$ again, because it captures the difference \reed{I think...} between selecting the whole record and selecting parts of the fields of the record.
+\begin{mathpar}
+    \inferrule*[right=Record]{
+        \Gamma \flowproves_S \updateElem(f) ; \overline{\Loc : \tau} \flowprovesout \Delta
+    }{ \Gamma \flowproves_S f ; \curlys{ \overline{x : \tau \mapsto \Loc} } : \exactlyone~\curlys{\overline{x : \tau}} \flowprovesout \Delta }
+\end{mathpar}
 
 The \textsc{Filter} rule has several parts.
 We must ensure that the predicate, $p$, really is a predicate: it accepts values of type $\elemtype(T)$ and returns $\exactlyone~\boolt$.
@@ -339,7 +348,21 @@ This condition is not strictly necessary, as it would be caught by the dynamic c
     }{ \Gamma \flowproves_M f ; \Loc[\mathcal{Q}~\tsuchthat~p(\overline{\LocK})] : \mathcal{Q}~T \flowprovesout \Delta }
 \end{mathpar}
 
-% (\lambda \mathcal{Q}'~T'. \max(f(\mathcal{Q}'~T'), (\mathcal{Q}' \ominus \mathcal{Q})~T') \flowprovesout \Delta
+The \textsc{Select} rule allows us to use one locator to select parts of another.
+The locator $\LocK$ that is used to select part of $\Loc$ will not be modified; it is considered a source (i.e., it is checked using the mode $S$) for the purposes of this rule, because the values must already be present in the locations specified (e.g., it would make no sense to use a variable definition or $\consume$ as $\LocK$).
+Additionally, $\LocK$ may be the demoted version of $\Loc$; e.g., if $\Loc : \mathcal{Q}~\texttt{\textbf{Token}}$ where $\textbf{\texttt{Token}}$ is the type of Token represented by $\natt$, we can use a value of type $\natt$ to select tokens.
+We modify the updater $f$ as in \textsc{Filter}.
+\begin{mathpar}
+    \inferrule*[right=Select]{
+        \Gamma \flowproves_S \id{\types} ; \LocK : \mathcal{Q}~T' \flowprovesout \Gamma
+        \\
+        \Gamma \flowproves_M \max(f, \ominus \mathcal{Q}) ; \Loc : \mathcal{R}~T \flowprovesout \Delta
+        \\
+        \mathcal{R} \geq \mathcal{Q}
+        \\
+        \demoteT_*(T') = \demoteT_*(T)
+    }{ \Gamma \flowproves_M f ; \Loc[\LocK] : \mathcal{Q}~T \flowprovesout \Delta }
+\end{mathpar}
 
 We may only use $\consume$ as a destination, and only if $T$ is a consumable type.
 We arbitrarily choose $\emptyq$ as the type quantity for $\consume$.
