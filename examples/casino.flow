@@ -33,6 +33,7 @@ transformer placeBet(this : Casino, msg : Message, prediction : nat) -> oldToken
     } catch {}
 
     new Bet(prediction, msg.value) --> this.bets[msg.sender]
+    msg --> consume
 }
 
 transformer collectWinnings(this : Casino, sender : address) -> winnings : Token {

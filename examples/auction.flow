@@ -24,6 +24,8 @@ transformer bid(this : Auction, msg : Message) {
     } catch {
         msg.value --> pendingReturns[msg.sender]
     }
+
+    msg --> consume // Because it is now empty of nonconsumable assets (ether), it can be consumed
 }
 
 transformer withdraw(this : Auction, sender : address) {
@@ -60,6 +62,8 @@ transformer bid(this : Auction, msg : Message) {
     } catch {
         msg.value --> msg.sender.balance
     }
+
+    msg --> consume // Because it is now empty of nonconsumable assets (ether), it can be consumed
 }
 
 ;

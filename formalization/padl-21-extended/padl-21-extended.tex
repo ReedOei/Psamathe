@@ -122,7 +122,7 @@ Cannot flow <amount> Token from account[<src>] to account[<dst>]:
         Flows enable such messages by encoding information into the source code.
 \end{itemize}
 
-Each variable and function parameter has a \emph{type quantity}, approximating the number of values, which is one of: \flowinline{empty}, \flowinline{any}, \flowinline{one}, \flowinline{nonempty}, or \flowinline{every}.
+Each variable and function parameter has a \emph{type quantity}, approximating the number of values, which is one of: \flowinline{empty}, \flowinline{any}, \flowinline{one}, or \flowinline{nonempty}. % , or \flowinline{every}.
 Only \flowinline{empty} asset variables may be dropped.
 Type quantities are inferred if omitted; every type quantity in Figure~\ref{fig:erc20-transfer-flow} can be omitted.
 
@@ -184,6 +184,12 @@ Additionally, in Solidity, variables are initialized with default values, making
 Programs in \langName are \emph{transactional}: a sequence of flows will either all succeed, or, if a single flow fails, the rest will fail as well.
 If a sequence of flows fails, the error propagates, like an exception, until it either: a) reaches the top level, and the entire transaction fails; or b) reaches a \flowinline{catch}, and then only the changes made in the corresponding \flowinline{try} block will be reverted, and the code in the \flowinline{catch} block will be executed.
 
+\section{Formalization}
+
+We now present typing and evaluation rules for the core calculus of \langName.
+
+\subsection{Syntax}
+
 Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langName.
 \begin{figure}
     \centering
@@ -192,7 +198,8 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
         a,x,y,z &\in \textsc{Identifiers} & n,m &\in \N \\
     \end{align*}
     \begin{tabular}{l r l l}
-        $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
+        % $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ \bnfalt $\every$ & (type quantities) \\
+        $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ & (type quantities) \\
         $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable & (modifiers) \\
             & \bnfalt & \consumable \bnfalt \asset & (modifiers) \\
         $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $t$ \bnfalt $\tableT(\overline{x})~\{ \overline{x : \tau} \}$ & (base types) \\
@@ -212,23 +219,19 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
     \label{fig:syntax}
 \end{figure}
 
-\subsection{Partial Formalization}
-
-We now present typing and evaluation rules for a fragment of the core calculus, describing the basics of flows.
-This fragment is the smallest fragment capable of defining complete, simple programs in \langName.
-
-\paragraph{Statics}
+\subsection{Statics}
 Below we show the type rules needed to check flows between variables.
 We use $\Gamma$ and $\Delta$ as type environments, pairs of variables and types, identified with partial functions between the two.
 
-Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the best approximation by type quantity of $n$, i.e.,
+% Define $\# : \N \cup \curlys{\infty} \to \mathcal{Q}$ so that $\#(n)$ is the best approximation by type quantity of $n$, i.e.,
+Define $\# : \N \to \textsc{TypeQuant}$ so that $\#(n)$ is the best approximation by type quantity of $n$, i.e.,
 \[
     \#(n) =
     \begin{cases}
         \emptyq & \tif n = 0 \\
         \exactlyone & \tif n = 1 \\
         \nonempty & \tif n > 1 \\
-        \every & \tif n = \infty \\
+        % \every & \tif n = \infty \\
     \end{cases}
 \]
 
@@ -328,7 +331,7 @@ We use $\updateElem$ again, because it captures the difference \reed{I think...}
 \end{mathpar}
 
 The \textsc{Filter} rule has several parts.
-We must ensure that the predicate, $p$, really is a predicate: it accepts values of type $\elemtype(T)$ and returns $\exactlyone~\boolt$.
+We must ensure that the predicate, $p$, really is a predicate: that is, it accepts values of type $\elemtype(T)$ and returns $\exactlyone~\boolt$.
 We next check that the arguments have the correct types.
 Next, we check that the location being filtered is of the right type, and updates its type, as appropriate.
 We use $\max(f, \ominus \mathcal{Q})$ to capture whether $f$ is $\id{\types}$ or performs some modification.
@@ -365,7 +368,7 @@ We modify the updater $f$ as in \textsc{Filter}.
 \end{mathpar}
 
 We may only use $\consume$ as a destination, and only if $T$ is a consumable type.
-We arbitrarily choose $\emptyq$ as the type quantity for $\consume$.
+We arbitrarily choose $\emptyq$ as the type quantity for $\consume$; this choice does not matter because we cannot reference \consume in any other context.
 \begin{mathpar}
     \inferrule*[right=Consume]{
         T~\consumable
@@ -385,10 +388,10 @@ For example, if we know that $\Loc : \exactlyone~T$, then we can also say that $
 We now consider type checking statements.
 
 \framebox{$\Gamma \flowproves S~\ok \flowprovesout \Delta$} \textbf{Statement Well-formedness}
-This judgement states that in the environment $\Gamma$, the statement $S$ is well-formed and it transforms $\Gamma$ into $\Delta$.
+This judgement states that in the environment $\Gamma$, the statement $S$ is well-formed and it transforms $\Gamma$ into the output environment $\Delta$.
 
-We check that $\Loc$ and $\LocK$ have the same base type.
-All the values selected by $\Loc$ are cleared out and added to $\LocK$, using the updaters.
+To check that a flow is well-formed, we check that $\Loc$ and $\LocK$ have the same base type.
+We use $\with_{\emptyq}$ to clear all the that $\Loc$ locates, and we use $(\oplus \mathcal{Q})$ to add these to $\LocK$.
 \begin{mathpar}
     \inferrule*[right=Ok-Flow]{
         \Gamma \flowproves_S \with_{\emptyq} ; \Loc : \mathcal{Q}~T \flowprovesout \Delta
@@ -398,13 +401,18 @@ All the values selected by $\Loc$ are cleared out and added to $\LocK$, using th
 \end{mathpar}
 
 \framebox{$\flowproves \Decl~\ok$} \textbf{Declaration Well-formedness}
+This judgement states that a declaration is well-formed.
 
+A type declaration is well-formed as long as it includes the \asset keyword whenever it's underlying type is an asset.
 \begin{mathpar}
     \inferrule*[right=Ok-Type]{
         T~\asset \implies \asset \in \overline{M}
     }{ \proves (\type~t~\is~\overline{M}~T)~\ok }
 \end{mathpar}
 
+To check that a transformer declaration is well-formed, we must check the behavior of its body: it must not leave any assets unused, the \emph{return variable}, $z$ must be of the correct type, and the \emph{auxiliary arguments}, $\overline{x : \tau}$, must have the same type as they did at the beginning of the transformer.
+The latter requirement ensures that transformers may be repeatedly called; for example, if used as predicate to filter a list with many elements.
+Note that $y$ may be unused, if it is not an asset.
 \begin{mathpar}
     \inferrule*[right=Ok-Transformer]{
         \overline{x : \tau}, y : \tau_y, z : \emptyq~T_z \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, \overline{x : \tau}, z : \mathcal{Q}_z~T_z
@@ -413,7 +421,7 @@ All the values selected by $\Loc$ are cleared out and added to $\LocK$, using th
     }{ (\transformer f(\overline{x : \tau}, y : \tau_y) \to \mathcal{Q}_z~T_z~\{ \overline{\Stmt} \}) ~\ok }
 \end{mathpar}
 
-\paragraph{Dynamics}
+\subsection{Dynamics}
 Below are the rules to evaluate statements of flows between variables.
 
 We introduce sorts for \emph{values}, \emph{resources}, values tagged with their type, and storage values.
@@ -432,23 +440,25 @@ The $\select(\rho, \ell, k)$ construct resolves storage value pairs into the res
 \end{tabular}
 
 \begin{definition}
-    An environment $\Sigma$ is a tuple $(\mu, \rho)$ where $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N} \times \ell$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc R$ is the \emph{storage environment}.
+    A (runtime) environment $\Sigma$ is a tuple $(\mu, \rho)$ where $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N} \times \ell$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc R$ is the \emph{storage environment}.
 \end{definition}
 
-We now give rules for how to evaluate programs containing flows between natural numbers and variables.
-
-\framebox{$\angles{\Sigma, \Loc} \to \angles{\Sigma, \Loc}$} \textbf{Locator Evaluation}
+We now give rules for how to evaluate programs in \langName.
 We begin with rules to evaluate locators.
+
+\framebox{$\angles{\Sigma, \Loc} \to \angles{\Sigma', \Loc'}$} \textbf{Locator Evaluation}
+This judgement states that with the environment $\Sigma$, $\Loc$ steps to $\Loc'$ and updates the environment to $\Sigma'$.
+
 Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select$ when $\rho(\ell) = (T, n)$ for some fungible $T$.
 
 \begin{mathpar}
     \inferrule*[right=Loc-Nat]{
         m \not\in \dom(\rho)
-    }{ \angles{ \Sigma, n } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\natt, n)]], (m, \amount(n)) } }
+    }{ \angles{ (\mu, \rho), n } \to \angles{ (\mu, \rho[\ell \mapsto (\natt, n)]), (m, \amount(n))) } }
 
     \inferrule*[right=Loc-Bool]{
         n \not\in \dom(\rho)
-    }{ \angles{ \Sigma, b } \to \angles{ \Sigma[\rho \mapsto \rho[\ell \mapsto (\boolt, b)]], (n, n) } }
+    }{ \angles{ (\mu, \rho), b } \to \angles{ (\mu, \rho[\ell \mapsto (\boolt, b)]), (n, n) } }
 
     \inferrule*[right=Loc-Id]{
         \mu(x) \neq \bot
@@ -466,32 +476,45 @@ Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select
     }
 \end{mathpar}
 
-\framebox{$\angles{\Sigma, \overline{\Stmt}} \to \angles{\Sigma, \overline{\Stmt}}$} \textbf{Statement Evaluation}
-Finally, the rule for the flows.
-We first resolve the selected resources, then subtract them from their parent locations, and finally add them all to the destination location.
+Next, the rule for evaluating statements.
+
+\framebox{$\angles{\Sigma, \overline{\Stmt}} \to \angles{\Sigma', \overline{\Stmt'}}$} \textbf{Statement Evaluation}
+
+Thsi judgement states that in the environmen $\Sigma$, the statements $\overline{\Stmt}$ step to $\overline{\Stmt'}$, and update the environment to $\Sigma'$.
+Note that when the list of statements is empty, we omit it; that is, we write $\angles{\Sigma, \overline{\Stmt}} \to \Sigma'$, not $\angles{\Sigma, \overline{\Stmt}} \to \angles{\Sigma', \cdot}$.
+
+To evaluate a flow, we must resolve the selected resources, subtract them from their parent locations, and finally add them all to the destination location.
+If either the subtraction or addition results in an error, the whole flow causes a \revert.
 
 \begin{mathpar}
     \inferrule*[right=Flow]{
         \select(\rho, n, \ell) = R
         \\
-        \rho(m) + R \neq \error
-    }{ \angles{ \Sigma, (n, \ell) \to (m, k) } \to \Sigma[\rho \mapsto \rho[n \mapsto \rho(n) - R, m \mapsto \rho(m) + R]] }
+        \error \not\in \curlys{R, \rho(m) + R}
+    }{ \angles{ (\mu, \rho), (n, \ell) \to (m, k) } \to (\mu, \rho[n \mapsto \rho(n) - R, m \mapsto \rho(m) + R]) }
 
     \inferrule*[right=Flow-Error]{
         \select(\rho, n, \ell) = R
         \\
-        \rho(m) + R = \error
+        \error \in \curlys{R, \rho(m) + R}
     }{ \angles{ \Sigma, (n, \ell) \to (m, k) } \to \angles{ \Sigma, \revert } }
-
-    \inferrule*[right=Flow-List]{
-        \overline{\select(\rho, n, \ell) = R}
-    }{ \angles{ \Sigma, [ \tau ; \overline{(n, \ell)} ] \to (m,k) } \to \Sigma[\rho \mapsto \rho[n \mapsto \rho(n) - R, m \mapsto \rho(m) + R]] }
 \end{mathpar}
 
-\reed{TODO: Need to finish \textsc{Flow-List} (needs to prperly select and remove and add)}
+\begin{mathpar}
+    % \inferrule*[right=Flow-List]{
+    %     \overline{\select(\rho, n, \ell) = R}
+    %     \\
+    %     \error \not\in \overline{R} \cup \curlys{ \rho(m) + \sum \overline{R} }
+    % }{ \angles{ (\mu, \rho), [ \tau ; \overline{(n, \ell)} ] \to (m,k) } \\\\\to (\mu, \rho[n \mapsto \rho(n) - \sum \overline{R}, m \mapsto \rho(m) + \sum \overline{R}]) }
+    \inferrule*[right=Flow-List-Empty]{
+    }{ \angles{ \Sigma, [ \tau ; \cdot ] \to (m,k) } \to \Sigma }
+
+    \inferrule*[right=Flow-List-Nonempty]{
+    }{ \angles{ \Sigma, [ \tau ; (n, \ell), \overline{\Loc} ] \to (m,k) } \\\to \angles{ \Sigma, ((n, \ell) \to (m,k)) ( [ \tau ; \overline{\Loc} ] \to (m,k) ) } }
+\end{mathpar}
 
 \framebox{$\Gamma \compat \Sigma$} \textbf{Environment compatibility}
-\reed{This is only necessary for the proofs}
+\reed{This is only necessary for the proofs. TODO: Update this to match the versions from the Isabelle formalization.}
 We check that every variable in $\Gamma$ appears in the variable lookup environment $\mu$ and vice versa.
 Additionally, every variable $x$ in the variable lookup environment must map to some value in the storage environment, which must be compatible with the type of $x$ in $\Gamma$; that is, the \emph{exact type} of $\select(\rho, \mu(x))$ must be at least as specific as the type of $x$ in the environment.
 
