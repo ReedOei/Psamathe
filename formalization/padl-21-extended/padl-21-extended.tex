@@ -260,13 +260,11 @@ We use the following type functions:
     \item $\sqcup : \types^2 \to \types$ performs the \emph{join} of the two type quantities according to specificity (e.g., $\emptyq \sqcup \nonempty = \any$)
 \end{itemize}
 
-\reed{NOTE: I considered going with the below; I decided against it (for now) because some rules (e.g., \textsc{Filter}) require ``passing'' the mode around
-\framebox{$\Gamma \flowproves \flowfromto{f} \Loc : \tau \flowprovesout \Delta $}}
-
-\reed{TODO: Write how this should be read (same for other judgements)}
+\reed{NOTE: I considered going with the following (or something like it): $\Gamma \flowproves \flowfromto{f} \Loc : \tau \flowprovesout \Delta $, $\Gamma \flowproves \flowfrom{f} \Loc : \tau \flowprovesout \Delta $, and $\Gamma \flowproves \flowto{f} \Loc : \tau \flowprovesout \Delta $.
+I decided against it (for now) because some rules (e.g., \textsc{Filter}) require ``passing'' the mode around.}
 
 Note that we write $\Gamma \flowproves_M \overline{f ; \Loc : \tau} \flowprovesout \Delta$ where $|\overline{\Loc}| = n$ to mean
-for all $1 \leq i \leq n$, $\Gamma_i \flowproves_M f_i ; \Loc_i : \tau_i \flowprovesout \Delta_i$ so that $\Gamma = \Gamma_1$, and $\Delta = \Delta_n$.
+``for all $1 \leq i \leq n$, $\Gamma_i \flowproves_M f_i ; \Loc_i : \tau_i \flowprovesout \Delta_i$'' where $\Gamma = \Gamma_1$ and $\Delta = \Delta_n$.
 
 Constants of type $\natt$ or $\boolt$ can only be used as sources---it doesn't make sense to flow values to a constant.
 \begin{mathpar}
@@ -439,6 +437,8 @@ The $\select(\rho, \ell, k)$ construct resolves storage value pairs into the res
     $\Stmt$ & \bnfdef & $\ldots$ \bnfalt $\revert$ \\
 \end{tabular}
 
+We accordingly expand type environments to contain $(n, \ell)$ pairs.
+
 \begin{definition}
     A (runtime) environment $\Sigma$ is a tuple $(\mu, \rho)$ where $\mu : \textsc{IdentifierNames} \partialfunc \mathbb{N} \times \ell$ is the \emph{variable lookup environment}, and $\rho : \mathbb{N} \partialfunc R$ is the \emph{storage environment}.
 \end{definition}
@@ -513,19 +513,18 @@ If either the subtraction or addition results in an error, the whole flow causes
     }{ \angles{ \Sigma, [ \tau ; (n, \ell), \overline{\Loc} ] \to (m,k) } \\\to \angles{ \Sigma, ((n, \ell) \to (m,k)) ( [ \tau ; \overline{\Loc} ] \to (m,k) ) } }
 \end{mathpar}
 
-\framebox{$\Gamma \compat \Sigma$} \textbf{Environment compatibility}
-\reed{This is only necessary for the proofs. TODO: Update this to match the versions from the Isabelle formalization.}
-We check that every variable in $\Gamma$ appears in the variable lookup environment $\mu$ and vice versa.
-Additionally, every variable $x$ in the variable lookup environment must map to some value in the storage environment, which must be compatible with the type of $x$ in $\Gamma$; that is, the \emph{exact type} of $\select(\rho, \mu(x))$ must be at least as specific as the type of $x$ in the environment.
+\framebox{$\Gamma \compat \Sigma$} \textbf{Locator environment compatibility}
+This states that the type environment $\Gamma$ is \emph{compatible} with the runtime environment $\Sigma$, meaning that the two agree on the variables and locations currently defined and that
+\reed{This is necessary for the proofs.}
+% We check that every variable in $\Gamma$ appears in the variable lookup environment $\mu$ and vice versa.
+% Additionally, every variable $x$ in the variable lookup environment must map to some value in the storage environment, which must be compatible with the type of $x$ in $\Gamma$; that is, the \emph{exact type} of $\select(\rho, \mu(x))$ must be at least as specific as the type of $x$ in the environment.
 
-\begin{mathpar}
-    \inferrule*[right=Compat]{
-        \dom(\Gamma) = \dom(\mu) \\
-        \forall x : \tau \in \Gamma. \exactType(\select(\rho, \mu(x))) \sqsubseteq_{\tau} \tau
-    }{ \Gamma \compat \Sigma }
-\end{mathpar}
+\begin{align*}
+    \Gamma \compat (\mu, \rho) &:\iff \dom(\Gamma) = \dom(\mu) \cup \dom(\rho) \\
+                               &\land (\forall x \in \dom(\mu). \exists n,\ell. \mu(x) = (n,\ell) \land n \in \dom(\rho))
+\end{align*}
 
-where $\mathcal{Q}~T \sqsubseteq_{\tau} \mathcal{R}~T' \iff \mathcal{Q} \sqsubseteq \mathcal{R} \tand T = T'$.
+% where $\mathcal{Q}~T \sqsubseteq_{\tau} \mathcal{R}~T' \iff \mathcal{Q} \sqsubseteq \mathcal{R} \tand T = T'$.
 
 \section{Examples}
 
@@ -598,7 +597,6 @@ In the future, we plan to fully implement the \langName language, and prove its 
 We also hope to study the benefits and costs of the language via case studies, performance evaluation, and the application of flows to other domains.
 Finally, we would also like to conduct a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity, which we hypothesize will show that developers write contracts with fewer asset management errors in \langName than in Solidity.
 
-\reed{TODO: For some reason the references stopped showing up...???}
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{biblio}
 

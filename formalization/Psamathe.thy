@@ -425,24 +425,31 @@ proof(induction arbitrary: \<Gamma> \<tau> f \<Delta>)
     where "\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" 
       and "(\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> \<Delta>')" 
       and "\<Delta> \<lhd> \<Delta>'" using compat typed prf_compat ..
-  then show ?case using ENat.prems proof_compat_works by auto
+  then show ?case using ENat.prems by auto
 next
   case (EBool l \<rho> \<mu> b)
   let ?\<Gamma>' = "\<Gamma>(Loc (l, SLoc l) \<mapsto> \<tau>)"
   let ?\<Delta>' = "?\<Gamma>'(Loc (l, SLoc l) \<mapsto> f \<tau>)"
-  have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (boolean, Bool b)))" using EBool.prems by simp
+  have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (boolean, Bool b)))" using EBool.prems by auto blast+
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> ?\<Delta>'" by (rule Var, auto) 
+  have "\<Delta> = \<Gamma>" using EBool.prems using loc_type.cases by blast
+  then have prf_compat: "\<Delta> \<lhd> ?\<Delta>'" using EBool
+    by (simp add: proof_compat_def map_le_def) blast
   obtain \<Gamma>' and \<Delta>' 
     where "\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (boolean, Bool b)))" 
-      and "(\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> \<Delta>')" using compat typed .. 
+      and "(\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> \<Delta>')" 
+      and "\<Delta> \<lhd> \<Delta>'" using compat typed prf_compat ..
   then show ?case using EBool.prems by auto
 next
   case (EVar \<mu> x l \<rho>)
   let ?\<Gamma>' = "\<Delta>(Loc l \<mapsto> \<tau>)"
   let ?\<Delta>' = "?\<Gamma>'(Loc l \<mapsto> f \<tau>)"
   from EVar have "\<Delta> = \<Gamma>(V x \<mapsto> f \<tau>)" by simp (erule loc_type.cases, auto)
-  then have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>)" using EVar by auto
+  then have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>)" using EVar by auto blast+
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'" by (meson Var fun_upd_same)
+  then have prf_compat: "\<Delta> \<lhd> ?\<Delta>'" using EVar \<open>\<Delta> = \<Gamma>(V x \<mapsto> f \<tau>)\<close>
+    apply (simp add: proof_compat_def map_le_def)
+    apply auto
   obtain \<Gamma>' and \<Delta>' 
     where "\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>)"
       and "\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> \<Delta>'" using compat typed ..

@@ -7,7 +7,7 @@ type Auction is asset {
     seller : address,
     maxBid : any Bid, // Here we use `any` to note that `maxBid` is possibly empty (kind of like "@Nullable")
     open : bool,
-    // Here sender is a key for pendingReturns; not necessary, but makes it nicer to write, and theoretically improves performance
+    // Here `sender` is a key for` pendingReturn` ; not necessary, but makes it nicer to write (we can lookup by it), and theoretically improves performance
     pendingReturns : table(sender) Bid
 }
 

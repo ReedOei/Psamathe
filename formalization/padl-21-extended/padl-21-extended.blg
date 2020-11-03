@@ -1,51 +1,96 @@
 This is BibTeX, Version 0.99d (TeX Live 2019/Debian)
 Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: padl-21-extended.aux
-I couldn't open style file splncs04.bst
----line 69 of file padl-21-extended.aux
- : \bibstyle{splncs04
- :                   }
-I'm skipping whatever remains of this command
-I found no style file---while reading file padl-21-extended.aux
+The style file: ACM-Reference-Format.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: biblio.bib
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Warning--no key, author in EthereumForDevs
+Warning--no author, editor, organization, or key in EthereumForDevs
+Warning--to sort, need author or key in EthereumForDevs
+Warning--no key, author in psamatheRepo
+Warning--no author, editor, organization, or key in psamatheRepo
+Warning--to sort, need author or key in psamatheRepo
+Warning--no key, author in erc20Consensys
+Warning--no author, editor, organization, or key in erc20Consensys
+Warning--to sort, need author or key in erc20Consensys
+Warning--no key, author in solidityByExample
+Warning--no author, editor, organization, or key in solidityByExample
+Warning--to sort, need author or key in solidityByExample
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Warning--no key, author in erc20Consensys
+Warning--no key, author in erc20Consensys
+Warning--no key, author in EthereumForDevs
+Warning--no key, author in EthereumForDevs
+Warning--no key, author in psamatheRepo
+Warning--no key, author in psamatheRepo
+Warning--no key, author in solidityByExample
+Warning--no key, author in solidityByExample
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Warning--no key, author in EthereumForDevs
+Warning--no author, editor, organization, or key in EthereumForDevs
+Warning--empty author in EthereumForDevs
+Warning--no key, author in psamatheRepo
+Warning--no author, editor, organization, or key in psamatheRepo
+Warning--empty author in psamatheRepo
+Warning--no key, author in solidityByExample
+Warning--no author, editor, organization, or key in solidityByExample
+Warning--empty author in solidityByExample
+Warning--no key, author in erc20Consensys
+Warning--no author, editor, organization, or key in erc20Consensys
+Warning--empty author in erc20Consensys
+Warning--empty publisher in bertoni2013keccak
+Warning--empty address in bertoni2013keccak
+Warning--no number and no volume in das2019nomos
+Warning--page numbers missing in both pages and numpages fields in das2019nomos
+Warning--empty publisher in Elsden18:Making
+Warning--empty address in Elsden18:Making
+Warning--empty publisher in schrans2018flint
+Warning--empty address in schrans2018flint
+Warning--page numbers missing in both pages and numpages fields in Szabo97:Formalizing
 You've used 17 entries,
-            0 wiz_defined-function locations,
-            112 strings with 904 characters,
-and the built_in function-call counts, 0 in all, are:
-= -- 0
-> -- 0
+            5897 wiz_defined-function locations,
+            1433 strings with 17988 characters,
+and the built_in function-call counts, 18103 in all, are:
+= -- 2069
+> -- 721
 < -- 0
-+ -- 0
-- -- 0
-* -- 0
-:= -- 0
-add.period$ -- 0
-call.type$ -- 0
-change.case$ -- 0
-chr.to.int$ -- 0
-cite$ -- 0
-duplicate$ -- 0
-empty$ -- 0
-format.name$ -- 0
-if$ -- 0
-int.to.chr$ -- 0
-int.to.str$ -- 0
-missing$ -- 0
-newline$ -- 0
-num.names$ -- 0
-pop$ -- 0
-preamble$ -- 0
-purify$ -- 0
++ -- 245
+- -- 254
+* -- 1367
+:= -- 1847
+add.period$ -- 81
+call.type$ -- 17
+change.case$ -- 123
+chr.to.int$ -- 17
+cite$ -- 74
+duplicate$ -- 1565
+empty$ -- 1115
+format.name$ -- 280
+if$ -- 4193
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 35
+newline$ -- 218
+num.names$ -- 104
+pop$ -- 633
+preamble$ -- 1
+purify$ -- 275
 quote$ -- 0
-skip$ -- 0
+skip$ -- 566
 stack$ -- 0
-substring$ -- 0
-swap$ -- 0
-text.length$ -- 0
+substring$ -- 1204
+swap$ -- 137
+text.length$ -- 19
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 0
-warning$ -- 0
-while$ -- 0
+type$ -- 454
+warning$ -- 41
+while$ -- 85
 width$ -- 0
-write$ -- 0
-(There were 2 error messages)
+write$ -- 360
+(There were 41 warnings)

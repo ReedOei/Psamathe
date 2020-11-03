@@ -1,0 +1,280 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{17}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{}, \showDOI{}, and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showDOI}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showDOI #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showDOI      \undefined \def \showDOI       #1{#1}\fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[\protect\citeauthoryear{??}{Eth}{2020}]%
+        {EthereumForDevs}
+ \bibinfo{year}{2020}\natexlab{}.
+\newblock \bibinfo{title}{Ethereum for Developers}.
+\newblock
+\newblock
+\urldef\tempurl%
+\url{https://ethereum.org/en/developers/}
+\showURL{%
+Retrieved 2020-07-31 from \tempurl}
+
+
+\bibitem[\protect\citeauthoryear{??}{psa}{2020}]%
+        {psamatheRepo}
+ \bibinfo{year}{2020}\natexlab{}.
+\newblock \bibinfo{title}{Psamathe}.
+\newblock
+\newblock
+\urldef\tempurl%
+\url{https://github.com/ReedOei/Psamathe}
+\showURL{%
+\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{??}{sol}{2020}]%
+        {solidityByExample}
+ \bibinfo{year}{2020}\natexlab{}.
+\newblock \bibinfo{title}{Solidity by Example}.
+\newblock
+\newblock
+\urldef\tempurl%
+\url{https://solidity.readthedocs.io/en/v0.7.0/solidity-by-example.html}
+\showURL{%
+Retrieved 2020-07-28 from \tempurl}
+
+
+\bibitem[\protect\citeauthoryear{??}{erc}{2020}]%
+        {erc20Consensys}
+ \bibinfo{year}{2020}\natexlab{}.
+\newblock \bibinfo{title}{Tokens}.
+\newblock
+\newblock
+\urldef\tempurl%
+\url{https://github.com/ConsenSys/Tokens}
+\showURL{%
+Retrieved 2020-08-03 from \tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Bertoni, Daemen, Peeters, and
+  Van~Assche}{Bertoni et~al\mbox{.}}{2013}]%
+        {bertoni2013keccak}
+\bibfield{author}{\bibinfo{person}{Guido Bertoni}, \bibinfo{person}{Joan
+  Daemen}, \bibinfo{person}{Micha{\"e}l Peeters}, {and} \bibinfo{person}{Gilles
+  Van~Assche}.} \bibinfo{year}{2013}\natexlab{}.
+\newblock \showarticletitle{Keccak}. In \bibinfo{booktitle}{\emph{Annual
+  international conference on the theory and applications of cryptographic
+  techniques}}. Springer, \bibinfo{pages}{313--314}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Blackshear, Cheng, Dill, Gao, Maurer, Nowacki,
+  Pott, Qadeer, Rain, Sezer, et~al\mbox{.}}{Blackshear et~al\mbox{.}}{2019}]%
+        {blackshear2019move}
+\bibfield{author}{\bibinfo{person}{Sam Blackshear}, \bibinfo{person}{Evan
+  Cheng}, \bibinfo{person}{David~L Dill}, \bibinfo{person}{Victor Gao},
+  \bibinfo{person}{Ben Maurer}, \bibinfo{person}{Todd Nowacki},
+  \bibinfo{person}{Alistair Pott}, \bibinfo{person}{Shaz Qadeer},
+  \bibinfo{person}{Dario~Russi Rain}, \bibinfo{person}{Stephane Sezer},
+  {et~al\mbox{.}}} \bibinfo{year}{2019}\natexlab{}.
+\newblock \bibinfo{title}{Move: A language with programmable resources}.
+\newblock
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Coblenz, Oei, Etzel, Koronkevich, Baker,
+  Bloem, Myers, Sunshine, and Aldrich}{Coblenz et~al\mbox{.}}{2019}]%
+        {coblenz2019obsidian}
+\bibfield{author}{\bibinfo{person}{Michael Coblenz}, \bibinfo{person}{Reed
+  Oei}, \bibinfo{person}{Tyler Etzel}, \bibinfo{person}{Paulette Koronkevich},
+  \bibinfo{person}{Miles Baker}, \bibinfo{person}{Yannick Bloem},
+  \bibinfo{person}{Brad~A. Myers}, \bibinfo{person}{Joshua Sunshine}, {and}
+  \bibinfo{person}{Jonathan Aldrich}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \bibinfo{title}{Obsidian: Typestate and Assets for Safer Blockchain
+  Programming}.
+\newblock
+\newblock
+\showeprint[arxiv]{cs.PL/1909.03523}
+
+
+\bibitem[\protect\citeauthoryear{Das, Balzer, Hoffmann, Pfenning, and
+  Santurkar}{Das et~al\mbox{.}}{2019}]%
+        {das2019nomos}
+\bibfield{author}{\bibinfo{person}{Ankush Das}, \bibinfo{person}{Stephanie
+  Balzer}, \bibinfo{person}{Jan Hoffmann}, \bibinfo{person}{Frank Pfenning},
+  {and} \bibinfo{person}{Ishani Santurkar}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Resource-aware session types for digital
+  contracts}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:1902.06056}}
+  (\bibinfo{year}{2019}).
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Elsden, Manohar, Briggs, Harding, Speed, and
+  Vines}{Elsden et~al\mbox{.}}{2018}]%
+        {Elsden18:Making}
+\bibfield{author}{\bibinfo{person}{Chris Elsden}, \bibinfo{person}{Arthi
+  Manohar}, \bibinfo{person}{Jo Briggs}, \bibinfo{person}{Mike Harding},
+  \bibinfo{person}{Chris Speed}, {and} \bibinfo{person}{John Vines}.}
+  \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{Making Sense of Blockchain Applications: A Typology
+  for HCI}. In \bibinfo{booktitle}{\emph{CHI Conference on Human Factors in
+  Computing Systems}} (Montreal QC, Canada) \emph{(\bibinfo{series}{CHI '18})}.
+  \bibinfo{pages}{1--14}.
+\newblock
+\showISBNx{978-1-4503-5620-6}
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3173574.3174032}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{{Harvard Business Review}}{{Harvard Business
+  Review}}{2017}]%
+        {HealthcareUse}
+\bibfield{author}{\bibinfo{person}{{Harvard Business Review}}.}
+  \bibinfo{year}{2017}\natexlab{}.
+\newblock \bibinfo{title}{The Potential for Blockchain to Transform Electronic
+  Health Records}.
+\newblock
+\newblock
+\urldef\tempurl%
+\url{https://hbr.org/2017/03/the-potential-for-blockchain-to-transform-electronic-health-records}
+\showURL{%
+Retrieved February 18, 2020 from \tempurl}
+
+
+\bibitem[\protect\citeauthoryear{IBM}{IBM}{2019}]%
+        {SupplyChainUse}
+\bibfield{author}{\bibinfo{person}{IBM}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \bibinfo{title}{Blockchain for supply chain}.
+\newblock
+\newblock
+\urldef\tempurl%
+\url{https://www.ibm.com/blockchain/supply-chain/}
+\showURL{%
+Retrieved March 31, 2019 from \tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Luu, Chu, Olickel, Saxena, and Hobor}{Luu
+  et~al\mbox{.}}{2016}]%
+        {luuOyente}
+\bibfield{author}{\bibinfo{person}{Loi Luu}, \bibinfo{person}{Duc-Hiep Chu},
+  \bibinfo{person}{Hrishi Olickel}, \bibinfo{person}{Prateek Saxena}, {and}
+  \bibinfo{person}{Aquinas Hobor}.} \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{Making Smart Contracts Smarter}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 2016 ACM SIGSAC Conference on
+  Computer and Communications Security}} (Vienna, Austria)
+  \emph{(\bibinfo{series}{CCS ’16})}. \bibinfo{publisher}{Association for
+  Computing Machinery}, \bibinfo{address}{New York, NY, USA},
+  \bibinfo{pages}{254–269}.
+\newblock
+\showISBNx{9781450341394}
+\urldef\tempurl%
+\url{https://doi.org/10.1145/2976749.2978309}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Ro{\c s}u and {\c S}erb{\u a}nu{\c t}{\u
+  a}}{Ro{\c s}u and {\c S}erb{\u a}nu{\c t}{\u a}}{2010}]%
+        {rosu-serbanuta-2010-jlap}
+\bibfield{author}{\bibinfo{person}{Grigore Ro{\c s}u} {and}
+  \bibinfo{person}{Traian~Florin {\c S}erb{\u a}nu{\c t}{\u a}}.}
+  \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{An Overview of the {K} Semantic Framework}.
+\newblock \bibinfo{journal}{\emph{Journal of Logic and Algebraic Programming}}
+  \bibinfo{volume}{79}, \bibinfo{number}{6} (\bibinfo{year}{2010}),
+  \bibinfo{pages}{397--434}.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1016/j.jlap.2010.03.012}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Schrans, Eisenbach, and Drossopoulou}{Schrans
+  et~al\mbox{.}}{2018}]%
+        {schrans2018flint}
+\bibfield{author}{\bibinfo{person}{Franklin Schrans}, \bibinfo{person}{Susan
+  Eisenbach}, {and} \bibinfo{person}{Sophia Drossopoulou}.}
+  \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{Writing safe smart contracts in Flint}. In
+  \bibinfo{booktitle}{\emph{Conference Companion of the 2nd International
+  Conference on Art, Science, and Engineering of Programming}}.
+  \bibinfo{pages}{218--219}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Sergey, Nagaraj, Johannsen, Kumar, Trunov, and
+  Hao}{Sergey et~al\mbox{.}}{2019}]%
+        {sergey2019scilla}
+\bibfield{author}{\bibinfo{person}{Ilya Sergey}, \bibinfo{person}{Vaivaswatha
+  Nagaraj}, \bibinfo{person}{Jacob Johannsen}, \bibinfo{person}{Amrit Kumar},
+  \bibinfo{person}{Anton Trunov}, {and} \bibinfo{person}{Ken Chan~Guan Hao}.}
+  \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Safer Smart Contract Programming with Scilla}.
+\newblock \bibinfo{journal}{\emph{Proc. ACM Program. Lang.}}
+  \bibinfo{volume}{3}, \bibinfo{number}{OOPSLA}, Article
+  \bibinfo{articleno}{185} (\bibinfo{date}{Oct.} \bibinfo{year}{2019}),
+  \bibinfo{numpages}{30}~pages.
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.1145/3360611}
+\showDOI{\tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Sirer}{Sirer}{2016}]%
+        {DAO}
+\bibfield{author}{\bibinfo{person}{Emin~G{\"u}n Sirer}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \bibinfo{title}{Thoughts on The {DAO} Hack}.
+\newblock
+\newblock
+\urldef\tempurl%
+\url{http://hackingdistributed.com/2016/06/17/thoughts-on-the-dao-hack/}
+\showURL{%
+Retrieved July 29, 2020 from \tempurl}
+
+
+\bibitem[\protect\citeauthoryear{Szabo}{Szabo}{1997}]%
+        {Szabo97:Formalizing}
+\bibfield{author}{\bibinfo{person}{Nick Szabo}.}
+  \bibinfo{year}{1997}\natexlab{}.
+\newblock \showarticletitle{Formalizing and Securing Relationships on Public
+  Networks}.
+\newblock \bibinfo{journal}{\emph{{First Monday}}} \bibinfo{volume}{2},
+  \bibinfo{number}{9} (\bibinfo{year}{1997}).
+\newblock
+\urldef\tempurl%
+\url{https://doi.org/10.5210/fm.v2i9.548}
+\showDOI{\tempurl}
+
+
+\end{thebibliography}
