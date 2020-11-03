@@ -149,6 +149,9 @@ fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" where
 fun var_dom :: "Env \<Rightarrow> string set" where
   "var_dom \<Gamma> = { x . V x \<in> dom \<Gamma> }"
 
+fun loc_dom :: "Env \<Rightarrow> nat set" where
+  "loc_dom \<Gamma> = { l . \<exists>a. Loc (l, a) \<in> dom \<Gamma> }"
+
 (* This is a weaker version of compatibility (tentatively, "locator compatibility")
   This is needed, because while evaluating locators, the type environments won't agree with the 
   actual state of the store,
@@ -158,6 +161,7 @@ fun var_dom :: "Env \<Rightarrow> string set" where
   I think we will need)*)
 fun compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" ("_ \<leftrightarrow> _") where
   "compat \<Gamma> (\<mu>, \<rho>) = ((var_dom \<Gamma> = dom \<mu>) \<and> 
+                      (loc_dom \<Gamma> = dom \<rho>) \<and>
                       (\<forall>x l k. \<mu> x = Some (l, k) \<longrightarrow> \<rho> l \<noteq> None))"
 (* TODO: Need to eventually put this next line back. This is the part of type compatibility 
     that I think should be retained by locator evaluation *)
@@ -236,8 +240,11 @@ next
     then show ?thesis using Var.prems by simp
   next
     case (Loc x2)
-    then show ?thesis using Var.prems
-      by (cases \<Sigma>, simp add: domIff)
+    then obtain \<mu> \<rho> and l a 
+      where a: "\<Sigma> = (\<mu>, \<rho>)" and b: "x2 = (l, a)"
+      using Loc by (cases \<Sigma>, cases x2)
+    then have "l \<in> loc_dom \<Gamma>" using Loc loc_dom.simps x_in_dom by blast
+    then show ?thesis using Var.prems a b Loc by (simp add: domIff) blast+
   qed
 (*
   This is part of the proof for the full version of locator compatiblity; still unfinished
@@ -347,6 +354,54 @@ qed
 fun finite_store :: "Store \<Rightarrow> bool" where
   "finite_store (\<mu>, \<rho>) = (finite (dom \<mu>) \<and> finite (dom \<rho>))"
 
+definition proof_compat :: "Env \<Rightarrow> Env \<Rightarrow> bool" (infix "\<lhd>" 50) where
+  "proof_compat \<Gamma> \<Gamma>' \<equiv> (var_dom \<Gamma> = var_dom \<Gamma>') \<and> \<Gamma> \<subseteq>\<^sub>m \<Gamma>'"
+
+lemma proof_compat_works:
+  fixes \<Gamma> m f \<L> \<tau> \<Delta>
+  assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
+      and "\<Gamma> \<lhd> \<Gamma>'"
+    shows "\<exists>\<Delta>'. (\<Gamma>' \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>') \<and> \<Delta> \<lhd> \<Delta>'"
+  using assms
+proof(induction arbitrary: \<Gamma>')
+  case (Nat \<Gamma> f n)
+  then show ?case using loc_type.Nat by blast
+next
+  case (Bool \<Gamma> f b)
+  then show ?case using loc_type.Bool by blast
+next
+  case (Var \<Gamma> x \<tau> m f)
+  then have "\<Gamma>' x = Some \<tau>" by (metis proof_compat_def domI map_le_def)
+  then show ?case
+  proof(intro exI conjI, rule loc_type.Var)
+    from Var.prems show "\<Gamma>(x \<mapsto> f \<tau>) \<lhd> \<Gamma>'(x \<mapsto> f \<tau>)" by (auto simp: proof_compat_def)
+  qed
+next
+  case (VarDef x \<Gamma> f t)
+  then have "V x \<notin> dom \<Gamma>'" by (auto simp: proof_compat_def)
+  then show ?case
+  proof(intro exI conjI, rule loc_type.VarDef)
+    from VarDef.prems show "\<Gamma>(V x \<mapsto> f (TyQuant.empty, t)) \<lhd> \<Gamma>'(V x \<mapsto> f (TyQuant.empty, t))"
+      by (auto simp: proof_compat_def)
+  qed
+next
+  case (EmptyList \<Gamma> f \<tau>)
+  then show ?case using loc_type.EmptyList by blast 
+next
+  case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
+  then obtain "\<Delta>'" and "\<Xi>'" 
+    where head_ty: "\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>'" and "\<Delta> \<lhd> \<Delta>'" 
+      and tail_ty: "\<Delta>' \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>'" and tail_prf_compat: "\<Xi> \<lhd> \<Xi>'"
+    by blast
+
+  then show ?case
+  proof(intro exI conjI)
+    from head_ty and tail_ty
+    show "\<Gamma>' \<turnstile>{s} f ; [ \<tau> ; \<L> , Tail ] : (one \<oplus> q, table [] \<tau>) \<stileturn> \<Xi>'" by (rule loc_type.ConsList)
+    from tail_prf_compat show "\<Xi> \<lhd> \<Xi>'" by simp
+  qed
+qed
+
 lemma locator_preservation:
   fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
   assumes "<\<Sigma>, \<L>> \<rightarrow> <\<Sigma>', \<L>'>"
@@ -354,19 +409,23 @@ lemma locator_preservation:
       and "\<Gamma> \<leftrightarrow> \<Sigma>"
       and "finite_store \<Sigma>"
     shows "finite_store \<Sigma>' 
-      \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau> \<stileturn> \<Delta>'))"
-(*TODO: We probably need some compatibility condition between \<Gamma> and \<Gamma>' and \<Delta> and \<Delta>' *)
+      \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau> \<stileturn> \<Delta>') \<and> \<Delta> \<lhd> \<Delta>')"
   using assms
 proof(induction arbitrary: \<Gamma> \<tau> f \<Delta>)
+  (* TODO: This is a huge amount of effort for a relatively easy case... *)
   case (ENat l \<rho> \<mu> n)
   let ?\<Gamma>' = "\<Gamma>(Loc (l, Amount n) \<mapsto> \<tau>)"
   let ?\<Delta>' = "?\<Gamma>'(Loc (l, Amount n) \<mapsto> f \<tau>)"
-  have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by simp
+  have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by auto blast+
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> ?\<Delta>'" by (rule Var, auto) 
+  have "\<Delta> = \<Gamma>" using ENat.prems using loc_type.cases by blast
+  then have prf_compat: "\<Delta> \<lhd> ?\<Delta>'" using ENat 
+    by (simp add: proof_compat_def map_le_def) blast
   obtain \<Gamma>' and \<Delta>' 
     where "\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" 
-      and "(\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> \<Delta>')" using compat typed ..
-  then show ?case using ENat.prems by auto
+      and "(\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> \<Delta>')" 
+      and "\<Delta> \<lhd> \<Delta>'" using compat typed prf_compat ..
+  then show ?case using ENat.prems proof_compat_works by auto
 next
   case (EBool l \<rho> \<mu> b)
   let ?\<Gamma>' = "\<Gamma>(Loc (l, SLoc l) \<mapsto> \<tau>)"
