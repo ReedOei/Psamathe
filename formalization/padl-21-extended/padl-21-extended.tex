@@ -246,9 +246,9 @@ This ensures that we don't use, for example, numeric literals as the destination
 We refer to $\Gamma$ as the \emph{input environment} and $\Delta$ as the \emph{output environment}.
 We use $f$ to refer to a function on types ($\types \to \types$), called an \emph{updater}.
 We call such functions \emph{updaters}.
-We adopt the convention that if $f : \types^n \to \types$ and $g_1,\ldots,g_n : \types \to \types$, then $f(g_1, \ldots, g_n) : \types \to \types$, where
+We adopt the convention that if $f : \types^n \to \types$ and $g_1,\ldots,g_n : \types^m \to \types$, then $f(g_1, \ldots, g_n) : \types^m \to \types$, where
 \[
-    f(g_1, \ldots, g_n)(\tau) = f(g_1(\tau), \ldots, g_n(\tau))
+    f(g_1, \ldots, g_n)(\overline{\tau}) = f(g_1(\overline{\tau}), \ldots, g_n(\overline{\tau}))
 \]
 % We write $\lambda \mathcal{Q}~T. E$ to define updaters; i.e., if $f = \lambda \mathcal{Q}~T. E$, then $f(\mathcal{Q}~T) = E$.
 We use the following type functions:
@@ -398,6 +398,15 @@ We use $\with_{\emptyq}$ to clear all the that $\Loc$ locates, and we use $(\opl
     }{ \Gamma \flowproves (\Loc \to \LocK)~\ok \flowprovesout \Xi }
 \end{mathpar}
 
+% For a \tryS-\catchS statement, we check that both branches are well-formed, and the output type environment is the \emph{merge} of the output environments of the two branches.
+% \begin{mathpar}
+%     \inferrule*[right=Ok-Try]{
+%         \Gamma \flowproves \overline{S_1}~\ok \flowprovesout \Delta
+%         \\
+%         \Gamma \flowproves \overline{S_2}~\ok \flowprovesout \Xi
+%     }{ \Gamma \flowproves (\tryS~\{ \overline{S_1} \}~\catchS~\{ \overline{S_2} \})~ok \flowprovesout \Delta~\lozenge~\Xi }
+% \end{mathpar}
+
 \framebox{$\flowproves \Decl~\ok$} \textbf{Declaration Well-formedness}
 This judgement states that a declaration is well-formed.
 
@@ -413,10 +422,10 @@ The latter requirement ensures that transformers may be repeatedly called; for e
 Note that $y$ may be unused, if it is not an asset.
 \begin{mathpar}
     \inferrule*[right=Ok-Transformer]{
-        \overline{x : \tau}, y : \tau_y, z : \emptyq~T_z \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, \overline{x : \tau}, z : \mathcal{Q}_z~T_z
+        \overline{x : \tau}, y : \tau_y, z : \with_{\emptyq}(\tau_z) \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, \overline{x : \tau}, z : \tau_z
         \\
         \forall v : \sigma \in \Delta. \lnot(\sigma~\asset)
-    }{ (\transformer f(\overline{x : \tau}, y : \tau_y) \to \mathcal{Q}_z~T_z~\{ \overline{\Stmt} \}) ~\ok }
+    }{ (\transformer f(\overline{x : \tau}, y : \tau_y) \to z : \tau_z~\{ \overline{\Stmt} \}) ~\ok }
 \end{mathpar}
 
 \subsection{Dynamics}
