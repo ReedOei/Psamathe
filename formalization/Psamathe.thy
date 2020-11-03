@@ -172,7 +172,6 @@ lemma gen_loc:
 definition type_preserving :: "(Type \<Rightarrow> Type) \<Rightarrow> bool" where
   "type_preserving f \<equiv> \<forall>\<tau>. base_type_compat (snd \<tau>) (snd (f \<tau>))"
 
-
 instantiation TyQuant :: linorder
 begin
 
@@ -359,29 +358,54 @@ lemma locator_preservation:
 (*TODO: We probably need some compatibility condition between \<Gamma> and \<Gamma>' and \<Delta> and \<Delta>' *)
   using assms
 proof(induction arbitrary: \<Gamma> \<tau> f \<Delta>)
-case (ENat l \<rho> \<mu> n)
-  then show ?case
-  proof(safe)
-    show "finite_store (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by simp
-    have compat: "\<Gamma>(S (Loc (l, Amount n)) \<mapsto> (toQuant n, nat)) 
-                  \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by auto
-    have "\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))) \<and> 
-                  (\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> \<Delta>')"
-    proof(intro exI conjI)
-      from compat show "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" by simp
-      show "\<Gamma> \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> \<Gamma>(Loc (l, Amount n) \<mapsto> "
+  case (ENat l \<rho> \<mu> n)
+  let ?\<Gamma>' = "\<Gamma>(Loc (l, Amount n) \<mapsto> \<tau>)"
+  let ?\<Delta>' = "?\<Gamma>'(Loc (l, Amount n) \<mapsto> f \<tau>)"
+  have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by simp
+  have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> ?\<Delta>'" by (rule Var, auto) 
+  obtain \<Gamma>' and \<Delta>' 
+    where "\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" 
+      and "(\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> \<Delta>')" using compat typed ..
+  then show ?case using ENat.prems by auto
 next
   case (EBool l \<rho> \<mu> b)
-  then show ?case sorry
+  let ?\<Gamma>' = "\<Gamma>(Loc (l, SLoc l) \<mapsto> \<tau>)"
+  let ?\<Delta>' = "?\<Gamma>'(Loc (l, SLoc l) \<mapsto> f \<tau>)"
+  have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (boolean, Bool b)))" using EBool.prems by simp
+  have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> ?\<Delta>'" by (rule Var, auto) 
+  obtain \<Gamma>' and \<Delta>' 
+    where "\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (boolean, Bool b)))" 
+      and "(\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> \<Delta>')" using compat typed .. 
+  then show ?case using EBool.prems by auto
 next
   case (EVar \<mu> x l \<rho>)
-  then show ?case sorry
+  let ?\<Gamma>' = "\<Delta>(Loc l \<mapsto> \<tau>)"
+  let ?\<Delta>' = "?\<Gamma>'(Loc l \<mapsto> f \<tau>)"
+  from EVar have "\<Delta> = \<Gamma>(V x \<mapsto> f \<tau>)" by simp (erule loc_type.cases, auto)
+  then have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>)" using EVar by auto
+  have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'" by (meson Var fun_upd_same)
+  obtain \<Gamma>' and \<Delta>' 
+    where "\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>)"
+      and "\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> \<Delta>'" using compat typed ..
+  then show ?case using EVar.prems by auto
 next
   case (EVarDef x \<mu> l \<rho> t)
-  then show ?case sorry
+  let ?\<Gamma>' = "\<Delta>(Loc (l, SLoc l) \<mapsto> \<tau>)"
+  let ?\<Delta>' = "?\<Gamma>'(Loc (l, SLoc l) \<mapsto> f \<tau>)"
+  from EVarDef have "\<Delta> = \<Gamma>(V x \<mapsto> f (empty,t))" by simp (erule loc_type.cases, auto)  
+  then have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t)))" using EVarDef by auto
+  have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> ?\<Delta>'" by (meson Var fun_upd_same)
+  obtain \<Gamma>' and \<Delta>'
+    where "\<Gamma>' \<leftrightarrow> (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t)))"
+      and "\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> \<Delta>'" using compat typed ..
+  then show ?case using EVarDef.prems by auto
 next
-  case (EConsListHeadCongr \<Sigma> \<L> \<Sigma>' \<L>' \<tau> Tail)
-  then show ?case sorry
+  case (EConsListHeadCongr \<Sigma> \<L> \<Sigma>' \<L>' \<tau>' Tail \<Gamma> \<tau>)
+  then obtain \<Delta>'' where "\<Gamma> \<turnstile>{s} f ; \<L> : \<tau>' \<stileturn> \<Delta>''" by simp (erule loc_type.cases, auto)
+  then have "finite_store \<Sigma>'" and "\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau>' \<stileturn> \<Delta>')" 
+    using EConsListHeadCongr by auto
+  then obtain \<Gamma>' and \<Delta>' where "\<Gamma>' \<leftrightarrow> \<Sigma>'" and "\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau>' \<stileturn> \<Delta>'" by auto
+  then show ?case 
 next
   case (EConsListTailCongr \<L> \<Sigma> Tail \<Sigma>' Tail' \<tau>)
   then show ?case sorry
