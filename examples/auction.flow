@@ -1,35 +1,34 @@
-type Auction is asset {
-    seller : address,
-    maxBid : ether,
-    maxBidder : address,
-    open : bool,
-    pendingReturns : map address => ether
-}
-
-type Message is consumable asset {
+type Bid is consumable asset {
     sender : address,
     value : ether
 }
 
-transformer bid(this : Auction, msg : Message) {
+type Auction is asset {
+    seller : address,
+    maxBid : any Bid, // Here we use `any` to note that `maxBid` is possibly empty (kind of like "@Nullable")
+    open : bool,
+    // Here sender is a key for pendingReturns; not necessary, but makes it nicer to write, and theoretically improves performance
+    pendingReturns : table(sender) Bid
+}
+
+transformer bid(this : Auction, bid : Bid) {
     only when this.open // Syntactic sugar for `this.open --[ true ]-> this.open`
 
     try {
-        only when msg.value > maxBid // Syntactic sugar for `msg.value --[ maxBid ]-> msg.value`
+        // Note: This will also fail if maxBid is empty
+        only when bid.value > this.maxBid.value // Syntactic sugar for `bid.value --[ maxBid.value ]-> bid.value`
 
-        maxBid --> pendingReturns[maxBidder]
-
-        msg.value --> maxBid
-        msg.sender --> maxBidder
+        this.maxBid --> this.pendingReturns[this.maxBid.sender]
+        bid --> this.maxBid
     } catch {
-        msg.value --> pendingReturns[msg.sender]
+        bid --> this.pendingReturns[bid.sender]
     }
-
-    msg --> consume // Because it is now empty of nonconsumable assets (ether), it can be consumed
 }
 
 transformer withdraw(this : Auction, sender : address) {
-    this.pendingReturns[sender] --> sender.balance
+    this.pendingReturns[sender] --> var bids : table(sender) Bid
+    bids.value --> sender.balance
+    bids --> consume
 }
 
 // Same as above, but without pendingReturns
@@ -37,33 +36,30 @@ transformer withdraw(this : Auction, sender : address) {
 // 1. Flows by default decrement before adding, so the maxBid becomes 0 **before** sending it to the maxBidder, so calling the function again doesn't actually do anything
 //      a. Although in this case because you have to send more money than the maxBid to call the function anyway, not sure it really matters.
 // 2. Reentrancy checking, if implemented as planned
-type Auction is asset {
-    seller : address,
-    maxBid : ether,
-    maxBidder : address,
-    open : bool
-}
-
-type Message is consumable asset {
+type Bid is consumable asset {
     sender : address,
     value : ether
 }
 
-transformer bid(this : Auction, msg : Message) {
-    only when this.open
+type Auction is asset {
+    seller : address,
+    maxBid : any Bid, // Here we use `any` to note that `maxBid` is possibly empty (kind of like "@Nullable")
+    open : bool,
+}
+
+transformer bid(this : Auction, bid : Bid) {
+    only when this.open // Syntactic sugar for `this.open --[ true ]-> this.open`
 
     try {
-        only when msg.value > maxBid
+        // Note: This will also fail if maxBid is empty
+        only when bid.value > this.maxBid.value // Syntactic sugar for `bid.value --[ maxBid.value ]-> bid.value`
 
-        maxBid --> maxBidder.balance
-
-        msg.value --> maxBid
-        msg.sender --> maxBidder
+        this.maxBid.value --> this.maxBid.sender
+        bid --> this.maxBid
     } catch {
-        msg.value --> msg.sender.balance
+        bid.value --> bid.sender
+        bid --> consume
     }
-
-    msg --> consume // Because it is now empty of nonconsumable assets (ether), it can be consumed
 }
 
 ;
