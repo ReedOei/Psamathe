@@ -202,7 +202,7 @@ Figure~\ref{fig:syntax} shows the abstract syntax of the core calculus of \langN
         $\mathcal{Q}$, $\mathcal{R}$, $\mathcal{S}$ & \bnfdef & $\exactlyone$ \bnfalt $\any$ \bnfalt $\nonempty$ \bnfalt $\emptyq$ & (type quantities) \\
         $M$ & \bnfdef & \fungible \bnfalt \unique \bnfalt \immutable & (modifiers) \\
             & \bnfalt & \consumable \bnfalt \asset & (modifiers) \\
-        $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $t$ \bnfalt $\tableT(\overline{x})~\{ \overline{x : \tau} \}$ & (base types) \\
+        $T$ & \bnfdef & $\boolt$ \bnfalt $\natt$ \bnfalt $t$ \bnfalt $\tableT(\overline{x})~\tau$ \bnfalt $\curlys{ \overline{x : \tau} }$ & (base types) \\
         $\tau$, $\sigma$, $\pi$ & \bnfdef & $\mathcal{Q}~T$ & (types) \\
         $\Loc$, $\LocK$ & \bnfdef & $\true$ \bnfalt $\false$ \bnfalt $n$ & \\
                & \bnfalt & $x$ \bnfalt $\Loc.x$ \bnfalt $\var~x : T$ \bnfalt $[ \overline{\Loc} ]$ \bnfalt $\{ \overline{x : \tau \mapsto \Loc} \}$ & \\
@@ -260,9 +260,6 @@ We use the following type functions:
     \item $\sqcup : \types^2 \to \types$ performs the \emph{join} of the two type quantities according to specificity (e.g., $\emptyq \sqcup \nonempty = \any$)
 \end{itemize}
 
-\reed{NOTE: I considered going with the following (or something like it): $\Gamma \flowproves \flowfromto{f} \Loc : \tau \flowprovesout \Delta $, $\Gamma \flowproves \flowfrom{f} \Loc : \tau \flowprovesout \Delta $, and $\Gamma \flowproves \flowto{f} \Loc : \tau \flowprovesout \Delta $.
-I decided against it (for now) because some rules (e.g., \textsc{Filter}) require ``passing'' the mode around.}
-
 Note that we write $\Gamma \flowproves_M \overline{f ; \Loc : \tau} \flowprovesout \Delta$ where $|\overline{\Loc}| = n$ to mean
 ``for all $1 \leq i \leq n$, $\Gamma_i \flowproves_M f_i ; \Loc_i : \tau_i \flowprovesout \Delta_i$'' where $\Gamma = \Gamma_1$ and $\Delta = \Delta_n$.
 
@@ -304,9 +301,9 @@ For this reason, the resulting type of a copy is the \emph{demoted} type of $\ta
     % }{ \Gamma \flowproves_S \demote(\Loc) : \demoteT(\tau); \id{\types} \flowprovesout \Gamma }
 \end{mathpar}
 
-List literals are also only allowed to be used as sources; we use $\updateElem$ to modify the updater $f$ as appropriate to work on the elements of the list, rather than the whole list.
+Multiset literals are also only allowed to be used as sources; we use $\updateElem$ to modify the updater $f$ as appropriate to work on the elements of the multiset, rather than the whole multiset.
 \begin{mathpar}
-    \inferrule*[right=List]{
+    \inferrule*[right=Multiset]{
         \Gamma \flowproves_S \updateElem(f) ; \overline{\Loc : \tau} \flowprovesout \Delta
     }{ \Gamma \flowproves_S f ; [ \tau ; \overline{\Loc} ] : \#(|\overline{\Loc}|)~\tableT(\cdot)~\tau \flowprovesout \Delta }
 \end{mathpar}
@@ -321,7 +318,7 @@ where
 \]
 
 Next, we consider record literals, which can also only be used as sources.
-We use $\updateElem$ again, because it captures the difference \reed{I think...} between selecting the whole record and selecting parts of the fields of the record.
+We use $\updateElem(f)$ again, because it captures the difference between selecting the whole record and selecting parts of the fields of the record.
 \begin{mathpar}
     \inferrule*[right=Record]{
         \Gamma \flowproves_S \updateElem(f) ; \overline{\Loc : \tau} \flowprovesout \Delta
@@ -353,6 +350,7 @@ The \textsc{Select} rule allows us to use one locator to select parts of another
 The locator $\LocK$ that is used to select part of $\Loc$ will not be modified; it is considered a source (i.e., it is checked using the mode $S$) for the purposes of this rule, because the values must already be present in the locations specified (e.g., it would make no sense to use a variable definition or $\consume$ as $\LocK$).
 Additionally, $\LocK$ may be the demoted version of $\Loc$; e.g., if $\Loc : \mathcal{Q}~\texttt{\textbf{Token}}$ where $\textbf{\texttt{Token}}$ is the type of Token represented by $\natt$, we can use a value of type $\natt$ to select tokens.
 We modify the updater $f$ as in \textsc{Filter}.
+\reed{TODO: RULE NEEDS TO BE UPDATED!! NEEDS TO USE KEYS}
 \begin{mathpar}
     \inferrule*[right=Select]{
         \Gamma \flowproves_S \id{\types} ; \LocK : \mathcal{Q}~T' \flowprovesout \Gamma
@@ -477,7 +475,7 @@ Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select
         n \not\in \dom(\rho)
     }{ \angles{ \Sigma, \var~x : T } \to \angles{ (\mu[x \mapsto \ell], \rho[\ell \mapsto \emptyVal(T)]), (n, n) } }
 
-    \inferrule*[right=Loc-List]{
+    \inferrule*[right=Loc-Multiset]{
         \angles{ \Sigma, \mathcal{L} } \to \angles{\Sigma', \mathcal{L}' }
     }{ \angles{ \Sigma, [ \tau ; \overline{(n, k)}, \mathcal{L}, \overline{\mathcal{K}} ] }
         \to
@@ -509,16 +507,17 @@ If either the subtraction or addition results in an error, the whole flow causes
     }{ \angles{ \Sigma, (n, \ell) \to (m, k) } \to \angles{ \Sigma, \revert } }
 \end{mathpar}
 
+\reed{TODO: Not sure about this: should it be like this or should it build the list first? That is less efficient, but somewhat nicer (and makes implementing + easier)}
 \begin{mathpar}
-    % \inferrule*[right=Flow-List]{
+    % \inferrule*[right=Flow-Multiset]{
     %     \overline{\select(\rho, n, \ell) = R}
     %     \\
     %     \error \not\in \overline{R} \cup \curlys{ \rho(m) + \sum \overline{R} }
     % }{ \angles{ (\mu, \rho), [ \tau ; \overline{(n, \ell)} ] \to (m,k) } \\\\\to (\mu, \rho[n \mapsto \rho(n) - \sum \overline{R}, m \mapsto \rho(m) + \sum \overline{R}]) }
-    \inferrule*[right=Flow-List-Empty]{
+    \inferrule*[right=Flow-Multiset-Empty]{
     }{ \angles{ \Sigma, [ \tau ; \cdot ] \to (m,k) } \to \Sigma }
 
-    \inferrule*[right=Flow-List-Nonempty]{
+    \inferrule*[right=Flow-Multiset-Nonempty]{
     }{ \angles{ \Sigma, [ \tau ; (n, \ell), \overline{\Loc} ] \to (m,k) } \\\to \angles{ \Sigma, ((n, \ell) \to (m,k)) ( [ \tau ; \overline{\Loc} ] \to (m,k) ) } }
 \end{mathpar}
 
