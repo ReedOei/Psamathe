@@ -25,7 +25,7 @@
 
 \begin{document}
 
-\title{\langName: A DSL with Flows for Safe Blockchain \AssetTxt{}s}
+\title{\langName: A DSL with Flows for Safe Blockchain Assets}
 
 \author{Reed Oei}
 \affiliation{%
@@ -72,14 +72,14 @@ Some estimates suggest that as many as 46\% of smart contracts may have vulnerab
 Vulnerabilities in smart contracts can lead to the loss of large quantities of money---the well-known DAO attack~\cite{DAO} caused the loss of over 40 million dollars.
 
 \langName (\langNamePronounce) is a new programming language we are designing around \emph{flows}, which are a new abstraction representing an atomic transfer operation.
-Together with features such as \emph{modifiers}, flows provide a \textbf{concise} way to write contracts that \textbf{safely} manage \assetTxt{}s (see Section~\ref{sec:lang}).
-Solidity, the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, does not provide analogous support for managing \assetTxt{}s.
+Together with features such as \emph{modifiers}, flows provide a \textbf{concise} way to write contracts that \textbf{safely} manage assets (see Section~\ref{sec:lang}).
+Solidity, the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, does not provide analogous support for managing assets.
 Typical smart contracts are more concise in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
 A formalization of \langName is in progress~\cite{psamatheRepo}, with an \emph{executable semantics} implemented in the $\mathbb{K}$-framework~\cite{rosu-serbanuta-2010-jlap}, which is already capable of running the examples shown in Figures~\ref{fig:erc20-transfer-flow} and~\ref{fig:voting-impl-flow} (ERC-20 and a voting contract).
 
 Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint,blackshear2019move,das2019nomos,coblenz2019obsidian,sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is intended to be a high-level language.
-Obsidian, Move, Nomos, and Flint use linear or affine types to manage \assetTxt{}s; \langName uses \emph{type quantities}, which extend linear types to allow a more precise analysis of the flow of values in a program.
+Obsidian, Move, Nomos, and Flint use linear or affine types to manage assets; \langName uses \emph{type quantities}, which extend linear types to allow a more precise analysis of the flow of values in a program.
 None of the these languages have flows or provide support for all the modifiers that \langName does.
 % \reed{FIX: or have locators.
 % In particular, the latter means that programs in those languages using linear or affine types must be more verbose to maintain linearity.}
@@ -113,7 +113,7 @@ Using the more declarative, \emph{flow-based} approach provides the following ad
     \item \textbf{Dynamic safety guarantees}: \langName automatically inserts dynamic checks of a flow's validity; e.g., a flow of money would fail if there is not enough money in the source, or if there is too much in the destination (e.g., due to overflow).
         The \flowinline{unique} modifier, which restrict values to never be created more than once, is also checked dynamically.
     \item \textbf{Data-flow tracking}: We hypothesize that flows provide a clearer way of specifying how resources flow in the code itself, which may be less apparent using other approaches, especially in complicated contracts.
-        Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
+        Additionally, developers must explicitly mark when assets are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
     \item \textbf{Error messages}: When a flow fails, the \langName runtime provides automatic, descriptive error messages, such as
 \begin{lstlisting}[numbers=none, basicstyle=\small\ttfamily, xleftmargin=-5.0ex]
 Cannot flow <amount> Token from account[<src>] to account[<dst>]:
@@ -277,7 +277,7 @@ Variables may be used as either sources or destinations, as long as they are not
 We may also use them to select resources (in which case $f = \id{\types}$), even if immutable.
 \begin{mathpar}
     \inferrule*[right=Var]{
-        f = \id{\types} \tor \lnot(\tau~\immutable)
+        \tau~\immutableT \implies f = \id{\types}
     }{ \Gamma, x : \tau \flowproves_M f ; x : \tau \flowprovesout \Gamma, x : f(\tau) }
 \end{mathpar}
 
@@ -367,7 +367,7 @@ We may only use $\consume$ as a destination, and only if $T$ is a consumable typ
 We arbitrarily choose $\emptyq$ as the type quantity for $\consume$; this choice does not matter because we cannot reference \consume in any other context.
 \begin{mathpar}
     \inferrule*[right=Consume]{
-        T~\consumable
+        T~\consumableT
     }{ \Gamma \flowproves_D f ; \consume : \emptyq~T \flowprovesout \Gamma }
 \end{mathpar}
 
@@ -411,7 +411,7 @@ This judgement states that a declaration is well-formed.
 A type declaration is well-formed as long as it includes the \asset keyword whenever it's underlying type is an asset.
 \begin{mathpar}
     \inferrule*[right=Ok-Type]{
-        T~\asset \implies \asset \in \overline{M}
+        T~\assetT \implies \asset \in \overline{M}
     }{ \proves (\type~t~\is~\overline{M}~T)~\ok }
 \end{mathpar}
 
@@ -422,7 +422,7 @@ Note that $y$ may be unused, if it is not an asset.
     \inferrule*[right=Ok-Transformer]{
         \overline{x : \tau}, y : \tau_y, z : \with_{\emptyq}(\tau_z) \flowproves \overline{\Stmt~\ok} \flowprovesout \Delta, \overline{x : \tau}, z : \tau_z
         \\
-        \forall v : \sigma \in \Delta. \lnot(\sigma~\asset)
+        \forall v : \sigma \in \Delta. \lnot(\sigma~\assetT)
     }{ (\transformer f(\overline{x : \tau}, y : \tau_y) \to z : \tau_z~\{ \overline{\Stmt} \}) ~\ok }
 \end{mathpar}
 
@@ -598,7 +598,7 @@ This example uses a pipeline of locators and transformers (lines~\ref{line:aucti
 \section{Conclusion and Future Work}
 
 We have presented the \langName language for writing safer smart contracts.
-\langName uses the new flow abstraction, \assetTxt{}s, and type quantities to provide its safety guarantees.
+\langName uses the new flow abstraction, assets, and type quantities to provide its safety guarantees.
 We have shown example smart contracts in both \langName and Solidity, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 
 In the future, we plan to fully implement the \langName language, and prove its safety properties.
