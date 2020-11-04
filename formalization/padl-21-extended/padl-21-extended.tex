@@ -237,7 +237,7 @@ Define $\# : \N \to \textsc{TypeQuant}$ so that $\#(n)$ is the best approximatio
 
 First, rules checking the types of the source and destination locators, and building up the appropriate updaters.
 
-
+\reed{TODO: Explain locators intuitively}
 \framebox{$\Gamma \flowproves_M f ; \Loc : \tau \flowprovesout \Delta $} \textbf{Locator Typing}
 This judgement states in the environment $\Gamma$ and \emph{mode} $M$, using $\Loc$ according to the \emph{updater} $f$ will yield a value of type $\tau$ and the new type environment $\Delta$.
 
@@ -261,7 +261,7 @@ We use the following type functions:
 \end{itemize}
 
 Note that we write $\Gamma \flowproves_M \overline{f ; \Loc : \tau} \flowprovesout \Delta$ where $|\overline{\Loc}| = n$ to mean
-``for all $1 \leq i \leq n$, $\Gamma_i \flowproves_M f_i ; \Loc_i : \tau_i \flowprovesout \Delta_i$'' where $\Gamma = \Gamma_1$ and $\Delta = \Delta_n$.
+``for all $1 \leq i \leq n$, $\Gamma_i \flowproves_M f_i ; \Loc_i : \tau_i \flowprovesout \Delta_i$'' where $\Gamma = \Gamma_1$, $\Gamma_{i+1} = \Delta_{i}$, and $\Delta = \Delta_n$.
 
 Constants of type $\natt$ or $\boolt$ can only be used as sources---it doesn't make sense to flow values to a constant.
 \begin{mathpar}

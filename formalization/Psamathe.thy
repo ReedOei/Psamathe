@@ -1,5 +1,5 @@
 theory Psamathe
-  imports Main "HOL-Library.Rewrite"
+  imports Main
 begin
 
 datatype TyQuant = empty | any | one | nonempty
@@ -112,8 +112,6 @@ next
   then show ?case using table by (cases t2, auto)
 qed
 
-thm base_type_compat.induct
-
 lemma base_type_compat_trans: 
   fixes t1 and t2 and t3
   assumes "base_type_compat t1 t2" and "base_type_compat t2 t3"
@@ -133,14 +131,30 @@ next
   then show ?case using table by fastforce
 qed
 
-fun selectLoc :: "Store \<Rightarrow> StorageLoc \<Rightarrow> Resource" where
-  "selectLoc (\<mu>, \<rho>) (l, Amount n) = 
+fun selectLoc :: "(nat, Resource) map \<Rightarrow> StorageLoc \<Rightarrow> Resource" where
+  "selectLoc \<rho> (l, Amount n) = 
                               (case \<rho> l of Some (Res (t,_)) \<Rightarrow> Res (t, Num n) | _ \<Rightarrow> error)"
-| "selectLoc (\<mu>, \<rho>) (l, SLoc k) = (case \<rho> k of None \<Rightarrow> error | Some r \<Rightarrow> r)"
+| "selectLoc \<rho> (l, SLoc k) = (case \<rho> k of None \<Rightarrow> error | Some r \<Rightarrow> r)"
 
 fun select :: "Store \<Rightarrow> Stored \<Rightarrow> Resource" where
-  "select (\<mu>, \<rho>) (V x) = (case \<mu> x of Some l \<Rightarrow> selectLoc (\<mu>, \<rho>) l | None \<Rightarrow> error)"
-| "select \<Sigma> (Loc l) = selectLoc \<Sigma> l"
+  "select (\<mu>, \<rho>) (V x) = (case \<mu> x of Some l \<Rightarrow> selectLoc \<rho> l | None \<Rightarrow> error)"
+| "select (\<mu>, \<rho>) (Loc l) = selectLoc \<rho> l"
+
+fun exactType :: "Resource \<Rightarrow> Type option" where
+  "exactType (Res (t, Num n)) = Some (toQuant n, t)"
+| "exactType (Res (t, Bool b)) = Some (if b then (one, t) else (empty, t))"
+| "exactType (Res (t, Table vs)) = Some (toQuant (length vs), t)"
+| "exactType error = None"
+
+fun less_general_quant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" (infix "\<sqsubseteq>" 50) where
+  "less_general_quant q any = True"
+| "less_general_quant one r = (r \<in> {one, nonempty})"
+| "less_general_quant nonempty r = (r = nonempty)"
+| "less_general_quant empty r = (r = empty)"
+| "less_general_quant any r = (r = any)"
+
+fun less_general_type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>\<tau>" 50) where
+  "less_general_type (q,t) (r,u) = (q \<sqsubseteq> r \<and> t = u)"
 
 fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" where
   "ty_res_compat (q,t1) (Res (t2,_)) = base_type_compat t1 t2"
@@ -149,8 +163,14 @@ fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" where
 fun var_dom :: "Env \<Rightarrow> string set" where
   "var_dom \<Gamma> = { x . V x \<in> dom \<Gamma> }"
 
+(* TODO: Not clear this is needed, as the select property of compat should be sufficient, I think *)
 fun loc_dom :: "Env \<Rightarrow> nat set" where
   "loc_dom \<Gamma> = { l . \<exists>a. Loc (l, a) \<in> dom \<Gamma> }"
+
+fun type_less_general :: "Type option \<Rightarrow> Type option \<Rightarrow> bool" (infix "\<preceq>\<^sub>\<tau>" 50) where
+  "type_less_general (Some (q,t)) (Some (r,u)) = (q \<sqsubseteq> r \<and> t = u)"
+| "type_less_general None None = True"
+| "type_less_general _ _ = False"
 
 (* This is a weaker version of compatibility (tentatively, "locator compatibility")
   This is needed, because while evaluating locators, the type environments won't agree with the 
@@ -160,12 +180,12 @@ fun loc_dom :: "Env \<Rightarrow> nat set" where
   conditions on the state of the store (e.g., type quantities being correct, the only strengthening
   I think we will need)*)
 fun compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" ("_ \<leftrightarrow> _") where
-  "compat \<Gamma> (\<mu>, \<rho>) = ((var_dom \<Gamma> = dom \<mu>) \<and> 
-                      (loc_dom \<Gamma> = dom \<rho>) \<and>
-                      (\<forall>x l k. \<mu> x = Some (l, k) \<longrightarrow> \<rho> l \<noteq> None))"
+  "compat \<Gamma> (\<mu>, \<rho>) = ((var_dom \<Gamma> = dom \<mu>) \<and>
+                      (\<forall>x l k. \<mu> x = Some (l, k) \<longrightarrow> \<rho> l \<noteq> None) \<and>
+                      (\<forall>x q t. \<Gamma> x = Some (q,t) \<longrightarrow> ty_res_compat (q,t) (select (\<mu>, \<rho>) x)))"
+                      (*(\<forall>x. exactType (select (\<mu>, \<rho>) x) \<preceq>\<^sub>\<tau> \<Gamma> x))" *)
 (* TODO: Need to eventually put this next line back. This is the part of type compatibility 
     that I think should be retained by locator evaluation *)
-                     (* (\<forall>x q t. \<Gamma> x = Some (q,t) \<longrightarrow> ty_res_compat (q,t) (select (\<mu>, \<rho>) x)))" *)
 
 lemma gen_loc:
   fixes m :: "(nat, 'a) map"
@@ -244,19 +264,14 @@ next
       where a: "\<Sigma> = (\<mu>, \<rho>)" and b: "x2 = (l, a)"
       using Loc by (cases \<Sigma>, cases x2)
     then have "l \<in> loc_dom \<Gamma>" using Loc loc_dom.simps x_in_dom by blast
-    then show ?thesis using Var.prems a b Loc by (simp add: domIff) blast+
+    then show ?thesis using Var.prems a b Loc 
+      (* TODO: This is gross, fix *)
+      apply (simp add: domIff type_preserving_def) 
+      apply auto
+      apply (cases \<tau>)
+      apply auto
+      by (metis Loc Var.hyps a b base_type_compat_sym base_type_compat_trans eq_snd_iff select.simps(2) snd_conv ty_res_compat.elims(2) ty_res_compat.simps(1))
   qed
-(*
-  This is part of the proof for the full version of locator compatiblity; still unfinished
-    then show ?thesis using Var.prems x_in_dom
-      apply (cases \<Sigma>, simp add: domIff)
-    proof((rule allI)+, clarsimp)
-      fix \<mu> \<rho> q t
-      assume "type_preserving f"
-      then have "base_type_compat (snd (f \<tau>)) t" 
-        apply (auto simp: type_preserving_def)
-      show "ty_res_compat (q, t) (selectLoc (\<mu>, \<rho>) x2)"
-  qed *)
 next
   case (VarDef x \<Gamma> f t)
   then show ?case by simp 
@@ -319,8 +334,6 @@ next
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
-        and loc_typed: "\<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-        and tail_typed: "\<Delta> \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>"
         and loc_induct: "located \<L> 
                          \<or> (\<exists>\<mu>' \<rho>' \<L>''. <(\<mu>, \<rho>) , \<L>> \<rightarrow> <(\<mu>', \<rho>') , \<L>''>)"
         and tail_induct: "\<And>\<mu> \<rho>. \<lbrakk>\<Delta> \<leftrightarrow> (\<mu>, \<rho>); finite (dom \<rho>)\<rbrakk>
@@ -405,13 +418,13 @@ qed
 lemma locator_preservation:
   fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
   assumes "<\<Sigma>, \<L>> \<rightarrow> <\<Sigma>', \<L>'>"
-      and "\<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>"
+      and "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> \<Sigma>"
       and "finite_store \<Sigma>"
     shows "finite_store \<Sigma>' 
       \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau> \<stileturn> \<Delta>') \<and> \<Delta> \<lhd> \<Delta>')"
   using assms
-proof(induction arbitrary: \<Gamma> \<tau> f \<Delta>)
+proof(induction arbitrary: \<Gamma> \<tau> f m \<Delta>)
   (* TODO: This is a huge amount of effort for a relatively easy case... *)
   case (ENat l \<rho> \<mu> n)
   let ?\<Gamma>' = "\<Gamma>(Loc (l, Amount n) \<mapsto> \<tau>)"
