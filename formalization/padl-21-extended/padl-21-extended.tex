@@ -461,11 +461,11 @@ Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select
 \begin{mathpar}
     \inferrule*[right=Loc-Nat]{
         m \not\in \dom(\rho)
-    }{ \angles{ (\mu, \rho), n } \to \angles{ (\mu, \rho[\ell \mapsto (\natt, n)]), (m, \amount(n))) } }
+    }{ \angles{ (\mu, \rho), n } \to \angles{ (\mu, \rho[m \mapsto (\natt, n)]), (m, \amount(n))) } }
 
     \inferrule*[right=Loc-Bool]{
         n \not\in \dom(\rho)
-    }{ \angles{ (\mu, \rho), b } \to \angles{ (\mu, \rho[\ell \mapsto (\boolt, b)]), (n, n) } }
+    }{ \angles{ (\mu, \rho), b } \to \angles{ (\mu, \rho[n\mapsto (\boolt, b)]), (n, n) } }
 
     \inferrule*[right=Loc-Id]{
         \mu(x) \neq \bot
@@ -473,7 +473,7 @@ Note that $(\ell, \amount(n))$ and $(\ell, \ell)$ are equivalent w.r.t. $\select
 
     \inferrule*[right=Loc-VarDef]{
         n \not\in \dom(\rho)
-    }{ \angles{ \Sigma, \var~x : T } \to \angles{ (\mu[x \mapsto \ell], \rho[\ell \mapsto \emptyVal(T)]), (n, n) } }
+    }{ \angles{ \Sigma, \var~x : T } \to \angles{ (\mu[x \mapsto n], \rho[n \mapsto \emptyVal(T)]), (n, n) } }
 
     \inferrule*[right=Loc-Multiset]{
         \angles{ \Sigma, \mathcal{L} } \to \angles{\Sigma', \mathcal{L}' }

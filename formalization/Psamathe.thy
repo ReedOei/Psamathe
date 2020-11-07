@@ -35,7 +35,8 @@ inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> (Type \<Rightarrow> 
   ("_ \<turnstile>{_} _ ; _ : _ \<stileturn> _") where
   Nat: "\<Gamma> \<turnstile>{s} f ; (N n) : (toQuant(n), natural) \<stileturn> \<Gamma>"
 | Bool: "\<Gamma> \<turnstile>{s} f ; (B b) : (one, boolean) \<stileturn> \<Gamma>"
-| Var: "\<lbrakk> \<Gamma> x = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; (S x) : \<tau> \<stileturn> (\<Gamma>(x \<mapsto> f(\<tau>)))"
+| Var: "\<lbrakk> \<Gamma> (V x) = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; (S (V x)) : \<tau> \<stileturn> (\<Gamma>(V x \<mapsto> f(\<tau>)))"
+| Loc: "\<lbrakk> \<Gamma> (Loc l) = Some (f(\<tau>)) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; (S (Loc l)) : \<tau> \<stileturn> (\<Gamma>(Loc l \<mapsto> f(\<tau>)))"
 | VarDef: "\<lbrakk> V x \<notin> dom \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{d} f ; (var x : t) : (empty, t) \<stileturn> (\<Gamma>(V x \<mapsto> f(empty, t)))"
 | EmptyList: "\<Gamma> \<turnstile>{s} f ; [ \<tau> ; ] : (empty, table [] \<tau>) \<stileturn> \<Gamma>"
 | ConsList: "\<lbrakk> \<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta> ;
@@ -127,6 +128,7 @@ next
   case (table k1 e1)
   then obtain q1 t1e and k2 q2 t2e and k3 q3 t3e 
     where "e1 = (q1,t1e)" and "t2 = table k2 (q2,t2e)" and "t3 = table k3 (q3,t3e)"
+    (* TODO: Pretty gross, can we improve? *)
     by (metis BaseTy.distinct(4) BaseTy.inject BaseTy.simps(7) base_type_compat.elims(2))
   then show ?case using table by fastforce
 qed
@@ -253,25 +255,12 @@ next
   then show ?case by simp
 next
   case (Var \<Gamma> x \<tau> m f)
-  then have x_in_dom: "x \<in> dom \<Gamma>" by auto
-  then show ?case 
-  proof(cases x)
-    case (V x1)
-    then show ?thesis using Var.prems by simp
-  next
-    case (Loc x2)
-    then obtain \<mu> \<rho> and l a 
-      where a: "\<Sigma> = (\<mu>, \<rho>)" and b: "x2 = (l, a)"
-      using Loc by (cases \<Sigma>, cases x2)
-    then have "l \<in> loc_dom \<Gamma>" using Loc loc_dom.simps x_in_dom by blast
-    then show ?thesis using Var.prems a b Loc 
-      (* TODO: This is gross, fix *)
-      apply (simp add: domIff type_preserving_def) 
-      apply auto
-      apply (cases \<tau>)
-      apply auto
-      by (metis Loc Var.hyps a b base_type_compat_sym base_type_compat_trans eq_snd_iff select.simps(2) snd_conv ty_res_compat.elims(2) ty_res_compat.simps(1))
-  qed
+  then show ?case by simp
+next
+  case (Loc \<Gamma> l f \<tau> m)
+  then have l_in_dom: "Loc l \<in> dom \<Gamma>" by auto
+  then obtain \<mu> \<rho> where "\<Sigma> = (\<mu>, \<rho>)" by (cases \<Sigma>)
+  then show ?case using Loc by fastforce
 next
   case (VarDef x \<Gamma> f t)
   then show ?case by simp 
@@ -299,23 +288,16 @@ next
   then show ?case by (meson EBool gen_loc)
 next
   case (Var \<Gamma> x \<tau> m f)
-  then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)"
-        and x_in_env: "\<Gamma> x = Some \<tau>" by auto
+  then obtain k where in_lookup: "\<mu> x = Some k"
+    by (metis compat.simps domD domI mem_Collect_eq var_dom.simps)
   then show ?case 
-  proof(cases x)
-    case (V x1)
-    from this and env_compat and x_in_env 
-    have "x1 \<in> dom \<mu>" and eq: "x = V x1" by auto
-    then obtain k where in_lookup: "\<mu> x1 = Some k" by auto
-    show ?thesis
-    proof(intro disjI2 exI)
-      from in_lookup and eq show "< (\<mu>, \<rho>) , S x > \<rightarrow> < (\<mu>, \<rho>) , S (Loc k) >"
-        by (simp add: EVar) 
-    qed
-  next
-    case (Loc x2)
-    then show ?thesis by simp
+  proof(intro disjI2 exI)
+    from in_lookup show "< (\<mu>, \<rho>) , S (V x) > \<rightarrow> < (\<mu>, \<rho>) , S (Loc k) >"
+      by (simp add: EVar) 
   qed
+next
+  case (Loc \<Gamma> l f \<tau> m)
+  then show ?case by simp
 next
   case (VarDef x \<Gamma> f t)
   then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
@@ -384,11 +366,16 @@ next
   then show ?case using loc_type.Bool by blast
 next
   case (Var \<Gamma> x \<tau> m f)
-  then have "\<Gamma>' x = Some \<tau>" by (metis proof_compat_def domI map_le_def)
+  then have "\<Gamma>' (V x) = Some \<tau>" by (metis proof_compat_def domI map_le_def)
   then show ?case
   proof(intro exI conjI, rule loc_type.Var)
-    from Var.prems show "\<Gamma>(x \<mapsto> f \<tau>) \<lhd> \<Gamma>'(x \<mapsto> f \<tau>)" by (auto simp: proof_compat_def)
+    from Var.prems show "\<Gamma>(V x \<mapsto> f \<tau>) \<lhd> \<Gamma>'(V x \<mapsto> f \<tau>)" by (auto simp: proof_compat_def)
   qed
+next
+  case (Loc \<Gamma> l f \<tau> m)
+  then show ?case
+    (* TODO: Fix this nastiness *)
+    by (metis domIff loc_type.Loc map_le_def map_upd_triv option.distinct(1) proof_compat_def) 
 next
   case (VarDef x \<Gamma> f t)
   then have "V x \<notin> dom \<Gamma>'" by (auto simp: proof_compat_def)
@@ -421,16 +408,21 @@ lemma locator_preservation:
       and "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
       and "\<Gamma> \<leftrightarrow> \<Sigma>"
       and "finite_store \<Sigma>"
+      and "type_preserving f"
     shows "finite_store \<Sigma>' 
       \<and> (\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau> \<stileturn> \<Delta>') \<and> \<Delta> \<lhd> \<Delta>')"
   using assms
 proof(induction arbitrary: \<Gamma> \<tau> f m \<Delta>)
   (* TODO: This is a huge amount of effort for a relatively easy case... *)
   case (ENat l \<rho> \<mu> n)
-  let ?\<Gamma>' = "\<Gamma>(Loc (l, Amount n) \<mapsto> \<tau>)"
-  let ?\<Delta>' = "?\<Gamma>'(Loc (l, Amount n) \<mapsto> f \<tau>)"
-  have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat.prems by auto blast+
-  have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> ?\<Delta>'" by (rule Var, auto) 
+  let ?\<Gamma>' = "\<Gamma>(Loc (l, Amount n) \<mapsto> f \<tau>)"
+  have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat
+    apply auto
+     apply (erule loc_type.cases)
+    apply auto
+    apply (metis base_type_compat_sym snd_conv type_preserving_def)
+
+  have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> ?\<Gamma>'" by (rule Var, auto) 
   have "\<Delta> = \<Gamma>" using ENat.prems using loc_type.cases by blast
   then have prf_compat: "\<Delta> \<lhd> ?\<Delta>'" using ENat 
     by (simp add: proof_compat_def map_le_def) blast
