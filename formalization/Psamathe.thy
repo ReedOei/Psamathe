@@ -85,7 +85,7 @@ inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightar
 (* Auxiliary definitions *)
 
 (* TODO: Update when adding new types *)
-fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" where
+fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" (infix "\<approx>" 50) where
   "base_type_compat natural natural = True"
 | "base_type_compat boolean boolean = True"
 | "base_type_compat (table ks1 (q1,t1)) (table ks2 (q2,t2)) = base_type_compat t1 t2"
@@ -93,13 +93,13 @@ fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" where
 
 lemma base_type_compat_refl:
   fixes t
-  shows "base_type_compat t t"
+  shows "t \<approx> t"
   by (induction t, auto)
 
 lemma base_type_compat_sym:
   fixes t1 and t2
-  assumes "base_type_compat t1 t2"
-  shows "base_type_compat t2 t1"
+  assumes "t1 \<approx> t2"
+  shows "t2 \<approx> t1"
   using assms
 proof(induction t1 arbitrary: t2)
   case natural
@@ -115,8 +115,8 @@ qed
 
 lemma base_type_compat_trans: 
   fixes t1 and t2 and t3
-  assumes "base_type_compat t1 t2" and "base_type_compat t2 t3"
-  shows "base_type_compat t1 t3"
+  assumes "t1 \<approx> t2" and "t2 \<approx> t3"
+  shows "t1 \<approx> t3"
   using assms
 proof(induction t1 arbitrary: t2 t3)
   case natural
@@ -158,9 +158,9 @@ fun less_general_quant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" (in
 fun less_general_type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>\<tau>" 50) where
   "less_general_type (q,t) (r,u) = (q \<sqsubseteq> r \<and> t = u)"
 
-fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" where
-  "ty_res_compat (q,t1) (Res (t2,_)) = base_type_compat t1 t2"
-| "ty_res_compat _ error = False"
+fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" (infix "\<triangleq>" 50) where
+  "(q,t1) \<triangleq> (Res (t2,_)) = (t1 \<approx> t2)"
+| "_ \<triangleq> error = False"
 
 fun var_dom :: "Env \<Rightarrow> string set" where
   "var_dom \<Gamma> = { x . V x \<in> dom \<Gamma> }"
@@ -174,6 +174,9 @@ fun type_less_general :: "Type option \<Rightarrow> Type option \<Rightarrow> bo
 | "type_less_general None None = True"
 | "type_less_general _ _ = False"
 
+fun references :: "(string, StorageLoc) map \<Rightarrow> nat set" where
+  "references \<mu> = { l . \<exists>x k j. \<mu> x = Some (k, j) \<and> (k = l \<or> j = SLoc l) }"
+
 (* This is a weaker version of compatibility (tentatively, "locator compatibility")
   This is needed, because while evaluating locators, the type environments won't agree with the 
   actual state of the store,
@@ -183,11 +186,92 @@ fun type_less_general :: "Type option \<Rightarrow> Type option \<Rightarrow> bo
   I think we will need)*)
 fun compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" ("_ \<leftrightarrow> _") where
   "compat \<Gamma> (\<mu>, \<rho>) = ((var_dom \<Gamma> = dom \<mu>) \<and>
-                      (\<forall>x l k. \<mu> x = Some (l, k) \<longrightarrow> \<rho> l \<noteq> None) \<and>
-                      (\<forall>x q t. \<Gamma> x = Some (q,t) \<longrightarrow> ty_res_compat (q,t) (select (\<mu>, \<rho>) x)))"
+                      (\<forall>x. x \<in> dom \<mu> \<longrightarrow> select (\<mu>,\<rho>) (V x) \<noteq> error) \<and>
+                      (\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>) \<and>
+                      (\<forall>x \<tau>. \<Gamma> x = Some \<tau> \<longrightarrow> ty_res_compat \<tau> (select (\<mu>, \<rho>) x)))"
                       (*(\<forall>x. exactType (select (\<mu>, \<rho>) x) \<preceq>\<^sub>\<tau> \<Gamma> x))" *)
 (* TODO: Need to eventually put this next line back. This is the part of type compatibility 
     that I think should be retained by locator evaluation *)
+
+lemma in_type_env_select:
+  fixes \<Gamma> \<mu> \<rho> x
+  assumes "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)"
+      and "x \<in> dom \<Gamma>"
+  obtains r where "select (\<mu>, \<rho>) x = Res r"
+  using assms
+  by (auto, metis Resource.exhaust that ty_res_compat.simps(2))
+
+
+lemma select_loc_update:
+  fixes \<rho> \<rho>' l k
+  assumes "selectLoc \<rho> (l,k) \<noteq> error"
+      and "\<rho> \<subseteq>\<^sub>m \<rho>'"
+    shows "selectLoc \<rho>' (l,k) \<noteq> error"
+  using assms
+proof(cases k)
+  case (SLoc x1)
+  then obtain r where "\<rho> x1 = Some (Res r)" using assms 
+    apply auto
+    by (metis Resource.exhaust not_Some_eq option.case_eq_if option.sel surj_pair)
+  then have "\<rho>' x1 = Some (Res r)" using assms map_le_def domI
+    by metis
+  then show ?thesis
+    by (simp add: SLoc)
+next
+  case (Amount x2)
+  then obtain temp where "\<rho> l = Some temp" using assms by fastforce
+  then obtain r where "\<rho> l = Some (Res r)" using assms Amount
+    apply auto
+    by (metis Resource.simps(5) exactType.cases) (* TODO: why is it using exactType? *)
+  then have "\<rho>' l = Some (Res r)" using assms map_le_def domI
+    by metis
+  then show ?thesis using Amount assms by (simp add: \<open>\<rho> l = Some (Res r)\<close>)
+qed
+
+lemma select_update:
+  fixes \<mu> \<rho> \<mu>' \<rho>' x
+  assumes "select (\<mu>, \<rho>) x \<noteq> error"
+      and "\<mu> \<subseteq>\<^sub>m \<mu>'" and "\<rho> \<subseteq>\<^sub>m \<rho>'"
+    shows "select (\<mu>', \<rho>') x \<noteq> error"
+  using assms
+proof (cases x)
+  case (V x1)
+  then have "select (\<mu>, \<rho>) (V x1) \<noteq> error" using assms by simp
+  then obtain l where "\<mu> x1 = Some l" and "selectLoc \<rho> l \<noteq> error" using assms
+    by (metis option.case_eq_if option.collapse select.simps(1)) 
+  then have "\<mu>' x1 = Some l" using assms
+    by (metis domI map_le_def)
+  then show ?thesis using assms V
+    apply auto
+    by (metis \<open>\<mu> x1 = Some l\<close> option.simps(5) select_loc_update surj_pair)
+next
+  case (Loc x2)
+  then show ?thesis
+    apply auto
+    by (metis assms(1) assms(3) select.simps(2) select_loc_update surj_pair)
+qed
+
+lemma in_var_env_select:
+  fixes \<Gamma> \<mu> \<rho> x
+  assumes "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)"
+      and "\<mu> x = Some l" 
+  obtains r where "selectLoc \<rho> l = Res r"
+  using assms
+  by (auto, metis Resource.exhaust domI option.simps(5) that)
+
+lemma in_type_env_compat:
+  fixes \<Gamma> \<mu> \<rho> x \<tau>
+  assumes "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)"
+    and "\<Gamma> (V x) = Some \<tau>"
+  obtains l where "\<mu> x = Some l" and "\<tau> \<triangleq> selectLoc \<rho> l"
+  using assms
+proof(auto)
+  assume "\<Gamma> (V x) = Some \<tau>" and "{x. V x \<in> dom \<Gamma>} = dom \<mu>"
+  then have "x \<in> dom \<mu>" by auto
+  then obtain l where "\<mu> x = Some l" and "\<tau> \<triangleq> selectLoc \<rho> l" using assms
+    by (metis compat.simps domD option.simps(5) select.simps(1))
+  then show ?thesis using assms \<open>\<mu> x = Some l\<close> that by simp 
+qed
 
 lemma gen_loc:
   fixes m :: "(nat, 'a) map"
@@ -260,7 +344,7 @@ next
   case (Loc \<Gamma> l f \<tau> m)
   then have l_in_dom: "Loc l \<in> dom \<Gamma>" by auto
   then obtain \<mu> \<rho> where "\<Sigma> = (\<mu>, \<rho>)" by (cases \<Sigma>)
-  then show ?case using Loc by fastforce
+  then show ?case using Loc by (simp add: fun_upd_idem)
 next
   case (VarDef x \<Gamma> f t)
   then show ?case by simp 
@@ -417,10 +501,10 @@ proof(induction arbitrary: \<Gamma> \<tau> f m \<Delta>)
   case (ENat l \<rho> \<mu> n)
   let ?\<Gamma>' = "\<Gamma>(Loc (l, Amount n) \<mapsto> f \<tau>)"
   have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n)))" using ENat
-    apply auto
-     apply (erule loc_type.cases)
-    apply auto
-    apply (metis base_type_compat_sym snd_conv type_preserving_def)
+  proof(unfold compat.simps, intro conjI)
+    show "var_dom (\<Gamma>(Loc (l, Amount n) \<mapsto> f \<tau>)) = dom \<mu>" using ENat by auto
+    have "l \<notin> references \<mu>" using ENat by auto
+    then have "a \<noteq> l" by auto
 
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, Amount n)) : \<tau> \<stileturn> ?\<Gamma>'" by (rule Var, auto) 
   have "\<Delta> = \<Gamma>" using ENat.prems using loc_type.cases by blast
