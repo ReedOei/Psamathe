@@ -441,6 +441,14 @@ fun finite_store :: "Store \<Rightarrow> bool" where
 definition proof_compat :: "Env \<Rightarrow> Env \<Rightarrow> bool" (infix "\<lhd>" 50) where
   "proof_compat \<Gamma> \<Gamma>' \<equiv> (var_dom \<Gamma> = var_dom \<Gamma>') \<and> \<Gamma> \<subseteq>\<^sub>m \<Gamma>'"
 
+inductive wf_locator :: "Locator \<Rightarrow> bool" ("_ wf" 10) where
+  EmptyWf: "[ \<tau> ; ] wf"
+| VarWf: "S x wf"
+| NatWf: "N n wf"
+| BoolWf: "B b wf"
+| ConsLocWf: "\<lbrakk> located \<L> ; \<L> wf ; Tail wf \<rbrakk> \<Longrightarrow> [ \<tau> ; \<L>, Tail ] wf"
+| ConsNotLocWf: "\<lbrakk> \<not>(located \<L>) ; \<L> wf ; Tail wf \<rbrakk> \<Longrightarrow> [ \<tau> ; \<L>, Tail ] wf" (* TODO: Need to ensure there are no locations mentioned in the Tail *)
+
 lemma proof_compat_works:
   fixes \<Gamma> m f \<L> \<tau> \<Delta>
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
@@ -672,7 +680,8 @@ next
   let ?\<Gamma>' = "\<Delta>(Loc l \<mapsto> f \<tau>)"
   let ?\<Delta>' = "?\<Gamma>'(Loc l \<mapsto> f \<tau>)"
   from EVar have "\<Delta> = \<Gamma>(V x \<mapsto> f \<tau>)" by simp (erule loc_type.cases, auto)
-  then have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>)" using EVar by auto blast+
+  then have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>, \<rho>)" using EVar
+    apply auto
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'" by (meson Var fun_upd_same)
   then have prf_compat: "\<Delta> \<lhd> ?\<Delta>'" using EVar \<open>\<Delta> = \<Gamma>(V x \<mapsto> f \<tau>)\<close>
     apply (simp add: proof_compat_def map_le_def)
