@@ -424,7 +424,6 @@ lemma gen_loc:
 
 instantiation TyQuant :: linorder
 begin
-
 fun less_eq_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
   "less_eq_TyQuant empty r = True"
 | "less_eq_TyQuant any r = (r \<notin> {empty})"
@@ -472,7 +471,6 @@ lemma sublocator_resp_locations:
   by (cases \<K>, auto)+
 
 (*
-
 lemma var_store_sync_resp_locations:
   assumes "locations \<L> \<subseteq> locations \<K>" 
       and "var_store_sync \<Gamma> (locations \<K>) \<mu>"
@@ -767,17 +765,18 @@ next
   qed
 qed *)
 
-definition proof_compat :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> Env \<Rightarrow> bool" ("_ \<lhd>\<^sup>_ _" 50) where
-  "\<Gamma> \<lhd>\<^sup>f \<Gamma>' \<equiv> var_ty_env \<Gamma> = var_ty_env \<Gamma>' 
-           \<and> (\<forall>l \<tau>. \<Gamma> (Loc l) = Some \<tau> \<longrightarrow> (\<Gamma>' (Loc l) = Some \<tau> \<or> \<Gamma>' (Loc l) = Some (f \<tau>)))"
+definition proof_compat :: "Env \<Rightarrow> (StorageLoc set) \<Rightarrow> Env \<Rightarrow> bool" where
+  "proof_compat \<Gamma> \<LL> \<Gamma>' \<equiv> var_ty_env \<Gamma> = var_ty_env \<Gamma>'
+                        \<and> { l . \<Gamma> (Loc l) \<noteq> \<Gamma>' (Loc l) } \<subseteq> \<LL>"
 
 lemma proof_compat_works:
   fixes \<Gamma> m f \<L> \<tau> \<Delta> \<mu>
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "\<Gamma> \<lhd>\<^sup>f \<Gamma>'"
-    shows "\<exists>\<Delta>'. (\<Gamma>' \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>') \<and> (\<Delta> \<lhd>\<^sup>f \<Delta>')"
+      and "proof_compat \<Gamma> \<LL> \<Gamma>'"
+      and "set_mset (locations \<L>) \<inter> \<LL> = {}"
+    shows "\<exists>\<Delta>'. (\<Gamma>' \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>') \<and> (proof_compat \<Delta> \<LL> \<Delta>')"
   using assms
-proof(induction arbitrary: \<Gamma>')
+proof(induction arbitrary: \<Gamma>' \<LL>)
   case (Nat \<Gamma> f n)
   then show ?case using loc_type.Nat by blast
 next
@@ -789,15 +788,20 @@ next
     by (metis proof_compat_def var_ty_env.simps)
   then show ?case
   proof(intro exI conjI, rule loc_type.Var)
-      from Var.prems show "\<Gamma>(V x \<mapsto> f \<tau>) \<lhd>\<^sup>f \<Gamma>'(V x \<mapsto> f \<tau>)"
-        apply (auto simp: proof_compat_def)
-        by metis
-    qed
+    from Var.prems show "proof_compat (\<Gamma>(V x \<mapsto> f \<tau>)) \<LL> (\<Gamma>'(V x \<mapsto> f \<tau>))"
+      apply (auto simp: proof_compat_def)
+      by meson 
+  qed
 next
-  case (Loc \<Gamma> l f \<tau> m)
+  case (Loc \<Gamma> l \<tau> m f)
+  then have "\<Gamma>' (Loc l) = Some \<tau>"
+    apply (auto simp: proof_compat_def)
+    by force
   then show ?case
-    (* TODO: Fix this nastiness *)
-    by (metis domIff loc_type.Loc map_le_def option.distinct(1) proof_compat_def) 
+  proof(intro exI conjI, rule loc_type.Loc)
+    from Loc.prems show "proof_compat (\<Gamma>(Loc l \<mapsto> f \<tau>)) \<LL> (\<Gamma>'(Loc l \<mapsto> f \<tau>))"
+      by (auto simp: proof_compat_def)
+  qed
 next
   case (VarDef x \<Gamma> f t)
   then have "V x \<notin> dom \<Gamma>'" 
@@ -805,7 +809,7 @@ next
     by metis
   then show ?case
   proof(intro exI conjI, rule loc_type.VarDef)
-    from VarDef.prems show "\<Gamma>(V x \<mapsto> f (TyQuant.empty, t)) \<lhd> \<Gamma>'(V x \<mapsto> f (TyQuant.empty, t))"
+    from VarDef.prems show "proof_compat (\<Gamma>(V x \<mapsto> f (TyQuant.empty, t))) \<LL> (\<Gamma>'(V x \<mapsto> f (TyQuant.empty, t)))"
       apply (auto simp: proof_compat_def)
       by meson
   qed
@@ -814,16 +818,19 @@ next
   then show ?case using loc_type.EmptyList by blast 
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
-  then obtain "\<Delta>'" and "\<Xi>'" 
-    where head_ty: "\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>'" and "\<Delta> \<lhd> \<Delta>'" 
-      and tail_ty: "\<Delta>' \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>'" and tail_prf_compat: "\<Xi> \<lhd> \<Xi>'"
+  then have "set_mset (locations \<L>) \<inter> \<LL> = {}" 
+        and "set_mset (locations Tail) \<inter> \<LL> = {}" by auto
+  from this and ConsList
+  obtain "\<Delta>'" and "\<Xi>'" 
+    where head_ty: "\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>'" and "proof_compat \<Delta> \<LL> \<Delta>'" 
+      and tail_ty: "\<Delta>' \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>'" and tail_prf_compat: "proof_compat \<Xi> \<LL> \<Xi>'"
     by blast
 
   then show ?case
   proof(intro exI conjI)
     from head_ty and tail_ty
     show "\<Gamma>' \<turnstile>{s} f ; [ \<tau> ; \<L> , Tail ] : (one \<oplus> q, table [] \<tau>) \<stileturn> \<Xi>'" by (rule loc_type.ConsList)
-    from tail_prf_compat show "\<Xi> \<lhd> \<Xi>'" by simp
+    from tail_prf_compat show "proof_compat \<Xi> \<LL> \<Xi>'" by simp
   qed
 qed
 
