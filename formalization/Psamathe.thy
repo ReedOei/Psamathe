@@ -619,13 +619,13 @@ qed
 lemma locator_progress:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> f (locators \<L>) (\<mu>, \<rho>)"
+      and "compat \<Gamma> f (locations \<L> + \<LL>) (\<mu>, \<rho>)"
       and "\<L> wf"
       and "finite (dom \<rho>)"
       and "type_preserving f"
   shows "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. <(\<mu>, \<rho>), \<L>> \<rightarrow> <(\<mu>', \<rho>'), \<L>'> )"
   using assms
-proof(induction arbitrary: \<mu> \<rho> m rule: loc_type.induct)
+proof(induction arbitrary: \<mu> \<rho> m \<LL> rule: loc_type.induct)
   case (Nat \<Gamma> f n)
   then show ?case by (meson ENat gen_loc)
 next
@@ -644,10 +644,10 @@ next
   then show ?case by simp
 next
   case (VarDef x \<Gamma> f t)
-  then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
-        and "finite (dom \<rho>)"
-        and not_in_lookup: "x \<notin> dom \<mu>" by auto
-  then obtain l where has_loc: "l \<notin> dom \<rho>" using gen_loc by blast
+  then have env_compat: "compat \<Gamma> f \<LL> (\<mu>, \<rho>)" by simp
+  have not_in_lookup: "x \<notin> dom \<mu>" using VarDef by (auto simp: compat_def)
+  have "finite (dom \<rho>)" using VarDef by simp
+  then obtain l where has_loc: "l \<notin> dom \<rho>" using gen_loc env_compat not_in_lookup by blast
   show ?case
   proof(intro disjI2 exI)
     from not_in_lookup and has_loc
@@ -659,13 +659,16 @@ next
   then show ?case by simp
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
-  then have env_compat: "\<Gamma> \<leftrightarrow> (\<mu>, \<rho>)" 
-        and loc_induct: "located \<L> 
-                         \<or> (\<exists>\<mu>' \<rho>' \<L>''. <(\<mu>, \<rho>) , \<L>> \<rightarrow> <(\<mu>', \<rho>') , \<L>''>)"
-        and tail_induct: "\<And>\<mu> \<rho>. \<lbrakk>\<Delta> \<leftrightarrow> (\<mu>, \<rho>); finite (dom \<rho>)\<rbrakk>
-            \<Longrightarrow> located Tail
-              \<or> (\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >)"
-    by auto
+  then have env_compat: "compat \<Gamma> f (locations \<L> + locations Tail + \<LL>) (\<mu>, \<rho>)" by auto
+
+  from ConsList and wf_locator.cases 
+  have "\<L> wf" and "Tail wf" and "finite (dom \<rho>)" and "type_preserving f" by fastforce+
+
+  from this and env_compat 
+  have loc_induct: "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. < (\<mu>, \<rho>) , \<L> > \<rightarrow> < (\<mu>', \<rho>') , \<L>' >)"
+  and tail_induct: "\<And>\<mu>' \<rho>'. \<lbrakk>compat \<Delta> f (locations Tail + \<LL>) (\<mu>, \<rho>)\<rbrakk>
+                         \<Longrightarrow> located Tail \<or> (\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >)"
+    by (simp_all add: ConsList union_assoc)
    
   show ?case
   proof(cases "located \<L>")
@@ -678,7 +681,9 @@ next
       from this and loc_l show ?thesis by simp
     next
       case False
-      from loc_l have "\<Delta> \<leftrightarrow> (\<mu>, \<rho>)" using located_env_compat ConsList by blast
+      from loc_l have "compat \<Delta> f (locations Tail + \<LL>) (\<mu>, \<rho>)" 
+        using located_env_compat ConsList env_compat
+        by (metis \<open>\<L> wf\<close> ab_semigroup_add_class.add_ac(1)) 
       then have "\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >"
         using tail_induct ConsList False by blast
       then show ?thesis using EConsListTailCongr loc_l by blast
