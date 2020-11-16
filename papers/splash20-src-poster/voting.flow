@@ -1,0 +1,13 @@
+contract Ballot {
+    type Voter is unique asset address
+    type ProposalName is unique asset string
+    chairperson : address
+    voters : set Voter
+    proposals : map ProposalName => set Voter
+    transaction giveRightToVote(voter: address):
+        only when msg.sender = chairperson
+        new Voter(voter) --> voters
+    transaction vote(proposal: string):
+        voters --[ msg.sender ]-> proposals[proposal] |\label{line:select-voter-by-addr}|
+}
+

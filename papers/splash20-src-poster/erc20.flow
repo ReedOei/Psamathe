@@ -1,0 +1,13 @@
+contract EIP20 {
+    type Token is fungible asset uint256
+    type Approval is fungible consumable asset uint256
+    accounts : map address => Token
+    allowances : map address => map address => Approval
+    transaction transferFrom(src : address, dst : address, amount : uint256):
+        allowances[src][dst] --[ amount ]-> consume
+        account[src] --[ amount ]-> account[dst]
+    transaction approve(dst : address, amount : uint256):
+        allowances[msg.sender][dst] --> consume
+        new Approval --[ amount ]-> allowances[msg.sender][dst]
+}
+

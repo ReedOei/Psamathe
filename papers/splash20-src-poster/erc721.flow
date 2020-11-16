@@ -1,0 +1,19 @@
+contract NFToken {
+  type Token is unique immutable asset uint256
+  type Approval is unique immutable consumable asset uint256
+  balances : linking address <=> set Token
+  approval : linking address <=> set Approval
+  ownerToOperators : linking address <=> set address
+
+  transaction transferFrom(src : address, dst : address, tokId : uint256):
+    // `A in B` is true iff we can select `A` from `B`.
+    // It can be implemented efficiently if the LHS is hashable.
+    only when tokId in balances[msg.sender] or
+              tokId in approval[msg.sender] or
+              msg.sender in ownerToOperators[balances.ownerOf(tokId)]
+    if approval.hasOwner(tokId) {
+      approval[approval.ownerOf(tokId)] --[ tokId ]-> consume
+    }
+    balances[src] --[ tokId ]-> balances[dst]
+}
+
