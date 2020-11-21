@@ -1,0 +1,178 @@
+% Gemini theme
+% https://github.com/anishathalye/gemini
+
+\documentclass[usenames, dvipsnames, final]{beamer}
+
+% ====================
+% Packages
+% ====================
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[scale=1.3]{beamerposter}
+\setlength{\paperwidth}{36in}
+\setlength{\textwidth}{34in}
+\setlength{\paperheight}{24in}
+\setlength{\textwidth}{22in}
+\usetheme{gemini}
+\usecolortheme{iolia}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{tipa}
+\usepackage{pgfplots}
+\usepackage{mathtools}
+\usepackage{mathpartir}
+% \usepackage{kpfonts}
+
+\usepackage{fontspec}       % Apparently defines most aliases from TIPA.
+\newfontfamily\ipafamily{DejaVu Sans}[Scale=MatchLowercase]
+\DeclareRobustCommand\ipa[1]{{\ipafamily\textipa{#1}}}
+
+% ====================
+% Lengths
+% ====================
+
+% If you have N columns, choose \sepwidth and \colwidth such that
+% (N+1)*\sepwidth + N*\colwidth = \paperwidth
+\newlength{\sepwidth}
+\newlength{\colwidth}
+\setlength{\sepwidth}{0.025\paperwidth}
+\setlength{\colwidth}{0.3\paperwidth}
+
+\newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
+
+\input{../LaTeX/macros.tex}
+\input{../solidity-latex-highlighting/solidity-highlighting.tex}
+\input{../flow-highlighting.tex}
+\input{../macros.tex}
+
+\renewcommand{\langNamePronounce}{/\ipa{sAmATi}/}
+
+% ====================
+% Title
+% ====================
+
+\title{\langName: A DSL for Safe Blockchain \AssetTxt{}s}
+
+\author{Reed Oei} %\inst{1}, Michael Coblenz \inst{2}, Jonathan Aldrich \inst{2}}
+
+\institute[shortinst]{University of Illinois} % \samelineand \inst{2} Carnegie Mellon University}
+
+% ====================
+% Footer (optional)
+% ====================
+
+% \footercontent{%
+%   \href{https://www.example.com}{https://www.example.com} \hfill
+%   ABC Conference 2025, New York --- XYZ-1234 \hfill
+%   \href{mailto:alyssa.p.hacker@example.com}{alyssa.p.hacker@example.com}}
+% (can be left out to remove footer)
+
+% ====================
+% Logo (optional)
+% ====================
+
+% use this to include logos on the left and/or right side of the header:
+\logoleft{\includegraphics[height=4cm]{imark.png}}
+\logoright{\includegraphics[height=4cm]{isrcmu.jpeg}}
+
+% ====================
+% Body
+% ====================
+
+\newcommand{\term}[1]{\textbf{\emph{#1}}}
+
+\begin{document}
+
+\begin{frame}[t]
+\begin{columns}[t]
+\separatorcolumn
+
+\begin{column}{\colwidth}
+    \begin{block}{Background}
+        % Blockchains are increasingly used as platforms for programs called \term{smart contracts}, which automatically manage \term{transactions}. % in an unbiased, mutually agreed-upon way.
+        \begin{itemize}
+            \item \term{Smart contracts}: Programs that run on \term{blockchains} and automatically manage \term{transactions}
+            \item Common smart contracts include lotteries, auctions, exchanges, and \term{tokens}~\cite{OlivaEtAl2019}
+            \item Deployed smart contracts cannot be patched
+            \item Therefore, hacks can be disastrous: the famous DAO attack in 2016 lost over \$40 million~\cite{DAO}
+        \end{itemize}
+        % For example, there are smart contracts for managing lotteries, auctions, games, and the most common digital asset on the Ethereum blockchain, a \term{token}.
+        % Tokens are a kind of digital currency, the most common kind being defined by the ERC-20 and ERC-721 standards, which account for approximately 73\% of high-activity contracts~\cite{OlivaEtAl2019}.
+        % However, smart contracts cannot be patched after being deployed, even if a security vulnerability is discovered.
+        % Hacks of smart contracts are common and cause the loss of large quantities of money, such as the DAO attack in 2016, which led to the loss of over 40 million dollars worth of ether~\cite{DAO}.
+
+        % \textcolor{softRed}{\textbf{\langName}} is a new programming language we are designing for writing smart contracts that provides a way to mark values as \term{\assetTxt{}s}, with various \term{modifiers} to control their use, as well as a new abstraction, called a \term{flow}, representing an atomic transfer operation, which is widely applicable to smart contracts managing digital \assetTxt{}s.
+        \textcolor{softRed}{\textbf{\langName}} is a new programming language we are designing to write safer contracts, focused on a new abstraction, a \term{flow}, representing an atomic transfer.
+        The \langName language will also provide features to mark types with \term{modifiers}, such as \lstinline[language=flow,basicstyle=\normalsize\ttfamily]{asset}, which combine with flows and \term{type quantities} to make some classes of bugs impossible.
+        Type quantities, which can typically be inferred, approximate the number of values in the variable, and include: \lstinline[language=flow,basicstyle=\normalsize\ttfamily]{empty}, \lstinline[language=flow,basicstyle=\normalsize\ttfamily]{any}, \lstinline[language=flow,basicstyle=\normalsize\ttfamily]{one}, \lstinline[language=flow,basicstyle=\normalsize\ttfamily]{nonempty}.
+    \end{block}
+
+    \begin{alertblock}{Contributions}
+        \begin{itemize}
+            \item \textbf{Flow abstraction}: \langName uses the new flow abstraction to encode semantic information about the flow of \assetTxt{}s into the code.
+            \item \textbf{Safety guarantees}: \langName ensures that \assetTxt{}s are properly managed, reducing \assetTxt-loss and duplication bugs through the flow abstraction.
+            \item \textbf{Conciseness}: \langName makes writing typical smart contract programs more concise by handling common patterns and pitfalls.
+        \end{itemize}
+    \end{alertblock}
+\end{column}
+
+\separatorcolumn
+
+\begin{column}{\colwidth}
+
+  \begin{block}{Example}
+    \begin{figure}[h]
+        \centering
+        \lstinputlisting[language=flow, xleftmargin=0.0ex]{erc20-transfer.flow}
+        \caption{A \langName contract implementing the ERC-20 function \lstinline{transfer}, which transfers \lstinline{amount} tokens from the sender's account to the destination account.
+            It is implemented with a single flow, which checks all the preconditions to ensure the transfer is valid.}
+        \label{fig:erc20-transfer-flow}
+    \end{figure}
+    \begin{figure}[h]
+        \centering
+        \lstinputlisting[language=Solidity, xleftmargin=0.0ex]{erc20-transfer.sol}
+        \caption{An implementation of ERC-20's \lstinline{transfer} function in Solidity, the most commonly used smart contract language on Ethereum.
+            All preconditions are checked manually.
+            Note that we must include the \lstinline{SafeMath} library (not shown), which checks for underflow/overflow, to use the \lstinline{add} and \lstinline{sub} functions.}
+        \label{fig:erc20-transfer-sol}
+    \end{figure}
+
+      This example shows how flows can clearly express the \textbf{intent} behind the \lstinline{transfer} function, which is obscured by the Solidity code.
+      Using \langName provides additional safety, e.g., by ensuring that no tokens are lost or duplicated---something particularly helpful for more complicated transactions which include more flows or more complicated flows (e.g., transfer fees).
+  \end{block}
+\end{column}
+
+\separatorcolumn
+
+\begin{column}{\colwidth}
+    \begin{alertblock}{Advantages}
+        \begin{itemize}
+            \item \textbf{Precondition checking}: \langName automatically inserts dynamic checks of a flow's validity; e.g., a flow of money would fail if there is not enough in the source. % , or if there is too much in the destination (e.g., due to overflow).
+                % Flows can also fail for other reasons: a developer may specify that a certain flow must send all \assetTxt{}s matching a predicate, but in addition specify an expected \emph{quantity} that must be selected: any number, exactly one, or at least one.
+            \item \textbf{Data-flow tracking}: We hypothesize that flows provide a clearer way of specifying how resources flow, which may be less apparent using other approaches, especially in complicated contracts. %such as those involving transfer fees.
+                % Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed. % , which we hypothesize leads to fewer accidental asset loss bugs.
+            \item \textbf{Error messages}: When a flow fails, the \langName runtime can provide automatic, descriptive error messages.
+        \end{itemize}
+    \end{alertblock}
+
+    \begin{block}{Conclusion and Future Work}
+        \langName is a new programming language for making smart contracts managing assets safer.
+        Flows can be used to encode transfers of assets in a safe, and concise, manner.
+        In the future, we hope to fully implement the \langName language and evaluate it via case studies.
+        We are also developing a formal semantics for \langName, including proofs of the guarantees that of the type system, such as no accidental asset loss.
+    \end{block}
+
+    \begin{block}{References}
+        \nocite{*}
+        \scriptsize{\bibliographystyle{plain}\bibliography{poster}}
+    \end{block}
+
+\end{column}
+
+\separatorcolumn
+\end{columns}
+\end{frame}
+
+\end{document}
