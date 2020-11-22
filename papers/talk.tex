@@ -26,16 +26,37 @@
 \definecolor{lightOlive}{RGB}{168, 166, 96}
 \definecolor{deepOlive}{RGB}{101, 109, 41}
 
-\setbeamercolor*{palette primary}{bg=websiteGreen}
-\setbeamercolor*{palette secondary}{bg=white}
-\setbeamercolor*{palette tertiary}{bg=silvery}
-\setbeamercolor*{palette quaternary}{bg=websiteGreen}
+\definecolor{lightgray}{RGB}{245, 246, 250}
+\definecolor{blue}{RGB}{64, 115, 158}
+\definecolor{darkblue}{RGB}{39, 60, 117}
+\definecolor{lavender}{RGB}{200,160,230}
+\definecolor{darkLavender}{RGB}{160,120,200}
+\definecolor{veryDarkLavender}{RGB}{130,80,160}
+\definecolor{websiteGreen}{RGB}{107,224,134}
+\definecolor{darkWebsiteGreen}{RGB}{53,112,67}
+\definecolor{softRed}{RGB}{180,70,99}
+\definecolor{vividRed}{RGB}{220,49,72}
+\definecolor{beige}{RGB}{252,222,216}
+\definecolor{rusticRed}{RGB}{51,9,17}
 
-\setbeamercolor{section in head/foot}{fg=deepOrange}
+\setbeamercolor*{palette primary}{bg=softRed}
+\setbeamercolor*{palette secondary}{bg=white}
+\setbeamercolor*{palette tertiary}{bg=lightgray}
+\setbeamercolor*{palette quaternary}{bg=softRed}
+
+\setbeamercolor{section in head/foot}{fg=softRed}
 \setbeamerfont{section in head/foot}{series=\bfseries}
 
-\setbeamercolor{titlelike}{parent=palette primary,bg=websiteGreen,fg=white}
-\setbeamercolor{frametitle}{parent=palette primary,bg=websiteGreen, fg=white}
+\setbeamercolor{titlelike}{parent=palette primary,bg=lightgray,fg=softRed}
+\setbeamercolor{frametitle}{parent=palette primary,bg=lightgray, fg=softRed}
+
+\setbeamercolor{itemize item}{fg=lavender}
+\setbeamercolor{itemize subitem}{fg=lavender}
+\setbeamercolor{itemize subsubitem}{fg=lavender}
+
+\setbeamertemplate{itemize item}[circle]
+\setbeamertemplate{itemize subitem}[triangle]
+\setbeamertemplate{itemize subsubitem}[square]
 
 \addtobeamertemplate{frametitle}{\vspace*{-0.65\baselineskip}}{}
 
@@ -52,11 +73,11 @@
 \newtheorem*{conjecture}{Conjecture}
 \newtheorem*{proposition}{Proposition}
 
-\title{Psamathe: A DSL with Flows for Safer Blockchain Assets}
-\author{\textbf{Reed Oei}}
+\title{Psamathe: A DSL for Safer Blockchain Assets}
+\author{\textcolor{lavender}{\textbf{Reed Oei}}}
 \institute{University of Illinois, Urbana, US\\
 \url{reedoei2@illinois.edu}}
-\date{\today}
+\date{\small \today}
 
 \input{flow-highlighting}
 \input{solidity-latex-highlighting/solidity-highlighting}
@@ -84,14 +105,14 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Psamathe}
+\begin{frame}[fragile]{The Psamathe Language}
     \begin{itemize}
-        \item \langName (\langNamePronounce) is a new programming language we are designing for writing smart contracts
+        \item \textcolor{softRed}{\textbf{\langName}} (\langNamePronounce) is a new programming language we are designing for writing smart contracts
         \item It uses a new \emph{flow} abstraction, representing an atomic transfer operation
         \item It also has features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows to make some classes of bugs impossible
     \end{itemize}
 
-    \lstinputlisting[language=flow, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]{padl-21-examples/erc20-transfer.flow}
+    \lstinputlisting[language=flow, xleftmargin=0.4em, basicstyle=\footnotesize\ttfamily]{splash20-examples/erc20-transfer.flow}
 \end{frame}
 
 \begin{frame}[fragile]{Advantages}

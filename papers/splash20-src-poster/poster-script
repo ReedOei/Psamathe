@@ -1,0 +1,28 @@
+Psamathe is a new language we are designing for writing safer smart contracts.
+Smart contracts on blockchains are programs that manage transactions automatically.
+Common smart contracts on Ethereum include lotteries and token exchanges.
+However, contracts often have security vulnerabilities, and cannot be patched due to the nature of the platform.
+So these vulnerabilities can cause losses of huge amounts of money, such as the DAO attack that lost over 40 million dollars
+
+Psamathe is a new language that we are designing
+It uses the new flow abstraction, modifiers, such as assets, and type quantities to prevent/reduce some kinds of bugs.
+
+In the middle, at the top, is an example contract written in Psamathe, and below is the same contract written in Solidity, the most common smart contract language on the Ethereum blockchain
+It implements one function of the ERC-20 token standard, which basically manages "bank accounts" of tokens, with a transfer() function to send tokens between accounts
+
+The Psamathe version is implemented in a single flow, on line 5.
+It sends "amount" tokens, which is the selector, from the sender's balance, which is the source, to the destination balance, which is the destination. 
+The flow automatically checks all the necessary pre/post conditions to ensure the flow is successful, such as having enough tokens in the source.
+
+The Solidity version does the same thing, but must include a library (not shown for space reasons) called SafeMath to have access to the sub() and add() functions, which check the same conditions.
+We can see that the Psamathe example is more concise, but also Psamathe will provide additional safety via the modifiers and type quantities.
+
+The example uses the asset and fungible modifiers.
+Asset ensures that tokens are not duplicated or lost, and fungible tells Psamathe that it doesn't matter which tokens I have, just how many tokens I have (just like most currencies)
+The type quantities, which are the "any" and "one" in the program can be inferred.
+They are primarily used to keep track of which assets it's safe to drop (i.e., an empty asset is safe to drop).
+
+So Psamathe is this new language we're designing for smart contracts, using the new flow abstraction which can encode transfers of assets in a safe and concise manner. 
+In the future, we hope to fully implement Psamathe and evaluate it via case studies, as well as proving the various safety properties of the system that we expected it to have (e.g., no accidental asset loss).
+
+
