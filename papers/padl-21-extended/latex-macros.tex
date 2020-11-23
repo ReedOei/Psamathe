@@ -1,0 +1,355 @@
+\usepackage{xcolor}
+\usepackage{forloop}
+\usepackage{ifthen}
+\usepackage{xifthen}
+\usepackage{calc}
+\usepackage{xspace}
+\usepackage{mathrsfs}
+
+\newcounter{i}
+\newcounter{j}
+\newcounter{n1}
+
+\newcommand{\concat}{%
+  \mathbin{\raisebox{0.5ex}{\scalebox{.7}{$\frown$}}}%
+}
+\newcommand{\bnfdef}{\ensuremath{\Coloneqq}}
+\newcommand{\bnfalt}{\ensuremath{\mid}\xspace}
+
+\newcommand{\colvec}[1]{\ensuremath{\begin{pmatrix} #1 \end{pmatrix}}}
+
+\newcommand{\imp}{\Rightarrow}
+\renewcommand{\epsilon}{\varepsilon}
+
+% From: https://en.wikibooks.org/wiki/LaTeX/Source_Code_Listings#Automating_file_inclusion
+\newcommand{\includecode}[2][c]{\lstinputlisting[language=#1, caption=#2, basicstyle=\normalsize\ttfamily]{#2}}
+
+\newcommand{\bigstep}[2]{#1 \Downarrow #2}
+
+\newcommand{\eq}[1]{\begin{align*} #1 \end{align*}}
+
+\newcommand{\Hom}{\ensuremath{\text{Hom}}}
+\newcommand{\Tor}{\ensuremath{\text{Tor}}}
+\newcommand{\ch}{\ensuremath{\text{ch}}}
+
+\newcommand{\spanvec}{\ensuremath{\text{span}}}
+\newcommand{\trace}[1]{\ensuremath{\text{Tr}\parens{#1}}}
+
+\newcommand{\includeplot}[2][0.3]{%
+\begin{figure}[H]
+    \scalebox{#1}{\sageplot{#2}}
+\end{figure}}
+
+\newcommand{\partialdiff}[1]{\frac{\partial}{\partial #1}}
+\newcommand{\diff}[1]{\frac{\text{d}}{\text{d} #1}}
+\newcommand{\partialfunc}{\rightharpoonup}
+
+\newcommand{\derive}[3][]{%
+    \ifthenelse{\isempty{#1}}{%
+        \frac{\text{d} #2}{\text{d} #3}%
+    }{%
+        \frac{\text{d}^{#1} #2}{\text{d} #3^{#1}}%
+    }%
+}
+
+\newcommand{\im}[1]{\ensuremath{\text{im} {#1}}}
+
+\newcommand{\true}{\textbf{\textsf{T}}}
+\newcommand{\false}{\textbf{\textsf{F}}}
+
+\newcommand{\join}{\bigvee}
+\newcommand{\meet}{\bigwedge}
+
+\newcommand{\piclass}[2]{\ensuremath{\bm{\Pi}^{#1}_{#2}}}
+\newcommand{\sigmaclass}[2]{\ensuremath{\bm{\Sigma}^{#1}_{#2}}}
+\newcommand{\deltaclass}[2]{\ensuremath{\bm{\Delta}^{#1}_{#2}}}
+\newcommand{\gammaclass}{\ensuremath{\bm{\Gamma}}}
+\newcommand{\borel}[1]{\ensuremath{\mathcal{B}\parens{#1}}}
+
+\newcommand{\saturate}[2]{\squares{#1}_{#2}}
+
+\newcommand{\abs}[1]{\ensuremath{\left| #1 \right|}}
+\newcommand{\iso}{\ensuremath{\cong}}
+\newcommand{\symdif}{\ensuremath{\bigtriangleup}}
+\newcommand{\dual}{\ensuremath{\neg}}
+\newcommand{\forces}{\ensuremath{\Vdash}}
+\newcommand{\semiprod}[3][]{\ensuremath{#2 \rtimes_{#1} #3}}
+\newcommand{\units}[1]{\ensuremath{#1^{\times}}}
+\newcommand{\gl}[2]{\ensuremath{\text{GL}\parens{#1, #2}}}
+
+\newcommand{\proj}[1]{\text{proj}_{#1}}
+
+\newcommand{\lcm}{\text{lcm}}
+
+%\newcommand{\reed}[1]{\relax}
+%\newcommand{\Fix}[1]{\relax}
+\newcommand{\reed}[1]{{\color{magenta}\bfseries [#1]}}
+\newcommand{\Fix}[1]{{\color{red}\bfseries [#1]}}
+\newcommand{\Comment}[1]{}
+\newcommand{\Space}[1]{}
+\newcommand{\Num}[1]{#1}
+
+\newcommand{\e}{\ensuremath{\text{e}}}
+
+\newcommand{\injects}{\ensuremath{\hookrightarrow}}
+\newcommand{\into}{\injects}
+\newcommand{\surjects}{\ensuremath{\twoheadrightarrow}}
+\newcommand{\onto}{\surjects}
+
+\newcommand{\actson}{\ensuremath{\curvearrowright}}
+
+\newcommand{\interior}[1]{\ensuremath{\text{int}\parens{#1}}}
+\newcommand{\closure}[1]{\ensuremath{\overline{#1}}}
+\newcommand{\compl}[1]{\ensuremath{{#1}^c}}
+\ifdefined\boundary\else\newcommand{\boundary}{\ensuremath{\partial}}\fi
+
+\newcommand{\proves}{\vdash}
+\newcommand{\satisfies}{\models}
+
+\DeclarePairedDelimiter\ceil{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+\ifdefined\theorem\else\newtheorem{theorem}{Theorem}\fi
+\ifdefined\lemma\else\newtheorem{lemma}{Lemma}\fi
+\ifdefined\proposition\else\newtheorem{proposition}{Proposition}\fi
+\ifdefined\claim\else\newtheorem{claim}{Claim}\fi
+\ifdefined\corollary\else\newtheorem{corollary}{Corollary}\fi
+\ifdefined\definition\else\newtheorem{definition}{Definition}\fi
+\ifdefined\example\else\newtheorem{example}{Example}\fi
+\ifdefined\remark\else\newtheorem{remark}{Remark}\fi
+\ifdefined\notation\else\newtheorem{notation}{Notation}\fi
+
+\newcommand{\nat}{\ensuremath{\mathbb{N}}}
+\newcommand{\N}{\ensuremath{\mathbb{N}}}
+\newcommand{\real}{\ensuremath{\mathbb{R}}}
+\newcommand{\reals}{\ensuremath{\mathbb{R}}}
+\newcommand{\R}{\ensuremath{\mathbb{R}}}
+\newcommand{\Z}{\ensuremath{\mathbb{Z}}}
+\newcommand{\Zmod}[1]{\ensuremath{\Z/#1\Z}}
+\newcommand{\integer}{\ensuremath{\mathbb{Z}}}
+\newcommand{\integers}{\ensuremath{\mathbb{Z}}}
+\newcommand{\rational}{\ensuremath{\mathbb{Q}}}
+\newcommand{\rationals}{\ensuremath{\mathbb{Q}}}
+\newcommand{\rat}{\ensuremath{\mathbb{Q}}}
+\newcommand{\Q}{\ensuremath{\mathbb{Q}}}
+\newcommand{\complex}{\ensuremath{\mathbb{C}}}
+% \newcommand{\C}{\ensuremath{\mathbb{C}}}
+
+\newcommand{\nonzero}[1]{\ensuremath{#1_{\neq 0}}}
+\newcommand{\greaterset}[2]{\ensuremath{#1_{> #2}}}
+\newcommand{\lesserset}[2]{\ensuremath{#1_{< #2}}}
+\newcommand{\subgroup}{\leq}
+\newcommand{\normalsubgroup}{\trianglelefteq}
+\newcommand{\id}[1]{\ensuremath{\bm{1}_{#1}}}
+\newcommand{\indicator}[1]{\ensuremath{\mathbbm{1}_{#1}}}
+
+\newcommand{\notationNonZero}[1][X]{Let $\nonzero{#1}$ denote the set of $x \in #1$ so that $x \neq 0$.\xspace}
+\newcommand{\notationGreaterSet}[1][X]{Let $\greaterset{#1}{y}$ denote the set of $x \in #1$ so that $x > y$.\xspace}
+\newcommand{\notationLesserSet}[1][X]{Let $\lesserset{#1}{y}$ denote the set of $x \in X$ so that $x < y$.\xspace}
+\newcommand{\notationSubgroup}[1][H]{Let $\subgroup{#1}{G}$ denote that $#1$ is a subgroup of $G$.\xspace}
+\newcommand{\notationNormalSubgroup}[1][N]{Let $\normalsubgroup{#1}{G}$ denote that $#1$ is a normal subgroup of $G$.\xspace}
+\newcommand{\notationIdentity}[1][X]{Let $\id{#1}$ denote the identity function on $#1$.\xspace}
+
+% \Sym{X} is the set of bijections from X to X
+\newcommand{\Sym}[1]{\ensuremath{\text{Sym}\parens{#1}}}
+\newcommand{\Inn}[1]{\ensuremath{\text{Inn}\parens{#1}}}
+\newcommand{\Out}[1]{\ensuremath{\text{Out}\parens{#1}}}
+\newcommand{\Aut}[1]{\ensuremath{\text{Aut}\parens{#1}}}
+\newcommand{\notationSym}[1][X]{Let $\Sym{X}$ be the group of bijections of $X$.\xspace}
+
+\newcommand{\toplim}{\ensuremath{\text{T}\lim}}
+\newcommand{\toplimup}{\ensuremath{\overline{\toplim}}}
+\newcommand{\toplimlow}{\ensuremath{\underline{\toplim}}}
+
+\newcommand{\emptysingleton}{\ensuremath{\curlys{\emptyset}}}
+\newcommand{\withoutempty}{\ensuremath{\setminus \emptysingleton}}
+
+\newcommand{\isnat}[1]{\ensuremath{#1 \in \nat}}
+\newcommand{\seq}[3]{\ensuremath{{\left( #1_{#2} \right)}_{#2 \in #3}}}
+\newcommand{\setint}[3]{\ensuremath{\bigcap_{#2 \in #3} #1_{#2}}}
+\newcommand{\natinti}[2]{\ensuremath{\setint{#1}{#2}{\nat}}}
+\newcommand{\natint}[1]{\ensuremath{\natinti{#1}{n}}}
+\newcommand{\natseqi}[2]{\ensuremath{\seq{#1}{#2}{\nat}}}
+\newcommand{\natseq}[1]{\ensuremath{\natseqi{#1}{n}}}
+
+\newcommand{\diam}[1]{\ensuremath{\text{diam} \left( #1 \right)}}
+
+\newcommand{\eventually}{\ensuremath{\forall^{\infty}}}
+\newcommand{\infinitelymany}{\ensuremath{\exists^{\infty}}}
+
+\newcommand{\power}[1]{\ensuremath{\mathcal{P} \left( #1 \right)}}
+\newcommand{\card}[1]{\ensuremath{\left| #1 \right|}}
+
+\newcommand{\brackets}[3]{\ensuremath{{\left#1 {#3} \right#2}}}
+\newcommand{\parens}[1]{\brackets{(}{)}{#1}}
+\newcommand{\angles}[1]{\brackets{<}{>}{#1}}
+\newcommand{\curlys}[1]{\brackets{\{}{\}}{#1}}
+\newcommand{\squares}[1]{\brackets{[}{]}{#1}}
+\newcommand{\parensum}[3]{\ensuremath{\parens{\sum_{#1}^{#2} {#3}}}}
+
+\newcommand{\poly}[2]{\ensuremath{{#1}\left[ #2 \right]}}
+
+\newcommand{\tand}{\ensuremath{~\text{and}~}}
+\newcommand{\tor}{\ensuremath{~\text{or}~}}
+\newcommand{\twhere}{\ensuremath{~\text{where}~}}
+\newcommand{\tif}{\ensuremath{~\text{if}~}}
+\newcommand{\tsuchthat}{\ensuremath{~\text{s.t.}~}}
+\newcommand{\owise}{\ensuremath{~\text{otherwise}~}}
+
+\newcommand{\ff}[1]{\ensuremath{\mathbb{F}_{#1}}}
+
+\newcommand{\beatree}[1]{\ensuremath{\subseteq {#1}^{\leq \nat}}}
+
+\newcommand{\metricspace}[2]{\ensuremath{\parens{{#1},{#2}}}}
+
+\newcommand{\setbuild}[2]{\ensuremath{\left\{ {#1} : {#2} \right\}}}
+
+\newcommand{\openball}[3][]{\ensuremath{B_{#1}\parens{{#2},{#3}}}}
+\newcommand{\closedball}[3][]{\ensuremath{\overline{B}_{#1}\parens{{#2},{#3}}}}
+
+\newcommand{\powerset}[1]{\ensuremath{\mathcal{P}\parens{#1}}}
+\newcommand{\powersetfin}[1]{\ensuremath{\mathcal{P}_{\text{fin}}\parens{#1}}}
+
+\newcommand{\subgroupgen}[1]{\ensuremath{{\left< {#1} \right>}}}
+
+\newcommand{\diagmatrix}[2]{%
+    \setcounter{n1}{#1 - 1}
+    \begin{pmatrix}
+        \forloop{i}{0}{\value{i} < #1}{%
+            \forloop{j}{0}{\value{j} < #1}{%
+                \ifthenelse{\equal{\value{i}}{\value{j}}}{#2}{0}
+                \ifthenelse{\value{j} < \value{n1}}{&}{}
+            }
+            \ifthenelse{\value{i} < \value{n1}}{\\}{}
+        }
+    \end{pmatrix}
+}
+
+\newcommand{\idmatrix}[1]{\diagmatrix{#1}{1}}
+
+\newcommand{\twobytwo}[4]{\ensuremath{\begin{pmatrix} #1 & #2 \\ #3 & #4 \end{pmatrix}}}
+
+\newcommand{\after}{\circ}
+
+
+\newcommand{\finitecommabody}[1]{}
+\newcommand{\countablecommabody}[1]{}
+
+% #1 - The thing to repeat
+% #2 - The operation to use to combine
+% #3 - The number of times to repeat (used for comment, \cdots is used for the actual body)
+\newcommand{\ntimes}[3]{\overbrace{#1 #2 \cdots #2 #1}^{#3 \text{ times}}}
+
+\newcommand{\finiteopfromone}[3]{%
+    \renewcommand{\finitecommabody}[1]{#1}%
+    \ensuremath{\finitecommabody{1} #2 \finitecommabody{2} #2 \cdots #2 \finitecommabody{#3}}}
+\newcommand{\finiteop}[3]{%
+    \renewcommand{\finitecommabody}[1]{#1}%
+    \ensuremath{\finitecommabody{0} #2 \finitecommabody{1} #2 \cdots #2 \finitecommabody{#3 - 1}}}
+
+% #1 - The body expression (e.g., x_{#1}, where #1 is where the index will go)
+% #2 - The operation to use
+% #3 - The index of the element to skip
+% #4 - The end index
+\newcommand{\finiteopskipfromone}[4]{%
+    \renewcommand{\finitecommabody}[1]{#1}%
+    \ensuremath{\finitecommabody{1} #2 \cdots #2 \finitecommabody{#3 - 1} #2 \finitecommabody{#3 + 1} #2 \cdots #2 \finitecommabody{#3}}}
+\newcommand{\finiteopskip}[4]{%
+    \renewcommand{\finitecommabody}[1]{#1}%
+    \ensuremath{\finitecommabody{0} #2 \cdots #2 \finitecommabody{#3 - 1} #2 \finitecommabody{#3 + 1} #2 \cdots #2 \finitecommabody{#3 - 1}}}
+
+\newcommand{\finitecommafromone}[2]{%
+    \renewcommand{\finitecommabody}[1]{#1}%
+    \ensuremath{\finitecommabody{1}, \finitecommabody{2}, \ldots, \finitecommabody{#2}}}
+\newcommand{\finitesetfromone}[2]{\ensuremath{\curlys{\finitecommafromone{#1}{#2}}}}
+
+\newcommand{\finitecomma}[2]{%
+    \renewcommand{\finitecommabody}[1]{#1}%
+    \ensuremath{\finitecommabody{0}, \finitecommabody{1}, \ldots, \finitecommabody{#2 - 1}}}
+\newcommand{\finiteset}[2]{\ensuremath{\curlys{\finitecomma{#1}{#2}}}}
+
+\newcommand{\countablecommafromone}[1]{\ensuremath{%
+    \renewcommand{\countablecommabody}[1]{#1}%
+    \ensuremath{\countablecommabody{1}, \countablecommabody{2}, \ldots}}}
+\newcommand{\ctblcommafromone}[1]{\ensuremath{\countablecommafromone{#1}}}
+\newcommand{\countablesetfromone}[1]{\ensuremath{\curlys{\countablecommafromone{#1}}}}
+\newcommand{\ctblsetfromone}[1]{\ensuremath{\curlys{\countablecommafromone{#1}}}}
+
+\newcommand{\countablecomma}[1]{\ensuremath{%
+    \renewcommand{\countablecommabody}[1]{#1}%
+    \ensuremath{\countablecommabody{0}, \countablecommabody{1}, \ldots}}}
+\newcommand{\ctblcomma}[1]{\ensuremath{\countablecomma{#1}}}
+\newcommand{\countableset}[1]{\ensuremath{\curlys{\countablecomma{#1}}}}
+\newcommand{\ctblset}[1]{\ensuremath{\curlys{\countablecomma{#1}}}}
+
+\newcommand{\woutlog}{without loss of generality\xspace}
+\newcommand{\Woutlog}{Without loss of generality\xspace}
+
+\newcommand{\actOn}[2]{\ensuremath{#1 \cdot #2}}
+\newcommand{\kernel}[1]{\ensuremath{\text{ker}\parens{#1}}}
+
+\newcommand{\deffuncparam}[6]{%
+    \expandafter\newcommand\csname domain#1\endcsname{\ensuremath{#3}}%
+    \expandafter\newcommand\csname codomain#1\endcsname{\ensuremath{#5}}%
+    \expandafter\newcommand\csname decl#1\endcsname[1]{\ensuremath{#2_{##1} : #3 #4 #5}}%
+    \expandafter\newcommand\csname funcname#1\endcsname[1]{\ensuremath{#2_{##1}}}%
+    \expandafter\newcommand\csname body#1\endcsname[2]{\ensuremath{#6}}%
+    \expandafter\newcommand\csname call#1\endcsname[2]{\ensuremath{#2_{##1} \parens{##2}}}%
+    \expandafter\newcommand\csname callbody#1\endcsname[2]{\ensuremath{\expandafter\csname call#1\endcsname{##1}{##2} = \expandafter\csname body#1\endcsname{##1}{##2}}}%
+    \expandafter\newcommand\csname map#1\endcsname[2]{\ensuremath{##2 \mapsto \expandafter\csname body#1\endcsname{##1}{##2} }}%
+    \expandafter\newcommand\csname inversecall#1\endcsname[2]{\ensuremath{#2_{##1} \parens{##2}^{-1}}}%
+    \expandafter\newcommand\csname image#1\endcsname[1]{\ensuremath{\text{im}\parens{#2_{##1}}}}%
+}
+
+\newcommand{\defbinfunc}[6]{%
+    \expandafter\newcommand\csname domain#1\endcsname{\ensuremath{#3}}%
+    \expandafter\newcommand\csname codomain#1\endcsname{\ensuremath{#5}}%
+    \expandafter\newcommand\csname decl#1\endcsname{\ensuremath{#2 : #3 #4 #5}}%
+    \expandafter\newcommand\csname funcname#1\endcsname{\ensuremath{#2}}%
+    \expandafter\newcommand\csname body#1\endcsname[2]{#6}%
+    \expandafter\newcommand\csname call#1\endcsname[2]{\ensuremath{#2 \parens{##1, ##2}}}%
+    \expandafter\newcommand\csname callpair#1\endcsname[1]{\ensuremath{#2 \parens{##1}}}%
+    \expandafter\newcommand\csname callbody#1\endcsname[2]{\ensuremath{\expandafter\csname call#1\endcsname{##1}{##2} = \expandafter\csname body#1\endcsname{##1}{##2}}}%
+    \expandafter\newcommand\csname map#1\endcsname[2]{\ensuremath{\parens{##1, ##2} \mapsto \expandafter\csname body#1\endcsname{##1}{##2} }}%
+}
+
+\newcommand{\defbinop}[6]{%
+    \expandafter\newcommand\csname domain#1\endcsname{\ensuremath{#3}}%
+    \expandafter\newcommand\csname codomain#1\endcsname{\ensuremath{#5}}%
+    \expandafter\newcommand\csname decl#1\endcsname{\ensuremath{#2 : #3 #4 #5}}%
+    \expandafter\newcommand\csname funcname#1\endcsname{\ensuremath{#2}}%
+    \expandafter\newcommand\csname body#1\endcsname[2]{#6}%
+    \expandafter\newcommand\csname call#1\endcsname[2]{\ensuremath{##1 #2 ##2}}%
+    \expandafter\newcommand\csname callbody#1\endcsname[2]{\ensuremath{\expandafter\csname call#1\endcsname{##1}{##2} = \expandafter\csname body#1\endcsname{##1}{##2}}}%
+    \expandafter\newcommand\csname map#1\endcsname[2]{\ensuremath{\parens{##1, ##2} \mapsto \expandafter\csname body#1\endcsname{##1}{##2} }}%
+}
+
+\newcommand{\deffunc}[6]{%
+    \expandafter\newcommand\csname domain#1\endcsname{\ensuremath{#3}}%
+    \expandafter\newcommand\csname codomain#1\endcsname{\ensuremath{#5}}%
+    \expandafter\newcommand\csname decl#1\endcsname{\ensuremath{#2 : #3 #4 #5}}%
+    \expandafter\newcommand\csname funcname#1\endcsname{\ensuremath{#2}}%
+    \expandafter\newcommand\csname body#1\endcsname[1]{#6}%
+    \expandafter\newcommand\csname call#1\endcsname[1]{\ensuremath{#2 \parens{##1}}}%
+    \expandafter\newcommand\csname callbody#1\endcsname[1]{\ensuremath{\expandafter\csname call#1\endcsname{##1} = \expandafter\csname body#1\endcsname{##1}}}%
+    \expandafter\newcommand\csname map#1\endcsname[1]{\ensuremath{##1 \mapsto \expandafter\csname body#1\endcsname{##1} }}%
+    \expandafter\newcommand\csname invcall#1\endcsname[1]{\ensuremath{#2^{-1}\parens{##1}}}%
+    \expandafter\newcommand\csname image#1\endcsname{\ensuremath{\text{im}\parens{#2}}}%
+}
+
+\newcommand{\defproj}[3]{%
+    \defbinfunc{#1#2}{\pi_{#2}}{#2 \times #3}{\to}{#2}{##1}%
+    \defbinfunc{#1#3}{\pi_{#3}}{#2 \times #3}{\to}{#3}{##2}%
+}
+
+% Footnoteable proofs for useful stuff
+\newcommand{\notationEventually}{Define the notation $\eventually n, \varphi(n)$ to mean $\exists N \in \nat \tsuchthat \forall n \geq N, \varphi(n)$, where $\varphi$ is some formula.\xspace}
+\newcommand{\eventuallyCombinesPrf}{%
+    Suppose that $\eventually n, \varphi(n)$ and $\eventually n, \psi(n)$, where $\varphi$ and $\psi$ are two formulas.
+    Then there is some $N_1$ so that $\varphi(n)$ holds for all $n \geq N_1$, and some $N_2$ so that $\psi(n)$ holds for all $n \geq N_2$.
+    Then define $N = \max(N_1, N_2)$, and suppose $n \geq N$.
+    Then $\varphi(n)$ holds because $n \geq N_1$ and $\psi(n)$ holds because $n \geq N_2$, so $\eventually n, \varphi(n) \wedge \psi(n)$.\xspace}
+
+
+\newcommand{\irrationalDensePrf}{For any rational $q$, take $q + \frac{\sqrt{2}}{n}$, which is irrational. However, because we can make $\frac{1}{n}$ smaller than any $r > 0$, we can make some irrational that will be in $B(q,r)$ for any $r > 0$.\xspace}
+
