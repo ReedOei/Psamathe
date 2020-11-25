@@ -51,7 +51,7 @@ Commonly proposed and implemented applications include supply chain management, 
 Smart contracts often manage \emph{digital assets}, such as cryptocurrencies, or, depending on the application, bids in an auction, votes in an election, and so on.
 % One of the most common types of smart contract is a \emph{token contract}, which manage \emph{tokens}, a kind of cryptocurrency.
 % Token contracts are common on the Ethereum blockchain~\cite{wood2014ethereum}---about 73\% of high-activity contracts are token contracts~\cite{OlivaEtAl2019}.
-These contracts cannot be patched after deployment, even if security vulnerabilities are discovered.
+These contracts cannot be patched after deployment on Ethereum, even if security vulnerabilities are discovered.
 Some estimates suggest that as many as 46\% of smart contracts may have vulnerabilities~\cite{luuOyente}.
 
 \langName (\langNamePronounce) is a new programming language we are designing around \emph{flows}, which are a new abstraction representing an atomic transfer operation.
@@ -59,7 +59,7 @@ Together with features such as \emph{modifiers}, flows provide a \textbf{concise
 Solidity, the most commonly-used smart contract language on the Ethereum blockchain~\cite{EthereumForDevs}, does not provide analogous support for \assetTxt{}s.
 % Typical smart contracts are more concise in \langName than in Solidity, because \langName handles common patterns and pitfalls automatically.
 A formalization of \langName is in progress~\cite{psamatheRepo}, with an \emph{executable semantics} implemented in the $\mathbb{K}$-framework~\cite{rosu-serbanuta-2010-jlap}, which is already capable of running the example shown in Figure~\ref{fig:erc20-transfer-flow}.
-An extended version~\cite{psamatheExtended} of this work explains the language in more detail, and shows more examples, such as a voting contract, showing the advantages we describe below.
+An extended version~\cite{oei2020psamathe} of this work explains the language in more detail, and shows more examples, such as a voting contract, showing the advantages we describe below.
 
 Other newly-proposed blockchain languages include Flint, Move, Nomos, Obsidian, and Scilla~\cite{schrans2018flint,blackshear2019move,das2019nomos,coblenz2019obsidian,sergey2019scilla}.
 Scilla and Move are intermediate-level languages, whereas \langName is intended to be a high-level language.
@@ -71,17 +71,16 @@ A \langName program is made of \emph{transformers} and \emph{type declarations}.
 Transformers contain \emph{flows} describing the how values are transferred between variables.
 Type declarations provide a way to name types and to mark values with \emph{modifiers}, such as \flowinline{asset}.
 Figure~\ref{fig:erc20-transfer-flow} shows a simple contract declaring a type and a transformer, which implements the core of ERC-20's \lstinline{transfer} function.
-ERC-20 is a standard providing a bare-bones interface for token contracts managing \emph{fungible} tokens.
-Fungible tokens are interchangeable (like most currencies), so it is only important how many tokens are owned by an entity, not \textbf{which} tokens.
-An ERC-20 contract manages ``bank accounts'' for its tokens, keeping track of how many tokens each account has; accounts are identified by addresses.
+ERC-20 is a standard, providing a bare-bones interface for token contracts managing ``bank accounts'' (identified by addresses) of \emph{fungible} tokens.
+Fungible tokens are interchangeable (like most currencies), so it is only important how many tokens one owns, not \textbf{which} tokens.
+% An ERC-20 contract manages ``bank accounts'' for its tokens, keeping track of how many tokens each account has; accounts are identified by addresses.
 
-\begin{figure}
-    \vspace{-2em}
+\begin{figure}[t]
     \centering
-    \lstinputlisting[language=flow, xleftmargin=-0.2em]{padl-21-examples/erc20-transfer.flow}
+    \lstinputlisting[language=flow]{padl-21-examples/erc20-transfer.flow}
     \vspace{-1em}
     \caption{A \langName contract with a simple \flowinline{transfer} function, which transfers \flowinline{amount} tokens from the sender's account to the destination account.
-It is implemented with a single flow, which automatically checks all the preconditions to ensure the transfer is valid.
+It is implemented with a single flow, which checks the preconditions to ensure the transfer is valid.
 The type quantities (\flowinline{any} and \flowinline{one}) can be omitted.}
     \label{fig:erc20-transfer-flow}
     \vspace{-2em}
@@ -94,35 +93,38 @@ Using the more declarative, \emph{flow-based} approach provides the following ad
         % The total amount of a nonconsumable asset never decreases.
         % Each asset has exactly one reference to it, either via a variable in the current environment, or in a table/record.
         The \flowinline{immutable} modifier prevents values from changing.
-    \item \textbf{Dynamic safety guarantees}: \langName automatically inserts dynamic checks of a flow's validity; e.g., a flow of money would fail if there is not enough money in the source, or if there is too much in the destination (e.g., due to overflow).
+    % \item \textbf{Dynamic safety guarantees}: \langName automatically inserts dynamic checks of a flow's validity; e.g., a flow of money would fail if there is not enough money in the source, or if there is too much in the destination (e.g., due to overflow).
+    \item \textbf{Dynamic safety guarantees}: \langName automatically inserts dynamic checks of a flow's validity; e.g., flowing money would fail if there is not enough money, or flowing votes would fail if the selected votes are not found.
         The \flowinline{unique} modifier, which restrict values to never be created more than once, is also checked dynamically.
-    \item \textbf{Data-flow tracking}: We hypothesize that flows provide a clearer way of specifying how resources flow in the code itself, which may be less apparent using other approaches, especially in complicated contracts.
-        % Additionally, developers must explicitly mark when \assetTxt{}s are \emph{consumed}, and only assets marked as \flowinline{consumable} may be consumed.
+    \item \textbf{Data-flow tracking}: We hypothesize that flows provide a clearer way of describing how values flow in code itself, especially in complicated contracts.
     \item \textbf{Error messages}: When a flow fails, the \langName runtime provides automatic, descriptive error messages, such as
-\begin{lstlisting}[numbers=none, basicstyle=\small\ttfamily, xleftmargin=-5.0ex]
+\begin{lstlisting}[numbers=none, basicstyle=\small\ttfamily]
 Cannot flow <amount> Token from account[<src>] to account[<dst>]:
     source only has <balance> Token.
 \end{lstlisting}
-        Flows enable such messages by encoding information into the source code.
+        Flows enable such messages by encoding the information (e.g., source, destination, values to transfer, etc.) into the source code.
 \end{itemize}
 
 We now give examples using modifiers and type quantities to guarantee additional correctness properties in the context of a lottery.
 % We create \flowinline{TicketOwner} and \flowinline{Ticket} types.
 The \flowinline{unique} and \flowinline{immutable} modifiers ensure users enter the lottery at most once, while \flowinline{asset} ensures that we do not accidentally lose tickets.
 We use \flowinline{consumable} because tickets no longer have any value when the lottery is over.
-\begin{lstlisting}[language=flow]
+\begin{lstlisting}[language=flow, xleftmargin=0.8em]
 type TicketOwner is unique immutable address
-type Ticket is consumable asset { owner : TicketOwner, guess : uint256 }
+type Ticket is consumable asset { owner: TicketOwner, guess: uint256 }
 \end{lstlisting}
 Consider the following code snippet, handling ending the lottery.
-The lottery cannot end before there is a winning ticket, enforced by the \flowinline{nonempty} in the \emph{filter} on line~\ref{line:lottery-filter}; note that, as \flowinline{winners} is \flowinline{nonempty}, there cannot be a divide-by-zero error.
+We require that lottery not end before there is a winning ticket, enforced by the \flowinline{nonempty} in the \emph{filter} on line~\ref{line:lottery-filter}; a filter is written \flowinline{[ q st P(x1,...,xn,_) ]}, selecting values \flowinline{v} \flowinline{such that} \flowinline{P(x1,...,xn,v)} returns \flowinline{true}, and \textbf{asserting} this occurs for some type quantity \flowinline{q} of the values.
+Note that, as \flowinline{winners} is \flowinline{nonempty}, there cannot be a divide-by-zero error.
 % The lottery cannot end before there is at least one winning ticket, enforced by the \flowinline{nonempty} in the \emph{filter} on line~\ref{line:lottery-filter}, at which point the jackpot is split evenly between the winners; note that, as \flowinline{winners} is \flowinline{nonempty}, there cannot be a divide-by-zero error.
 % \flowinline{jackpot / length(winners)} is guaranteed not to divide by zero.
-Without line~\ref{line:empty-lottery-balance}, \langName would give an error indicating \flowinline{balance} has type \flowinline{any ether}, not \flowinline{empty ether}---a true error, because in the case that the jackpot cannot be evenly split between the winners, there will be some ether left over.
+% Without line~\ref{line:empty-lottery-balance}, \langName would give an error indicating \flowinline{balance} has type \flowinline{any ether}, not \flowinline{empty ether}---a true error, because in the case that the jackpot cannot be evenly split between the winners, there will be some ether left over.
+Without line~\ref{line:empty-lottery-balance}, \langName would give an error that \flowinline{balance} has type \flowinline{any ether}, not \flowinline{empty ether}---consider the case that the jackpot cannot be evenly split between the winners.
 % Similarly, we use line~\ref{line:empty-ticket-list} to destroy the losing lottery tickets, now that lottery is over.
-\begin{lstlisting}[language=flow, xleftmargin=-0.2em]
-var winners : list Ticket <-[nonempty st ticketWins(winNum, _)]-- tickets |\label{line:lottery-filter}|
-winners --> payEach(jackpot / length(winners), _) // Split among winners
+\begin{lstlisting}[language=flow, xleftmargin=0.8em]
+var winners: list Ticket <-[nonempty st ticketWins(winNum,_)]-- tickets |\label{line:lottery-filter}|
+// Split among winners using user-defined function `payEach`
+winners --> payEach(jackpot / length(winners), _)
 balance --> lotteryOwner.balance |\label{line:empty-lottery-balance}|
 tickets --> consume // Lottery is over, destroy losing tickets
 \end{lstlisting}
@@ -137,9 +139,9 @@ The sender's balance must be at least as large as \flowinline{amount}, and the d
 \begin{figure}
     \vspace{-2em}
     \centering
-    \lstinputlisting[language=Solidity, xleftmargin=-0.2em]{padl-21-examples/erc20-transfer.sol}
+    \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
     \vspace{-1em}
-    \caption{An excerpt from a Solidity reference implementation~\cite{erc20Consensys} of the \lstinline[language=Solidity]{transfer} function.
+    \caption{Excerpt from a Solidity reference implementation~\cite{erc20Consensys} of the \lstinline[language=Solidity]{transfer} function.
         Preconditions are checked manually.
         We must include the \lstinline[language=Solidity]{SafeMath} library (not shown) to use \lstinline[language=Solidity]{add} and \lstinline[language=Solidity]{sub}, which check for underflow/overflow.}
     \label{fig:erc20-transfer-sol}
@@ -148,16 +150,16 @@ The sender's balance must be at least as large as \flowinline{amount}, and the d
 
 \section{Conclusion and Future Work}
 
-We have presented the \langName language for writing safer smart contracts.
+% We have presented the \langName language for writing safer smart contracts.
 \langName uses flows, \assetTxt{}s, and type quantities to provide its safety guarantees.
-We have shown an example smart contract in both \langName and Solidity, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
+We have shown an example smart contract in both \langName and Solidity, showing that \langName can express common smart contract functionality more concisely than Solidity, while retaining key safety properties.
 % We have shown an example smart contract in both \langName and Solidity, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
 
-In the future, we plan to implement the \langName language, and prove its safety properties.
+In the future, we plan to implement the \langName language by compiling it to Solidity, and prove its safety properties (e.g., asset retention).
 We also hope to study the benefits and costs of the language via case studies, performance evaluation, and the application of flows to other domains.
 Finally, we would also like to conduct a user study to evaluate the usability of the flow abstraction and the design of the language, and to compare it to Solidity, which we hypothesize will show that developers write contracts with fewer asset management errors in \langName than in Solidity.
 
-\bibliographystyle{ACM-Reference-Format}
+\bibliographystyle{splncs04}
 \bibliography{biblio}
 
 \end{document}

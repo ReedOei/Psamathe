@@ -33,3 +33,6 @@ padl-21-extended: padl-21-extended.tex
 reuse20-poster: reuse20-poster/poster.tex
 	( cd reuse20-poster && make )
 
+clean:
+	rm -f *.aux *.bbl *.blg *.out *.nav *.snm *.toc *.vrb ":w"
+
