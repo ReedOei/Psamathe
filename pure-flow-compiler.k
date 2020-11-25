@@ -17,11 +17,15 @@ module SOLIDITY-SYNTAX
                   | Expr "++"
                   | Expr "(" Exprs ")"
                   | Expr "[" Expr "]"
+                  | Var "(" "{" SolFields "}" ")"
                   > left: Expr "+" Expr
                   | Expr "-" Expr
                   > nonassoc: Expr "<" Expr
                   | Expr "==" Expr
     syntax Exprs ::= List{Expr, ","}
+
+    syntax SolField ::= Var ":" Expr
+    syntax SolFields ::= List{SolField, ","}
 
     syntax SolStmt ::= Expr ";"
                      | SolVar "=" Expr ";"
@@ -73,23 +77,6 @@ module PURE-FLOW-COMPILER
     syntax KItem ::= translateDecl(Decl)
                    | "done"
 
-    syntax KItem ::= checkDecls(Decls)
-                   | checkDecl(Decl)
-                   | checkStmts(Stmts)
-                   | checkStmt(Stmt)
-
-    rule checkDecls(.Decls) => .
-    rule checkDecls(D Ds) => checkDecl(D) ~> checkDecls(Ds)
-
-    // TODO: Implement this
-    rule checkDecl(_) => .
-
-    rule checkStmts(.Stmts) => .
-    rule checkStmts(S1 Rest) => checkStmt(S1) ~> checkStmts(Rest)
-
-    // TODO: Implement this
-    rule checkStmt(_) => .
-
     // =========================================
     // Sequencing
     // =========================================
@@ -101,6 +88,8 @@ module PURE-FLOW-COMPILER
     syntax SolDecls ::= List2SolDecls(List) [function, functional]
     rule List2SolDecls(.List) => .SolDecls
     rule List2SolDecls(ListItem(D:SolDecl) Rest) => D List2SolDecls(Rest)
+
+    rule run(Stmts) => Stmts ~> done
 
     rule <k> done
              =>
@@ -153,7 +142,7 @@ module PURE-FLOW-COMPILER
 
     rule <k> A --> B => flow(locate(A), locate(B)) ... </k>
 
-    syntax KItem ::= flow(Locator, Locator) [strict]
+    syntax KItem ::= flow(Locator, Locator) [seqstrict]
 
     // =========================================
     // Flow for nats
@@ -176,7 +165,7 @@ module PURE-FLOW-COMPILER
     rule <k> flow(X:Var, Y:Var) => . ... </k>
         <typeEnv>
             ...
-            (X |-> list one { key : K, value : V })
+            (X |-> table(_) _ record(_) { key : K, value : V})
             (Y |-> map K => V)
             ...
         </typeEnv>
@@ -184,7 +173,7 @@ module PURE-FLOW-COMPILER
             Cur
             =>
             Cur @
-            for (uint genVar(!I) = 0; genVar(!I) < (X.length); genVar(!I)++) {
+            for (uint genVar(!I) = 0; genVar(!I) < (X.keys.length); genVar(!I)++) {
                 Y.underlying_map[X[genVar(!I)].key] = X[genVar(!I)].value;
                 Y.keys.push(X[genVar(!I)].key);
             }
@@ -213,10 +202,30 @@ module PURE-FLOW-COMPILER
         <typeEnv> ... .Map => genVar(!I) |-> nat ... </typeEnv>
         <compiled> Ss => Ss @ (uint genVar(!I) = V;) </compiled>
 
-    rule <k> locate([ Q T ; .Locators ]) => genVar(!I) ... </k>
+    rule <k> locate([ Q T ; Locs ]) => locateEach(genVar(!I), Locs) ~> genVar(!I) ... </k>
         <typeEnv> ... .Map => genVar(!I) |-> list Q T ... </typeEnv>
         <compiled> Ss => Ss @ (baseTypeToSolType(T)[] genVar(!I);) </compiled>
-        <structs> Structs => Structs defineStructs(nameOf(T), T) </structs>
+        <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
+
+    syntax KItem ::= locateEach(Var, Locators)
+    rule locateEach(_, .Locators) => .
+    rule locateEach(X, (L:Locator, Ls)) => locate(L) ~> locateEach(X, Ls)
+    rule <k> Y:Var ~> locateEach(X, Locs) => locateEach(X, Locs) ... </k>
+        <compiled> Ss => Ss @ (X.push(Y);) </compiled>
+
+    rule <k> locate(record(Keys) { Members }) => locateRecordFields(genVar(!I), Members) ~> genVar(!I) ... </k>
+        <typeEnv> ... .Map => genVar(!I) |-> record(Keys) { membersToDefs(Members) } ... </typeEnv>
+        <compiled> Ss => Ss @ (baseTypeToSolType(record(Keys) { membersToDefs(Members) }) genVar(!I);) </compiled>
+        <structs> Structs => union(Structs, defineStructs(nameOf(record(Keys) { membersToDefs(Members) }), record(Keys) { membersToDefs(Members) })) </structs>
+
+    syntax KItem ::= locateRecordFields(Var, RecordMembers)
+                   | setField(Var, Var)
+    rule locateRecordFields(_, .RecordMembers) => .
+    rule locateRecordFields(X, ((F : _ |-> V), Rest:RecordMembers))
+         => locate(V) ~> setField(X, F) ~> locateRecordFields(X, Rest)
+
+    rule <k> Y:Var ~> setField(X, F) => . ... </k>
+        <compiled> Ss => Ss @ (X.F = Y;) </compiled>
 
     rule locate(X:Var) => X
     rule locate(demote(L)) => locate(L)
@@ -230,7 +239,7 @@ module PURE-FLOW-COMPILER
     rule <k> locate(var X : T) => X ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
         <compiled> Ss => Ss @ (baseTypeToSolType(T) X;) </compiled>
-        <structs> Structs => Structs defineStructs(nameOf(T), T) </structs>
+        <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
 
     syntax Var ::= nameOf(BaseType) [function, functional]
     rule nameOf(X:Var) => X

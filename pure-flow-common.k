@@ -387,5 +387,12 @@ module PURE-FLOW-COMMON
     rule varsToSet(.Vars) => .Set
     rule varsToSet((X:Var, Xs)) => SetItem(X) varsToSet(Xs)
 
+    syntax Map ::= union(Map, Map) [function, functional]
+    rule union(.Map, N) => N
+    rule union(M, .Map) => M
+    rule union((K |-> V) M, (K |-> V) N) => (K |-> V) union(M, N)
+    rule union((K |-> V) M, N) => (K |-> V) union(M, N)
+        requires notBool(K in_keys(N))
+
 endmodule
 

@@ -13,5 +13,6 @@ type Bid is {
 
 x --> y
 
-[ ] --> var m : map any nat => any nat
+[] --> var m : map any nat => any nat
+[ { key |-> 0, value |-> x} ] --> m
 
