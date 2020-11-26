@@ -20,6 +20,7 @@ module SOLIDITY-SYNTAX
                   | Var "(" "{" SolFields "}" ")"
                   > left: Expr "+" Expr
                   | Expr "-" Expr
+                  | Expr "||" Expr
                   > nonassoc: Expr "<" Expr
                   | Expr "==" Expr
     syntax Exprs ::= List{Expr, ","}
@@ -31,9 +32,11 @@ module SOLIDITY-SYNTAX
                      | SolVar "=" Expr ";"
                      | SolVarDef
                      | Expr "=" Expr ";"
+                     | "delete" Expr ";"
                      | "return" Var ";"
                      | "for" "(" SolStmt Expr ";" Expr ")" "{" SolStmts "}"
                      | "try" Expr "returns" "(" SolVar ")" "{" SolStmts "}" "catch" "{" SolStmts "}"
+                     | "if" "(" Expr ")" "{" SolStmts "}"
     syntax SolStmts ::= ".SolStmts"
                       | SolStmt
                       | SolStmts SolStmts [assoc, right]
@@ -64,7 +67,13 @@ module PURE-FLOW-COMPILER
     imports COLLECTIONS
     imports PURE-FLOW-COMMON
 
-    syntax KResult ::= Var
+    syntax SourceList ::= source(List)
+                        | sourceSelect(Located, Located)
+    syntax Located ::= Var
+                     | SourceList
+                     | guardSelect(Located, Located)
+    syntax Locator ::= Located
+    syntax KResult ::= Located
                      | Vars
 
     // Variables we'll need to do code generation
@@ -78,6 +87,7 @@ module PURE-FLOW-COMPILER
         <solFunctions> .Map </solFunctions>
         <compiled> .List </compiled>
         <typeEncoding> .Map </typeEncoding>
+        <tempVars> .Set </tempVars>
 
     syntax KItem ::= translateDecl(Decl)
                    | "done"
@@ -132,11 +142,36 @@ module PURE-FLOW-COMPILER
         <typeEncoding> ... .Map => T |-> encodeType(T, BaseT) ... </typeEncoding>
 
     syntax KItem ::= setupArgs(VarDefs)
-                   | defFunc(Var)
+                   | defFunc(Var, VarDefs, Var, BaseType)
                    | cleanupEnv(Set)
 
     rule translateDecl(transformer F(Args) -> X : _ T { Body })
-        => setupArgs(X : empty T, Args) ~> Body ~> defFunc(F) ~> cleanupEnv(keys(makeEnv(X : empty T, Args)))
+        => newScope ~>
+           setupArgs(X : empty T, Args) ~>
+           Body ~>
+           defFunc(F, Args, X, T) ~>
+           cleanupEnv(keys(makeEnv(X : empty T, Args)))
+
+    rule setupArgs(.VarDefs) => .
+    rule <k> setupArgs(X : _ T, Rest) => setupArgs(Rest) ... </k>
+        <typeEnv> ... .Map => X |-> T ... </typeEnv>
+        <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(T) X;)) ... </compiled>
+
+    syntax SolArgs ::= varDefsToSolArgs(VarDefs) [function, functional]
+    rule varDefsToSolArgs(.VarDefs) => .SolArgs
+    rule varDefsToSolArgs(X : _ T, Rest) => baseTypeToSolType(T) X, varDefsToSolArgs(Rest)
+
+    rule <k> defFunc(F, Args, RetVar, RetType) => . ... </k>
+        <solFunctions>
+            ...
+            .Map =>
+            F |->
+            function F(varDefsToSolArgs(Args)) returns (baseTypeToSolType(RetType) RetVar) {
+                Body
+            }
+            ...
+        </solFunctions>
+        <compiled> ListItem(Body) => .List ... </compiled>
 
     rule <k> cleanupEnv(Xs) => . ... </k>
         <typeEnv> Env => removeAll(Env, Xs) </typeEnv>
@@ -226,39 +261,57 @@ module PURE-FLOW-COMPILER
     syntax KItem ::= flow(Locator, Locator) [seqstrict]
     rule <k> A --> B => flow(locate(A), locate(B)) ... </k>
 
-    // =========================================
-    // Flow for nats
-    // =========================================
-    rule <k> flow(X:Var, Y:Var) => . ... </k>
-        <typeEnv> ... (X |-> nat) (Y |-> nat) ... </typeEnv>
-        <compiled> ListItem(S => S (Y = Y + X;) (X = 0;)) ... </compiled>
+    syntax KItem ::= "cleanTemp"
+    rule <k> cleanTemp => . ... </k>
+        <typeEnv> Env => removeAll(Env, Temps) </typeEnv>
+        <tempVars> Temps => .Set </tempVars>
 
-    // TODO: Instead of the old approach, we should instead have a locateSource or something that evaluates to a list of things to send
-    // TODO: Then we can implement list literals without actually building a list, and similarly for all filters and everything
-    // TODO: So you build a block of code with filters and such into which we embed the transfer code
-    // so locateSource([ a, b][ any such that f(_)]) gives us something like
-    // for x in [a,b]:
-    //      if f(x):
-    //          ______ HERE IS A HOLE WHERE THE TRANSFER CODE GOES ______
+    syntax SolStmts ::= receiveValue(Expr, Located) [function, functional]
 
-    // =========================================
-    // Flow list to map
-    // =========================================
-    rule <k> flow(X:Var, Y:Var) => . ... </k>
-        <typeEnv>
-            ...
-            (X |-> table(_) _ record(_) { key : K, value : V})
-            (Y |-> map K => V)
-            ...
-        </typeEnv>
+    syntax KItem ::= sendValues(Located, Located)
+
+    rule flow(Src, Dst) => sendValues(Src, Dst) ~> cleanTemp
+
+    rule <k> sendValues(Src, Dst) => . ... </k>
+        <typeEnv> ... Src |-> nat ... </typeEnv>
+        <compiled> ListItem(Cur => (Cur receiveValue(Src, Dst))) ... </compiled>
+    rule <k> sendValues(Src, Dst) => . ... </k>
+        <typeEnv> ... Src |-> bool ... </typeEnv>
+        <compiled> ListItem(Cur => (Cur receiveValue(Src, Dst))) ... </compiled>
+    rule <k> sendValues(Src, Dst) => . ... </k>
+        <typeEnv> ... Src |-> table(.Vars) _ ... </typeEnv>
         <compiled>
-            ListItem(Cur => Cur (
-                     for (uint genVar(!I) = 0; genVar(!I) < (X.keys.length); genVar(!I)++) {
-                         Y.underlying_map[X[genVar(!I)].key] = X[genVar(!I)].value;
-                         Y.keys.push(X[genVar(!I)].key);
-                     }))
+            ListItem(S => S (
+                for (uint genVar(!I) = 0; genVar(!I) < (Src.length); genVar(!I)++) {
+                    receiveValue(Src[genVar(!I)], Dst)
+                }
+                delete Src;
+            ))
             ...
         </compiled>
+
+    rule sendValues(source(.List), _) => .
+    rule <k> sendValues(source(ListItem(Val) Rest), Dst) => sendValues(source(Rest), Dst) ... </k>
+        <compiled> ListItem(S => (S receiveValue(Val, Dst))) ... </compiled>
+    rule sendValues(sourceSelect(Src, Sel), Dst) => sendValues(Src, guardSelect(Sel, Dst))
+
+    rule [[ receiveValue(Src, Dst) => (Dst = Dst + Src; Src = 0;) ]]
+        <typeEnv> ... Dst |-> nat ... </typeEnv>
+
+    rule [[ receiveValue(Src, Dst) => (Dst = Dst || Src; Src = false;) ]]
+        <typeEnv> ... Dst |-> bool ... </typeEnv>
+
+    rule [[ receiveValue(Src, Dst) => Dst.push(Src); ]]
+        <typeEnv> ... Dst |-> table(.Vars) _ </typeEnv>
+
+    rule [[ receiveValue(Src, Dst) => (
+                Dst.underlying_map[Src.key] = Src.value;
+                Dst.keys.push(Src.key);
+        )]]
+        <typeEnv> ... Dst |-> map _ => _ ... </typeEnv>
+
+    rule receiveValue(Src, guardSelect(Sel, Dst))
+         => if (Src == Sel) { receiveValue(Src, Dst) }
 
     syntax KItem ::= flowNew(Locator, Var, Locators, Locators) [strict(1,3,4)]
 
@@ -278,17 +331,22 @@ module PURE-FLOW-COMPILER
     rule <k> locate(V:Int) => genVar(!I) ... </k>
         <typeEnv> ... .Map => genVar(!I) |-> nat ... </typeEnv>
         <compiled> ListItem(Ss => Ss (uint genVar(!I) = V;)) ... </compiled>
+        <tempVars> ... .Set => SetItem(genVar(!I)) ... </tempVars>
 
-    rule <k> locate([ Q T ; Locs ]) => locateEach(genVar(!I), Locs) ~> genVar(!I) ... </k>
-        <typeEnv> ... .Map => genVar(!I) |-> list Q T ... </typeEnv>
-        <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(T)[] genVar(!I);)) ... </compiled>
+    rule <k> locate(B:Bool) => genVar(!I) ... </k>
+        <typeEnv> ... .Map => genVar(!I) |-> bool ... </typeEnv>
+        <compiled> ListItem(S => S (bool genVar(!I) = B;)) ... </compiled>
+        <tempVars> ... .Set => SetItem(genVar(!I)) ... </tempVars>
+
+    rule <k> locate([ _ T ; Locs ]) => locateEach(Locs, .List) ... </k>
+        /* <typeEnv> ... .Map => genVar(!I) |-> list Q T ... </typeEnv> */
+        /* <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(T)[] genVar(!I);)) ... </compiled> */
         <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
 
-    syntax KItem ::= locateEach(Var, Locators)
-    rule locateEach(_, .Locators) => .
-    rule locateEach(X, (L:Locator, Ls)) => locate(L) ~> locateEach(X, Ls)
-    rule <k> Y:Var ~> locateEach(X, Locs) => locateEach(X, Locs) ... </k>
-        <compiled> ListItem(Ss => Ss (X.push(Y);)) ... </compiled>
+    syntax KItem ::= locateEach(Locators, List)
+    rule locateEach(.Locators, Res) => source(Res)
+    rule locateEach((L:Locator, Ls), Res) => locate(L) ~> locateEach(Ls, Res)
+    rule Y:Located ~> locateEach(Locs, Res) => locateEach(Locs, Res ListItem(Y))
 
     rule <k> locate(record(Keys) { Members }) => locateRecordFields(genVar(!I), Members) ~> genVar(!I) ... </k>
         <typeEnv> ... .Map => genVar(!I) |-> record(Keys) { membersToDefs(Members) } ... </typeEnv>
@@ -317,6 +375,10 @@ module PURE-FLOW-COMPILER
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
         <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(T) X;)) ... </compiled>
         <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
+
+    syntax KItem ::= locateFilter(Locator, Locator) [seqstrict]
+    rule locate(L[K]) => locateFilter(locate(L), locate(K))
+    rule locateFilter(L, K) => sourceSelect(L, K)
 
     syntax Var ::= nameOf(BaseType) [function, functional]
     rule nameOf(X:Var) => X

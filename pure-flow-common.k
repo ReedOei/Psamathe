@@ -55,7 +55,7 @@ module PURE-FLOW-COMMON-SYNTAX
                      | Locator "[" TypeQuant "st" Var "(" Locators ")" "]"
                      | "(" Locator ")" [bracket]
                      | "consume"
-    syntax Locators ::= List{Locator, ","} [klabel(locators), strict]
+    syntax Locators ::= List{Locator, ","} [klabel(locators)]
                       | Vars
 
     syntax Stmt ::= Locator "-->" Locator
@@ -194,9 +194,9 @@ module PURE-FLOW-COMMON
     rule annotateLocator(var X : T, _) => var X : inferQuantities(T)
     rule annotateLocator(record(Keys) { Members:RecordMembers }, record(_) { Fields })
          => record(Keys) { annotateEach(Members, Fields) }
-    rule annotateLocator(L[K], _) => L[K]
-    rule annotateLocator(L[K], map _ => _) => L[K].value
-    rule annotateLocator(L[Q such that F(Args)], _) => L[Q such that F(Args)]
+    rule annotateLocator(L[K], T) => annotateLocator(L, T)[K]
+    rule annotateLocator(L[K], map KT => VT) => annotateLocator(L, map KT => VT)[K].value
+    rule annotateLocator(L[Q such that F(Args)], T) => annotateLocator(L, T)[Q such that F(Args)]
     rule annotateLocator(demote(L), _) => demote(L)
     rule annotateLocator(copy(L), _) => copy(L)
     rule annotateLocator(L.X, _) => L.X
@@ -262,7 +262,7 @@ module PURE-FLOW-COMMON
 
     // TODO: Should probably do a better job here
     syntax Map ::= declaredVars(Locator) [function, functional]
-    rule declaredVars(var X : T) => X |-> T
+    rule declaredVars(var X : T) => X |-> inferQuantitiesType(T)
     rule declaredVars(_) => .Map [owise]
 
     syntax QuantType ::= inferQuantitiesType(BaseType) [function, functional]
