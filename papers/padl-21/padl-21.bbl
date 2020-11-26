@@ -1,0 +1,76 @@
+\begin{thebibliography}{10}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\providecommand{\doi}[1]{https://doi.org/#1}
+
+\bibitem{EthereumForDevs}
+Ethereum for developers (2020), \url{https://ethereum.org/en/developers/}
+
+\bibitem{psamatheRepo}
+Psamathe (Nov 2020), \url{https://github.com/ReedOei/Psamathe}
+
+\bibitem{erc20Consensys}
+Tokens (Aug 2020), \url{https://github.com/ConsenSys/Tokens}
+
+\bibitem{blackshear2019move}
+Blackshear, S., Cheng, E., Dill, D.L., Gao, V., Maurer, B., Nowacki, T., Pott,
+  A., Qadeer, S., Rain, D.R., Sezer, S., et~al.: Move: A language with
+  programmable resources (2019)
+
+\bibitem{coblenz2019obsidian}
+Coblenz, M., Oei, R., Etzel, T., Koronkevich, P., Baker, M., Bloem, Y., Myers,
+  B.A., Sunshine, J., Aldrich, J.: Obsidian: Typestate and assets for safer
+  blockchain programming (2019)
+
+\bibitem{das2019nomos}
+Das, A., Balzer, S., Hoffmann, J., Pfenning, F., Santurkar, I.: Resource-aware
+  session types for digital contracts. arXiv preprint arXiv:1902.06056  (2019)
+
+\bibitem{Elsden18:Making}
+Elsden, C., Manohar, A., Briggs, J., Harding, M., Speed, C., Vines, J.: Making
+  sense of blockchain applications: A typology for hci. In: CHI Conference on
+  Human Factors in Computing Systems. pp. 1--14. CHI '18 (2018).
+  \doi{10.1145/3173574.3174032},
+  \url{http://doi.acm.org/10.1145/3173574.3174032}
+
+\bibitem{HealthcareUse}
+{Harvard Business Review}: The potential for blockchain to transform electronic
+  health records (2017),
+  \url{https://hbr.org/2017/03/the-potential-for-blockchain-to-transform-electronic-health-records}
+
+\bibitem{SupplyChainUse}
+IBM: Blockchain for supply chain (2019),
+  \url{https://www.ibm.com/blockchain/supply-chain/}
+
+\bibitem{luuOyente}
+Luu, L., Chu, D.H., Olickel, H., Saxena, P., Hobor, A.: Making smart contracts
+  smarter. In: Proceedings of the 2016 ACM SIGSAC Conference on Computer and
+  Communications Security. p. 254–269. CCS ’16, Association for Computing
+  Machinery, New York, NY, USA (2016). \doi{10.1145/2976749.2978309},
+  \url{https://doi.org/10.1145/2976749.2978309}
+
+\bibitem{oei2020psamathe}
+Oei, R., Coblenz, M., Aldrich, J.: {Psamathe: A DSL with Flows for Safe
+  Blockchain Assets} (2020), \url{https://arxiv.org/abs/2010.04800}
+
+\bibitem{rosu-serbanuta-2010-jlap}
+Ro{\c s}u, G., {\c S}erb{\u a}nu{\c t}{\u a}, T.F.: An overview of the {K}
+  semantic framework. Journal of Logic and Algebraic Programming
+  \textbf{79}(6),  397--434 (2010). \doi{10.1016/j.jlap.2010.03.012}
+
+\bibitem{schrans2018flint}
+Schrans, F., Eisenbach, S., Drossopoulou, S.: Writing safe smart contracts in
+  flint. In: Conference Companion of the 2nd International Conference on Art,
+  Science, and Engineering of Programming. pp. 218--219 (2018)
+
+\bibitem{sergey2019scilla}
+Sergey, I., Nagaraj, V., Johannsen, J., Kumar, A., Trunov, A., Hao, K.C.G.:
+  Safer smart contract programming with scilla. Proc. ACM Program. Lang.
+  \textbf{3}(OOPSLA) (Oct 2019). \doi{10.1145/3360611},
+  \url{https://doi.org/10.1145/3360611}
+
+\bibitem{Szabo97:Formalizing}
+Szabo, N.: Formalizing and securing relationships on public networks. {First
+  Monday}  \textbf{2}(9) (1997). \doi{https://doi.org/10.5210/fm.v2i9.548}
+
+\end{thebibliography}

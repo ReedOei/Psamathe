@@ -21,8 +21,8 @@
 
 \renewcommand\UrlFont{\color{blue}\rmfamily}
 
-\input{LaTeX/macros.tex}
-\input{solidity-latex-highlighting/solidity-highlighting.tex}
+\input{latex-macros.tex}
+\input{solidity-highlighting.tex}
 \input{flow-highlighting.tex}
 \input{macros.tex}
 
@@ -77,7 +77,7 @@ Fungible tokens are interchangeable (like most currencies), so it is only import
 
 \begin{figure}[t]
     \centering
-    \lstinputlisting[language=flow]{padl-21-examples/erc20-transfer.flow}
+    \lstinputlisting[language=flow]{erc20-transfer.flow}
     \vspace{-1em}
     \caption{A \langName contract with a simple \flowinline{transfer} function, which transfers \flowinline{amount} tokens from the sender's account to the destination account.
 It is implemented with a single flow, which checks the preconditions to ensure the transfer is valid.
@@ -139,7 +139,7 @@ The sender's balance must be at least as large as \flowinline{amount}, and the d
 \begin{figure}
     \vspace{-2em}
     \centering
-    \lstinputlisting[language=Solidity]{padl-21-examples/erc20-transfer.sol}
+    \lstinputlisting[language=Solidity]{erc20-transfer.sol}
     \vspace{-1em}
     \caption{Excerpt from a Solidity reference implementation~\cite{erc20Consensys} of the \lstinline[language=Solidity]{transfer} function.
         Preconditions are checked manually.

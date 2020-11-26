@@ -1,0 +1,50 @@
+This is BibTeX, Version 0.99d (TeX Live 2019/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: padl-21.aux
+The style file: splncs04.bst
+Database file #1: biblio.bib
+Warning--to sort, need author or key in EthereumForDevs
+Warning--to sort, need author or key in psamatheRepo
+Warning--to sort, need author or key in erc20Consensys
+You've used 15 entries,
+            2850 wiz_defined-function locations,
+            685 strings with 7407 characters,
+and the built_in function-call counts, 7639 in all, are:
+= -- 582
+> -- 292
+< -- 7
++ -- 123
+- -- 106
+* -- 505
+:= -- 975
+add.period$ -- 17
+call.type$ -- 15
+change.case$ -- 103
+chr.to.int$ -- 0
+cite$ -- 18
+duplicate$ -- 662
+empty$ -- 703
+format.name$ -- 115
+if$ -- 1645
+int.to.chr$ -- 0
+int.to.str$ -- 15
+missing$ -- 136
+newline$ -- 51
+num.names$ -- 24
+pop$ -- 313
+preamble$ -- 1
+purify$ -- 82
+quote$ -- 0
+skip$ -- 194
+stack$ -- 0
+substring$ -- 324
+swap$ -- 347
+text.length$ -- 7
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 60
+warning$ -- 3
+while$ -- 48
+width$ -- 17
+write$ -- 149
+(There were 3 warnings)
