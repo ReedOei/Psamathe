@@ -1,17 +1,34 @@
-type token is unique consumable asset nat
+type Token is unique consumable asset nat
 
 type Bid is {
     sender : one address,
     amount : any nat
 }
 
+transformer id(b : any bool) -> res : any bool {
+    b --> res
+}
+
 ;
 
 1 --> var x : nat
-
 4 --> var y : nat
-
 x --> y
 
-[ ] --> var m : map any nat => any nat
+[] --> var m : map any nat => any nat
+[ { key |-> 0, value |-> x } ] --> m
+
+try {
+    4 --> y
+} catch {
+    5 --> y
+}
+
+false --> var b : bool
+
+[1,2,3] --> var nums : list nat
+
+nums --[ 4 ]-> var dest : list nat
+
+[4,5,6] --[ 4 ]-> dest
 
