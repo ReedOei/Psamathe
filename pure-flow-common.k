@@ -125,6 +125,13 @@ module PURE-FLOW-COMMON
             <functions> .Map </functions>
         </common>
 
+    // =========================================
+    // Type Environment Helprs
+    // =========================================
+    syntax KItem ::= forget(Var)
+    rule <k> forget(X) => . ... </k>
+        <typeEnv> ... X |-> _ => .Map ... </typeEnv>
+
     syntax KItem ::= transformer(VarDef, VarDefs, Stmts)
                    | typeDef(Set, BaseType)
 

@@ -45,8 +45,6 @@ elif [[ "$1" == "pure" ]]; then
 elif [[ "$1" == "pure-compile" ]]; then
     shift
     directory="pure-flow-compiler/"
-    FLAGS+=("--pattern")
-    FLAGS+=("<k> Code </k>")
 else
     directory="dynamic/"
     if [[ "$1" == "debug" ]]; then
