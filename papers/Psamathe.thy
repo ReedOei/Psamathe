@@ -236,7 +236,8 @@ fun compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" ("_ \<leftrightarrow>
 *)
 
 definition var_store_sync :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
-  "var_store_sync \<Gamma> f \<LL> \<mu> \<equiv> \<forall>x l. \<mu> x = Some l \<longrightarrow> \<Gamma> (V x) = map_option (f^^(count \<LL> l)) (\<Gamma> (Loc l))"
+  "var_store_sync \<Gamma> f \<LL> \<mu> \<equiv> 
+    \<forall>x l \<tau>. (\<mu> x = Some l \<and> \<Gamma> (Loc l) = Some \<tau>) \<longrightarrow> \<Gamma> (V x) = Some ((f^^(count \<LL> l)) \<tau>)"
 
 definition compat :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Store \<Rightarrow> bool" where
   "compat \<Gamma> f \<LL> \<Sigma> \<equiv> case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow> ((var_dom \<Gamma> = dom \<mu>) \<and>
@@ -531,8 +532,10 @@ lemma type_preserving_ty_res_compat:
 lemma var_store_sync_use:
   assumes "var_store_sync \<Gamma> f \<LL> \<mu>"
       and "\<mu> x = Some l"
-    shows "\<Gamma> (V x) = map_option (f^^(count \<LL> l)) (\<Gamma> (Loc l))"
-  using assms var_store_sync_def by blast
+      and "\<Gamma> (Loc l) = Some \<tau>"
+    shows "\<Gamma> (V x) = Some ((f^^(count \<LL> l)) \<tau>)"
+  using assms var_store_sync_def
+  by blast
 
 lemma var_store_sync_add:
   assumes "var_store_sync \<Gamma> f ({#l#} + \<LL>) \<mu>"
@@ -542,10 +545,10 @@ lemma var_store_sync_add:
   using assms
 proof -
   have "\<Gamma> (V x) = map_option (f^^(count ({#l#} + \<LL>) l)) (\<Gamma> (Loc l))" using assms
-    by (metis var_store_sync_use)
+    by (simp add: var_store_sync_use)
   then show ?thesis using assms
     apply (auto simp: var_store_sync_def)
-    by (simp add: funpow_swap1)
+    by (metis funpow_swap1 old.prod.exhaust)
 qed
 
 lemma var_store_sync_no_var:
@@ -865,6 +868,392 @@ lemma add_fresh_loc:
   apply (metis base_type_compat_refl exact_type_preserves_tyquant less_general_type.simps option.inject)
   by (smt assms(1) domIff fun_upd_triv map_le_imp_upd_le map_le_refl option.discI select_preserve)
 
+definition var_loc_compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" where
+  "var_loc_compat \<Gamma> \<Sigma> \<equiv> case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow> 
+      \<forall>x l. \<mu> x = Some l \<and> Loc l \<in> dom \<Gamma> \<and> V x \<in> dom \<Gamma> \<longrightarrow> \<Gamma> (Loc l) = \<Gamma> (V x)"
+
+definition prf_compat_simple :: "Env \<Rightarrow> Store \<Rightarrow> Env \<Rightarrow> bool" ("_ \<lhd>\<^sup>_ _" 50) where
+  "prf_compat_simple \<Gamma> \<Sigma> \<Gamma>' \<equiv> var_ty_env \<Gamma> = var_ty_env \<Gamma>' \<and> var_loc_compat \<Gamma>' \<Sigma>"
+
+lemma prf_compat_simpleI[intro]:
+  assumes "var_ty_env \<Gamma> = var_ty_env \<Gamma>'"
+      and "var_loc_compat \<Gamma>' \<Sigma>"
+    shows "prf_compat_simple \<Gamma> \<Sigma> \<Gamma>'"
+  using assms
+  by (auto simp: prf_compat_simple_def)
+
+(*
+lemma prf_compat_upd:
+  fixes \<Gamma> \<Gamma>' x \<tau>
+  assumes "\<Gamma> \<lhd>\<^sup>\<mu> \<Gamma>'"
+    shows "\<Gamma>(V x \<mapsto> \<tau>) \<lhd>\<^sup>\<mu> \<Gamma>'(V x \<mapsto> \<tau>)"
+  using assms
+  apply (auto simp: prf_compat_simple_def)
+  apply meson *)
+
+(*
+lemma prf_compat_not_located:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "var_ty_env \<Gamma> = var_ty_env \<Gamma>'"
+      and "L wf"
+      and "\<forall>l \<in> set_mset (locations L). \<Gamma> (Loc l) = \<Gamma>' (Loc l)"
+    shows "\<exists>\<Delta>'. (\<Gamma>' \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>') 
+                \<and> var_ty_env \<Delta> = var_ty_env \<Delta>' 
+                \<and> (\<forall>l \<in> set_mset (locations L). \<Delta> (Loc l) = \<Delta>' (Loc l))"
+  using assms
+proof(induction arbitrary: \<Gamma>')
+case (Nat \<Gamma> f n)
+  then show ?case using loc_type.Nat by auto 
+next
+  case (Bool \<Gamma> f b)
+  then show ?case using loc_type.Bool by auto
+next
+  case (Var \<Gamma> x \<tau> m f)
+  then show ?case
+    apply auto
+    by (metis (no_types, hide_lams) Stored.inject(1) fun_upd_apply loc_type.Var)
+next
+  case (Loc \<Gamma> l \<tau> m f)
+  then show ?case 
+    apply auto
+    by (metis Stored.distinct(1) fun_upd_apply loc_type.Loc)
+next
+  case (VarDef x \<Gamma> f t)
+  then show ?case using loc_type.VarDef
+    apply simp
+    by (metis (mono_tags, hide_lams) Stored.inject(1) domD domI fun_upd_apply)
+next
+  case (EmptyList \<Gamma> f \<tau>)
+  then show ?case using loc_type.EmptyList by blast 
+next
+  case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
+  then have "\<L> wf" and "Tail wf"
+    apply auto 
+    apply (erule wf_locator.cases)
+    apply auto
+    apply (erule wf_locator.cases)
+    by auto
+  then obtain \<Delta>' 
+    where "\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>'" 
+      and "var_ty_env \<Delta> = var_ty_env \<Delta>'" 
+      and "\<forall>l \<in> set_mset (locations L). \<Delta> (Loc l) = \<Delta>' (Loc l)"
+    using ConsList
+    apply auto
+  then obtain \<Xi>' where "\<Delta>' \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>'"  and "var_ty_env \<Xi> = var_ty_env \<Xi>'"
+    using ConsList \<open> Tail wf \<close>
+    apply auto
+  then show ?case
+    apply auto
+  qed
+*)
+
+lemma prf_compat_not_located:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "var_ty_env \<Gamma> = var_ty_env \<Gamma>'"
+      and "L wf"
+      and "locations L = {#}"
+    shows "\<exists>\<Delta>'. (\<Gamma>' \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>') \<and> var_ty_env \<Delta> = var_ty_env \<Delta>'"
+  using assms
+proof(induction arbitrary: \<Gamma>')
+case (Nat \<Gamma> f n)
+  then show ?case using loc_type.Nat by auto 
+next
+  case (Bool \<Gamma> f b)
+  then show ?case using loc_type.Bool by auto
+next
+  case (Var \<Gamma> x \<tau> m f)
+  then show ?case
+    apply auto
+    by (metis (no_types, hide_lams) Stored.inject(1) fun_upd_apply loc_type.Var)
+next
+  case (Loc \<Gamma> l \<tau> m f)
+  then show ?case by auto
+next
+  case (VarDef x \<Gamma> f t)
+  then show ?case using loc_type.VarDef
+    apply simp
+    by (metis (mono_tags, hide_lams) Stored.inject(1) domD domI fun_upd_apply)
+next
+  case (EmptyList \<Gamma> f \<tau>)
+  then show ?case using loc_type.EmptyList by blast 
+next
+  case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
+  then have "\<L> wf" and "Tail wf"
+    apply auto 
+    apply (erule wf_locator.cases)
+    apply auto
+    apply (erule wf_locator.cases)
+    by auto
+  then obtain \<Delta>' where "\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>'" and "var_ty_env \<Delta> = var_ty_env \<Delta>'" 
+    using ConsList by auto
+  then obtain \<Xi>' where "\<Delta>' \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>'" and "var_ty_env \<Xi> = var_ty_env \<Xi>'"
+    using ConsList \<open> Tail wf \<close>
+    by auto
+  then show ?case using ConsList loc_type.ConsList
+    apply auto
+    using \<open>\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>'\<close> loc_type.ConsList by blast
+qed
+
+(*
+lemma prf_compat_simple_works:
+  fixes \<Gamma> m f L \<tau> \<Delta> 
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "\<Gamma> \<lhd>\<^sup>\<mu> \<Gamma>'"
+      and "var_loc_compat \<Gamma> \<mu>"
+      and "locations L = {#}"
+    shows "\<exists>\<Delta>'. (\<Gamma>' \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>') \<and> (\<Delta> \<lhd>\<^sup>\<mu> \<Delta>')"
+  using assms
+proof(induction arbitrary: \<Gamma>' \<mu>)
+  case (Nat \<Gamma> f n)
+  then show ?case using loc_type.Nat by blast
+next
+  case (Bool \<Gamma> f b)
+  then show ?case using loc_type.Bool by blast
+next
+  case (Var \<Gamma> x \<tau> m f)
+  then have "\<Gamma>' (V x) = Some \<tau>"
+    apply (auto simp: prf_compat_simple_def)
+    by metis
+  then show ?case
+  proof(intro exI conjI, rule loc_type.Var)
+    show "\<Gamma>(V x \<mapsto> f \<tau>) \<lhd>\<^sup>\<mu> \<Gamma>'(V x \<mapsto> f \<tau>)" using Var
+      apply (auto simp: prf_compat_simple_def var_loc_compat_def)
+      apply meson
+      apply (simp add: prf_compat_upd)
+  qed
+next
+  case (Loc \<Gamma> l \<tau> m f)
+  then have "\<Gamma>' (Loc l) = Some \<tau>"
+    apply (auto simp: prf_compat_simple_def)
+    by (metis domI map_le_def)
+  then show ?case
+  proof(intro exI conjI, rule loc_type.Loc)
+    show "\<Gamma>(Loc l \<mapsto> f \<tau>) \<lhd> \<Gamma>'(Loc l \<mapsto> f \<tau>)" using Loc
+      by (simp add: prf_compat_upd)
+  qed
+next
+  case (VarDef x \<Gamma> f t)
+  then have "V x \<notin> dom \<Gamma>'" 
+    by (auto simp: prf_compat_simple_def)
+  then show ?case
+  proof(intro exI conjI, rule loc_type.VarDef)
+    show "\<Gamma>(V x \<mapsto> f (empty, t)) \<lhd> \<Gamma>'(V x \<mapsto> f (empty, t))" using VarDef
+      by (simp add: prf_compat_upd)
+  qed
+next
+  case (EmptyList \<Gamma> f \<tau>)
+  then show ?case using loc_type.EmptyList by blast 
+next
+  case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
+  then obtain \<Delta>' where head_ty: "\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>'" and "\<Delta> \<lhd> \<Delta>'"
+    by auto
+  then obtain \<Xi>' where tail_ty: "\<Delta>' \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>'" and "\<Xi> \<lhd> \<Xi>'"
+    using ConsList by auto
+
+  then show ?case
+  proof(intro exI conjI)
+    from head_ty and tail_ty
+    show "\<Gamma>' \<turnstile>{s} f ; [ \<tau> ; \<L> , Tail ] : (one \<oplus> q, table [] \<tau>) \<stileturn> \<Xi>'" by (rule loc_type.ConsList)
+    show "\<lbrakk>\<Xi> \<lhd> \<Xi>'\<rbrakk> \<Longrightarrow> \<Xi> \<lhd> \<Xi>'" by simp
+  qed
+qed *)
+
+lemma var_loc_compat_upd:
+  assumes "var_loc_compat \<Gamma> (\<mu>, \<rho>)"
+      and "\<mu> x = Some l"
+      and "inj \<mu>"
+    shows "var_loc_compat (\<Gamma>(V x \<mapsto> \<tau>, Loc l \<mapsto> \<tau>)) (\<mu>, \<rho>)"
+  using assms
+  apply (auto simp: var_loc_compat_def)
+  by (simp add: injD)
+
+lemma locator_preservation:
+  fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
+  assumes "<\<Sigma>, \<L>> \<rightarrow> <\<Sigma>', \<L>'>"
+      and "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
+(* NOTE: compat can take a function from Vars/Locs to updaters (default to id) instead of a single function,
+          this may let us get rid of some of the issues we face due to the updater changing throughout 
+          the rules ... *)
+      and "compat \<Gamma> f {#} \<Sigma>"
+      and "finite_store \<Sigma>"
+      and "type_preserving f"
+      and "var_loc_compat \<Gamma> \<Sigma>"
+    shows "finite_store \<Sigma>' 
+      \<and> (\<exists>\<Gamma>' \<Delta>'. compat \<Delta>' f {#} \<Sigma>'
+                \<and> prf_compat_simple \<Delta> \<Sigma>' \<Delta>'
+                \<and> (\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau> \<stileturn> \<Delta>'))"
+  using assms
+proof(induction arbitrary: \<Gamma> \<tau> f m \<Delta>)
+  (* TODO: This is an absurd amount of effort for a relatively easy case... *)
+  case (ENat l \<rho> \<mu> n)
+  then have "\<rho> \<subseteq>\<^sub>m \<rho>(l \<mapsto> Res (natural, Num n))" by (auto simp: map_le_def) 
+  have "\<tau> = (toQuant n, natural)" using ENat loc_type.cases by blast
+  let ?\<L>' = "Loc (l, Amount n)"
+  let ?\<Gamma>' = "\<Gamma>(?\<L>' \<mapsto> \<tau>)"
+  let ?\<Delta>' = "?\<Gamma>'(?\<L>' \<mapsto> f \<tau>)"
+  let ?\<rho>' = "\<rho>(l \<mapsto> Res (natural, Num n))"
+  have compat: "compat ?\<Delta>' f {#} (\<mu>, ?\<rho>')" using ENat
+    using \<open>\<tau> = (toQuant n, natural)\<close> add_fresh_num fresh_loc_not_in_env \<open> \<rho> \<subseteq>\<^sub>m ?\<rho>' \<close>
+    apply (auto simp: compat_def)
+    using select_loc_update apply auto[1]
+    apply (smt ENat.hyps var_store_sync_def Stored.distinct(1) Stored.inject(2) count_eq_zero_iff insert_noteq_member map_upd_Some_unfold mset_add zero_multiset.rep_eq)
+    apply (metis base_type_compat_refl ty_res_compat.simps(1) type_preserving_ty_res_compat)
+    by (metis (no_types, lifting) ENat.prems(2) domI finite_map_freshness fun_upd_triv infinite_UNIV_listI select_preserve upd_None_map_le)
+
+  have typed: "?\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> ?\<Delta>'"
+    by (metis Loc fun_upd_same)
+  have "\<Delta> = \<Gamma>" using ENat.prems using loc_type.cases by blast
+
+  then have prf_compat: "prf_compat_simple \<Delta> (\<mu>, ?\<rho>') ?\<Delta>'"
+    using \<open> l \<notin> dom \<rho> \<close> ENat
+    apply (intro prf_compat_simpleI)
+    by (auto simp: var_loc_compat_def compat_def var_store_sync_def)
+
+  obtain \<Gamma>' and \<Delta>'
+    where "compat \<Delta>' f {#} (\<mu>, ?\<rho>')"
+      and "(\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> \<Delta>')"
+      and "prf_compat_simple \<Delta> (\<mu>, ?\<rho>') \<Delta>'" 
+    using compat typed prf_compat ..
+  then show ?case using ENat.prems by auto
+next
+  case (EBool l \<rho> \<mu> b)
+  then have "\<rho> \<subseteq>\<^sub>m \<rho>(l \<mapsto> Res (boolean, Bool b))" by (auto simp: map_le_def) 
+  have "\<tau> = (any, boolean)" using EBool loc_type.cases by blast
+  let ?\<L>' = "Loc (l, SLoc l)"
+  let ?\<Gamma>' = "\<Gamma>(?\<L>' \<mapsto> \<tau>)"
+  let ?\<Delta>' = "?\<Gamma>'(?\<L>' \<mapsto> f \<tau>)"
+  let ?\<rho>' = "\<rho>(l \<mapsto> Res (boolean, Bool b))"
+  have compat: "compat ?\<Delta>' f {#} (\<mu>, ?\<rho>')" using EBool
+    using \<open>\<tau> = (any, boolean)\<close> add_fresh_loc fresh_loc_not_in_env \<open> \<rho> \<subseteq>\<^sub>m ?\<rho>' \<close>
+    apply (cases b)
+    apply (auto simp: compat_def)
+    using select_loc_update apply auto[1]
+    apply (smt EBool.hyps var_store_sync_def Stored.distinct(1) Stored.inject(2) count_eq_zero_iff insert_noteq_member map_upd_Some_unfold mset_add zero_multiset.rep_eq)
+    apply (metis base_type_compat_refl ty_res_compat.simps(1) type_preserving_ty_res_compat)
+    apply (metis (no_types, lifting) EBool.prems(2) domI finite_map_freshness fun_upd_triv infinite_UNIV_listI select_preserve upd_None_map_le)
+    using select_loc_le apply auto[1]
+    apply (smt EBool.hyps var_store_sync_def Stored.distinct(1) Stored.inject(2) count_eq_zero_iff insert_noteq_member map_upd_Some_unfold mset_add zero_multiset.rep_eq)
+    apply (metis base_type_compat_refl ty_res_compat.simps(1) type_preserving_ty_res_compat)
+    by (metis (no_types, lifting) EBool.prems(2) domI finite_map_freshness fun_upd_triv infinite_UNIV_listI select_preserve upd_None_map_le)
+
+  have typed: "?\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> ?\<Delta>'"
+    by (metis Loc fun_upd_same)
+  have "\<Delta> = \<Gamma>" using EBool.prems using loc_type.cases by blast
+
+  then have prf_compat: "prf_compat_simple \<Delta> (\<mu>, ?\<rho>') ?\<Delta>'"
+    using \<open> l \<notin> dom \<rho> \<close> EBool
+    apply (intro prf_compat_simpleI)
+    by (auto simp: var_loc_compat_def compat_def var_store_sync_def)
+
+  obtain \<Gamma>' and \<Delta>'
+    where "compat \<Delta>' f {#} (\<mu>, ?\<rho>')"
+      and "(\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> \<Delta>')"
+      and "prf_compat_simple \<Delta> (\<mu>, ?\<rho>') \<Delta>'" 
+    using compat typed prf_compat .. 
+  then show ?case using EBool.prems by auto
+next
+  case (EVar \<mu> x l \<rho>)
+  let ?\<L>' = "Loc l"
+  let ?\<Gamma>' = "if ?\<L>' \<in> dom \<Delta> then \<Delta> else \<Delta>(?\<L>' \<mapsto> \<tau>)"
+  let ?\<Delta>' = "?\<Gamma>'(?\<L>' \<mapsto> f \<tau>)"
+(* NOTE: Need to make sure we only add the new location to the environment in the case that it's not already there! *)
+(* Actually, if it's already there, I think we don't need to change it at all ?  ? ? ? *)
+
+  have x_ty: "\<Gamma> (V x) = Some \<tau>" using EVar
+     apply auto
+     apply (erule loc_type.cases)
+    by auto
+
+  (* TODO: Need to simplify this... *)
+  have "\<forall>x k \<tau>. \<mu> x = Some k \<and> \<Gamma> (Loc k) = Some \<tau> \<longrightarrow> \<Gamma> (V x) = Some \<tau>" using EVar 
+    by (auto simp: compat_def var_store_sync_def)
+
+  from EVar have final_env: "\<Delta> = \<Gamma>(V x \<mapsto> f \<tau>)" by simp (erule loc_type.cases, auto)
+
+  then show ?case
+  proof(cases "Loc l \<in> dom \<Gamma>")
+    case True
+      then have a1: "\<Gamma> (V x) = \<Gamma> (Loc l)" using EVar
+        using \<open>\<forall>x k \<tau>. \<mu> x = Some k \<and> \<Gamma> (Loc k) = Some \<tau> \<longrightarrow> \<Gamma> (V x) = Some \<tau>\<close>
+        by (metis (full_types) domD)
+      then have a2: "\<Gamma> (Loc l) = Some \<tau>" using x_ty
+        by auto
+    
+      then have compat: "compat ?\<Delta>' f {#} (\<mu>, \<rho>)" using EVar a1 a2 x_ty final_env
+        apply (auto simp: compat_def var_store_sync_def)
+        apply (simp add: injD)
+        apply (metis (no_types, lifting) EVar.prems(2) in_type_env_compat option.inject type_preserving_ty_res_compat)
+        by (smt EVar.prems(2) in_type_env_compat option.simps(5) type_preserving_ty_res_compat)
+    
+      have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'"
+        by (simp add: Loc final_env a2)
+    
+      then have prf_compat: "prf_compat_simple \<Delta> (\<mu>, \<rho>) ?\<Delta>'" 
+        using EVar final_env a2 a1
+        apply (intro prf_compat_simpleI)
+          apply simp
+         defer
+         apply simp
+        apply (auto simp: compat_def)
+        by (simp add: var_loc_compat_upd)
+      obtain \<Gamma>' and \<Delta>' 
+        where "compat \<Delta>' f {#} (\<mu>, \<rho>)"
+          and "\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> \<Delta>'" 
+          and "prf_compat_simple \<Delta> (\<mu>, \<rho>) \<Delta>'" 
+        using compat typed prf_compat ..
+      then show ?thesis using EVar.prems by auto
+  next
+    case False
+
+    then have compat: "compat ?\<Delta>' f {#} (\<mu>, \<rho>)" using EVar x_ty final_env
+      apply (auto simp: compat_def var_store_sync_def)
+      apply (simp add: injD)
+      apply (smt EVar.prems(2) in_type_env_compat option.simps(5) type_preserving_ty_res_compat)
+      by (smt EVar.prems(2) in_type_env_compat option.simps(5) type_preserving_ty_res_compat)
+
+    have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'" using False loc_type.Loc 
+      apply (simp add: final_env)
+      by (metis fun_upd_same fun_upd_upd)
+
+    then have prf_compat: "prf_compat_simple \<Delta> (\<mu>, \<rho>) ?\<Delta>'" 
+      using EVar final_env
+      apply (intro prf_compat_simpleI)
+      apply (auto simp: compat_def)
+      by (simp add: var_loc_compat_upd)
+
+    obtain \<Gamma>' and \<Delta>' 
+      where "compat \<Delta>' f {#} (\<mu>, \<rho>)"
+        and "\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> \<Delta>'" 
+        and "prf_compat_simple \<Delta> (\<mu>, \<rho>) \<Delta>'" 
+      using compat typed prf_compat ..
+
+      then show ?thesis using EVar.prems by auto
+  qed
+next
+  case (EVarDef x \<mu> l \<rho> t)
+  let ?\<Gamma>' = "\<Delta>(Loc (l, SLoc l) \<mapsto> \<tau>)"
+  let ?\<Delta>' = "?\<Gamma>'(Loc (l, SLoc l) \<mapsto> f \<tau>)"
+  from EVarDef have "\<Delta> = \<Gamma>(V x \<mapsto> f (empty,t))" by simp (erule loc_type.cases, auto)  
+  then have compat: "?\<Gamma>' \<leftrightarrow> (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t)))" using EVarDef by auto
+  have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> ?\<Delta>'" by (meson Var fun_upd_same)
+  obtain \<Gamma>' and \<Delta>'
+    where "\<Gamma>' \<leftrightarrow> (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t)))"
+      and "\<Gamma>' \<turnstile>{s} f ; S (Loc (l, SLoc l)) : \<tau> \<stileturn> \<Delta>'" using compat typed ..
+  then show ?case using EVarDef.prems by auto
+next
+  case (EConsListHeadCongr \<Sigma> \<L> \<Sigma>' \<L>' \<tau>' Tail \<Gamma> \<tau>)
+  then obtain \<Delta>'' where "\<Gamma> \<turnstile>{s} f ; \<L> : \<tau>' \<stileturn> \<Delta>''" by simp (erule loc_type.cases, auto)
+  then have "finite_store \<Sigma>'" and "\<exists>\<Gamma>' \<Delta>'. (\<Gamma>' \<leftrightarrow> \<Sigma>') \<and> (\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau>' \<stileturn> \<Delta>')" 
+    using EConsListHeadCongr by auto
+  then obtain \<Gamma>' and \<Delta>' where "\<Gamma>' \<leftrightarrow> \<Sigma>'" and "\<Gamma>' \<turnstile>{s} f ; \<L>' : \<tau>' \<stileturn> \<Delta>'" by auto
+  then show ?case 
+next
+  case (EConsListTailCongr \<L> \<Sigma> Tail \<Sigma>' Tail' \<tau>)
+  then show ?case sorry
+qed
+
+(*
+
 lemma locator_preservation:
   fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
   assumes "<\<Sigma>, \<L>> \<rightarrow> <\<Sigma>', \<L>'>"
@@ -942,6 +1331,8 @@ next
   case (EVar \<mu> x l \<rho>)
   let ?\<Gamma>' = "\<Delta>"
   let ?\<L>' = "Loc l"
+(* NOTE: Need to make sure we only add the new location to the environment in the case that it's not already there! *)
+(* Actually, if it's already there, I think we don't need to change it at all ?  ? ? ? *)
   from EVar have "\<Delta> = \<Gamma>(V x \<mapsto> f \<tau>)" by simp (erule loc_type.cases, auto)
   then have compat: "compat ?\<Gamma>' f (\<LL> - locations (S ?\<L>')) (\<mu>, \<rho>)" using EVar
     apply (auto simp: compat_def var_store_sync_def)
@@ -975,5 +1366,6 @@ next
   case (EConsListTailCongr \<L> \<Sigma> Tail \<Sigma>' Tail' \<tau>)
   then show ?case sorry
 qed
+*)
 
 end

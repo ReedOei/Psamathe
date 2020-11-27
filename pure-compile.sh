@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# output_file="compiled.sol"
-output_file="$(mktemp XXXXXXXXX.sol)"
+output_file="compiled.sol"
+# output_file="$(mktemp XXXXXXXXX.sol)"
 ./flow pure-compile --pattern "<k> Code </k>" "$1" \
     | tail -n+4 \
     | head -n-1 \
