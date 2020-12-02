@@ -17,7 +17,7 @@ datatype Locator = N nat | B bool | S Stored
   | VDef string BaseTy ("var _ : _")
   | EmptyList Type ("[ _ ; ]")
   | ConsList Type "Locator" "Locator" ("[ _ ; _ , _ ]")
-  | Copy Locator ("copy(_)")
+  | Copy Locator ("copy'(_')")
 datatype Stmt = Flow Locator Locator
 datatype Prog = Prog "Stmt list"
 
@@ -245,16 +245,24 @@ fun lookup_var_loc :: "Env \<Rightarrow> (string \<rightharpoonup> StorageLoc) \
 
 type_synonym Offset = "StorageLoc \<Rightarrow> (Type \<Rightarrow> Type) list" 
 
-definition apply_updaters :: "Offset \<Rightarrow> StorageLoc \<Rightarrow> Type \<Rightarrow> Type" ("_\<^sup>_[_]") where
-  "apply_updaters \<O> l \<equiv> foldl (\<circ>) (\<lambda>t. t) (\<O> l)"
+definition apply_offset :: "Offset \<Rightarrow> StorageLoc \<Rightarrow> Type \<Rightarrow> Type" ("_\<^sup>_[_]" 110) where
+  "apply_offset \<O> l \<equiv> foldl (\<circ>) (\<lambda>t. t) (\<O> l)"
 
-definition var_store_sync_new :: "Env \<Rightarrow> Offset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
-  "var_store_sync_new \<Gamma> \<O> \<mu> \<equiv>
+nonterminal offset_let
+
+syntax
+  "_offset_let" :: "[StorageLoc, Type \<Rightarrow> Type] \<Rightarrow> offset_let" ("_ /@@/ _")
+  "_OffsetUpd"  :: "[Offset, offset_let] \<Rightarrow> 'a \<rightharpoonup> 'b" ("_/'(_')" [900, 0] 900)
+
+translations
+  "_OffsetUpd \<O> (_offset_let l f)" \<rightharpoonup> "\<O>(l := \<O> l @ [f])"
+
+definition offset_add :: "Offset \<Rightarrow> Offset \<Rightarrow> Offset" (infix "+\<^sub>o" 65) where
+  "\<O> +\<^sub>o \<P> \<equiv> (\<lambda>l. \<O> l @ \<P> l)"
+
+definition var_store_sync :: "Env \<Rightarrow> Offset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
+  "var_store_sync \<Gamma> \<O> \<mu> \<equiv>
       \<forall>x l \<tau>. (\<mu> x = Some l \<and> \<Gamma> (Loc l) = Some \<tau>) \<longrightarrow> \<Gamma> (V x) = Some (\<O>\<^sup>l[\<tau>])"
-
-definition var_store_sync :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
-  "var_store_sync \<Gamma> f \<LL> \<mu> \<equiv> 
-    \<forall>x l \<tau>. (\<mu> x = Some l \<and> \<Gamma> (Loc l) = Some \<tau>) \<longrightarrow> \<Gamma> (V x) = Some ((f^^(count \<LL> l)) \<tau>)"
 
 definition env_select_compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" where
   "env_select_compat \<Gamma> \<Sigma> \<equiv> \<forall>x \<tau>. \<Gamma> x = Some \<tau> \<longrightarrow> ty_res_compat \<tau> (select \<Sigma> x)"
@@ -262,21 +270,21 @@ definition env_select_compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" whe
 (* NOTE: compat can take a function from Vars/Locs to updaters (default to id) instead of a single function,
           this may let us get rid of some of the issues we face due to the updater changing throughout 
           the rules ... *)
-definition compat :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Store \<Rightarrow> bool" where
-  "compat \<Gamma> f \<LL> \<Sigma> \<equiv> case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow> 
+definition compat :: "Env \<Rightarrow> Offset \<Rightarrow> Store \<Rightarrow> bool" where
+  "compat \<Gamma> \<O> \<Sigma> \<equiv> case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow> 
                         var_dom \<Gamma> = dom \<mu> \<and>
                         (\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>) \<and>
-                        var_store_sync \<Gamma> f \<LL> \<mu> \<and>
+                        var_store_sync \<Gamma> \<O> \<mu> \<and>
                         inj \<mu> \<and> finite (dom \<rho>) \<and>
                         env_select_compat \<Gamma> (\<mu>, \<rho>)"
                         (*(\<forall>x. exact_type (select (\<mu>, \<rho>) x) \<preceq>\<^sub>\<tau> \<Gamma> x))" *)
 
 lemma compat_elim[elim]:
   fixes \<Gamma> \<mu> \<rho> x
-  assumes "compat \<Gamma> f \<LL> (\<mu>, \<rho>)"
+  assumes "compat \<Gamma> \<O> (\<mu>, \<rho>)"
   shows "var_dom \<Gamma> = dom \<mu>" 
     and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>" 
-    and "var_store_sync \<Gamma> f \<LL> \<mu>"
+    and "var_store_sync \<Gamma> \<O> \<mu>"
     and "inj \<mu>" 
     and "env_select_compat \<Gamma> (\<mu>, \<rho>)"
     and "finite (dom \<rho>)"
@@ -286,11 +294,11 @@ lemma compat_elim[elim]:
 lemma compatI[intro]:
   assumes "var_dom \<Gamma> = dom \<mu>" 
     and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>" 
-    and "var_store_sync \<Gamma> f \<LL> \<mu>"
+    and "var_store_sync \<Gamma> \<O> \<mu>"
     and "inj \<mu>" 
     and "env_select_compat \<Gamma> (\<mu>, \<rho>)"
     and "finite (dom \<rho>)"
-  shows "compat \<Gamma> f \<LL> (\<mu>, \<rho>)"
+  shows "compat \<Gamma> \<O> (\<mu>, \<rho>)"
   using assms
   by (simp add: compat_def)
 
@@ -429,7 +437,7 @@ lemma select_loc_preserve_loc:
 
 lemma select_preserve:
   fixes \<Gamma> \<mu> \<rho> \<mu>' \<rho>' x
-  assumes "compat \<Gamma> f \<LL> (\<mu>, \<rho>)" and "\<mu> \<subseteq>\<^sub>m \<mu>'" and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "x \<in> dom \<Gamma>"
+  assumes "compat \<Gamma> \<O> (\<mu>, \<rho>)" and "\<mu> \<subseteq>\<^sub>m \<mu>'" and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "x \<in> dom \<Gamma>"
   shows "select (\<mu>, \<rho>) x = select (\<mu>', \<rho>') x"
   using assms
 proof(cases x)
@@ -531,9 +539,9 @@ qed
 end
 
 lemma compat_transfer_var_sync:
-  assumes "compat \<Gamma> f \<LL> (\<mu>, \<rho>)" 
-      and "var_store_sync \<Gamma> f \<LL>' \<mu>"
-    shows "compat \<Gamma> f \<LL>' (\<mu>, \<rho>)"
+  assumes "compat \<Gamma> \<O> (\<mu>, \<rho>)" 
+      and "var_store_sync \<Gamma> \<O>' \<mu>"
+    shows "compat \<Gamma> \<O>' (\<mu>, \<rho>)"
   using assms
   by (auto simp: compat_def var_store_sync_def)
 
@@ -560,33 +568,46 @@ lemma type_preserving_ty_res_compat:
   by (metis assms(2) ty_res_compat.elims(2) ty_res_compat.simps(1) type_preserving_works)
 
 lemma var_store_sync_use:
-  assumes "var_store_sync \<Gamma> f \<LL> \<mu>"
+  assumes "var_store_sync \<Gamma> \<O> \<mu>"
       and "\<mu> x = Some l"
       and "\<Gamma> (Loc l) = Some \<tau>"
-    shows "\<Gamma> (V x) = Some ((f^^(count \<LL> l)) \<tau>)"
+    shows "\<Gamma> (V x) = Some (\<O>\<^sup>l[\<tau>])"
   using assms var_store_sync_def
   by blast
 
-lemma var_store_sync_add:
-  assumes "var_store_sync \<Gamma> f ({#l#} + \<LL>) \<mu>"
-      and "\<Gamma> (Loc l) = Some \<tau>"
-      and "\<mu> x = Some l"
-  shows "var_store_sync (\<Gamma>(Loc l \<mapsto> f \<tau>)) f \<LL> \<mu>"
+lemma offset_upd: "(\<O>(l @@ f))\<^sup>l[\<tau>] = (\<O>\<^sup>l[f \<tau>])"
+  by (auto simp: apply_offset_def)
+
+lemma offset_upd_add: "\<O>(l @@ f) = \<O> +\<^sub>o (\<lambda>k. if k = l then [f] else [])"
+  by (auto simp: offset_add_def)
+
+lemma offset_upd_dif: 
+  assumes "l \<noteq> k"
+  shows "(\<O>(l @@ f))\<^sup>k[\<tau>] = (\<O>\<^sup>k[\<tau>])"
   using assms
-proof -
-  have "\<Gamma> (V x) = map_option (f^^(count ({#l#} + \<LL>) l)) (\<Gamma> (Loc l))" using assms
-    by (simp add: var_store_sync_use)
+  by (auto simp: apply_offset_def)
+
+lemma var_store_sync_add:
+  assumes "var_store_sync \<Gamma> (\<O>(l @@ f)) \<mu>"
+      and "\<Gamma> (Loc l) = Some \<tau>"
+  shows "var_store_sync (\<Gamma>(Loc l \<mapsto> f \<tau>)) \<O> \<mu>"
+  using assms
+proof(cases "\<exists>x. \<mu> x = Some l")
+  case True
+  then obtain x where "\<mu> x = Some l" by auto
+  then have "\<Gamma> (V x) = Some (\<O>\<^sup>l[f \<tau>])" using assms True
+    apply (auto simp: var_store_sync_use)
+    by (simp add: offset_upd)
   then show ?thesis using assms
     apply (auto simp: var_store_sync_def)
-    by (metis funpow_swap1 old.prod.exhaust)
+    apply (metis offset_upd old.prod.exhaust)
+    by (simp add: offset_upd_dif)
+next
+  case False
+  then show ?thesis using assms
+    apply (auto simp: var_store_sync_def)
+    by (simp add: offset_upd_dif)
 qed
-
-lemma var_store_sync_no_var:
-  assumes "var_store_sync \<Gamma> f ({#l#} + \<LL>) \<mu>"
-    and "\<not>(\<exists>x. \<mu> x = Some l)"
-  shows "var_store_sync (\<Gamma>(Loc l \<mapsto> \<tau>)) f \<LL> \<mu>" 
-  using assms
-  by (auto simp: var_store_sync_def)
 
 fun update_locations :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Env" where
   "update_locations \<Gamma> f \<LL> (V x) = \<Gamma> (V x)"
@@ -623,15 +644,25 @@ proof(rule ext)
     by (auto simp: option.map_id)
 qed
 
+definition insert_many :: "Offset \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Offset" where
+  "insert_many \<O> f \<LL> \<equiv> (\<lambda>l. \<O> l @ replicate (count \<LL> l) f)"
+
+lemma insert_many_single[simp]: 
+  "insert_many \<O> f (add_mset l \<LL>) = insert_many (\<O>(l @@ f)) f \<LL>"
+  by (auto simp: insert_many_def)
+
+lemma insert_many_id[simp]: "insert_many \<O> f {#} = \<O>"
+  by (auto simp: insert_many_def)
+
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> f (locations \<L> + \<LL>) (\<mu>, \<rho>)"
+      and "compat \<Gamma> (insert_many \<O> f (locations \<L>)) (\<mu>, \<rho>)"
       and "located \<L>"
       and "type_preserving f"
-    shows "compat \<Delta> f \<LL> (\<mu>, \<rho>) \<and> \<Delta> = update_locations \<Gamma> f (locations \<L>)"
+    shows "compat \<Delta> \<O> (\<mu>, \<rho>) \<and> \<Delta> = update_locations \<Gamma> f (locations \<L>)"
   using assms
-proof(induction arbitrary: \<mu> \<rho> \<LL> rule: loc_type.induct)
+proof(induction arbitrary: \<mu> \<rho> \<O> rule: loc_type.induct)
   case (Nat \<Gamma> f n)
   then show ?case by simp
 next
@@ -650,14 +681,15 @@ next
     then obtain x where "\<mu> x = Some l" ..
     then show ?thesis using Loc
       apply (unfold compat_def, clarsimp, safe)
-      apply (simp add: var_store_sync_add)
+        apply (simp add: var_store_sync_add)
+      
       apply (smt env_select_compat_def fun_upd_apply option.inject type_preserving_ty_res_compat)
       by (simp add: update_locations_step)
   next
     case False
     then show ?thesis using Loc
       apply (unfold compat_def, clarsimp, safe)
-      apply (simp add: var_store_sync_no_var)
+      apply (simp add: var_store_sync_add)
       apply (smt env_select_compat_def fun_upd_apply option.inject type_preserving_ty_res_compat)
       by (simp add: update_locations_step)
   qed 
