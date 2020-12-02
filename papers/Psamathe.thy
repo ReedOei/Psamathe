@@ -56,7 +56,7 @@ inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> (Type \<Rightarrow> 
 | ConsList: "\<lbrakk> \<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta> ;
               \<Delta> \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi> \<rbrakk> 
              \<Longrightarrow> \<Gamma> \<turnstile>{s} f ; [ \<tau> ; \<L>, Tail ] : (one \<oplus> q, table [] \<tau>) \<stileturn> \<Xi>"
-| Copy: "\<lbrakk> \<Gamma> \<turnstile>{s} (\<lambda>x. x) ; L : \<tau> \<stileturn> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{s} f ; copy(L) : demote \<tau> \<stileturn> \<Gamma>"
+| Copy: "\<lbrakk> \<Gamma> \<turnstile>{s} id ; L : \<tau> \<stileturn> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{s} f ; copy(L) : demote \<tau> \<stileturn> \<Gamma>"
 
 fun emptyVal :: "BaseTy \<Rightarrow> Val" where
   "emptyVal natural = Num 0"
@@ -246,7 +246,7 @@ fun lookup_var_loc :: "Env \<Rightarrow> (string \<rightharpoonup> StorageLoc) \
 type_synonym Offset = "StorageLoc \<Rightarrow> (Type \<Rightarrow> Type) list" 
 
 definition apply_offset :: "Offset \<Rightarrow> StorageLoc \<Rightarrow> Type \<Rightarrow> Type" ("_\<^sup>_[_]" 110) where
-  "apply_offset \<O> l \<equiv> foldl (\<circ>) (\<lambda>t. t) (\<O> l)"
+  "apply_offset \<O> l \<equiv> foldl (\<circ>) id (\<O> l)"
 
 nonterminal offset_let
 
@@ -257,8 +257,8 @@ syntax
 translations
   "_OffsetUpd \<O> (_offset_let l f)" \<rightharpoonup> "\<O>(l := \<O> l @ [f])"
 
-definition offset_add :: "Offset \<Rightarrow> Offset \<Rightarrow> Offset" (infix "+\<^sub>o" 65) where
-  "\<O> +\<^sub>o \<P> \<equiv> (\<lambda>l. \<O> l @ \<P> l)"
+definition offset_comp :: "Offset \<Rightarrow> Offset \<Rightarrow> Offset" (infix "\<circ>\<^sub>o" 65) where
+  "\<O> \<circ>\<^sub>o \<P> \<equiv> (\<lambda>l. \<O> l @ \<P> l)"
 
 definition var_store_sync :: "Env \<Rightarrow> Offset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
   "var_store_sync \<Gamma> \<O> \<mu> \<equiv>
@@ -578,9 +578,6 @@ lemma var_store_sync_use:
 lemma offset_upd: "(\<O>(l @@ f))\<^sup>l[\<tau>] = (\<O>\<^sup>l[f \<tau>])"
   by (auto simp: apply_offset_def)
 
-lemma offset_upd_add: "\<O>(l @@ f) = \<O> +\<^sub>o (\<lambda>k. if k = l then [f] else [])"
-  by (auto simp: offset_add_def)
-
 lemma offset_upd_dif: 
   assumes "l \<noteq> k"
   shows "(\<O>(l @@ f))\<^sup>k[\<tau>] = (\<O>\<^sup>k[\<tau>])"
@@ -609,43 +606,67 @@ next
     by (simp add: offset_upd_dif)
 qed
 
-fun update_locations :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Env" where
-  "update_locations \<Gamma> f \<LL> (V x) = \<Gamma> (V x)"
-| "update_locations \<Gamma> f \<LL> (Loc l) = map_option (f^^(count \<LL> l)) (\<Gamma> (Loc l))"
+fun update_locations :: "Env \<Rightarrow> Offset \<Rightarrow> Env" where
+  "update_locations \<Gamma> \<O> (V x) = \<Gamma> (V x)"
+| "update_locations \<Gamma> \<O> (Loc l) = map_option (\<lambda>\<tau>. (\<O>\<^sup>l[\<tau>])) (\<Gamma> (Loc l))"
 
-lemma update_locations_id: "update_locations \<Gamma> f {#} = \<Gamma>"
+lemma update_locations_id: "update_locations \<Gamma> (\<lambda>l. []) = \<Gamma>"
 proof(rule ext)
   fix x
-  show "update_locations \<Gamma> f {#} x = \<Gamma> x" 
+  show "update_locations \<Gamma> (\<lambda>l. []) x = \<Gamma> x" 
     apply (cases x)
-    by (simp_all add: option.map_id)
+    by (auto simp: option.map_id apply_offset_def)
 qed
+
+lemma foldl_comp: "foldl (\<circ>) (foldl (\<circ>) id xs) ys a = foldl (\<circ>) id xs (foldl (\<circ>) id ys a)"
+  apply (induction ys arbitrary: xs)
+  apply simp
+  by (metis comp_apply foldl_Cons foldl_Nil fun.map_id0 id_apply)
+
+lemma apply_offset_distrib[simp]: "(\<O> \<circ>\<^sub>o \<P>)\<^sup>l[\<tau>] = (\<O>\<^sup>l[\<P>\<^sup>l[\<tau>]])"
+  apply (auto simp: offset_comp_def apply_offset_def)
+  by (simp add: foldl_comp)
 
 lemma update_locations_union: 
-  assumes "update_locations \<Gamma> f \<LL> = \<Delta>"
-      and "update_locations \<Delta> f \<KK> = \<Xi>"
-    shows "update_locations \<Gamma> f (\<LL> + \<KK>) = \<Xi>"
+  assumes "update_locations \<Gamma> \<O> = \<Delta>"
+      and "update_locations \<Delta> \<P> = \<Xi>"
+    shows "update_locations \<Gamma> (\<P> \<circ>\<^sub>o \<O>) = \<Xi>"
 proof(rule ext)
   fix x
-  show "update_locations \<Gamma> f (\<LL> + \<KK>) x = \<Xi> x"
-    apply (cases x)
-    using assms(1) assms(2) apply auto[1]
-    apply simp
-    by (metis add.commute assms(1) assms(2) funpow_add map_option.compositionality update_locations.simps(2))
-qed
-
-lemma update_locations_step: 
-  assumes "\<Gamma>(Loc l) = Some \<tau>" 
-  shows "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) = update_locations \<Gamma> f {#l#}"
-proof(rule ext)
-  fix x
-  show "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) x = update_locations \<Gamma> f {#l#} x" using assms
-    apply (cases x)
-    by (auto simp: option.map_id)
+  show "update_locations \<Gamma> (\<P> \<circ>\<^sub>o \<O>) x = \<Xi> x"
+  proof(cases x)
+    case (V x1)
+    then show ?thesis using assms by auto
+  next
+    case (Loc l)
+    have "update_locations \<Gamma> \<O> x = \<Delta> x" 
+      and "update_locations \<Delta> \<P> x = \<Xi> x" 
+      using assms by auto
+    then show ?thesis using assms Loc
+      apply (cases "\<Gamma> (Loc l)")
+      by auto
+  qed
 qed
 
 definition insert_many :: "Offset \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Offset" where
   "insert_many \<O> f \<LL> \<equiv> (\<lambda>l. \<O> l @ replicate (count \<LL> l) f)"
+
+definition offset_of :: "(Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Offset" where
+  "offset_of \<equiv> insert_many (\<lambda>l. [])"
+
+lemma offset_of_add: "offset_of f (\<LL> + \<KK>) = insert_many (offset_of f \<LL>) f \<KK>"
+  by (auto simp: insert_many_def offset_of_def replicate_add)
+
+lemma update_locations_step: 
+  assumes "\<Gamma>(Loc l) = Some \<tau>" 
+  shows "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) = update_locations \<Gamma> (offset_of f {#l#})"
+proof(rule ext)
+  fix x
+  show "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) x = update_locations \<Gamma> (offset_of f {#l#}) x" 
+    using assms
+    apply (cases x)
+    by (auto simp: offset_of_def insert_many_def apply_offset_def option.map_id)
+qed
 
 lemma insert_many_single[simp]: 
   "insert_many \<O> f (add_mset l \<LL>) = insert_many (\<O>(l @@ f)) f \<LL>"
@@ -654,13 +675,34 @@ lemma insert_many_single[simp]:
 lemma insert_many_id[simp]: "insert_many \<O> f {#} = \<O>"
   by (auto simp: insert_many_def)
 
+lemma insert_many_add: "insert_many \<O> f (\<LL> + \<KK>) = insert_many (insert_many \<O> f \<LL>) f \<KK>"
+proof(rule ext)
+  fix x
+  show "insert_many \<O> f (\<LL> + \<KK>) x = insert_many (insert_many \<O> f \<LL>) f \<KK> x"
+    apply (cases x)
+    by (auto simp: insert_many_def replicate_add)
+qed
+
+lemma update_comm: "update_locations (update_locations \<Gamma> (offset_of f \<LL>)) (offset_of f \<K>) 
+       = update_locations \<Gamma> (insert_many (offset_of f \<LL>) f \<K>)"
+proof(rule ext)
+  fix x
+  show "update_locations (update_locations \<Gamma> (offset_of f \<LL>)) (offset_of f \<K>) x =
+         update_locations \<Gamma> (insert_many (offset_of f \<LL>) f \<K>) x"
+    apply (cases x)
+     apply (auto simp: insert_many_def apply_offset_def offset_of_def)
+    apply (cases "\<Gamma> x")
+    apply auto
+    by (metis append_replicate_commute foldl_append foldl_comp)
+qed
+
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
       and "compat \<Gamma> (insert_many \<O> f (locations \<L>)) (\<mu>, \<rho>)"
       and "located \<L>"
       and "type_preserving f"
-    shows "compat \<Delta> \<O> (\<mu>, \<rho>) \<and> \<Delta> = update_locations \<Gamma> f (locations \<L>)"
+    shows "compat \<Delta> \<O> (\<mu>, \<rho>) \<and> \<Delta> = update_locations \<Gamma> (offset_of f (locations \<L>))"
   using assms
 proof(induction arbitrary: \<mu> \<rho> \<O> rule: loc_type.induct)
   case (Nat \<Gamma> f n)
@@ -699,24 +741,24 @@ next
 next
   case (EmptyList \<Gamma> f \<tau>)
   then show ?case
-    by (simp add: update_locations_id)
+    by (simp add: offset_of_def update_locations_id)
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
   then have "located \<L>" and "located Tail" 
-        and "Psamathe.compat \<Gamma> f (locations \<L> + locations Tail + \<LL>) (\<mu>, \<rho>)"
-        and "\<Delta> = update_locations \<Gamma> f (locations \<L>)"
-        apply simp
+        and "compat \<Gamma> (insert_many \<O> f (locations \<L> + locations Tail)) (\<mu>, \<rho>)"
+        and "\<Delta> = update_locations \<Gamma> (offset_of f (locations \<L>))"
+        apply simp  
     using ConsList.prems(2) apply auto[1]
     using ConsList.prems(1) apply auto[1]
-    by (metis ConsList.IH(1) ConsList.prems(1) ConsList.prems(2) ConsList.prems(3) located.simps(3) locations.simps(8) union_commute union_lcomm)
-  then have "Psamathe.compat \<Delta> f (locations Tail + \<LL>) (\<mu>, \<rho>)" using ConsList
-    apply auto
-    by (metis ab_semigroup_add_class.add_ac(1))
-  then show "Psamathe.compat \<Xi> f \<LL> (\<mu>, \<rho>) \<and> \<Xi> = update_locations \<Gamma> f (locations [\<tau>; \<L>, Tail])" 
+    using ConsList
+    by (simp add: add.commute insert_many_add)
+  then have "compat \<Delta> (insert_many \<O> f (locations Tail)) (\<mu>, \<rho>)" 
     using ConsList
     apply auto
-    apply blast
-    by (simp add: \<open>\<Delta> = update_locations \<Gamma> f (locations \<L>)\<close> update_locations_union)
+    by (simp add: insert_many_add union_commute)
+  then show "compat \<Xi> \<O> (\<mu>, \<rho>) \<and> \<Xi> = update_locations \<Gamma> (offset_of f (locations [\<tau>; \<L>, Tail]))" 
+    using ConsList \<open> \<Delta> = update_locations \<Gamma> (offset_of f (locations \<L>)) \<close>
+    by (metis \<open>located Tail\<close> insert_many_add locations.simps(8) offset_of_def update_comm)
 next
   case (Copy \<Gamma> L \<tau> f)
   then show ?case by simp
@@ -726,24 +768,36 @@ qed
 lemma located_env_compat2:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> f (locations \<L> + \<LL>) (\<mu>, \<rho>)"
+      and "compat \<Gamma> (insert_many \<O> f (locations \<L>)) (\<mu>, \<rho>)"
       and "located \<L>"
       and "type_preserving f"
-    shows "compat \<Delta> f \<LL> (\<mu>, \<rho>)" and "\<Delta> = update_locations \<Gamma> f (locations \<L>)"
+    shows "compat \<Delta> \<O> (\<mu>, \<rho>)" and "\<Delta> = update_locations \<Gamma> (offset_of f (locations \<L>))"
   using assms
   using located_env_compat apply auto[1]
   using assms(1) assms(2) assms(3) assms(4) located_env_compat by auto
 
+lemma comp_id_nop: "foldl (\<circ>) f (replicate n id) = f"
+  by (induction n, auto)
+
+lemma insert_many_ids: "(insert_many \<O> id \<LL>)\<^sup>l[\<tau>] = (\<O>\<^sup>l[\<tau>])"
+  by (auto simp: insert_many_def apply_offset_def comp_id_nop)
+
+lemma var_store_sync_id_insert:
+  assumes "var_store_sync \<Gamma> \<O> \<Sigma>"
+  shows "var_store_sync \<Gamma> (insert_many \<O> id \<LL>) \<Sigma>"
+  using assms
+  by (auto simp: var_store_sync_def insert_many_ids)
+
 lemma locator_progress:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> f (locations \<L> + \<LL>) (\<mu>, \<rho>)"
+      and "compat \<Gamma> (insert_many \<O> f (locations \<L>)) (\<mu>, \<rho>)"
       and "\<L> wf"
       and "finite (dom \<rho>)"
       and "type_preserving f"
   shows "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. <(\<mu>, \<rho>), \<L>> \<rightarrow> <(\<mu>', \<rho>'), \<L>'> )"
   using assms
-proof(induction arbitrary: \<mu> \<rho> m \<LL> rule: loc_type.induct)
+proof(induction arbitrary: \<mu> \<rho> m \<O> rule: loc_type.induct)
   case (Nat \<Gamma> f n)
   then show ?case by (meson ENat gen_loc)
 next
@@ -763,7 +817,7 @@ next
   then show ?case by simp
 next
   case (VarDef x \<Gamma> f t)
-  then have env_compat: "compat \<Gamma> f \<LL> (\<mu>, \<rho>)" by simp
+  then have env_compat: "compat \<Gamma> \<O> (\<mu>, \<rho>)" by simp
   have not_in_lookup: "x \<notin> dom \<mu>" using VarDef by (auto simp: compat_def)
   have "finite (dom \<rho>)" using VarDef by simp
   then obtain l where has_loc: "l \<notin> dom \<rho>" using gen_loc env_compat not_in_lookup by blast
@@ -778,16 +832,17 @@ next
   then show ?case by simp
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
-  then have env_compat: "compat \<Gamma> f (locations \<L> + locations Tail + \<LL>) (\<mu>, \<rho>)" by auto
+  then have env_compat: "compat \<Gamma> (insert_many \<O> f (locations \<L> + locations Tail)) (\<mu>, \<rho>)" by auto
 
   from ConsList and wf_locator.cases 
   have "\<L> wf" and "Tail wf" and "finite (dom \<rho>)" and "type_preserving f" by fastforce+
 
   from this and env_compat 
   have loc_induct: "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. < (\<mu>, \<rho>) , \<L> > \<rightarrow> < (\<mu>', \<rho>') , \<L>' >)"
-  and tail_induct: "\<And>\<mu>' \<rho>'. \<lbrakk>compat \<Delta> f (locations Tail + \<LL>) (\<mu>, \<rho>)\<rbrakk>
+    and tail_induct: "\<And>\<mu>' \<rho>'. \<lbrakk>compat \<Delta> (insert_many \<O> f (locations Tail)) (\<mu>, \<rho>)\<rbrakk>
                          \<Longrightarrow> located Tail \<or> (\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >)"
-    by (simp_all add: ConsList union_assoc)
+    apply (simp add: ConsList.IH(1) insert_many_add union_commute)
+    by (simp add: ConsList.IH(2) ConsList.prems(4) \<open>Tail wf\<close> \<open>finite (dom \<rho>)\<close>)
    
   show ?case
   proof(cases "located \<L>")
@@ -800,9 +855,9 @@ next
       from this and loc_l show ?thesis by simp
     next
       case False
-      from loc_l have "compat \<Delta> f (locations Tail + \<LL>) (\<mu>, \<rho>)" 
+      from loc_l have "compat \<Delta> (insert_many \<O> f (locations Tail)) (\<mu>, \<rho>)" 
         using located_env_compat ConsList env_compat
-        by (metis ab_semigroup_add_class.add_ac(1)) 
+        by (smt add.commute insert_many_add)
       then have "\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >"
         using tail_induct ConsList False by blast
       then show ?thesis using EConsListTailCongr loc_l by blast
@@ -816,13 +871,14 @@ next
   case (Copy \<Gamma> L \<tau> f)
   then have "L wf" using wf_locator.cases by blast
 
-  then have "compat \<Gamma> (\<lambda>a. a) (locations L + \<LL>) (\<mu>, \<rho>)"
-    sorry
+  then have "compat \<Gamma> \<O> (\<mu>, \<rho>)" using Copy by simp
+  then have "compat \<Gamma> (insert_many \<O> id (locations L)) (\<mu>, \<rho>)"
+    using compat_elim(3) compat_transfer_var_sync var_store_sync_id_insert by blast
 
   have "type_preserving (\<lambda>a. a)" by (auto simp: type_preserving_def base_type_compat_refl)
 
-  then have ih: "located L \<or> (\<exists>\<mu>' \<rho>' a. <(\<mu>, \<rho>) , L> \<rightarrow> <(\<mu>', \<rho>') , a>)" using Copy
-    by (metis \<open>L wf\<close> \<open>Psamathe.compat \<Gamma> (\<lambda>a. a) (locations L + \<LL>) (\<mu>, \<rho>)\<close>)
+  then have ih: "located L \<or> (\<exists>\<mu>' \<rho>' a. <(\<mu>, \<rho>) , L> \<rightarrow> <(\<mu>', \<rho>') , a>)"
+    by (smt Copy.IH \<open>L wf\<close> \<open>Psamathe.compat \<Gamma> (insert_many \<O> id (locations L)) (\<mu>, \<rho>)\<close> compat_elim(6) eq_id_iff)
 
   obtain l where "l \<notin> dom \<rho>" using Copy.prems(3) gen_loc by auto 
     
