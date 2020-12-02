@@ -7,17 +7,22 @@ datatype BaseTy = natural | boolean
   | table "string list" "TyQuant \<times> BaseTy"
 type_synonym Type = "TyQuant \<times> BaseTy"
 datatype Mode = s | d
-datatype SVal = SLoc nat | Amount nat
-type_synonym StorageLoc = "nat \<times> SVal" 
+
+datatype Val = Num nat | Bool bool | Table "Resource list"
+  and Resource = Res "BaseTy \<times> Val" | error
+datatype StorageLoc = SLoc nat | Amount nat nat | ResLoc nat Resource
 datatype Stored = V string | Loc StorageLoc
+
 datatype Locator = N nat | B bool | S Stored
   | VDef string BaseTy ("var _ : _")
   | EmptyList Type ("[ _ ; ]")
   | ConsList Type "Locator" "Locator" ("[ _ ; _ , _ ]")
+  | Copy Locator ("copy(_)")
 datatype Stmt = Flow Locator Locator
 datatype Prog = Prog "Stmt list"
 
 type_synonym Env = "(Stored, Type) map"
+type_synonym Store = "(string \<rightharpoonup> StorageLoc) \<times> (nat \<rightharpoonup> Resource)"
 
 definition toQuant :: "nat \<Rightarrow> TyQuant" where
   "toQuant n \<equiv> (if n = 0 then empty else if n = 1 then one else nonempty)"
@@ -30,6 +35,13 @@ fun addQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> TyQuant" ("_ \<oplu
 | "(one \<oplus> r) = nonempty"
 | "(r \<oplus> one) = nonempty"
 | "(any \<oplus> any) = any"
+
+fun demoteBase :: "BaseTy \<Rightarrow> BaseTy" ("demote\<^sub>*") 
+  and demote :: "Type \<Rightarrow> Type"  where
+  "demote\<^sub>* natural = natural"
+| "demote\<^sub>* boolean = boolean"
+| "demote\<^sub>* (table keys \<tau>) = table keys (demote \<tau>)"
+| "demote (q, t) = (q, demote\<^sub>* t)"
 
 inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> Locator \<Rightarrow> Type \<Rightarrow> Env \<Rightarrow> bool"
   ("_ \<turnstile>{_} _ ; _ : _ \<stileturn> _") where
@@ -44,11 +56,7 @@ inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> (Type \<Rightarrow> 
 | ConsList: "\<lbrakk> \<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta> ;
               \<Delta> \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi> \<rbrakk> 
              \<Longrightarrow> \<Gamma> \<turnstile>{s} f ; [ \<tau> ; \<L>, Tail ] : (one \<oplus> q, table [] \<tau>) \<stileturn> \<Xi>"
-
-datatype Val = Num nat | Bool bool 
-  | Table "nat list"
-datatype Resource = Res "BaseTy \<times> Val" | error
-type_synonym Store = "(string, StorageLoc) map \<times> (nat, Resource) map"
+| Copy: "\<lbrakk> \<Gamma> \<turnstile>{s} (\<lambda>x. x) ; L : \<tau> \<stileturn> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{s} f ; copy(L) : demote \<tau> \<stileturn> \<Gamma>"
 
 fun emptyVal :: "BaseTy \<Rightarrow> Val" where
   "emptyVal natural = Num 0"
@@ -61,18 +69,59 @@ fun located :: "Locator \<Rightarrow> bool" where
 | "located [ \<tau> ; Head, Tail ] = (located Head \<and> located Tail)"
 | "located _ = False"
 
+fun lookupResource :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat \<Rightarrow> Resource" where
+  "lookupResource \<rho> l = (case \<rho> l of None \<Rightarrow> error | Some r \<Rightarrow> r)"
+
+fun selectLoc :: "(nat, Resource) map \<Rightarrow> StorageLoc \<Rightarrow> Resource" where
+  "selectLoc \<rho> (Amount l n) = (case \<rho> l of Some (Res (t,_)) \<Rightarrow> Res (t, Num n) | _ \<Rightarrow> error)"
+| "selectLoc \<rho> (ResLoc l r) = 
+    (case \<rho> l of 
+        Some (Res (t, Table vals)) \<Rightarrow> if r \<in> set vals then Res (t, Table [r]) else error
+       | None \<Rightarrow> error)"
+| "selectLoc \<rho> (SLoc l) = lookupResource \<rho> l"
+
+fun select :: "Store \<Rightarrow> Stored \<Rightarrow> Resource" where
+  "select (\<mu>, \<rho>) (V x) = (case \<mu> x of Some l \<Rightarrow> selectLoc \<rho> l | None \<Rightarrow> error)"
+| "select (\<mu>, \<rho>) (Loc l) = selectLoc \<rho> l"
+
+fun freshLoc :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat" where
+  "freshLoc \<rho> = Max (dom \<rho>) + 1"
+
+fun ensureTableExists :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat \<Rightarrow> BaseTy \<Rightarrow> (nat \<rightharpoonup> Resource)" where
+  "ensureTableExists \<rho> l t = (if l \<in> dom \<rho> then \<rho> else \<rho>(l \<mapsto> Res (t, Table [])))"
+
+fun resourceSum :: "Resource \<Rightarrow> Resource \<Rightarrow> Resource" (infix "+\<^sub>r" 50) where
+  "(Res (t1, Num n1))    +\<^sub>r (Res (t2, Num n2))    = (if t1 = t2 then Res (t1, Num (n1 + n2)) else error)"
+| "(Res (t1, Bool b1))   +\<^sub>r (Res (t2, Bool b2))   = (if t1 = t2 then Res (t1, Bool (b1 \<or> b2)) else error)"
+| "(Res (t1, Table vs1)) +\<^sub>r (Res (t2, Table vs2)) = (if t1 = t2 then Res (t1, Table (vs1 @ vs2)) else error)"
+| "_ +\<^sub>r _ = error"
+
+fun deepCopy :: "(nat \<rightharpoonup> Resource) \<Rightarrow> Locator \<Rightarrow> Resource" where
+  "deepCopy \<rho> (S (Loc k)) = selectLoc \<rho> k"
+| "deepCopy \<rho> [\<tau>; ] = Res (table [] \<tau>, Table [])"
+| "deepCopy \<rho> [\<tau>; Head, Tail] = 
+  (
+    case deepCopy \<rho> Tail of
+      Res (t, Table rest) \<Rightarrow> Res (t, Table (deepCopy \<rho> Head # rest))
+    | _ \<Rightarrow> error
+  )"
+(* Ignore everything else, we'll only call deepCopy on "located" Locators *)
+| "deepCopy \<rho> _ = error"
+
 inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightarrow> Locator \<Rightarrow> bool"
   ("< _ , _ > \<rightarrow> < _ , _ >") where
-  ENat: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n))), S (Loc (l, Amount n)) >"
-| EBool: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> Res (boolean, Bool b))), S (Loc (l, SLoc l)) >"
+  ENat: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), N n > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> Res (natural, Num n))), S (Loc (Amount l n)) >"
+| EBool: "\<lbrakk> l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), B b > \<rightarrow> < (\<mu>, \<rho>(l \<mapsto> Res (boolean, Bool b))), S (Loc (SLoc l)) >"
 | EVar: "\<lbrakk> \<mu> x = Some l \<rbrakk> \<Longrightarrow> < (\<mu>, \<rho>), S (V x) > \<rightarrow> < (\<mu>, \<rho>), S (Loc l) >"
 | EVarDef: "\<lbrakk> x \<notin> dom \<mu> ; l \<notin> dom \<rho> \<rbrakk> 
             \<Longrightarrow> < (\<mu>, \<rho>), var x : t > 
-                \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t))), S (Loc (l, SLoc l)) >"
+                \<rightarrow> < (\<mu>(x \<mapsto> (SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t))), S (Loc (SLoc l)) >"
 | EConsListHeadCongr: "\<lbrakk> < \<Sigma>, \<L> > \<rightarrow> < \<Sigma>', \<L>' > \<rbrakk>
                    \<Longrightarrow> < \<Sigma>, [ \<tau> ; \<L>, Tail ] > \<rightarrow> < \<Sigma>', [ \<tau> ; \<L>', Tail ] >"
 | EConsListTailCongr: "\<lbrakk> located \<L> ; < \<Sigma>, Tail > \<rightarrow> < \<Sigma>', Tail' > \<rbrakk>
               \<Longrightarrow> < \<Sigma>, [ \<tau> ; \<L>, Tail ] > \<rightarrow> < \<Sigma>', [ \<tau> ; \<L>, Tail' ] >"
+| ECopyCongr: "\<lbrakk> <\<Sigma>, L> \<rightarrow> <\<Sigma>', L'> \<rbrakk> \<Longrightarrow> <\<Sigma>, copy(L)> \<rightarrow> <\<Sigma>', copy(L')>"
+| ECopyEval: "\<lbrakk> located L; l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> <(\<mu>, \<rho>), copy(L)> \<rightarrow> <(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), S (Loc (SLoc l))>"
 
 (* TODO: Update when adding new types *)
 fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" (infix "\<approx>" 50) where
@@ -123,22 +172,6 @@ next
   then show ?case using table by fastforce
 qed
 
-fun selectLoc :: "(nat, Resource) map \<Rightarrow> StorageLoc \<Rightarrow> Resource" where
-  "selectLoc \<rho> (l, Amount n) = (case \<rho> l of Some (Res (t,_)) \<Rightarrow> Res (t, Num n) | _ \<Rightarrow> error)"
-| "selectLoc \<rho> (l, SLoc k) = 
-    (if l = k then 
-      (case \<rho> l of None \<Rightarrow> error | Some r \<Rightarrow> r)
-     else 
-      (case \<rho> l of 
-        Some (Res (t, Table vals)) \<Rightarrow> if k \<in> set vals then Res (t, Table [k]) else error
-       | None \<Rightarrow> error 
-      )
-    )"
-
-fun select :: "Store \<Rightarrow> Stored \<Rightarrow> Resource" where
-  "select (\<mu>, \<rho>) (V x) = (case \<mu> x of Some l \<Rightarrow> selectLoc \<rho> l | None \<Rightarrow> error)"
-| "select (\<mu>, \<rho>) (Loc l) = selectLoc \<rho> l"
-
 fun exact_type :: "Resource \<Rightarrow> Type option" where
   "exact_type (Res (t, Num n)) = Some (toQuant n, t)"
 | "exact_type (Res (t, Bool b)) = Some (if b then (one, t) else (empty, t))"
@@ -162,17 +195,18 @@ fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" (infix "\<
 fun var_dom :: "Env \<Rightarrow> string set" where
   "var_dom \<Gamma> = { x . V x \<in> dom \<Gamma> }"
 
-(* TODO: Not clear this is needed, as the select property of compat should be sufficient, I think *)
-fun loc_dom :: "Env \<Rightarrow> nat set" where
-  "loc_dom \<Gamma> = { l . \<exists>a. Loc (l, a) \<in> dom \<Gamma> }"
-
 fun type_less_general :: "Type option \<Rightarrow> Type option \<Rightarrow> bool" (infix "\<preceq>\<^sub>\<tau>" 50) where
   "type_less_general (Some (q,t)) (Some (r,u)) = (q \<sqsubseteq> r \<and> t = u)"
 | "type_less_general None None = True"
 | "type_less_general _ _ = False"
 
+fun storageLocRefs :: "StorageLoc \<Rightarrow> nat set" where
+  "storageLocRefs (SLoc l) = {l}"
+| "storageLocRefs (Amount l _) = {l}"
+| "storageLocRefs (ResLoc l _) = {l}"
+
 fun references :: "(string, StorageLoc) map \<Rightarrow> nat set" where
-  "references \<mu> = { l . \<exists>x k j. \<mu> x = Some (k, j) \<and> (k = l \<or> j = SLoc l) }"
+  "references \<mu> = \<Union> (image storageLocRefs (ran \<mu>))"
 
 fun finite_store :: "Store \<Rightarrow> bool" where
   "finite_store (\<mu>, \<rho>) = (finite (dom \<mu>) \<and> finite (dom \<rho>))"
@@ -183,6 +217,8 @@ fun locations :: "Locator \<Rightarrow> StorageLoc multiset" where
 | "locations (S (V x)) = {#}"
 | "locations (S (Loc l)) = {#l#}"
 | "locations (var x : t) = {#}"
+ (* NOTE: We consider copy(L) to have no locations, because the locations won't be modified *)
+| "locations (copy(L)) = {#}"
 | "locations [ \<tau> ; ] = {#}"
 | "locations [ \<tau> ; \<L>, Tail ] = (locations \<L> + locations Tail)"
 
@@ -191,6 +227,7 @@ inductive wf_locator :: "Locator \<Rightarrow> bool" ("_ wf" 10) where
 | VarWf: "S x wf"
 | NatWf: "N n wf"
 | BoolWf: "B b wf"
+| CopyWf: "\<lbrakk> L wf \<rbrakk> \<Longrightarrow> (copy(L)) wf"
 | ConsLocWf: "\<lbrakk> located \<L> ; \<L> wf ; Tail wf \<rbrakk> \<Longrightarrow> [ \<tau> ; \<L>, Tail ] wf"
 | ConsNotLocWf: "\<lbrakk> \<not>(located \<L>) ; \<L> wf ; locations Tail = {#}; Tail wf \<rbrakk> \<Longrightarrow> [ \<tau> ; \<L>, Tail ] wf"
 
@@ -205,6 +242,15 @@ fun bind_option :: "('a \<Rightarrow> 'b option) \<Rightarrow> 'a option \<Right
 
 fun lookup_var_loc :: "Env \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> (string \<rightharpoonup> Type)" (infix "\<circ>\<^sub>l" 30) where
   "lookup_var_loc \<Gamma> \<mu> = ((\<lambda>l. \<Gamma> (Loc l)) \<circ>\<^sub>m \<mu>)"
+
+type_synonym Offset = "StorageLoc \<Rightarrow> (Type \<Rightarrow> Type) list" 
+
+definition apply_updaters :: "Offset \<Rightarrow> StorageLoc \<Rightarrow> Type \<Rightarrow> Type" ("_\<^sup>_[_]") where
+  "apply_updaters \<O> l \<equiv> foldl (\<circ>) (\<lambda>t. t) (\<O> l)"
+
+definition var_store_sync_new :: "Env \<Rightarrow> Offset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
+  "var_store_sync_new \<Gamma> \<O> \<mu> \<equiv>
+      \<forall>x l \<tau>. (\<mu> x = Some l \<and> \<Gamma> (Loc l) = Some \<tau>) \<longrightarrow> \<Gamma> (V x) = Some (\<O>\<^sup>l[\<tau>])"
 
 definition var_store_sync :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
   "var_store_sync \<Gamma> f \<LL> \<mu> \<equiv> 
@@ -257,33 +303,39 @@ lemma in_type_env_select:
   by (metis Resource.exhaust domD env_select_compat_def ty_res_compat.simps(2))
 
 lemma select_loc_update:
-  fixes \<rho> \<rho>' l k
-  assumes "selectLoc \<rho> (l,k) \<noteq> error"
-      and "\<rho> \<subseteq>\<^sub>m \<rho>'"
-    shows "selectLoc \<rho>' (l,k) \<noteq> error"
+  fixes \<rho> \<rho>' l
+  assumes "\<rho> \<subseteq>\<^sub>m \<rho>'" and "selectLoc \<rho> l \<noteq> error"
+    shows "selectLoc \<rho> l = selectLoc \<rho>' l"
   using assms
-proof(cases k)
+proof(cases l)
   case (SLoc x1)
-  then show ?thesis using assms SLoc
-      apply (cases "\<rho> l")
-      apply (auto simp: map_le_def)
-      by force+
+  then show ?thesis using assms
+    apply (cases "\<rho>' x1")
+     apply (auto simp: map_le_def)
+    apply (metis domIff option.case_eq_if)
+    by (metis domIff option.case_eq_if option.sel)
 next
-  case (Amount x2)
-  then obtain temp where "\<rho> l = Some temp" using assms by fastforce
-  then obtain r where "\<rho> l = Some (Res r)" using assms Amount
+  case (Amount k n)
+  then obtain temp where "\<rho> k = Some temp" using assms by fastforce
+  then obtain r where "\<rho> k = Some (Res r)" using assms Amount
     apply auto
     by (metis Resource.simps(5) exact_type.cases) (* TODO: why is it using exact_type? *)
-  then have "\<rho>' l = Some (Res r)" using assms map_le_def domI
+  then have "\<rho>' k = Some (Res r)" using assms map_le_def domI
     by metis
-  then show ?thesis using Amount assms by (simp add: \<open>\<rho> l = Some (Res r)\<close>)
+  then show ?thesis using Amount assms by (simp add: \<open>\<rho> k = Some (Res r)\<close>)
+next
+  case (ResLoc k r)
+  then show ?thesis using assms
+    apply (cases "\<rho> k")
+    apply (auto simp: map_le_def)
+    by force
 qed
 
 lemma select_update:
   fixes \<mu> \<rho> \<mu>' \<rho>' x
   assumes "select (\<mu>, \<rho>) x \<noteq> error"
       and "\<mu> \<subseteq>\<^sub>m \<mu>'" and "\<rho> \<subseteq>\<^sub>m \<rho>'"
-    shows "select (\<mu>', \<rho>') x \<noteq> error"
+    shows "select (\<mu>, \<rho>) x = select (\<mu>', \<rho>') x"
   using assms
 proof (cases x)
   case (V x1)
@@ -294,12 +346,12 @@ proof (cases x)
     by (metis domI map_le_def)
   then show ?thesis using assms V
     apply auto
-    by (metis \<open>\<mu> x1 = Some l\<close> option.simps(5) select_loc_update surj_pair)
+    by (metis \<open>\<mu> x1 = Some l\<close> option.simps(5) select_loc_update)
 next
   case (Loc x2)
   then show ?thesis
     apply auto
-    by (metis assms(1) assms(3) select.simps(2) select_loc_update surj_pair)
+    by (metis assms(1) assms(3) select.simps(2) select_loc_update)
 qed
 
 lemma in_var_env_select:
@@ -337,10 +389,9 @@ definition type_preserving :: "(Type \<Rightarrow> Type) \<Rightarrow> bool" whe
 lemma select_loc_le:
   fixes \<rho> \<rho>' l
   assumes "\<rho> \<subseteq>\<^sub>m \<rho>'" and "selectLoc \<rho> l \<noteq> error"
-  shows "selectLoc \<rho>' l \<noteq> error"
-  using assms 
-  apply auto 
-  by (metis select_loc_update surj_pair)
+  shows "selectLoc \<rho> l = selectLoc \<rho>' l"
+  using assms
+  by (simp add: assms(1) select_loc_update)
 
 lemma type_preserving_works:
   fixes f q t r s
@@ -351,34 +402,30 @@ lemma type_preserving_works:
   using base_type_compat_sym base_type_compat_trans prod.exhaust_sel by blast
 
 lemma select_loc_preserve_var:
-  fixes \<Gamma> \<mu> \<rho> \<rho>' x l k
+  fixes \<Gamma> \<mu> \<rho> \<rho>' x l
   assumes "env_select_compat \<Gamma> (\<mu>, \<rho>)" 
-    and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "V x \<in> dom \<Gamma>" and "\<mu> x = Some (l,k)"
+    and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "V x \<in> dom \<Gamma>" and "\<mu> x = Some l"
     and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>"
-  shows "selectLoc \<rho> (l,k) = selectLoc \<rho>' (l,k)"
+  shows "selectLoc \<rho> l = selectLoc \<rho>' l"
   using assms
-  apply (cases k, auto simp: map_le_def env_select_compat_def)
-  by metis+
+  apply (cases l)
+  apply (metis Resource.distinct(1) in_type_env_select option.simps(5) select.simps(1) select_loc_update)
+  apply (metis Resource.distinct(1) in_type_env_select option.simps(5) select.simps(1) select_loc_update)
+  by (metis Resource.distinct(1) in_type_env_select option.simps(5) select.simps(1) select_loc_update)
 
 lemma compat_loc_in_env:
-  fixes \<Gamma> \<mu> \<rho> l k
-  assumes "env_select_compat \<Gamma> (\<mu>, \<rho>)" and "Loc (l,k) \<in> dom \<Gamma>"
-  obtains r where "selectLoc \<rho> (l,k) = Res r"
+  fixes \<Gamma> \<mu> \<rho> l
+  assumes "env_select_compat \<Gamma> (\<mu>, \<rho>)" and "Loc l \<in> dom \<Gamma>"
+  obtains r where "selectLoc \<rho> l = Res r"
   using assms
   by (metis in_type_env_select select.simps(2))
 
 lemma select_loc_preserve_loc:
-  fixes \<Gamma> \<mu> \<rho> \<rho>' l k
-  assumes "env_select_compat \<Gamma> (\<mu>, \<rho>)" and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "Loc (l,k) \<in> dom \<Gamma>"
-  shows "selectLoc \<rho> (l,k) = selectLoc \<rho>' (l,k)"
+  fixes \<Gamma> \<mu> \<rho> \<rho>' l
+  assumes "env_select_compat \<Gamma> (\<mu>, \<rho>)" and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "Loc l \<in> dom \<Gamma>"
+  shows "selectLoc \<rho> l = selectLoc \<rho>' l"
   using assms
-  apply (cases k, auto simp: map_le_def env_select_compat_def)
-  apply (metis domIff option.simps(4) select.simps(2) selectLoc.simps(2) ty_res_compat.simps(2))
-  apply (cases "\<rho> l")
-  apply auto
-  apply fastforce
-  apply (metis (no_types, lifting) domI option.simps(5))
-  by (metis (no_types, lifting) Resource.distinct(1) assms(1) assms(3) compat_loc_in_env domIff option.simps(4) selectLoc.simps(1))
+  by (metis Resource.distinct(1) compat_loc_in_env select_loc_update)
 
 lemma select_preserve:
   fixes \<Gamma> \<mu> \<rho> \<mu>' \<rho>' x
@@ -394,8 +441,7 @@ proof(cases x)
     by (metis assms(4) compat_elim(2) compat_elim(5) option.simps(5) select_loc_preserve_var)
 next
   case (Loc x2)
-  then obtain l and k where "x2 = (l, k)" by (cases x2)
-  then show ?thesis using assms Loc
+  then show ?thesis using assms
     apply (simp only: select.simps)
     using compat_elim(5) select_loc_preserve_loc by blast
 qed
@@ -416,33 +462,33 @@ proof(cases x)
     by (metis assms(4) assms(5) option.simps(5) select_loc_preserve_var)
 next
   case (Loc x2)
-  then obtain l and k where "x2 = (l, k)" by (cases x2)
-  then show ?thesis using assms Loc
+  then show ?thesis using assms
     apply (simp only: select.simps)
     using compat_elim(5) select_loc_preserve_loc by blast
 qed
 
 lemma not_err_in_dom:
   fixes \<rho> l k
-  assumes "selectLoc \<rho> (l,k) \<noteq> error"
-  shows "l \<in> dom \<rho>"
-  using assms
-proof(cases k)
-  case (SLoc x1)
-  then show ?thesis using assms 
-    by (cases "\<rho> l", cases "l = x1", auto)
+  assumes "selectLoc \<rho> l \<noteq> error" and "k \<in> storageLocRefs l"
+  shows "k \<in> dom \<rho>"
+proof(cases l)
+  case (SLoc j)
+  then show ?thesis using assms by (cases "\<rho> j", auto)
 next
-  case (Amount x2)
-  then show ?thesis using assms by (cases "\<rho> l", auto)
+  case (Amount j n)
+  then show ?thesis using assms by (cases "\<rho> j", auto)
+next
+  case (ResLoc j r)
+  then show ?thesis using assms by (cases "\<rho> j", auto)
 qed
 
 lemma fresh_loc_not_in_env:
   fixes \<Gamma> \<mu> \<rho> l k j
-  assumes "env_select_compat \<Gamma> (\<mu>, \<rho>)" and "l \<notin> dom \<rho>"
-  shows "Loc (l, k) \<notin> dom \<Gamma>"
+  assumes "env_select_compat \<Gamma> (\<mu>, \<rho>)" and "k \<in> storageLocRefs l" and "k \<notin> dom \<rho>"
+  shows "Loc l \<notin> dom \<Gamma>"
   using assms compat_loc_in_env not_err_in_dom
   apply auto
-  by (metis Resource.distinct(1) assms(2) domI)
+  by (metis Resource.distinct(1) assms(3) domI)
 
 lemma gen_loc:
   fixes m :: "(nat, 'a) map"
@@ -630,7 +676,7 @@ next
         apply simp
     using ConsList.prems(2) apply auto[1]
     using ConsList.prems(1) apply auto[1]
-    by (metis ConsList.IH(1) ConsList.prems(1) ConsList.prems(2) ConsList.prems(3) add.assoc located.simps(3) locations.simps(7))
+    by (metis ConsList.IH(1) ConsList.prems(1) ConsList.prems(2) ConsList.prems(3) located.simps(3) locations.simps(8) union_commute union_lcomm)
   then have "Psamathe.compat \<Delta> f (locations Tail + \<LL>) (\<mu>, \<rho>)" using ConsList
     apply auto
     by (metis ab_semigroup_add_class.add_ac(1))
@@ -639,6 +685,9 @@ next
     apply auto
     apply blast
     by (simp add: \<open>\<Delta> = update_locations \<Gamma> f (locations \<L>)\<close> update_locations_union)
+next
+  case (Copy \<Gamma> L \<tau> f)
+  then show ?case by simp
 qed
 
 (* TODO: Clean up this and the other version *)
@@ -689,7 +738,7 @@ next
   show ?case
   proof(intro disjI2 exI)
     from not_in_lookup and has_loc
-    show "< (\<mu>, \<rho>) , var x : t > \<rightarrow> < (\<mu>(x \<mapsto> (l, SLoc l)), \<rho>(l \<mapsto> Res (t, emptyVal t))) , S (Loc (l, SLoc l)) >"
+    show "< (\<mu>, \<rho>) , var x : t > \<rightarrow> < (\<mu>(x \<mapsto> SLoc l), \<rho>(l \<mapsto> Res (t, emptyVal t))) , S (Loc (SLoc l)) >"
       by (rule EVarDef)
   qed
 next
@@ -730,6 +779,32 @@ next
     case False
     then have "\<exists>\<mu>' \<rho>' \<L>'. < (\<mu>, \<rho>) , \<L> > \<rightarrow> < (\<mu>', \<rho>') , \<L>' >" using loc_induct by blast
     then show ?thesis using EConsListHeadCongr by blast
+  qed
+next
+  case (Copy \<Gamma> L \<tau> f)
+  then have "L wf" using wf_locator.cases by blast
+
+  then have "compat \<Gamma> (\<lambda>a. a) (locations L + \<LL>) (\<mu>, \<rho>)"
+    sorry
+
+  have "type_preserving (\<lambda>a. a)" by (auto simp: type_preserving_def base_type_compat_refl)
+
+  then have ih: "located L \<or> (\<exists>\<mu>' \<rho>' a. <(\<mu>, \<rho>) , L> \<rightarrow> <(\<mu>', \<rho>') , a>)" using Copy
+    by (metis \<open>L wf\<close> \<open>Psamathe.compat \<Gamma> (\<lambda>a. a) (locations L + \<LL>) (\<mu>, \<rho>)\<close>)
+
+  obtain l where "l \<notin> dom \<rho>" using Copy.prems(3) gen_loc by auto 
+    
+  then show ?case
+  proof(cases "located L")
+    case True
+    then show ?thesis
+    proof(intro disjI2 exI)
+      show "<(\<mu>, \<rho>), copy(L)> \<rightarrow> <(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), S (Loc (SLoc l))>"
+        by (simp add: ECopyEval True \<open>l \<notin> dom \<rho>\<close>)
+    qed
+  next
+    case False
+    then show ?thesis using ih using ECopyCongr by blast
   qed
 qed
 
