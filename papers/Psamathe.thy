@@ -235,8 +235,20 @@ lemma compat_elim[elim]:
     and "var_store_sync \<Gamma> f \<LL> \<mu>"
     and "inj \<mu>" 
     and "env_select_compat \<Gamma> (\<mu>, \<rho>)"
+    and "finite (dom \<rho>)"
   using assms
   by (auto simp: compat_def)
+
+lemma compatI[intro]:
+  assumes "var_dom \<Gamma> = dom \<mu>" 
+    and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>" 
+    and "var_store_sync \<Gamma> f \<LL> \<mu>"
+    and "inj \<mu>" 
+    and "env_select_compat \<Gamma> (\<mu>, \<rho>)"
+    and "finite (dom \<rho>)"
+  shows "compat \<Gamma> f \<LL> (\<mu>, \<rho>)"
+  using assms
+  by (simp add: compat_def)
 
 lemma in_type_env_select:
   fixes \<Gamma> \<mu> \<rho> x
@@ -581,16 +593,35 @@ fun update_locations :: "Env \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarro
 | "update_locations \<Gamma> f \<LL> (Loc l) = map_option (f^^(count \<LL> l)) (\<Gamma> (Loc l))"
 
 lemma update_locations_id: "update_locations \<Gamma> f {#} = \<Gamma>"
-  sorry
+proof(rule ext)
+  fix x
+  show "update_locations \<Gamma> f {#} x = \<Gamma> x" 
+    apply (cases x)
+    by (simp_all add: option.map_id)
+qed
 
 lemma update_locations_union: 
   assumes "update_locations \<Gamma> f \<LL> = \<Delta>"
       and "update_locations \<Delta> f \<KK> = \<Xi>"
     shows "update_locations \<Gamma> f (\<LL> + \<KK>) = \<Xi>"
-  sorry
+proof(rule ext)
+  fix x
+  show "update_locations \<Gamma> f (\<LL> + \<KK>) x = \<Xi> x"
+    apply (cases x)
+    using assms(1) assms(2) apply auto[1]
+    apply simp
+    by (metis add.commute assms(1) assms(2) funpow_add map_option.compositionality update_locations.simps(2))
+qed
 
-lemma update_locations_step: "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) = update_locations \<Gamma> f {#l#}"
-  sorry
+lemma update_locations_step: 
+  assumes "\<Gamma>(Loc l) = Some \<tau>" 
+  shows "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) = update_locations \<Gamma> f {#l#}"
+proof(rule ext)
+  fix x
+  show "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) x = update_locations \<Gamma> f {#l#} x" using assms
+    apply (cases x)
+    by (auto simp: option.map_id)
+qed
 
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
@@ -1114,18 +1145,221 @@ fun temp_update_env :: "Env \<Rightarrow> Env \<Rightarrow> Env" where
   "temp_update_env \<Gamma> \<Delta> (V x) = \<Delta> (V x)"
 | "temp_update_env \<Gamma> \<Delta> (Loc l) = (if Loc l \<in> dom \<Gamma> then \<Gamma> (Loc l) else \<Delta> (Loc l))"
 
+lemma update_loc_preserve_dom: "dom \<Gamma> = dom (update_locations \<Gamma> f \<LL>)"
+proof
+  show "dom \<Gamma> \<subseteq> dom (update_locations \<Gamma> f \<LL>)"
+  proof
+    fix x
+    assume "x \<in> dom \<Gamma>"
+    then show "x \<in> dom (update_locations \<Gamma> f \<LL>)"
+      apply (cases x)
+      by auto
+  qed
+  show "dom (update_locations \<Gamma> f \<LL>) \<subseteq> dom \<Gamma>"
+  proof
+    fix x
+    assume "x \<in> dom (update_locations \<Gamma> f \<LL>)"
+    then show "x \<in> dom \<Gamma>"
+      apply (cases x)
+      by auto
+  qed
+qed
+
 lemma temp1:
-  assumes "update_locations \<Gamma> f \<LL> = \<Delta>" and "loc_ty_env \<Delta> \<subseteq>\<^sub>m loc_ty_env \<Delta>'"
+  assumes "update_locations \<Gamma> f \<LL> = \<Delta>" 
+      and "loc_ty_env \<Delta> \<subseteq>\<^sub>m loc_ty_env \<Delta>'"
+      and "set_mset \<LL> \<subseteq> dom (loc_ty_env \<Gamma>)"
   shows "update_locations (temp_update_env \<Gamma> \<Delta>') f \<LL> = \<Delta>'"
+proof(rule ext)
+  fix x
+  show "update_locations (temp_update_env \<Gamma> \<Delta>') f \<LL> x = \<Delta>' x"
+    apply (cases x, simp, simp)
+    using assms
+    apply simp
+    apply (cases "x \<in> dom \<Gamma>")
+     apply simp_all
+  proof -
+    fix k
+
+    show "\<lbrakk>x = Loc k; update_locations \<Gamma> f \<LL> = \<Delta>; (\<lambda>l. \<Delta> (Loc l)) \<subseteq>\<^sub>m (\<lambda>l. \<Delta>' (Loc l));
+           set_mset \<LL> \<subseteq> dom (\<lambda>l. \<Gamma> (Loc l)); Loc k \<in> dom \<Gamma>\<rbrakk>
+          \<Longrightarrow> map_option (f ^^ count \<LL> k) (\<Gamma> (Loc k)) = \<Delta>' (Loc k)"
+    proof -
+      assume "Loc k \<in> dom \<Gamma>"
+      then obtain \<tau> where "\<Gamma> (Loc k) = Some \<tau>"
+        by auto
+      have "update_locations \<Gamma> f \<LL> (Loc k) = \<Delta> (Loc k)"
+        by (simp add: assms(1))
+      then obtain \<sigma> where "\<Delta> (Loc k) = Some \<sigma>"
+        by (metis \<open>Loc k \<in> dom \<Gamma>\<close> domD update_loc_preserve_dom)
+      then have "\<Delta>' (Loc k) = Some \<sigma>"
+        by (metis (no_types, hide_lams) assms(2) insert_dom insert_iff loc_ty_env.simps map_le_def)
+      then have "update_locations \<Gamma> f \<LL> (Loc k) = \<Delta>' (Loc k)" 
+        using \<open>\<Delta> (Loc k) = Some \<sigma>\<close> \<open>update_locations \<Gamma> f \<LL> (Loc k) = \<Delta> (Loc k)\<close>
+        by simp
+      then show ?thesis by auto
+    qed
+
+    show "\<lbrakk>x = Loc k; update_locations \<Gamma> f \<LL> = \<Delta>; (\<lambda>l. \<Delta> (Loc l)) \<subseteq>\<^sub>m (\<lambda>l. \<Delta>' (Loc l));
+           set_mset \<LL> \<subseteq> dom (\<lambda>l. \<Gamma> (Loc l)); Loc k \<notin> dom \<Gamma>\<rbrakk>
+          \<Longrightarrow> map_option (f ^^ count \<LL> k) (\<Delta>' (Loc k)) = \<Delta>' (Loc k)"
+    proof -
+      assume "set_mset \<LL> \<subseteq> dom (\<lambda>l. \<Gamma> (Loc l))"
+         and "update_locations \<Gamma> f \<LL> = \<Delta>"
+         and "Loc k \<notin> dom \<Gamma>" 
+      then have "k \<notin># \<LL>"
+        by auto
+      then have "count \<LL> k = 0"
+        by (meson count_inI)
+      then show "map_option (f ^^ count \<LL> k) (\<Delta>' (Loc k)) = \<Delta>' (Loc k)"
+        by (metis count_empty update_locations.simps(2) update_locations_id)
+    qed
+  qed
+qed
+
+lemma var_store_sync_update:
+  shows "var_store_sync \<Gamma> f (\<LL> + \<KK>) \<mu> \<longleftrightarrow> var_store_sync (update_locations \<Gamma> f \<LL>) f \<KK> \<mu>"
+proof
+  show "var_store_sync \<Gamma> f (\<LL> + \<KK>) \<mu> \<Longrightarrow> var_store_sync (update_locations \<Gamma> f \<LL>) f \<KK> \<mu>"
+  apply (unfold var_store_sync_def)
+  proof(intro allI, safe)
+    fix x l \<tau>
+    assume "\<mu> x = Some l"
+      and "update_locations \<Gamma> f \<LL> (Loc l) = Some \<tau>"
+      and "\<forall>x l \<tau>. \<mu> x = Some l \<and> \<Gamma> (Loc l) = Some \<tau> \<longrightarrow> \<Gamma> (V x) = Some ((f ^^ count (\<LL> + \<KK>) l) \<tau>)"
+    then obtain \<sigma> where "\<Gamma> (Loc l) = Some \<sigma>"
+      by auto
+    then have "\<tau> = (f ^^ (count \<LL> l)) \<sigma>"
+      using \<open>update_locations \<Gamma> f \<LL> (Loc l) = Some \<tau>\<close> by auto
+    then show "update_locations \<Gamma> f \<LL> (V x) = Some ((f ^^ count \<KK> l) \<tau>)"
+      by (metis \<open>\<Gamma> (Loc l) = Some \<sigma>\<close> \<open>\<forall>x l \<tau>. \<mu> x = Some l \<and> \<Gamma> (Loc l) = Some \<tau> \<longrightarrow> \<Gamma> (V x) = Some ((f ^^ count (\<LL> + \<KK>) l) \<tau>)\<close> \<open>\<mu> x = Some l\<close> option.simps(9) update_locations.simps(1) update_locations.simps(2) update_locations_union)
+  qed
+
+  show "var_store_sync (update_locations \<Gamma> f \<LL>) f \<KK> \<mu> \<Longrightarrow> var_store_sync \<Gamma> f (\<LL> + \<KK>) \<mu>"
+    apply (unfold var_store_sync_def)
+  proof(intro allI, safe)
+    fix x l \<tau>
+    assume "\<forall>x l \<tau>. \<mu> x = Some l \<and> update_locations \<Gamma> f \<LL> (Loc l) = Some \<tau> \<longrightarrow> update_locations \<Gamma> f \<LL> (V x) = Some ((f ^^ count \<KK> l) \<tau>)"
+      and "\<mu> x = Some l" 
+      and "\<Gamma> (Loc l) = Some \<tau>"
+    then have "\<Gamma> (V x) = Some ((f ^^ count \<KK> l) ((f ^^ (count \<LL> l)) \<tau>))"
+      by (metis option.simps(9) update_locations.simps(1) update_locations.simps(2))
+    then show "\<Gamma> (V x) = Some ((f ^^ count (\<LL> + \<KK>) l) \<tau>)"
+      by (metis \<open>\<Gamma> (Loc l) = Some \<tau>\<close> option.simps(9) update_locations.simps(2) update_locations_union)
+  qed
+qed
+
+lemma ty_preserving_it:
+  assumes "type_preserving f"
+  shows "type_preserving (f^^n)"
   using assms
-  sorry
+  apply (auto simp: type_preserving_def)
+  apply (induction n)
+   apply (simp add: base_type_compat_refl)
+  apply auto
+  using assms base_type_compat_trans type_preserving_def by blast
+
+lemma ty_preserve_update_loc:
+  assumes "type_preserving f" 
+    and "\<Gamma> x = Some \<tau>" 
+    and "\<tau> \<triangleq> r"
+    and "update_locations \<Gamma> f \<LL> x = Some \<sigma>"
+  shows "\<sigma> \<triangleq> r"
+proof(cases x)
+  case (V x1)
+  then show ?thesis using assms by auto 
+next
+  case (Loc x2)
+  then show ?thesis using assms
+    apply auto
+    by (simp add: ty_preserving_it type_preserving_ty_res_compat)
+qed
+
+lemma type_preserving_back:
+  assumes "type_preserving f"
+      and "f \<tau> \<triangleq> r"
+    shows "\<tau> \<triangleq> r"
+  using assms
+  by (metis (no_types, lifting) base_type_compat_trans surjective_pairing ty_res_compat.elims(2) ty_res_compat.simps(1) type_preserving_def)
 
 lemma temp2:
   assumes "update_locations \<Gamma> f \<LL> = \<Delta>"
-      and "compat \<Delta> f \<KK> \<Sigma>"
-    shows "compat \<Gamma> f (\<LL> + \<KK>) \<Sigma>"
+      and "compat \<Delta> f \<KK> (\<mu>, \<rho>)"
+      and "type_preserving f"
+    shows "compat \<Gamma> f (\<LL> + \<KK>) (\<mu>, \<rho>)"
   using assms
-  sorry
+proof(intro compatI)
+  show "\<lbrakk>update_locations \<Gamma> f \<LL> = \<Delta>; compat \<Delta> f \<KK> (\<mu>, \<rho>)\<rbrakk> \<Longrightarrow> var_dom \<Gamma> = dom \<mu>"
+    apply (unfold compat_def)
+    apply simp
+    using update_loc_preserve_dom
+    by force
+
+  show "compat \<Delta> f \<KK> (\<mu>, \<rho>) \<Longrightarrow> \<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>"
+    by (auto simp: compat_def)
+
+  show "\<lbrakk>update_locations \<Gamma> f \<LL> = \<Delta>; compat \<Delta> f \<KK> (\<mu>, \<rho>)\<rbrakk> \<Longrightarrow> var_store_sync \<Gamma> f (\<LL> + \<KK>) \<mu>"
+    by (simp add: compat_elim(3) var_store_sync_update)
+
+  show "compat \<Delta> f \<KK> (\<mu>, \<rho>) \<Longrightarrow> inj \<mu>"
+    by (simp add: compat_elim(4))
+
+  show "\<lbrakk>update_locations \<Gamma> f \<LL> = \<Delta>; compat \<Delta> f \<KK> (\<mu>, \<rho>); type_preserving f\<rbrakk> \<Longrightarrow> env_select_compat \<Gamma> (\<mu>, \<rho>)"
+    apply (auto simp: env_select_compat_def compat_def)
+  proof -
+    fix x \<tau>
+    assume "type_preserving f" and "\<Delta> = update_locations \<Gamma> f \<LL>"
+        and "\<forall>x a b. update_locations \<Gamma> f \<LL> x = Some (a,b) \<longrightarrow> (a,b) \<triangleq> select (\<mu>, \<rho>) x"
+        and "\<Gamma> x = Some \<tau>"
+    then show "\<tau> \<triangleq> select (\<mu>, \<rho>) x"
+    proof(cases x)
+      case (V x1)
+      then show ?thesis
+        by (metis \<open>\<Gamma> x = Some \<tau>\<close> \<open>\<forall>x a b. update_locations \<Gamma> f \<LL> x = Some (a, b) \<longrightarrow> (a, b) \<triangleq> select (\<mu>, \<rho>) x\<close> old.prod.exhaust update_locations.simps(1)) 
+    next
+      case (Loc x2)
+      then have "update_locations \<Gamma> f \<LL> x = Some ((f^^(count \<LL> x2)) \<tau>)"
+        using \<open>\<Gamma> x = Some \<tau>\<close> by auto
+      then have "((f^^(count \<LL> x2)) \<tau>) \<triangleq> select (\<mu>, \<rho>) x"
+        using assms(1) assms(2) compat_elim(5) env_select_compat_def by blast
+      then show ?thesis
+        using assms(3) ty_preserving_it type_preserving_back by blast 
+    qed
+  qed
+
+  show "compat \<Delta> f \<KK> (\<mu>, \<rho>) \<Longrightarrow> finite (dom \<rho>)"
+    by (auto simp: compat_def)
+qed
+
+lemma located_dom_const:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "located L"
+    shows "dom (loc_ty_env \<Gamma>) = dom (loc_ty_env \<Delta>)"
+  using assms
+proof(induction)
+case (Nat \<Gamma> f n)
+  then show ?case by simp
+next
+  case (Bool \<Gamma> f b)
+  then show ?case  by simp
+next
+  case (Var \<Gamma> x \<tau> m f)
+  then show ?case by simp
+next
+  case (Loc \<Gamma> l \<tau> m f)
+  then show ?case
+    apply auto
+    by (smt option.distinct(1) type_less_general.elims(1))
+next
+  case (VarDef x \<Gamma> f t)
+  then show ?case by simp
+next
+  case (EmptyList \<Gamma> f \<tau>)
+  then show ?case by simp
+next
+case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
+  then show ?case by simp
+qed
 
 lemma located_var_ignore:
   assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
@@ -1133,7 +1367,96 @@ lemma located_var_ignore:
     and "loc_ty_env \<Delta> \<subseteq>\<^sub>m loc_ty_env \<Delta>'"
   shows "(temp_update_env \<Gamma> \<Delta>') \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>'"
   using assms
-  sorry
+proof(induction arbitrary: \<Delta>')
+case (Nat \<Gamma> f n)
+  then show ?case by simp
+next
+  case (Bool \<Gamma> f b)
+  then show ?case by simp
+next
+  case (Var \<Gamma> x \<tau> m f)
+  then show ?case by simp
+next
+  case (Loc \<Gamma> l \<tau> m f)
+
+  then have "temp_update_env \<Gamma> \<Delta>' (Loc l) = Some \<tau>"
+    by (simp add: domI)
+
+  have "(temp_update_env \<Gamma> \<Delta>')(Loc l \<mapsto> f \<tau>) = \<Delta>'"
+  proof(rule ext)
+    fix x
+    show "(temp_update_env \<Gamma> \<Delta>'(Loc l \<mapsto> f \<tau>)) x = \<Delta>' x" using Loc
+      apply (cases x)
+      apply (auto simp: map_le_def)
+      apply force
+      by (smt domIff option.discI)
+  qed
+
+  then show ?case using Loc loc_type.Loc
+    by (metis \<open>temp_update_env \<Gamma> \<Delta>' (Loc l) = Some \<tau>\<close>)
+next
+  case (VarDef x \<Gamma> f t)
+  then show ?case by simp
+next
+  case (EmptyList \<Gamma> f \<tau>)
+
+  have "temp_update_env \<Gamma> \<Delta>' = \<Delta>'"
+  proof(rule ext)
+    fix y
+    show "temp_update_env \<Gamma> \<Delta>' y = \<Delta>' y" using EmptyList
+      apply (cases y)
+      by (auto simp: map_le_def)
+  qed
+
+  then show ?case
+    by (simp add: loc_type.EmptyList)
+next
+  case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
+
+  then have tail_ty: "(temp_update_env \<Delta> \<Delta>') \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Delta>'"
+    by simp
+
+  then have sub: "loc_ty_env \<Delta> \<subseteq>\<^sub>m loc_ty_env (temp_update_env \<Delta> \<Delta>')"
+    apply auto
+    using map_le_def by fastforce
+
+  then have head_ty: "(temp_update_env \<Gamma> (temp_update_env \<Delta> \<Delta>')) \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> (temp_update_env \<Delta> \<Delta>')"
+    using ConsList by simp
+
+  have "temp_update_env \<Gamma> (temp_update_env \<Delta> \<Delta>') = temp_update_env \<Gamma> \<Delta>'"
+  (* TODO: This is gross, fix. *)
+  proof(rule ext)
+    fix x
+    show "temp_update_env \<Gamma> (temp_update_env \<Delta> \<Delta>') x = temp_update_env \<Gamma> \<Delta>' x"
+      apply (cases x)
+       apply simp
+      using ConsList sub located_dom_const
+      apply (auto simp: map_le_def)
+    proof -
+    fix a :: nat and b :: SVal and aa :: TyQuant and ba :: BaseTy
+      assume a1: "\<And>\<Gamma> m f L a b \<Delta>. \<lbrakk>\<Gamma> \<turnstile>{m} f ; L : (a, b) \<stileturn> \<Delta>; located L\<rbrakk> \<Longrightarrow> dom (\<lambda>l. \<Gamma> (Loc l)) = dom (\<lambda>l. \<Delta> (Loc l))"
+      assume a2: "\<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>"
+      assume a3: "located \<L>"
+      assume a4: "\<Delta> (Loc (a, b)) = Some (aa, ba)"
+      assume a5: "x = Loc (a, b)"
+    then obtain pp :: "nat \<times> SVal \<Rightarrow> (nat \<times> SVal \<Rightarrow> (TyQuant \<times> BaseTy) option) \<Rightarrow> TyQuant \<times> BaseTy" where
+      "Some (pp (a, b) (\<lambda>p. \<Gamma> (Loc p))) = \<Gamma> x"
+      using a4 a3 a2 a1 by (metis (no_types) Resource.distinct(1) domD domI ty_res_compat.elims(2) ty_res_compat.elims(3))
+      then show "\<exists>t ba. \<Gamma> (Loc (a, b)) = Some (t, ba)"
+        using a5 by (metis (full_types) Resource.distinct(1) ty_res_compat.elims(2) ty_res_compat.elims(3))
+    qed
+  qed
+
+  then show ?case using head_ty tail_ty loc_type.ConsList by simp
+qed
+
+lemma located_locations_in_dom:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "located L"
+    shows "set_mset (locations L) \<subseteq> dom (loc_ty_env \<Gamma>)"
+  using assms
+  apply (induction, auto)
+  by (metis domD domI loc_ty_env.simps located_dom_const old.prod.exhaust subset_iff)
   
 lemma locator_preservation:
   fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
@@ -1398,7 +1721,10 @@ next
   have "?\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau>' \<stileturn> \<Delta>'"
     using EConsListTailCongr.hyps(1) \<open>loc_ty_env \<Delta>'' \<subseteq>\<^sub>m loc_ty_env \<Delta>'\<close> head_ty located_var_ignore by auto
 
-  have "update_locations ?\<Gamma>' f (locations \<L>) = \<Delta>'" using a2
+  have "set_mset (locations \<L>) \<subseteq> dom (loc_ty_env \<Gamma>)"
+    using EConsListTailCongr.hyps(1) head_ty located_locations_in_dom by auto
+
+  then have "update_locations ?\<Gamma>' f (locations \<L>) = \<Delta>'" using a2
     using \<open>loc_ty_env \<Delta>'' \<subseteq>\<^sub>m loc_ty_env \<Delta>'\<close> temp1 by auto
 
   then show ?case
@@ -1407,7 +1733,7 @@ next
 
     show "Psamathe.compat ?\<Gamma>' f (locations [ \<tau>' ; \<L> , Tail' ]) \<Sigma>'"
       apply simp
-      by (simp add: \<open>update_locations (temp_update_env \<Gamma> \<Delta>') f (locations \<L>) = \<Delta>'\<close> temp2 temp_compat)
+      by (metis (no_types, lifting) EConsListTailCongr.prems(3) Psamathe.compat_def \<open>update_locations (temp_update_env \<Gamma> \<Delta>') f (locations \<L>) = \<Delta>'\<close> case_prodE temp2 temp_compat)
 
     show "var_ty_env \<Delta> = var_ty_env \<Xi>" using \<open>var_ty_env \<Delta> = var_ty_env \<Xi>\<close> by simp
 
@@ -1416,6 +1742,7 @@ next
 
     show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env ?\<Gamma>'"
       by (auto simp: map_le_def)
+  qed
 qed
 
 end
