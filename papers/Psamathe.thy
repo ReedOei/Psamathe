@@ -200,10 +200,13 @@ fun type_less_general :: "Type option \<Rightarrow> Type option \<Rightarrow> bo
 | "type_less_general None None = True"
 | "type_less_general _ _ = False"
 
+fun parent :: "StorageLoc \<Rightarrow> nat" where 
+  "parent (SLoc l) = l"
+| "parent (Amount l _) = l"
+| "parent (ResLoc l _) = l"
+
 fun storageLocRefs :: "StorageLoc \<Rightarrow> nat set" where
-  "storageLocRefs (SLoc l) = {l}"
-| "storageLocRefs (Amount l _) = {l}"
-| "storageLocRefs (ResLoc l _) = {l}"
+  "storageLocRefs l = {parent l}"
 
 fun references :: "(string, StorageLoc) map \<Rightarrow> nat set" where
   "references \<mu> = \<Union> (image storageLocRefs (ran \<mu>))"
@@ -218,7 +221,7 @@ fun locations :: "Locator \<Rightarrow> StorageLoc multiset" where
 | "locations (S (Loc l)) = {#l#}"
 | "locations (var x : t) = {#}"
  (* NOTE: We consider copy(L) to have no locations, because the locations won't be modified *)
-| "locations (copy(L)) = {#}"
+| "locations (copy(L)) = locations L"
 | "locations [ \<tau> ; ] = {#}"
 | "locations [ \<tau> ; \<L>, Tail ] = (locations \<L> + locations Tail)"
 
@@ -257,8 +260,11 @@ syntax
 translations
   "_OffsetUpd \<O> (_offset_let l f)" \<rightharpoonup> "\<O>(l := \<O> l @ [f])"
 
-definition offset_comp :: "Offset \<Rightarrow> Offset \<Rightarrow> Offset" (infix "\<circ>\<^sub>o" 65) where
+definition offset_comp :: "Offset \<Rightarrow> Offset \<Rightarrow> Offset" (infixl "\<circ>\<^sub>o" 65) where
   "\<O> \<circ>\<^sub>o \<P> \<equiv> (\<lambda>l. \<O> l @ \<P> l)"
+
+lemma offset_comp_assoc: "(\<O> \<circ>\<^sub>o \<P>) \<circ>\<^sub>o \<Q> = \<O> \<circ>\<^sub>o (\<P> \<circ>\<^sub>o \<Q>)"
+  by (auto simp: offset_comp_def)
 
 definition var_store_sync :: "Env \<Rightarrow> Offset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
   "var_store_sync \<Gamma> \<O> \<mu> \<equiv>
@@ -659,10 +665,10 @@ lemma offset_of_add: "offset_of f (\<LL> + \<KK>) = insert_many (offset_of f \<L
 
 lemma update_locations_step: 
   assumes "\<Gamma>(Loc l) = Some \<tau>" 
-  shows "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) = update_locations \<Gamma> (offset_of f {#l#})"
+  shows "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) = update_locations \<Gamma> (\<lambda>a. if l = a then [f] else [])"
 proof(rule ext)
   fix x
-  show "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) x = update_locations \<Gamma> (offset_of f {#l#}) x" 
+  show "(\<lambda>a. if a = Loc l then Some (f \<tau>) else \<Gamma> a) x = update_locations \<Gamma> (\<lambda>a. if l = a then [f] else []) x" 
     using assms
     apply (cases x)
     by (auto simp: offset_of_def insert_many_def apply_offset_def option.map_id)
@@ -696,13 +702,74 @@ proof(rule ext)
     by (metis append_replicate_commute foldl_append foldl_comp)
 qed
 
+definition empty_offset :: "Offset" where
+  "empty_offset \<equiv> (\<lambda>l. [])"
+
+lemma empty_offset_id: "empty_offset\<^sup>l[\<tau>] = \<tau>"
+  by (auto simp: empty_offset_def apply_offset_def)
+
+lemma offset_comp_single: "\<O> \<circ>\<^sub>o (\<lambda>k. if l = k then [f] else []) = \<O>(l @@ f)"
+  by (auto simp: offset_comp_def)
+
+lemma offset_comp_empty_r[simp]: "\<O> \<circ>\<^sub>o empty_offset = \<O>"
+  by (auto simp: offset_comp_def empty_offset_def)
+
+lemma offset_comp_empty_l[simp]: "empty_offset \<circ>\<^sub>o \<O> = \<O>"
+  by (auto simp: offset_comp_def empty_offset_def)
+
+lemma update_loc_empty[simp]: "update_locations \<Gamma> empty_offset = \<Gamma>"
+  apply (auto simp: empty_offset_def)
+  by (simp add: update_locations_id)
+
+fun build_offset :: "(Type \<Rightarrow> Type) \<Rightarrow> Locator \<Rightarrow> Offset" where
+  "build_offset _ (N _) = empty_offset"
+| "build_offset _ (B _) = empty_offset"
+| "build_offset _ (S (V _)) = empty_offset"
+| "build_offset f (S (Loc l)) = (\<lambda>k. if l = k then [f] else [])"
+| "build_offset _ (var _ : _) = empty_offset"
+| "build_offset _ [\<tau>; ] = empty_offset"
+| "build_offset f [\<tau>; Head, Tail] = build_offset f Tail \<circ>\<^sub>o build_offset f Head"
+| "build_offset _ copy(_) = empty_offset"
+
+lemma build_offset_id[simp]: "update_locations \<Gamma> (build_offset id L) = \<Gamma>"
+  apply (induction L, auto)
+proof -
+  fix x
+  show "update_locations \<Gamma> (build_offset (\<lambda>a. a) (S x)) = \<Gamma>"
+    apply (cases x, auto)
+  proof(rule ext)
+    fix y
+    show "\<And>x2. update_locations \<Gamma> (\<lambda>k. if x2 = k then [\<lambda>a. a] else []) y = \<Gamma> y"
+      apply (cases y, auto simp: apply_offset_def)
+      apply (simp add: option.map_ident)
+      by (simp add: option.map_id)
+  qed
+
+  show "\<And>L1 L2.
+       \<lbrakk>update_locations \<Gamma> (build_offset (\<lambda>a. a) L1) = \<Gamma>; update_locations \<Gamma> (build_offset (\<lambda>a. a) L2) = \<Gamma>\<rbrakk>
+       \<Longrightarrow> update_locations \<Gamma> (build_offset (\<lambda>a. a) L2 \<circ>\<^sub>o build_offset (\<lambda>a. a) L1) = \<Gamma> "
+    by (simp add: update_locations_union)
+qed
+
+lemma empty_offset_apply[simp]: "empty_offset\<^sup>l[\<tau>] = \<tau>"
+  by (auto simp: empty_offset_def apply_offset_def)
+
+lemma build_offset_apply_id[simp]: "(build_offset id L)\<^sup>l[\<tau>] = \<tau>"
+  apply (induction L, auto)
+proof -
+  fix x
+  show "build_offset (\<lambda>a. a) (S x)\<^sup>l[\<tau>] = \<tau>"
+    apply (cases x, auto simp: apply_offset_def)
+    using apply_offset_def empty_offset_apply by auto
+qed
+
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> (insert_many \<O> f (locations \<L>)) (\<mu>, \<rho>)"
+      and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f \<L>) (\<mu>, \<rho>)"
       and "located \<L>"
       and "type_preserving f"
-    shows "compat \<Delta> \<O> (\<mu>, \<rho>) \<and> \<Delta> = update_locations \<Gamma> (offset_of f (locations \<L>))"
+    shows "compat \<Delta> \<O> (\<mu>, \<rho>) \<and> \<Delta> = update_locations \<Gamma> (build_offset f \<L>)"
   using assms
 proof(induction arbitrary: \<mu> \<rho> \<O> rule: loc_type.induct)
   case (Nat \<Gamma> f n)
@@ -723,7 +790,7 @@ next
     then obtain x where "\<mu> x = Some l" ..
     then show ?thesis using Loc
       apply (unfold compat_def, clarsimp, safe)
-        apply (simp add: var_store_sync_add)
+        apply (simp add: var_store_sync_add offset_comp_single)
       
       apply (smt env_select_compat_def fun_upd_apply option.inject type_preserving_ty_res_compat)
       by (simp add: update_locations_step)
@@ -731,7 +798,7 @@ next
     case False
     then show ?thesis using Loc
       apply (unfold compat_def, clarsimp, safe)
-      apply (simp add: var_store_sync_add)
+      apply (simp add: var_store_sync_add offset_comp_single)
       apply (smt env_select_compat_def fun_upd_apply option.inject type_preserving_ty_res_compat)
       by (simp add: update_locations_step)
   qed 
@@ -740,25 +807,22 @@ next
   then show ?case by simp 
 next
   case (EmptyList \<Gamma> f \<tau>)
-  then show ?case
-    by (simp add: offset_of_def update_locations_id)
+  then show ?case by simp
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
-  then have "located \<L>" and "located Tail" 
-        and "compat \<Gamma> (insert_many \<O> f (locations \<L> + locations Tail)) (\<mu>, \<rho>)"
-        and "\<Delta> = update_locations \<Gamma> (offset_of f (locations \<L>))"
+  then have "located \<L>" and "located Tail"
+        and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f Tail \<circ>\<^sub>o build_offset f \<L>) (\<mu>, \<rho>)"
         apply simp  
     using ConsList.prems(2) apply auto[1]
     using ConsList.prems(1) apply auto[1]
     using ConsList
-    by (simp add: add.commute insert_many_add)
-  then have "compat \<Delta> (insert_many \<O> f (locations Tail)) (\<mu>, \<rho>)" 
-    using ConsList
+    by (smt apply_offset_distrib compat_elim(3) compat_transfer_var_sync var_store_sync_def)
+  then have "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (\<mu>, \<rho>)" and "\<Delta> = update_locations \<Gamma> (build_offset f \<L>)" 
+    using ConsList by auto
+  then show "compat \<Xi> \<O> (\<mu>, \<rho>) \<and> \<Xi> = update_locations \<Gamma> (build_offset f [\<tau>; \<L>, Tail])" 
     apply auto
-    by (simp add: insert_many_add union_commute)
-  then show "compat \<Xi> \<O> (\<mu>, \<rho>) \<and> \<Xi> = update_locations \<Gamma> (offset_of f (locations [\<tau>; \<L>, Tail]))" 
-    using ConsList \<open> \<Delta> = update_locations \<Gamma> (offset_of f (locations \<L>)) \<close>
-    by (metis \<open>located Tail\<close> insert_many_add locations.simps(8) offset_of_def update_comm)
+    using ConsList.IH(2) ConsList.prems(3) \<open>located Tail\<close> apply auto[1]
+    using ConsList.IH(2) ConsList.prems(3) \<open>located Tail\<close> update_locations_union by auto
 next
   case (Copy \<Gamma> L \<tau> f)
   then show ?case by simp
@@ -768,10 +832,10 @@ qed
 lemma located_env_compat2:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> (insert_many \<O> f (locations \<L>)) (\<mu>, \<rho>)"
+      and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f \<L>) (\<mu>, \<rho>)"
       and "located \<L>"
       and "type_preserving f"
-    shows "compat \<Delta> \<O> (\<mu>, \<rho>)" and "\<Delta> = update_locations \<Gamma> (offset_of f (locations \<L>))"
+    shows "compat \<Delta> \<O> (\<mu>, \<rho>)" and "\<Delta> = update_locations \<Gamma> (build_offset f \<L>)"
   using assms
   using located_env_compat apply auto[1]
   using assms(1) assms(2) assms(3) assms(4) located_env_compat by auto
@@ -788,10 +852,16 @@ lemma var_store_sync_id_insert:
   using assms
   by (auto simp: var_store_sync_def insert_many_ids)
 
+lemma var_store_sync_build_id:
+  assumes "var_store_sync \<Gamma> \<O> \<Sigma>"
+  shows "var_store_sync \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) \<Sigma>"
+  using assms
+  by (auto simp: var_store_sync_def)
+
 lemma locator_progress:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> (insert_many \<O> f (locations \<L>)) (\<mu>, \<rho>)"
+      and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f \<L>) (\<mu>, \<rho>)"
       and "\<L> wf"
       and "finite (dom \<rho>)"
       and "type_preserving f"
@@ -832,14 +902,15 @@ next
   then show ?case by simp
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
-  then have env_compat: "compat \<Gamma> (insert_many \<O> f (locations \<L> + locations Tail)) (\<mu>, \<rho>)" by auto
+  then have env_compat: "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f Tail \<circ>\<^sub>o build_offset f \<L>) (\<mu>, \<rho>)"
+    by (simp add: offset_comp_assoc)
 
   from ConsList and wf_locator.cases 
   have "\<L> wf" and "Tail wf" and "finite (dom \<rho>)" and "type_preserving f" by fastforce+
 
   from this and env_compat 
   have loc_induct: "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. < (\<mu>, \<rho>) , \<L> > \<rightarrow> < (\<mu>', \<rho>') , \<L>' >)"
-    and tail_induct: "\<And>\<mu>' \<rho>'. \<lbrakk>compat \<Delta> (insert_many \<O> f (locations Tail)) (\<mu>, \<rho>)\<rbrakk>
+    and tail_induct: "\<And>\<mu>' \<rho>'. \<lbrakk>compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (\<mu>, \<rho>)\<rbrakk>
                          \<Longrightarrow> located Tail \<or> (\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >)"
     apply (simp add: ConsList.IH(1) insert_many_add union_commute)
     by (simp add: ConsList.IH(2) ConsList.prems(4) \<open>Tail wf\<close> \<open>finite (dom \<rho>)\<close>)
@@ -855,7 +926,7 @@ next
       from this and loc_l show ?thesis by simp
     next
       case False
-      from loc_l have "compat \<Delta> (insert_many \<O> f (locations Tail)) (\<mu>, \<rho>)" 
+      from loc_l have "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (\<mu>, \<rho>)" 
         using located_env_compat ConsList env_compat
         by (smt add.commute insert_many_add)
       then have "\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >"
@@ -872,13 +943,13 @@ next
   then have "L wf" using wf_locator.cases by blast
 
   then have "compat \<Gamma> \<O> (\<mu>, \<rho>)" using Copy by simp
-  then have "compat \<Gamma> (insert_many \<O> id (locations L)) (\<mu>, \<rho>)"
-    using compat_elim(3) compat_transfer_var_sync var_store_sync_id_insert by blast
+  then have "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) (\<mu>, \<rho>)"
+    using compat_elim(3) compat_transfer_var_sync var_store_sync_build_id by blast
 
-  have "type_preserving (\<lambda>a. a)" by (auto simp: type_preserving_def base_type_compat_refl)
+  have "type_preserving id" by (auto simp: type_preserving_def base_type_compat_refl)
 
   then have ih: "located L \<or> (\<exists>\<mu>' \<rho>' a. <(\<mu>, \<rho>) , L> \<rightarrow> <(\<mu>', \<rho>') , a>)"
-    by (smt Copy.IH \<open>L wf\<close> \<open>Psamathe.compat \<Gamma> (insert_many \<O> id (locations L)) (\<mu>, \<rho>)\<close> compat_elim(6) eq_id_iff)
+    using Copy.IH \<open>L wf\<close> \<open>Psamathe.compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) (\<mu>, \<rho>)\<close> compat_elim(6) by blast
 
   obtain l where "l \<notin> dom \<rho>" using Copy.prems(3) gen_loc by auto 
     
@@ -896,40 +967,110 @@ next
   qed
 qed
 
-lemma add_fresh_num:
-  assumes "compat \<Gamma> f \<LL> (\<mu>, \<rho>)"
-      and "set_mset \<LL> \<subseteq> { l . Loc l \<in> dom \<Gamma> }"
-      and "Loc (l, Amount n) \<notin> dom \<Gamma>"
-      and "l \<notin> dom \<rho>"
-      and "exact_type (Res (t, Num n)) = Some \<tau>"
-    shows "compat (\<Gamma>(Loc (l, Amount n) \<mapsto> \<tau>)) f \<LL> (\<mu>, \<rho>(l \<mapsto> Res (t, Num n)))"
+definition offset_dom :: "Offset \<Rightarrow> StorageLoc set" where
+  "offset_dom \<O> \<equiv> {l. \<exists>\<tau>. (\<O>\<^sup>l[\<tau>]) \<noteq> \<tau>}"
+
+lemma not_in_offset_dom_is_id:
+  assumes "l \<notin> offset_dom \<O>"
+  shows "\<O>\<^sup>l[\<tau>] = \<tau>"
   using assms
-  apply (auto simp: compat_def var_store_sync_def env_select_compat_def)
-  apply blast
-  apply (simp add: base_type_compat_refl)
-  by (metis (mono_tags, lifting) assms(1) domI fun_upd_triv map_le_imp_upd_le map_le_refl select_preserve)
+  apply (auto simp: offset_dom_def apply_offset_def)
+  by (metis prod.collapse)
 
 lemma exact_type_preserves_tyquant:
   shows "\<exists>q. exact_type (Res (t, v)) = Some (q, t)"
   by (cases v, auto)
 
-lemma add_fresh_loc:
-  assumes "compat \<Gamma> f \<LL> (\<mu>, \<rho>)"
-      and "set_mset \<LL> \<subseteq> { l . Loc l \<in> dom \<Gamma> }"
-      and "Loc (l, SLoc l) \<notin> dom \<Gamma>"
-      and "l \<notin> dom \<rho>"
-      and "exact_type (Res (t, v)) = Some \<tau>"
-      and "\<tau> \<sqsubseteq>\<^sub>\<tau> \<sigma>"
-    shows "compat (\<Gamma>(Loc (l, SLoc l) \<mapsto> \<sigma>)) f \<LL> (\<mu>, \<rho>(l \<mapsto> Res (t, v)))"
+lemma subtype_base_type_compat:
+  assumes "\<tau> \<triangleq> r" and "\<tau> \<sqsubseteq>\<^sub>\<tau> \<sigma>"
+  shows "\<sigma> \<triangleq> r"
   using assms
-  apply (auto simp: compat_def var_store_sync_def env_select_compat_def)
-  apply blast
-  apply (metis base_type_compat_refl exact_type_preserves_tyquant less_general_type.simps option.inject)
-  by (smt assms(1) domIff fun_upd_triv map_le_imp_upd_le map_le_refl option.discI select_preserve)
+  by (metis less_general_type.elims(2) ty_res_compat.elims(2) ty_res_compat.simps(1))
+
+fun valid_ref :: "StorageLoc \<Rightarrow> Resource \<Rightarrow> bool" where
+  "valid_ref (SLoc _) (Res _) = True"
+| "valid_ref (Amount _ n) (Res (_, Num _)) = True"
+| "valid_ref (ResLoc _ v) (Res (_, Table vals)) = (v \<in> set vals)"
+| "valid_ref _ _ = False"
+
+(* TODO: Can we use this one to subsume add_fresh_num? *)
+lemma add_fresh_loc:
+  assumes "compat \<Gamma> \<O> (\<mu>, \<rho>)"
+      and "offset_dom \<O> \<subseteq> { l . Loc l \<in> dom \<Gamma> }"
+      and "Loc l \<notin> dom \<Gamma>"
+      and "parent l \<notin> dom \<rho>"
+      and "exact_type (Res (t, v)) = Some \<tau>"
+      and "valid_ref l (Res (t, v))"
+      and "\<tau> \<sqsubseteq>\<^sub>\<tau> \<sigma>"
+    shows "compat (\<Gamma>(Loc l \<mapsto> \<sigma>)) \<O> (\<mu>, \<rho>(parent l \<mapsto> Res (t, v)))"
+proof(rule compatI)
+  show "var_dom (\<Gamma>(Loc l \<mapsto> \<sigma>)) = dom \<mu>" 
+    using assms compat_elim by auto
+
+  show "\<forall>la. la \<notin> dom (\<rho>(parent l \<mapsto> Res (t, v))) \<longrightarrow> la \<notin> references \<mu>"
+    using assms compat_elim by auto
+
+  show "var_store_sync (\<Gamma>(Loc l \<mapsto> \<sigma>)) \<O> \<mu>"
+    using assms
+    apply (auto simp: compat_def var_store_sync_def)
+  proof -
+    fix x \<tau>
+    have "parent l \<notin> references \<mu>"
+      using assms(1) assms(4) compat_elim(2) by auto
+    assume "\<mu> x = Some l"
+    then have "parent l \<in> references \<mu>"
+      apply auto
+      using ranI by force
+    then show "\<Gamma> (V x) = Some (\<O>\<^sup>l[\<tau>])" using \<open>parent l \<notin> references \<mu>\<close>
+      by simp
+  qed
+
+  show "inj \<mu>" using assms compat_elim by auto
+
+  show "env_select_compat (\<Gamma>(Loc l \<mapsto> \<sigma>)) (\<mu>, \<rho>(parent l \<mapsto> Res (t, v)))"
+    using assms
+    apply (auto simp: env_select_compat_def)
+    apply (cases l, auto)
+    apply (metis base_type_compat_refl exact_type_preserves_tyquant less_general_type.simps option.inject)
+      apply (metis base_type_compat_refl exact_type_preserves_tyquant less_general_type.simps option.inject)
+    apply (cases v, auto)
+    apply (simp add: base_type_compat_refl)
+    by (metis (mono_tags, lifting) compat_elim(5) domIff env_select_compat_def fun_upd_triv map_le_imp_upd_le map_le_refl option.discI select_preserve)
+
+  show "finite (dom (\<rho>(parent l \<mapsto> Res (t, v))))"
+    using assms compat_elim by auto
+qed
+
+lemma ty_quant_less_refl: "q \<sqsubseteq> q"
+  by (metis TyQuant.exhaust insertI1 less_general_quant.simps(1) less_general_quant.simps(3) less_general_quant.simps(7) less_general_quant.simps(8))
+  
+
+lemma add_fresh_num:
+  assumes "compat \<Gamma> \<O> (\<mu>, \<rho>)"
+      and "offset_dom \<O> \<subseteq> { l . Loc l \<in> dom \<Gamma> }"
+      and "Loc (Amount l n) \<notin> dom \<Gamma>"
+      and "l \<notin> dom \<rho>"
+      and "exact_type (Res (t, Num n)) = Some \<tau>"
+    shows "compat (\<Gamma>(Loc (Amount l n) \<mapsto> \<tau>)) \<O> (\<mu>, \<rho>(l \<mapsto> Res (t, Num n)))"
+proof -
+  have "compat (\<Gamma>(Loc (Amount l n) \<mapsto> \<tau>)) \<O> (\<mu>, \<rho>(parent (Amount l n) \<mapsto> Res (t, Num n)))"
+    apply (rule add_fresh_loc)
+    using assms apply auto
+    by (simp add: ty_quant_less_refl)
+
+  then show "compat (\<Gamma>(Loc (Amount l n) \<mapsto> \<tau>)) \<O> (\<mu>, \<rho>(l \<mapsto> Res (t, Num n)))"
+    by simp
+qed
 
 definition var_loc_compat :: "Env \<Rightarrow> Store \<Rightarrow> bool" where
   "var_loc_compat \<Gamma> \<Sigma> \<equiv> case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow> 
       \<forall>x l. \<mu> x = Some l \<and> Loc l \<in> dom \<Gamma> \<and> V x \<in> dom \<Gamma> \<longrightarrow> \<Gamma> (Loc l) = \<Gamma> (V x)"
+
+lemma typecheck_id_env_same_source:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>" and "f = id" amd "m = s"
+  shows "\<Gamma> = \<Delta>"
+  using assms
+  by (induction, auto)
 
 lemma prf_compat_not_located:
   fixes \<Gamma> m f L \<tau> \<Delta> \<Gamma>'
@@ -979,6 +1120,13 @@ next
   then show ?case using ConsList loc_type.ConsList
     apply auto
     by (metis \<open>Tail wf\<close> \<open>\<L> wf\<close> loc_type.ConsList)
+next
+  case (Copy \<Gamma> L \<tau> f)
+  then have "L wf" using wf_locator.cases by blast
+  then have "(\<Gamma>' \<turnstile>{s} id ; L : \<tau> \<stileturn> \<Gamma>') \<and> var_ty_env \<Gamma> = var_ty_env \<Gamma>' \<and> loc_ty_env \<Gamma>' = loc_ty_env \<Gamma>'"
+    using Copy typecheck_id_env_same_source
+    by (metis locations.simps(6))
+  then show ?case using loc_type.Copy by blast 
 qed
 
 lemma var_loc_compat_upd:
