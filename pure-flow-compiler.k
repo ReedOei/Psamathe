@@ -69,9 +69,14 @@ module PURE-FLOW-COMPILER
 
     syntax SourceList ::= source(List)
                         | sourceSelect(Located, Located)
+                        | sourceFilter(Located, TypeQuant, Var, Locateds)
     syntax Located ::= Var
                      | SourceList
                      | guardSelect(Located, Located)
+                     | filterInto(TypeQuant, Var, Locateds, Located)
+    syntax Locateds ::= List{Located, ","} [klabel(locators)]
+                      | Vars
+    syntax Locators ::= Locateds
     syntax Locator ::= Located
     syntax KResult ::= Located
                      | Vars
@@ -295,6 +300,8 @@ module PURE-FLOW-COMPILER
         <compiled> ListItem(S => (S receiveValue(Val, Dst))) ... </compiled>
     rule sendValues(sourceSelect(Src, Sel), Dst) => sendValues(Src, guardSelect(Sel, Dst))
 
+    rule sendValues(sourceFilter(Src, Q, F, Args), Dst) => sendValues(Src, filterInto(Q, F, Args, Dst))
+
     rule [[ receiveValue(Src, Dst) => (Dst = Dst + Src; Src = 0;) ]]
         <typeEnv> ... Dst |-> nat ... </typeEnv>
 
@@ -312,6 +319,28 @@ module PURE-FLOW-COMPILER
 
     rule receiveValue(Src, guardSelect(Sel, Dst))
          => if (Src == Sel) { receiveValue(Src, Dst) }
+
+    rule receiveValue(Src, filterInto(Q, F, Args, Dst)) =>
+            if (buildCall(F, Args, Src)) {
+                receiveValue(Src, Dst)
+            }
+
+    syntax Expr ::= buildCall(Var, Locateds, Expr) [function]
+                  | buildExpr(Located) [function]
+
+    rule buildCall(F, Args, LastArg) => F(appendExpr(buildExprs(Args), LastArg))
+
+    // TODO: Finish this
+    rule buildExpr(X:Var) => X
+
+    syntax Exprs ::= buildExprs(Locateds) [function]
+                   | appendExpr(Exprs, Expr) [function, functional]
+
+    rule buildExprs(.Locateds) => .Exprs
+    rule buildExprs(L:Located, Ls) => buildExpr(L), buildExprs(Ls)
+
+    rule appendExpr(.Exprs, E) => E
+    rule appendExpr((E:Expr, Es), E') => E, appendExpr(Es, E')
 
     syntax KItem ::= flowNew(Locator, Var, Locators, Locators) [strict(1,3,4)]
 
@@ -339,8 +368,6 @@ module PURE-FLOW-COMPILER
         <tempVars> ... .Set => SetItem(genVar(!I)) ... </tempVars>
 
     rule <k> locate([ _ T ; Locs ]) => locateEach(Locs, .List) ... </k>
-        /* <typeEnv> ... .Map => genVar(!I) |-> list Q T ... </typeEnv> */
-        /* <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(T)[] genVar(!I);)) ... </compiled> */
         <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
 
     syntax KItem ::= locateEach(Locators, List)
@@ -376,9 +403,14 @@ module PURE-FLOW-COMPILER
         <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(T) X;)) ... </compiled>
         <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
 
-    syntax KItem ::= locateFilter(Locator, Locator) [seqstrict]
-    rule locate(L[K]) => locateFilter(locate(L), locate(K))
-    rule locateFilter(L, K) => sourceSelect(L, K)
+    syntax KItem ::= locateSelector(Locator, Locator) [seqstrict]
+    rule locate(L[K]) => locateSelector(locate(L), locate(K))
+    rule locateSelector(L, K) => sourceSelect(L, K)
+
+    syntax KItem ::= locateFilter(Locator, TypeQuant, Var, Locators) [seqstrict(4,1)]
+    // TODO: Need to check that the args get evaluated correctly **BEFORE** the filtered collections
+    rule locate(L[Q such that F(Args)]) => locateFilter(locate(L), Q, F, Args)
+    rule locateFilter(L, Q, F, Args) => sourceFilter(L, Q, F, Args)
 
     syntax Var ::= nameOf(BaseType) [function, functional]
     rule nameOf(X:Var) => X
