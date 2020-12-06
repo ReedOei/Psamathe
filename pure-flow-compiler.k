@@ -160,7 +160,6 @@ module PURE-FLOW-COMPILER
     rule setupArgs(.VarDefs) => .
     rule <k> setupArgs(X : _ T, Rest) => setupArgs(Rest) ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
-        <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(T) X;)) ... </compiled>
 
     syntax SolArgs ::= varDefsToSolArgs(VarDefs) [function, functional]
     rule varDefsToSolArgs(.VarDefs) => .SolArgs
