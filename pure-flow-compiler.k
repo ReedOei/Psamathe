@@ -22,6 +22,7 @@ module SOLIDITY-SYNTAX
                   | Expr "-" Expr
                   | Expr "||" Expr
                   > nonassoc: Expr "<" Expr
+                  | Expr "<=" Expr
                   | Expr "==" Expr
     syntax Exprs ::= List{Expr, ","}
 
@@ -317,7 +318,9 @@ module PURE-FLOW-COMPILER
         <typeEnv> ... Dst |-> map _ => _ ... </typeEnv>
 
     rule receiveValue(Src, guardSelect(Sel, Dst))
-         => if (Src == Sel) { receiveValue(Src, Dst) }
+         => if (containedIn(Src, Sel)) {
+                receiveValue(selectedPart(Src, Sel), Dst)
+            }
 
     rule receiveValue(Src, filterInto(Q, F, Args, Dst)) =>
             if (buildCall(F, Args, Src)) {
@@ -331,6 +334,22 @@ module PURE-FLOW-COMPILER
 
     // TODO: Finish this
     rule buildExpr(X:Var) => X
+
+    syntax Expr ::= containedIn(Expr, Located) [function]
+    rule containedIn(_, source(.List)) => false
+    rule containedIn(Src, source(ListItem(Elem))) => Src == buildExpr(Elem)
+    rule containedIn(Src, source(ListItem(E1) ListItem(E2) Rest)) => (Src == buildExpr(E1)) || containedIn(Src, source(ListItem(E2) Rest))
+    rule [[ containedIn(X, Y) => buildExpr(Y) <= X ]]
+        <typeEnv> ... Y |-> T ... </typeEnv>
+        requires isFungible(T)
+    rule containedIn(X, Y) => X == buildExpr(Y) [owise]
+
+    syntax Expr ::= selectedPart(Expr, Located) [function]
+    rule selectedPart(X, source(_)) => X
+    rule [[ selectedPart(X, Y) => buildExpr(Y) ]]
+        <typeEnv> ... Y |-> T ... </typeEnv>
+        requires isFungible(T)
+    rule selectedPart(X, _) => X [owise]
 
     syntax Exprs ::= buildExprs(Locateds) [function]
                    | appendExpr(Exprs, Expr) [function, functional]

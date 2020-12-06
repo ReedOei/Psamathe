@@ -9,6 +9,10 @@ transformer id(b : any bool) -> res : any bool {
     b --> res
 }
 
+/* transformer transfer(balances : map nat => Token, sender : nat, amount : nat, destination : nat) { */
+/*     balances[sender] --[ amount ]-> destination */
+/* } */
+
 ;
 
 1 --> var x : nat
@@ -28,9 +32,11 @@ false --> var b : bool
 
 [1,2,3] --> var nums : list nat
 
-nums --[ 4 ]-> var dest : list nat
+nums --[ [ any nat; 4 ] ]-> var dest : list nat
 
-[4,5,6] --[ 4 ]-> dest
+[4,5,6] --[ [ any nat; 4 ] ]-> dest
 
 [true,false] --[ any such that id() ]-> var bs : list bool
+
+y --[ 2 ]-> var z : nat
 

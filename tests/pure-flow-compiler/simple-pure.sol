@@ -114,5 +114,11 @@ contract C {
         if (id(v22)) {
             bs.push(v22);
         }
+        uint256 v23 = 2;
+        uint256 z;
+        if (v23 <= y) {
+            z = z + v23;
+            v23 = 0;
+        }
     }
 }

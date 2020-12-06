@@ -280,6 +280,12 @@ module PURE-FLOW-COMMON
         <types> ... T |-> typeDef(Ms, BaseT) ... </types>
         requires notBool(fungible in Ms)
 
+    syntax Bool ::= isFungible(BaseType) [function]
+    rule isFungible(nat) => true
+    rule [[ isFungible(T) => fungible in Ms ]]
+        <types> ... T |-> typeDef(Ms, _) ... </types>
+    rule isFungible(_) => false [owise]
+
     syntax VarDef ::= inferVarDef(VarDef) [function, functional]
     rule inferVarDef(X : Q T) => X : Q T
     rule inferVarDef(X : T) => X : inferQuantitiesType(T)
