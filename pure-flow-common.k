@@ -247,6 +247,16 @@ module PURE-FLOW-COMMON
     rule lookupType((Y : _, Rest), X) => lookupType(Rest, X)
         requires X =/=K Y
 
+    syntax MaybeType ::= lookupField(BaseType, Var) [function, functional]
+    rule [[ lookupField(T, Y) => lookupField(BaseT, Y) ]]
+        <types> ... T |-> typeDef(_, BaseT) ... </types>
+    rule lookupField(record(_) { Members }, Y) => lookupType(Members, Y)
+    // TODO: Remove the coerces... We really need like an fmap here
+    rule lookupField(table(_) Q record(_) { Members }, Y) => lookupType(Members, Y)
+
+    syntax BaseType ::= coerceMaybeType(MaybeType) [function, functional]
+    rule coerceMaybeType(some(T)) => T
+
     syntax MaybeType ::= demoteMaybeType(MaybeType) [function, functional]
     rule demoteMaybeType(none) => none
     rule demoteMaybeType(some(T)) => some(demoteBaseType(T))

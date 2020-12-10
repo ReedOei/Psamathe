@@ -9,9 +9,9 @@ transformer id(b : any bool) -> res : any bool {
     b --> res
 }
 
-/* transformer transfer(balances : map nat => Token, sender : nat, amount : nat, destination : nat) { */
-/*     balances[sender] --[ amount ]-> destination */
-/* } */
+transformer transfer(balances : map any nat => nat, src : nat, amount : nat, dst : nat) {
+    balances[src].value --[ amount ]-> balances[dst].value
+}
 
 ;
 

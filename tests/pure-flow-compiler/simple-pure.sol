@@ -3,10 +3,10 @@ contract C {
         address sender;
         uint256 amount;
     }
-    struct closure_type_7 {
+    struct closure_type_2 {
         uint256 y;
         uint256 x;
-        record__key__anynatvalue__anynat v2;
+        record__key__anynatvalue__anynat v0;
         table_onerecord_key__key__anynatvalue__anynat m;
     }
     struct record__key__anynatvalue__anynat {
@@ -22,18 +22,17 @@ contract C {
         uint256[] keys;
     }
 
-    function closure_7(closure_type_7 v9) returns (closure_type_7 v10) {
-        uint256 y = v9.y;
-        uint256 x = v9.x;
-        record__key__anynatvalue__anynat v2 = v9.v2;
-        table_onerecord_key__key__anynatvalue__anynat m = v9.m;
-        uint256 v5 = 5;
-        y = y + v5;
-        v5 = 0;
-        v10.v2 = v2;
-        v10.m = m;
-        v10.y = y;
-        v10.x = x;
+    function closure_2(closure_type_2 v4) returns (closure_type_2 v5) {
+        uint256 y = v4.y;
+        uint256 x = v4.x;
+        record__key__anynatvalue__anynat v0 = v4.v0;
+        table_onerecord_key__key__anynatvalue__anynat m = v4.m;
+        y = y + 5;
+        5 = 5 - 5;
+        v5.v0 = v0;
+        v5.m = m;
+        v5.y = y;
+        v5.x = x;
     }
 
     function id(bool b) returns (bool res) {
@@ -41,84 +40,85 @@ contract C {
         b = false;
     }
 
-    constructor() {
-        uint256 v0 = 1;
-        uint256 x;
-        x = x + v0;
-        v0 = 0;
-        uint256 v1 = 4;
-        uint256 y;
-        y = y + v1;
-        v1 = 0;
-        y = y + x;
-        x = 0;
-        table_onerecord_key__key__anynatvalue__anynat m;
-        record__key__anynatvalue__anynat v2;
-        uint256 v3 = 0;
-        v2.key = v3;
-        v2.value = x;
-        m.underlying_map[v2.key] = v2.value;
-        m.keys.push(v2.key);
-        v6.v2 = v2;
-        v6.m = m;
-        v6.y = y;
-        v6.x = x;
-        try this.closure_7(v6) returns (closure_type_7 v8) {
-            v2 = v8.v2;
-            m = v8.m;
-            y = v8.y;
-            x = v8.x;
-        } catch {
-            uint256 v4 = 4;
-            y = y + v4;
-            v4 = 0;
+    function transfer(
+        table_onerecord_key__key__anynatvalue__anynat balances,
+        uint256 src,
+        uint256 amount,
+        uint256 dst
+    ) returns (bool success) {
+        if (amount <= (balances.underlying_map[src].value)) {
+            balances.underlying_map[dst].value =
+                balances.underlying_map[dst].value +
+                amount;
+            balances.underlying_map[src].value =
+                balances.underlying_map[src].value -
+                amount;
         }
-        bool v11 = false;
+        success = success || true;
+        true = false;
+    }
+
+    constructor() {
+        uint256 x;
+        x = x + 1;
+        1 = 1 - 1;
+        uint256 y;
+        y = y + 4;
+        4 = 4 - 4;
+        y = y + x;
+        x = x - x;
+        table_onerecord_key__key__anynatvalue__anynat m;
+        record__key__anynatvalue__anynat v0;
+        v0.key = 0;
+        v0.value = x;
+        m.underlying_map[v0.key] = v0.value;
+        m.keys.push(v0.key);
+        v1.v0 = v0;
+        v1.m = m;
+        v1.y = y;
+        v1.x = x;
+        try this.closure_2(v1) returns (closure_type_2 v3) {
+            v0 = v3.v0;
+            m = v3.m;
+            y = v3.y;
+            x = v3.x;
+        } catch {
+            y = y + 4;
+            4 = 4 - 4;
+        }
         bool b;
-        b = b || v11;
-        v11 = false;
-        uint256 v12 = 1;
-        uint256 v13 = 2;
-        uint256 v14 = 3;
+        b = b || false;
+        false = false;
         table_anynat nums;
-        nums.push(v12);
-        nums.push(v13);
-        nums.push(v14);
-        uint256 v15 = 4;
+        nums.push(1);
+        nums.push(2);
+        nums.push(3);
         table_anynat dest;
-        for (uint256 v16 = 0; v16 < (nums.length); v16++) {
-            if (nums[v16] == v15) {
-                dest.push(nums[v16]);
+        for (uint256 v7 = 0; v7 < (nums.length); v7++) {
+            if (nums[v6] == 4) {
+                dest.push(nums[v6]);
             }
         }
-        delete nums;
-        uint256 v17 = 4;
-        uint256 v18 = 5;
-        uint256 v19 = 6;
-        uint256 v20 = 4;
-        if (v17 == v20) {
-            dest.push(v17);
+        if (4 == 4) {
+            dest.push(4);
         }
-        if (v18 == v20) {
-            dest.push(v18);
+        if (5 == 4) {
+            dest.push(5);
         }
-        if (v19 == v20) {
-            dest.push(v19);
+        if (6 == 4) {
+            dest.push(6);
         }
-        bool v21 = true;
-        bool v22 = false;
         table_onebool bs;
-        if (id(v21)) {
-            bs.push(v21);
+        if (id(true)) {
+            bs.push(true);
         }
-        if (id(v22)) {
-            bs.push(v22);
+        if (id(false)) {
+            bs.push(false);
         }
-        uint256 v23 = 2;
         uint256 z;
-        if (v23 <= y) {
-            z = z + v23;
-            v23 = 0;
+        if (y == 2) {
+            z = z + y;
+            y = y - y;
         }
     }
 }

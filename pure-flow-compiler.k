@@ -68,13 +68,18 @@ module PURE-FLOW-COMPILER
     imports COLLECTIONS
     imports PURE-FLOW-COMMON
 
-    syntax SourceList ::= source(List)
+    syntax SourceList ::= source(Type, List)
                         | sourceSelect(Located, Located)
                         | sourceFilter(Located, TypeQuant, Var, Locateds)
     syntax Located ::= Var
                      | SourceList
+                     | intConst(Int)
+                     | boolConst(Bool)
                      | guardSelect(Located, Located)
                      | filterInto(TypeQuant, Var, Locateds, Located)
+                     | fieldOf(Located, Var)
+                     | fromField(Var, Located)
+                     | receiveInFieldFrom(BaseType, Var, Expr, Expr)
     syntax Locateds ::= List{Located, ","} [klabel(locators)]
                       | Vars
     syntax Locators ::= Locateds
@@ -93,7 +98,6 @@ module PURE-FLOW-COMPILER
         <solFunctions> .Map </solFunctions>
         <compiled> .List </compiled>
         <typeEncoding> .Map </typeEncoding>
-        <tempVars> .Set </tempVars>
 
     syntax KItem ::= translateDecl(Decl)
                    | "done"
@@ -266,66 +270,116 @@ module PURE-FLOW-COMPILER
     syntax KItem ::= flow(Locator, Locator) [seqstrict]
     rule <k> A --> B => flow(locate(A), locate(B)) ... </k>
 
-    syntax KItem ::= "cleanTemp"
-    rule <k> cleanTemp => . ... </k>
-        <typeEnv> Env => removeAll(Env, Temps) </typeEnv>
-        <tempVars> Temps => .Set </tempVars>
+    syntax KItem ::= "appendStmts"
+    rule <k> New:SolStmts ~> appendStmts => . ... </k>
+        <compiled> ListItem(S => (S New)) ... </compiled>
 
-    syntax SolStmts ::= receiveValue(Expr, Located) [function, functional]
+    syntax KItem ::= lookupValues(Located, Located)
 
-    syntax KItem ::= sendValues(Located, Located)
+    rule flow(Src, Dst) => lookupValues(Src, Dst) ~> appendStmts
 
-    rule flow(Src, Dst) => sendValues(Src, Dst) ~> cleanTemp
-
-    rule <k> sendValues(Src, Dst) => . ... </k>
+    rule <k> lookupValues(Src, Dst) => receiveValue(Src, Src, Dst) ... </k>
         <typeEnv> ... Src |-> nat ... </typeEnv>
-        <compiled> ListItem(Cur => (Cur receiveValue(Src, Dst))) ... </compiled>
-    rule <k> sendValues(Src, Dst) => . ... </k>
+    rule <k> lookupValues(Src, Dst) => receiveValue(Src, Src, Dst) ... </k>
         <typeEnv> ... Src |-> bool ... </typeEnv>
-        <compiled> ListItem(Cur => (Cur receiveValue(Src, Dst))) ... </compiled>
-    rule <k> sendValues(Src, Dst) => . ... </k>
+    rule lookupValues(intConst(V), Dst) => receiveValue(V, V, Dst)
+    rule lookupValues(boolConst(B), Dst) => receiveValue(B, B, Dst)
+
+    rule <k> lookupValues(Src, Dst) => receiveValue(Src[genVar(!I)], Src[genVar(!I)], Dst) ~> lookupValues(Src, Dst) ... </k>
         <typeEnv> ... Src |-> table(.Vars) _ ... </typeEnv>
-        <compiled>
-            ListItem(S => S (
+    rule <k> Body:SolStmts ~> lookupValues(Src, _) =>
                 for (uint genVar(!I) = 0; genVar(!I) < (Src.length); genVar(!I)++) {
-                    receiveValue(Src[genVar(!I)], Dst)
-                }
-                delete Src;
-            ))
-            ...
-        </compiled>
+                    Body
+                    // TODO: Need to delete the selected values
+                } ... </k>
+        <typeEnv> ... Src |-> table(.Vars) _ ... </typeEnv>
 
-    rule sendValues(source(.List), _) => .
-    rule <k> sendValues(source(ListItem(Val) Rest), Dst) => sendValues(source(Rest), Dst) ... </k>
-        <compiled> ListItem(S => (S receiveValue(Val, Dst))) ... </compiled>
-    rule sendValues(sourceSelect(Src, Sel), Dst) => sendValues(Src, guardSelect(Sel, Dst))
+    rule <k> lookupValues(Src, Dst) =>
+                receiveValue(buildExpr(Src).underlying_map[buildExpr(Src).keys[genVar(!I)]],
+                             buildExpr(Src).underlying_map[buildExpr(Src).keys[genVar(!I)]],
+                             Dst) ~> lookupValues(Src, Dst) ... </k>
+        <typeEnv> ... Src |-> map _ => _ ... </typeEnv>
+    rule <k> Body:SolStmts ~> lookupValues(Src, _) =>
+            for (uint genVar(!I) = 0; genVar(!I) < (buildExpr(Src).keys.length); genVar(!I)++) {
+                Body
+                // TODO: Need to delete the selected values
+            } ... </k>
+        <typeEnv> ... Src |-> map _ => _ ... </typeEnv>
 
-    rule sendValues(sourceFilter(Src, Q, F, Args), Dst) => sendValues(Src, filterInto(Q, F, Args, Dst))
+    rule lookupValues(source(_, .List), _) => .SolStmts
+    rule lookupValues(source(T, ListItem(Val) Rest), Dst)
+        => receiveValue(buildExpr(Val), buildExpr(Val), Dst) ~> lookupValues(source(T, Rest), Dst)
+    rule Ss:SolStmts ~> lookupValues(source(T, Vals), Dst) => Ss ~> appendStmts ~> lookupValues(source(T, Vals), Dst)
 
-    rule [[ receiveValue(Src, Dst) => (Dst = Dst + Src; Src = 0;) ]]
-        <typeEnv> ... Dst |-> nat ... </typeEnv>
+    rule <k> lookupValues(sourceSelect(Src, Sel), Dst) => receiveValue(buildExpr(Src).underlying_map[Sel], buildExpr(Src).underlying_map[Sel], Dst) ... </k>
+        <typeEnv> ... (Src |-> map _ K => _) (Sel |-> K) ... </typeEnv>
 
-    rule [[ receiveValue(Src, Dst) => (Dst = Dst || Src; Src = false;) ]]
-        <typeEnv> ... Dst |-> bool ... </typeEnv>
+    rule lookupValues(sourceSelect(Src, Sel), Dst) => lookupValues(Src, guardSelect(Sel, Dst))
+        requires selectCompat(demoteBaseType(typeof(Src)), demoteBaseType(typeof(Sel)))
 
-    rule [[ receiveValue(Src, Dst) => Dst.push(Src); ]]
-        <typeEnv> ... Dst |-> table(.Vars) _ </typeEnv>
+    rule lookupValues(sourceFilter(Src, Q, F, Args), Dst) => lookupValues(Src, filterInto(Q, F, Args, Dst))
 
-    rule [[ receiveValue(Src, Dst) => (
-                Dst.underlying_map[Src.key] = Src.value;
-                Dst.keys.push(Src.key);
-        )]]
-        <typeEnv> ... Dst |-> map _ => _ ... </typeEnv>
+    rule lookupValues(fieldOf(Src, X), Dst) => lookupValues(Src, fromField(X, Dst))
 
-    rule receiveValue(Src, guardSelect(Sel, Dst))
+    syntax Bool ::= selectCompat(BaseType, BaseType) [function]
+    rule selectCompat(X, X) => true
+    rule selectCompat(table(_) _ T, T) => true
+    rule selectCompat(_, _) => false [owise]
+
+    syntax BaseType ::= typeof(Located) [function]
+    // TODO: Need to make sure these are right
+    rule typeof(source(T, _)) => list T
+    rule [[ typeof(X) => T ]]
+        <typeEnv> ... X |-> T ... </typeEnv>
+    rule typeof(fieldOf(Dst, X)) => coerceMaybeType(lookupField(typeof(Dst), X))
+    rule typeof(sourceSelect(L, _)) => typeof(L)
+    rule typeof(intConst(_)) => nat
+    rule typeof(boolConst(_)) => bool
+
+    syntax KItem ::= receiveValue(Expr, Expr, Located)
+                   | receiveExpr(BaseType, Expr, Expr, Expr)
+
+    rule <k> receiveValue(Orig, Src, Dst) => receiveExpr(demoteBaseType(T), Orig, Src, buildExpr(Dst)) ... </k>
+        <typeEnv> ... Dst |-> T ... </typeEnv>
+        requires isFungible(T)
+
+    rule <k> receiveValue(Orig, Src, Dst) => receiveExpr(demoteBaseType(T), Orig, Src, buildExpr(Dst)) ... </k>
+        <typeEnv> ... Dst |-> T ... </typeEnv>
+        requires demoteBaseType(T) ==K bool
+
+    rule <k> receiveValue(Orig, Src, Dst) => receiveExpr(demoteBaseType(T), Orig, Src, buildExpr(Dst)) ... </k>
+        <typeEnv> ... Dst |-> T ... </typeEnv>
+        requires (table(.Vars) _) :=K demoteBaseType(T)
+
+    rule <k> receiveValue(Orig, Src, Dst) => receiveExpr(map K => V, Orig, Src, buildExpr(Dst)) ... </k>
+        <typeEnv> ... Dst |-> map K => V ... </typeEnv>
+
+    rule receiveValue(Orig, Src, guardSelect(Sel, Dst))
+         => receiveValue(Orig, selectedPart(Src, Sel), Dst) ~> receiveValue(Orig, Src, guardSelect(Sel, Dst))
+    rule Body:SolStmts ~> receiveValue(_, Src, guardSelect(Sel, _))
          => if (containedIn(Src, Sel)) {
-                receiveValue(selectedPart(Src, Sel), Dst)
+                Body
             }
 
-    rule receiveValue(Src, filterInto(Q, F, Args, Dst)) =>
+    rule receiveValue(Orig, Src, filterInto(Q, F, Args, Dst)) =>
+            receiveValue(Orig, Src, Dst) ~> receiveValue(Orig, Src, filterInto(Q, F, Args, Dst))
+    rule Body:SolStmts ~> receiveValue(_, Src, filterInto(Q, F, Args, _)) =>
             if (buildCall(F, Args, Src)) {
-                receiveValue(Src, Dst)
+                Body
             }
+
+    rule receiveValue(Orig, Src, fieldOf(Dst, X))
+        => lookupValues(Dst, receiveInFieldFrom(coerceMaybeType(lookupField(typeof(Dst), X)), X, Orig, Src))
+    rule receiveValue(_, Dst, receiveInFieldFrom(T, X, Orig, Src)) => receiveExpr(T, Orig, Src, Dst.X)
+    rule receiveValue(Orig, Src, fromField(X, Dst)) => receiveValue(Orig.X, Src.X, Dst)
+
+    rule receiveExpr(T, Orig, Src, Dst) => Dst = Dst + Src; Orig = Orig - Src;
+        requires isFungible(T)
+    rule receiveExpr(bool, Orig, Src, Dst) => Dst = Dst || Src; Orig = false;
+    rule receiveExpr(table(.Vars) _, Orig, Src, Dst) => Dst.push(Src);
+    rule receiveExpr(map _ => _, Orig, Src, Dst) =>
+            Dst.underlying_map[Src.key] = Src.value;
+            Dst.keys.push(Src.key);
 
     syntax Expr ::= buildCall(Var, Locateds, Expr) [function]
                   | buildExpr(Located) [function]
@@ -334,19 +388,21 @@ module PURE-FLOW-COMPILER
 
     // TODO: Finish this
     rule buildExpr(X:Var) => X
+    rule buildExpr(intConst(V)) => V
+    rule buildExpr(boolConst(B)) => B
 
     syntax Expr ::= containedIn(Expr, Located) [function]
-    rule containedIn(_, source(.List)) => false
-    rule containedIn(Src, source(ListItem(Elem))) => Src == buildExpr(Elem)
-    rule containedIn(Src, source(ListItem(E1) ListItem(E2) Rest)) => (Src == buildExpr(E1)) || containedIn(Src, source(ListItem(E2) Rest))
+    rule containedIn(_, source(_, .List)) => false
+    rule containedIn(Src, source(_, ListItem(Elem))) => Src == buildExpr(Elem)
+    rule containedIn(Src, source(T, ListItem(E1) ListItem(E2) Rest)) => (Src == buildExpr(E1)) || containedIn(Src, source(T, ListItem(E2) Rest))
     rule [[ containedIn(X, Y) => buildExpr(Y) <= X ]]
         <typeEnv> ... Y |-> T ... </typeEnv>
         requires isFungible(T)
     rule containedIn(X, Y) => X == buildExpr(Y) [owise]
 
     syntax Expr ::= selectedPart(Expr, Located) [function]
-    rule selectedPart(X, source(_)) => X
-    rule [[ selectedPart(X, Y) => buildExpr(Y) ]]
+    rule selectedPart(X, source(_, _)) => X
+    rule [[ selectedPart(_, Y) => buildExpr(Y) ]]
         <typeEnv> ... Y |-> T ... </typeEnv>
         requires isFungible(T)
     rule selectedPart(X, _) => X [owise]
@@ -375,23 +431,16 @@ module PURE-FLOW-COMPILER
 
     syntax Locator ::= locate(Locator)
 
-    rule <k> locate(V:Int) => genVar(!I) ... </k>
-        <typeEnv> ... .Map => genVar(!I) |-> nat ... </typeEnv>
-        <compiled> ListItem(Ss => Ss (uint genVar(!I) = V;)) ... </compiled>
-        <tempVars> ... .Set => SetItem(genVar(!I)) ... </tempVars>
+    rule locate(V:Int) => intConst(V)
+    rule locate(B:Bool) => boolConst(B)
 
-    rule <k> locate(B:Bool) => genVar(!I) ... </k>
-        <typeEnv> ... .Map => genVar(!I) |-> bool ... </typeEnv>
-        <compiled> ListItem(S => S (bool genVar(!I) = B;)) ... </compiled>
-        <tempVars> ... .Set => SetItem(genVar(!I)) ... </tempVars>
-
-    rule <k> locate([ _ T ; Locs ]) => locateEach(Locs, .List) ... </k>
+    rule <k> locate([ Q T ; Locs ]) => locateEach(Q T, Locs, .List) ... </k>
         <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
 
-    syntax KItem ::= locateEach(Locators, List)
-    rule locateEach(.Locators, Res) => source(Res)
-    rule locateEach((L:Locator, Ls), Res) => locate(L) ~> locateEach(Ls, Res)
-    rule Y:Located ~> locateEach(Locs, Res) => locateEach(Locs, Res ListItem(Y))
+    syntax KItem ::= locateEach(Type, Locators, List)
+    rule locateEach(T, .Locators, Res) => source(T, Res)
+    rule locateEach(T, (L:Locator, Ls), Res) => locate(L) ~> locateEach(T, Ls, Res)
+    rule Y:Located ~> locateEach(T, Locs, Res) => locateEach(T, Locs, Res ListItem(Y))
 
     rule <k> locate(record(Keys) { Members }) => locateRecordFields(genVar(!I), Members) ~> genVar(!I) ... </k>
         <typeEnv> ... .Map => genVar(!I) |-> record(Keys) { membersToDefs(Members) } ... </typeEnv>
@@ -404,11 +453,15 @@ module PURE-FLOW-COMPILER
     rule locateRecordFields(X, ((F : _ |-> V), Rest:RecordMembers))
          => locate(V) ~> setField(X, F) ~> locateRecordFields(X, Rest)
 
-    rule <k> Y:Var ~> setField(X, F) => . ... </k>
-        <compiled> ListItem(Ss => Ss (X.F = Y;)) ... </compiled>
+    rule <k> L:Located ~> setField(X, F) => . ... </k>
+        <compiled> ListItem(Ss => Ss (X.F = buildExpr(L);)) ... </compiled>
 
     rule locate(X:Var) => X
     rule locate(demote(L)) => locate(L)
+
+    syntax Locator ::= locateField(Locator, Var) [seqstrict(1)]
+    rule locate(L.X) => locateField(locate(L), X)
+    rule locateField(L, X) => fieldOf(L, X)
 
     context locate(copy(HOLE => locate(copy(HOLE))))
     rule <k> locate(copy(X:Var)) => X ... </k>
