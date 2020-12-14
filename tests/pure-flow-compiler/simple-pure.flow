@@ -1,16 +1,20 @@
-type Token is unique consumable asset nat
+type Token is fungible asset nat
 
 type Bid is {
-    sender : one address,
-    amount : any nat
+    sender : address,
+    amount : Token
 }
 
 transformer id(b : any bool) -> res : any bool {
     b --> res
 }
 
-transformer transfer(balances : map any nat => nat, src : nat, amount : nat, dst : nat) {
-    balances[src].value --[ amount ]-> balances[dst].value
+transformer transfer(balances : map address => nat, src : address, amount : nat, dst : address) {
+    balances[src] --[ amount ]-> balances[dst]
+}
+
+transformer transferTok(balances : map address => Token, src : address, amount : nat, dst : address) {
+    balances[src] --[ amount ]-> balances[dst]
 }
 
 ;

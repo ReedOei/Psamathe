@@ -80,6 +80,7 @@ module PURE-FLOW-COMPILER
                      | fieldOf(Located, Var)
                      | fromField(Var, Located)
                      | receiveInFieldFrom(BaseType, Var, Expr, Expr)
+                     | receiveFrom(BaseType, Expr, Expr)
     syntax Locateds ::= List{Located, ","} [klabel(locators)]
                       | Vars
     syntax Locators ::= Locateds
@@ -147,9 +148,9 @@ module PURE-FLOW-COMPILER
         <solFunctions> Functions </solFunctions>
 
     rule <k> translateDecl(type T is Ms BaseT) => . ... </k>
-        <structs> Structs => Structs defineStructs(T, BaseT) </structs>
         <types> ... .Map => T |-> typeDef(modifiersToSet(Ms), BaseT) ... </types>
         <typeEncoding> ... .Map => T |-> encodeType(T, BaseT) ... </typeEncoding>
+        <structs> Structs => union(Structs, defineStructs(T, BaseT)) </structs>
 
     syntax KItem ::= setupArgs(VarDefs)
                    | defFunc(Var, VarDefs, Var, BaseType)
@@ -165,6 +166,7 @@ module PURE-FLOW-COMPILER
     rule setupArgs(.VarDefs) => .
     rule <k> setupArgs(X : _ T, Rest) => setupArgs(Rest) ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
+        <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
 
     syntax SolArgs ::= varDefsToSolArgs(VarDefs) [function, functional]
     rule varDefsToSolArgs(.VarDefs) => .SolArgs
@@ -306,13 +308,13 @@ module PURE-FLOW-COMPILER
             } ... </k>
         <typeEnv> ... Src |-> map _ => _ ... </typeEnv>
 
+    rule <k> lookupValues(sourceSelect(Src, Sel), Dst) => receiveValue(buildExpr(Src).underlying_map[Sel].value, buildExpr(Src).underlying_map[Sel].value, Dst) ... </k>
+        <typeEnv> ... (Src |-> map _ K => _) (Sel |-> K) ... </typeEnv>
+
     rule lookupValues(source(_, .List), _) => .SolStmts
     rule lookupValues(source(T, ListItem(Val) Rest), Dst)
         => receiveValue(buildExpr(Val), buildExpr(Val), Dst) ~> lookupValues(source(T, Rest), Dst)
     rule Ss:SolStmts ~> lookupValues(source(T, Vals), Dst) => Ss ~> appendStmts ~> lookupValues(source(T, Vals), Dst)
-
-    rule <k> lookupValues(sourceSelect(Src, Sel), Dst) => receiveValue(buildExpr(Src).underlying_map[Sel], buildExpr(Src).underlying_map[Sel], Dst) ... </k>
-        <typeEnv> ... (Src |-> map _ K => _) (Sel |-> K) ... </typeEnv>
 
     rule lookupValues(sourceSelect(Src, Sel), Dst) => lookupValues(Src, guardSelect(Sel, Dst))
         requires selectCompat(demoteBaseType(typeof(Src)), demoteBaseType(typeof(Sel)))
@@ -332,9 +334,29 @@ module PURE-FLOW-COMPILER
     rule [[ typeof(X) => T ]]
         <typeEnv> ... X |-> T ... </typeEnv>
     rule typeof(fieldOf(Dst, X)) => coerceMaybeType(lookupField(typeof(Dst), X))
-    rule typeof(sourceSelect(L, _)) => typeof(L)
+    // TODO: Reduce duplication of typeof(L)
+    rule typeof(sourceSelect(L, K)) => #if typeof(K) in keyTypes(typeof(L)) #then valueType(typeof(L)) #else typeof(L) #fi
     rule typeof(intConst(_)) => nat
     rule typeof(boolConst(_)) => bool
+
+    syntax Set ::= keyTypes(BaseType) [function]
+    rule keyTypes(nat) => SetItem(nat)
+    rule keyTypes(bool) => SetItem(bool)
+    rule keyTypes(string) => SetItem(string)
+    rule keyTypes(address) => SetItem(address)
+    rule keyTypes(record(Keys) { Fields }) => lookupTypes(Fields, Keys) SetItem(record(Keys) { Fields })
+    rule keyTypes(table(Keys) Q T) => SetItem(table(Keys) Q T) keyTypes(T)
+    rule [[ keyTypes(T) => SetItem(T) keyTypes(demoteBaseType(T))  ]]
+        <types> ... T |-> _ ... </types>
+
+    syntax BaseType ::= valueType(BaseType) [function]
+    rule valueType(map _ => _ V) => V
+    rule valueType(record(Keys) { Fields }) => coerceMaybeType(makeValueType(withoutKeys(Fields, Keys)))
+
+    syntax MaybeType ::= makeValueType(VarDefs) [function]
+    rule makeValueType(.VarDefs) => none
+    rule makeValueType(_ : _ T) => some(T)
+    rule makeValueType(X : T1, Y : T2, Rest) => some(record(.Vars) { X : T1, Y : T2, Rest })
 
     syntax KItem ::= receiveValue(Expr, Expr, Located)
                    | receiveExpr(BaseType, Expr, Expr, Expr)
@@ -373,13 +395,32 @@ module PURE-FLOW-COMPILER
     rule receiveValue(_, Dst, receiveInFieldFrom(T, X, Orig, Src)) => receiveExpr(T, Orig, Src, Dst.X)
     rule receiveValue(Orig, Src, fromField(X, Dst)) => receiveValue(Orig.X, Src.X, Dst)
 
-    rule receiveExpr(T, Orig, Src, Dst) => Dst = Dst + Src; Orig = Orig - Src;
-        requires isFungible(T)
-    rule receiveExpr(bool, Orig, Src, Dst) => Dst = Dst || Src; Orig = false;
+    rule receiveValue(Orig, Src, sourceSelect(Dst, DstSel))
+        => lookupValues(sourceSelect(Dst, DstSel), receiveFrom(typeof(sourceSelect(Dst, DstSel)), Orig, Src))
+
+    rule receiveValue(_, Dst, receiveFrom(T, Orig, Src)) => receiveExpr(T, Orig, Src, Dst)
+
+    rule receiveExpr(T, Orig, Src, Dst)
+        => Dst = Dst + Src;
+           #if _:Int :=K Orig #then .SolStmts #else Orig = Orig - Src; #fi
+        requires isFungible(T) andBool demoteBaseType(T) ==K nat
+    rule receiveExpr(bool, Orig, Src, Dst)
+        => Dst = Dst || Src;
+           #if _:Bool :=K Orig #then .SolStmts #else Orig = false; #fi
     rule receiveExpr(table(.Vars) _, Orig, Src, Dst) => Dst.push(Src);
     rule receiveExpr(map _ => _, Orig, Src, Dst) =>
             Dst.underlying_map[Src.key] = Src.value;
             Dst.keys.push(Src.key);
+    rule receiveExpr(T, Orig, Src, Dst) => Src = Dst; delete Orig;
+        requires singletonType(T)
+
+    syntax Bool ::= singletonType(BaseType) [function]
+    rule singletonType(address) => true
+    rule singletonType(string) => true
+    rule singletonType(record(_) { _ }) => true
+    rule [[ singletonType(T) => notBool(fungible in Ms) ]]
+        <types> ... T |-> typeDef(Ms, BaseT) ... </types>
+    rule singletonType(_) => false [owise]
 
     syntax Expr ::= buildCall(Var, Locateds, Expr) [function]
                   | buildExpr(Located) [function]
@@ -416,7 +457,7 @@ module PURE-FLOW-COMPILER
     rule appendExpr(.Exprs, E) => E
     rule appendExpr((E:Expr, Es), E') => E, appendExpr(Es, E')
 
-    syntax KItem ::= flowNew(Locator, Var, Locators, Locators) [strict(1,3,4)]
+    syntax KItem ::= flowNew(Locator, Var, Locators, Locators) [seqstrict]
 
     // TODO: This isn't quite right, because it won't handle a list correctly.
     /* rule <k> A --> new T(Locs) --> B => flowNew( */
@@ -457,7 +498,6 @@ module PURE-FLOW-COMPILER
         <compiled> ListItem(Ss => Ss (X.F = buildExpr(L);)) ... </compiled>
 
     rule locate(X:Var) => X
-    rule locate(demote(L)) => locate(L)
 
     syntax Locator ::= locateField(Locator, Var) [seqstrict(1)]
     rule locate(L.X) => locateField(locate(L), X)

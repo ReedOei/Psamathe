@@ -195,7 +195,7 @@ module PURE-FLOW-COMMON
     rule annotateLocator(record(Keys) { Members:RecordMembers }, record(_) { Fields })
          => record(Keys) { annotateEach(Members, Fields) }
     rule annotateLocator(L[K], T) => annotateLocator(L, T)[K]
-    rule annotateLocator(L[K], map KT => VT) => annotateLocator(L, map KT => VT)[K].value
+    /* rule annotateLocator(L[K], map KT => VT) => annotateLocator(L, map KT => VT)[K].value */
     rule annotateLocator(L[Q such that F(Args)], T) => annotateLocator(L, T)[Q such that F(Args)]
     rule annotateLocator(demote(L), _) => demote(L)
     rule annotateLocator(copy(L), _) => copy(L)
@@ -246,6 +246,20 @@ module PURE-FLOW-COMMON
     rule lookupType((X : T, _), X) => some(T)
     rule lookupType((Y : _, Rest), X) => lookupType(Rest, X)
         requires X =/=K Y
+
+    syntax Set ::= maybeTypeToSet(MaybeType) [function, functional]
+    rule maybeTypeToSet(none) => .Set
+    rule maybeTypeToSet(some(T)) => SetItem(T)
+
+    syntax Set ::= lookupTypes(VarDefs, Vars) [function, functional]
+    rule lookupTypes(_, .Vars) => .Set
+    rule lookupTypes(Vs, (X:Var, Xs)) => maybeTypeToSet(lookupType(Vs, X)) lookupTypes(Vs, Xs)
+
+    syntax VarDefs ::= withoutKeys(VarDefs, Vars) [function, functiona]
+                     | withoutKeys(VarDefs, Set) [function, functiona]
+    rule withoutKeys(Vs, Xs) => withoutKeys(Vs, varsToSet(Xs))
+    rule withoutKeys(.VarDefs, _:Set) => .VarDefs
+    rule withoutKeys((X : T, Vs), Xs) => #if X in Xs #then withoutKeys(Vs, Xs) #else X : T, withoutKeys(Vs, Xs) #fi
 
     syntax MaybeType ::= lookupField(BaseType, Var) [function, functional]
     rule [[ lookupField(T, Y) => lookupField(BaseT, Y) ]]

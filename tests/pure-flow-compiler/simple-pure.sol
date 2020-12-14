@@ -21,6 +21,14 @@ contract C {
         mapping(uint256 => uint256) underlying_map;
         uint256[] keys;
     }
+    struct table_onerecord_key__key__oneaddressvalue__anyToken {
+        mapping(address => uint256) underlying_map;
+        address[] keys;
+    }
+    struct table_onerecord_key__key__oneaddressvalue__anynat {
+        mapping(address => uint256) underlying_map;
+        address[] keys;
+    }
 
     function closure_2(closure_type_2 v4) returns (closure_type_2 v5) {
         uint256 y = v4.y;
@@ -28,7 +36,6 @@ contract C {
         record__key__anynatvalue__anynat v0 = v4.v0;
         table_onerecord_key__key__anynatvalue__anynat m = v4.m;
         y = y + 5;
-        5 = 5 - 5;
         v5.v0 = v0;
         v5.m = m;
         v5.y = y;
@@ -41,10 +48,10 @@ contract C {
     }
 
     function transfer(
-        table_onerecord_key__key__anynatvalue__anynat balances,
-        uint256 src,
+        table_onerecord_key__key__oneaddressvalue__anynat balances,
+        address src,
         uint256 amount,
-        uint256 dst
+        address dst
     ) returns (bool success) {
         if (amount <= (balances.underlying_map[src].value)) {
             balances.underlying_map[dst].value =
@@ -55,16 +62,30 @@ contract C {
                 amount;
         }
         success = success || true;
-        true = false;
+    }
+
+    function transferTok(
+        table_onerecord_key__key__oneaddressvalue__anyToken balances,
+        address src,
+        uint256 amount,
+        address dst
+    ) returns (bool success) {
+        if (amount <= (balances.underlying_map[src].value)) {
+            balances.underlying_map[dst].value =
+                balances.underlying_map[dst].value +
+                amount;
+            balances.underlying_map[src].value =
+                balances.underlying_map[src].value -
+                amount;
+        }
+        success = success || true;
     }
 
     constructor() {
         uint256 x;
         x = x + 1;
-        1 = 1 - 1;
         uint256 y;
         y = y + 4;
-        4 = 4 - 4;
         y = y + x;
         x = x - x;
         table_onerecord_key__key__anynatvalue__anynat m;
@@ -84,11 +105,9 @@ contract C {
             x = v3.x;
         } catch {
             y = y + 4;
-            4 = 4 - 4;
         }
         bool b;
         b = b || false;
-        false = false;
         table_anynat nums;
         nums.push(1);
         nums.push(2);
