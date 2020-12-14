@@ -139,5 +139,10 @@ contract C {
             z = z + y;
             y = y - y;
         }
+        uint256 myToks;
+        myToks = myToks + 64;
+        Bid myBid;
+        myBid = Bid(1, 2);
+        delete 2;
     }
 }

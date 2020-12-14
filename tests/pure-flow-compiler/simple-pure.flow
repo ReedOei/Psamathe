@@ -44,3 +44,7 @@ nums --[ [ any nat; 4 ] ]-> var dest : list nat
 
 y --[ 2 ]-> var z : nat
 
+new Token(64) --> var myToks : Token
+
+new Bid(1, 2) --> var myBid : Bid
+

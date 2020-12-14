@@ -4,7 +4,6 @@ module SOLIDITY-SYNTAX
     imports DOMAINS-SYNTAX
     imports VARS
 
-
     syntax SolVar ::= SolType Var
     syntax SolArgs ::= List{SolVar, ","}
 
@@ -81,12 +80,14 @@ module PURE-FLOW-COMPILER
                      | fromField(Var, Located)
                      | receiveInFieldFrom(BaseType, Var, Expr, Expr)
                      | receiveFrom(BaseType, Expr, Expr)
+                     | construct(Var, Locateds, Located)
     syntax Locateds ::= List{Located, ","} [klabel(locators)]
                       | Vars
     syntax Locators ::= Locateds
     syntax Locator ::= Located
     syntax KResult ::= Located
                      | Vars
+                     | Locateds
 
     // Variables we'll need to do code generation
     syntax Var ::= "success" | "keys" | "underlying_map" | "length" | "push"
@@ -376,6 +377,10 @@ module PURE-FLOW-COMPILER
     rule <k> receiveValue(Orig, Src, Dst) => receiveExpr(map K => V, Orig, Src, buildExpr(Dst)) ... </k>
         <typeEnv> ... Dst |-> map K => V ... </typeEnv>
 
+    rule <k> receiveValue(Orig, Src, Dst) => receiveExpr(T, Orig, Src, buildExpr(Dst)) ... </k>
+        <typeEnv> ... Dst |-> T ... </typeEnv>
+        requires singletonType(T)
+
     rule receiveValue(Orig, Src, guardSelect(Sel, Dst))
          => receiveValue(Orig, selectedPart(Src, Sel), Dst) ~> receiveValue(Orig, Src, guardSelect(Sel, Dst))
     rule Body:SolStmts ~> receiveValue(_, Src, guardSelect(Sel, _))
@@ -400,6 +405,14 @@ module PURE-FLOW-COMPILER
 
     rule receiveValue(_, Dst, receiveFrom(T, Orig, Src)) => receiveExpr(T, Orig, Src, Dst)
 
+    rule <k> receiveValue(Orig, Src, construct(T, _, Dst))
+            => receiveValue(Orig, Src, Dst) ... </k>
+        <types> ... T |-> typeDef(_, BaseT) ... </types>
+        requires BaseT in (SetItem(nat) SetItem(bool) SetItem(string) SetItem(address))
+    rule <k> receiveValue(Orig, Src, construct(T, Args, Dst))
+            => receiveValue(Orig, buildCall(T, Args, Src), Dst) ... </k>
+        <types> ... T |-> typeDef(_, record(_) { _ }) ... </types>
+
     rule receiveExpr(T, Orig, Src, Dst)
         => Dst = Dst + Src;
            #if _:Int :=K Orig #then .SolStmts #else Orig = Orig - Src; #fi
@@ -411,7 +424,7 @@ module PURE-FLOW-COMPILER
     rule receiveExpr(map _ => _, Orig, Src, Dst) =>
             Dst.underlying_map[Src.key] = Src.value;
             Dst.keys.push(Src.key);
-    rule receiveExpr(T, Orig, Src, Dst) => Src = Dst; delete Orig;
+    rule receiveExpr(T, Orig, Src, Dst) => Dst = Src; delete Orig;
         requires singletonType(T)
 
     syntax Bool ::= singletonType(BaseType) [function]
@@ -419,7 +432,7 @@ module PURE-FLOW-COMPILER
     rule singletonType(string) => true
     rule singletonType(record(_) { _ }) => true
     rule [[ singletonType(T) => notBool(fungible in Ms) ]]
-        <types> ... T |-> typeDef(Ms, BaseT) ... </types>
+        <types> ... T |-> typeDef(Ms, _) ... </types>
     rule singletonType(_) => false [owise]
 
     syntax Expr ::= buildCall(Var, Locateds, Expr) [function]
@@ -457,18 +470,14 @@ module PURE-FLOW-COMPILER
     rule appendExpr(.Exprs, E) => E
     rule appendExpr((E:Expr, Es), E') => E, appendExpr(Es, E')
 
-    syntax KItem ::= flowNew(Locator, Var, Locators, Locators) [seqstrict]
+    syntax KItem ::= flowNew(Locator, Var, Locators, Locator) [strict(3,1,4)]
+    rule A --> new T(Args) --> B => flowNew(locate(A), T, locateArgs(Args, .Locateds), locate(B))
+    rule flowNew(Src, T, Args, Dst) => lookupValues(Src, construct(T, Args, Dst)) ~> appendStmts
 
-    // TODO: This isn't quite right, because it won't handle a list correctly.
-    /* rule <k> A --> new T(Locs) --> B => flowNew( */
-    /*                                             A, /1* locate(A, baseTypeOf(lastVDef(getConstructorArgs(BaseT)))), *1/ */
-    /*                                             T, */
-    /*                                             locateEach(Locs, tailVDefs(getConstructorArgs(BaseT))), */
-    /*                                             B) ... </k> */
-    /*     <types> ... T |-> type T is _ BaseT ... </types> */
-    // TODO: Finish getConstructoArgs
-
-    /* rule <k> flowNew(X:Var, T, Args:Vars, Y:Var) */
+    syntax Locators ::= locateArgs(Locators, Locators)
+    rule locateArgs(.Locators, Res) => Res
+    rule locateArgs((L:Locator, Ls), Res) => locate(L) ~> locateArgs(Ls, Res)
+    rule L:Located ~> locateArgs(Ls, Res) => locateArgs(Ls, appendLoc(Res, L))
 
     syntax Locator ::= locate(Locator)
 
@@ -520,7 +529,7 @@ module PURE-FLOW-COMPILER
 
     syntax KItem ::= locateFilter(Locator, TypeQuant, Var, Locators) [seqstrict(4,1)]
     // TODO: Need to check that the args get evaluated correctly **BEFORE** the filtered collections
-    rule locate(L[Q such that F(Args)]) => locateFilter(locate(L), Q, F, Args)
+    rule locate(L[Q such that F(Args)]) => locateFilter(locate(L), Q, F, locateArgs(Args, .Locateds))
     rule locateFilter(L, Q, F, Args) => sourceFilter(L, Q, F, Args)
 
     syntax Var ::= nameOf(BaseType) [function, functional]
