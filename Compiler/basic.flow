@@ -1,9 +1,2 @@
-1 --> var x : nat
-2 --> var y : nat
-
-x --> y
-
-[ any nat ; 1,2,3] --> var ns : list any nat
-
-ns --> var ns2 : list any nat
+[ any nat ; ] --> var m : map any nat => any nat
 

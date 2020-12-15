@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 
 module Compiler where
 
@@ -61,14 +62,15 @@ buildExpr l = error $ "Unsupported locator: " ++ show l
 compileProg :: Program -> State Env Contract
 compileProg (Program decls mainBody) = do
     mapM_ compileDecl decls
-    compiledDecls <- map snd . Map.toList . view solDecls <$> get
     stmts <- concat <$> mapM compileStmt mainBody
+    compiledDecls <- map snd . Map.toList . view solDecls <$> get
     pure $ Contract "0.7.5" "C" $ compiledDecls ++ [Constructor [] stmts]
 
 compileDecl :: Decl -> State Env ()
-compileDecl decl@(TypeDecl name ms baseT) = do
+compileDecl decl@(TypeDecl name _ baseT) = do
     modify $ over declarations $ Map.insert name decl
-    -- TODO: Need to generate the struct too
+    defineStruct name baseT
+
 compileDecl decl@(TransformerDecl name args ret body) = do
     modify $ over declarations $ Map.insert name decl
 
@@ -80,6 +82,24 @@ compileDecl decl@(TransformerDecl name args ret body) = do
     modify $ set typeEnv Map.empty
 
     modify $ over solDecls $ Map.insert name (Function name solArgs Internal rets bodyStmts)
+
+defineStruct :: String -> BaseType -> State Env ()
+defineStruct name Nat = pure ()
+defineStruct name PsaBool = pure ()
+defineStruct name PsaString = pure ()
+defineStruct name Address = pure ()
+defineStruct name (Record _ fields) = do
+    newStruct <- Struct name <$> mapM (\(x,(_,t)) -> SolVarDecl <$> toSolType t <*> pure x) fields
+    modify $ over solDecls $ Map.insert name newStruct
+defineStruct name ty@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valTy)) ])) = do
+    solKeyTy <- toSolType keyTy
+    solValTy <- toSolType valTy
+    let newStruct = Struct name [
+                        SolVarDecl (SolMapping solKeyTy solValTy) "underlying_map",
+                        SolVarDecl (SolArray solKeyTy) "keys"
+                    ]
+    modify $ over solDecls $ Map.insert name newStruct
+defineStruct name t = error $ "I don't know how to create a struct for: " ++ show t
 
 compileStmt :: Stmt -> State Env [SolStmt]
 compileStmt (Flow src dst) = do
@@ -164,7 +184,7 @@ makePackClosureBlock vars = concat <$> mapM go vars
 
 locate :: Locator -> State Env (Locator, [SolStmt])
 locate (NewVar x t) = do
-    modify $ over typeEnv (Map.insert x t)
+    modify $ over typeEnv $ Map.insert x t
     decl <- declareVar x t
     pure (Var x, [SolVarDef decl])
 
@@ -313,7 +333,7 @@ receiveValue orig src (Select l k) = do
 receiveValue orig src (Field l x) = do
     lookupValue l $ \ty _ dstExpr -> do
         fieldTy <- lookupField ty x
-        trace (show fieldTy) $ receiveExpr fieldTy orig src $ FieldAccess dstExpr x
+        receiveExpr fieldTy orig src $ FieldAccess dstExpr x
 
 receiveValue orig src dst = error $ "Cannot receive values in destination: " ++ show dst
 
@@ -351,10 +371,10 @@ declareVar :: String -> BaseType -> State Env SolVarDecl
 declareVar x t = do
     demotedT <- demoteBaseType t
     if isPrimitive demotedT then
-        pure $ SolVarDecl (toSolType t) x
+        SolVarDecl <$> toSolType t <*> pure x
     else
         -- TODO: Might need to change this so it's not always memory...
-        pure $ SolVarLocDecl (toSolType t) Memory x
+        SolVarLocDecl <$> toSolType t <*> pure Memory <*> pure x
 
 toSolArg :: VarDef -> State Env [SolVarDecl]
 -- TODO: May need to generate multiple var decls per vardef b/c of Solidity (numerous) shortcomings regarding structs
@@ -382,15 +402,19 @@ isFungible (Named t) = (Fungible `elem`) <$> modifiers t
 -- TODO: Update this for later, because tables should be fungible too?
 isFungible _ = pure False
 
-toSolType :: BaseType -> SolType
-toSolType Nat = SolTypeName "uint"
-toSolType PsaBool = SolTypeName "bool"
-toSolType PsaString = SolTypeName "string"
-toSolType Address = SolTypeName "address"
-toSolType (Table [] (_, t)) = SolArray $ toSolType t
-toSolType (Table (k:ks) t) = SolTypeName $ encodeBaseType $ Table (k:ks) t
-toSolType (Record keys fields) = SolTypeName $ encodeBaseType $ Record keys fields
-toSolType (Named t) = SolTypeName t
+toSolType :: BaseType -> State Env SolType
+toSolType Nat = pure $ SolTypeName "uint"
+toSolType PsaBool = pure $ SolTypeName "bool"
+toSolType PsaString = pure $ SolTypeName "string"
+toSolType Address = pure $ SolTypeName "address"
+toSolType (Table [] (_, t)) = SolArray <$> toSolType t
+toSolType ty@(Table (k:ks) t) = do
+    defineStruct (encodeBaseType ty) ty
+    pure $ SolTypeName $ encodeBaseType ty
+toSolType ty@(Record keys fields) = do
+    defineStruct (encodeBaseType ty) ty
+    pure $ SolTypeName $ encodeBaseType ty
+toSolType (Named t) = toSolType =<< demoteBaseType (Named t)
 
 encodeBaseType :: BaseType -> String
 encodeBaseType Nat = "nat"
@@ -445,7 +469,6 @@ keyTypes (Named t) = do
 keyTypes t@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])) = pure [t, keyTy]
 keyTypes (Table keys t) = pure [Table keys t]
 keyTypes (Record keys fields) = pure $ [ Record keys fields ] ++ [ t | (x,(_,t)) <- fields, x `elem` keys ]
-
 
 valueType :: BaseType -> BaseType
 valueType Nat = Nat

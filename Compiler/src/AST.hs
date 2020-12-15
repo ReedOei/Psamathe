@@ -230,7 +230,7 @@ instance PrettyPrint Visibility where
 instance PrettyPrint SolType where
     prettyPrint (SolTypeName s) = [ s ]
     prettyPrint (SolArray t) = [ prettyStr t ++ "[]" ]
-    prettyPrint (SolMapping k v) = [ "mapping " ++ prettyStr k ++ " => " ++ prettyStr v ]
+    prettyPrint (SolMapping k v) = [ "mapping (" ++ prettyStr k ++ " => " ++ prettyStr v ++ ")" ]
 
 instance PrettyPrint SolVarDecl where
     prettyPrint (SolVarLocDecl t loc x) = [ prettyStr t ++ " " ++ prettyStr loc ++ " " ++ x ]
@@ -238,7 +238,7 @@ instance PrettyPrint SolVarDecl where
 
 instance PrettyPrint SolDecl where
     prettyPrint (Struct name varDecls) =
-        [ "struct " ++ name ++ "{" ]
+        [ "struct " ++ name ++ " {" ]
         ++ map (indent . (++";") . prettyStr) varDecls
         ++ [ "}" ]
     prettyPrint (Function name args vis rets body) =
@@ -252,7 +252,7 @@ instance PrettyPrint SolDecl where
 
 instance PrettyPrint Contract where
     prettyPrint (Contract ver name decls) =
-        [ "pragma soldidity ^" ++ ver ++ ";",
+        [ "pragma solidity ^" ++ ver ++ ";",
           "contract " ++ name ++ " {" ]
         ++ concatMap (map indent . prettyPrint) decls
         ++ [ "}" ]
