@@ -16,7 +16,7 @@ compileFile fileName = do
     case parse parseProgram "" content of
         Left err -> error $ show err
         Right prog -> do
-            putStrLn "Parsed program:"
+            putStrLn "Processed program:"
             putStrLn $ prettyStr prog
             putStrLn "========================================================"
             putStrLn "========================================================"
@@ -26,11 +26,6 @@ compileFile fileName = do
 
             putStrLn "Compiled program:"
             putStrLn $ prettyStr compiled
-            putStrLn "========================================================"
-            putStrLn "========================================================"
-            putStrLn "========================================================"
-
-            print env
 
 main :: IO ()
 main = pure ()

@@ -9,6 +9,8 @@ import Data.List (intercalate)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Debug.Trace
+
 import AST
 
 data Env = Env { _freshCounter :: Integer,
@@ -175,8 +177,8 @@ locate (RecordLit keys members) = do
     pure (Var newRecord, [ SolVarDef decl ] ++ initStmts)
     where
         locateMember newRecord ((x, (_, t)), l) =
-            lookupValue l $ \lTy orig src -> do
-                pure [ SolAssign (FieldAccess (SolVar newRecord) x) src ]
+            lookupValue l $ \lTy orig src ->
+                receiveExpr t orig src (FieldAccess (SolVar newRecord) x)
 
 locate l = pure (l, [])
 
@@ -187,45 +189,7 @@ lookupValue (StrConst s) f = f PsaString (SolStr s) (SolStr s)
 lookupValue (AddrConst addr) f = f Address (SolAddr addr) (SolAddr addr)
 lookupValue (Var x) f = do
     t <- typeOf x
-    case t of
-        Nat -> f Nat (SolVar x) (SolVar x)
-        PsaBool -> f PsaBool (SolVar x) (SolVar x)
-        PsaString -> f PsaString (SolVar x) (SolVar x)
-        Address -> f Address (SolVar x) (SolVar x)
-        Table [] (_,t) -> do
-            idxVarName <- freshName
-            let idxVar = SolVar idxVarName
-
-            body <- f t (SolIdx (SolVar x) idxVar) (SolIdx (SolVar x) idxVar)
-
-            pure [ For (SolVarDefInit (SolVarDecl (SolTypeName "uint") idxVarName) (SolInt 0))
-                       (SolLt idxVar (FieldAccess (SolVar x) "length"))
-                       (SolPostInc idxVar)
-                       body ]
-
-        -- TODO: How to tell whether we are selecting by key or filtering the whole map?
-        Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ]) -> do
-            f (Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ]))
-                (SolVar x) (SolVar x)
-
-        -- Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ]) -> do
-        --     idxVarName <- freshName
-        --     let idxVar = SolVar idxVarName
-
-        --     body <- f (Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ]))
-        --             (SolIdx (FieldAccess (SolVar x) "underlying_map")
-        --                     (SolIdx (FieldAccess (SolVar x) "keys") idxVar))
-        --             (SolIdx (FieldAccess (SolVar x) "underlying_map")
-        --                     (SolIdx (FieldAccess (SolVar x) "keys") idxVar))
-
-        --     pure [ For (SolVarDefInit (SolVarDecl (SolTypeName "uint") idxVarName) (SolInt 0))
-        --                (SolLt idxVar (FieldAccess (FieldAccess (SolVar x) "keys") "length"))
-        --                (SolPostInc idxVar)
-        --                body ]
-
-        Record keys fields -> f (Record keys fields) (SolVar x) (SolVar x)
-
-        _ -> error $ "lookupValue Var is not implemented for: " ++ show t
+    sendExpr t (SolVar x) f
 
 lookupValue (Multiset t elems) f = do
     res <- mapM locate elems
@@ -233,6 +197,14 @@ lookupValue (Multiset t elems) f = do
     final <- concat <$> mapM (`lookupValue` f) locateds
 
     pure $ concat initStmts ++ final
+
+lookupValue (Field l x) f = do
+    (newL, init) <- locate l
+    stmts <- lookupValue newL $ \lTy orig src -> do
+        fieldTy <- lookupField lTy x
+        sendExpr fieldTy (FieldAccess orig x) f
+
+    pure $ init ++ stmts
 
 lookupValue (Select l k) f = do
     kTy <- typeOfLoc k
@@ -288,6 +260,47 @@ lookupValues :: [Locator] -> ([SolExpr] -> State Env [SolStmt]) -> State Env [So
 lookupValues [] f = f []
 lookupValues (l:ls) f = lookupValue l $ \lTy origL srcL -> lookupValues ls $ \rest -> f (srcL:rest)
 
+sendExpr :: BaseType -> SolExpr -> (BaseType -> SolExpr -> SolExpr -> State Env [SolStmt]) -> State Env [SolStmt]
+sendExpr Nat e f = f Nat e e
+sendExpr PsaBool e f  = f PsaBool e e
+sendExpr PsaString e f = f PsaString e e
+sendExpr Address e f = f Address e e
+sendExpr (Table [] (_,t)) e f = do
+    idxVarName <- freshName
+    let idxVar = SolVar idxVarName
+
+    body <- f t (SolIdx e idxVar) (SolIdx e idxVar)
+
+    -- TODO: Need to be careful deleting in here, because it can lead to issues if we delete multiple elements from the list (i.e., we'll mess up the indexes)
+    pure [ For (SolVarDefInit (SolVarDecl (SolTypeName "uint") idxVarName) (SolInt 0))
+               (SolLt idxVar (FieldAccess e "length"))
+               (SolPostInc idxVar)
+               body ]
+
+-- TODO: How to tell whether we are selecting by key or filtering the whole map?
+sendExpr (Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ])) e f =
+    f (Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ])) e e
+    -- Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ]) -> do
+    --     idxVarName <- freshName
+    --     let idxVar = SolVar idxVarName
+
+    --     body <- f (Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ]))
+    --             (SolIdx (FieldAccess (SolVar x) "underlying_map")
+    --                     (SolIdx (FieldAccess (SolVar x) "keys") idxVar))
+    --             (SolIdx (FieldAccess (SolVar x) "underlying_map")
+    --                     (SolIdx (FieldAccess (SolVar x) "keys") idxVar))
+
+    --     pure [ For (SolVarDefInit (SolVarDecl (SolTypeName "uint") idxVarName) (SolInt 0))
+    --                (SolLt idxVar (FieldAccess (FieldAccess (SolVar x) "keys") "length"))
+    --                (SolPostInc idxVar)
+    --                body ]
+
+sendExpr (Named t) e f = f (Named t) e e
+
+sendExpr (Record keys fields) e f = f (Record keys fields) e e
+
+sendExpr t e f = error $ "lookupValue Var is not implemented for: " ++ show t
+
 receiveValue :: SolExpr -> SolExpr -> Locator -> State Env [SolStmt]
 receiveValue orig src (Var x) = do
     t <- typeOf x
@@ -296,6 +309,11 @@ receiveValue orig src (Var x) = do
 receiveValue orig src (Select l k) = do
     lookupValue (Select l k) $ \ty _ dstExpr ->
         receiveExpr ty orig src dstExpr
+
+receiveValue orig src (Field l x) = do
+    lookupValue l $ \ty _ dstExpr -> do
+        fieldTy <- lookupField ty x
+        trace (show fieldTy) $ receiveExpr fieldTy orig src $ FieldAccess dstExpr x
 
 receiveValue orig src dst = error $ "Cannot receive values in destination: " ++ show dst
 
@@ -307,6 +325,8 @@ receiveExpr t orig src dst = do
     (main, cleanup) <-
         case demotedT of
             Nat | tIsFungible -> pure ([ SolAssign dst (SolAdd dst src) ], [ SolAssign orig (SolSub orig src) ])
+
+            Nat -> pure ([ SolAssign dst src ], [ Delete orig ])
 
             PsaBool | t == PsaBool -> pure ([ SolAssign dst (SolOr dst src) ], [ Delete orig ])
 
@@ -439,4 +459,11 @@ valueType (Record keys fields) =
     case [ (x,t) | (x,t) <- fields, x `notElem` keys ] of
         [ (_,(_,t)) ] -> t
         fields -> Record [] fields
+
+lookupField :: BaseType -> String -> State Env BaseType
+lookupField (Record key fields) x = pure $ head [ t | (y,(_,t)) <- fields, x == y ]
+lookupField (Named t) x = do
+    decl <- lookupTypeDecl t
+    case decl of
+        TypeDecl _ _ baseT -> lookupField baseT x
 

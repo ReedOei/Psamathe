@@ -20,14 +20,12 @@ transformer createProposal(this : one Election, proposal : any nat) -> success :
     ] --> this.proposals
 }
 
-transformer giveRightToVote(this : one Election, voter : any nat) -> success : one bool {
+transformer giveRightToVote(this : one Election, voter : any nat) {
     new Voter(voter) --> this.eligibleVoters
-    true --> success
 }
 
-transformer vote(this : one Election, voter : any nat, proposal : any nat) -> success : one bool {
+transformer vote(this : one Election, voter : any nat, proposal : any nat) {
     this.eligibleVoters --[ voter ]-> this.proposals[proposal].value
-    true --> success
 }
 
 ;

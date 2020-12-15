@@ -25,6 +25,7 @@ data Locator = IntConst Integer
              | StrConst String
              | AddrConst String
              | Var String
+             | Field Locator String
              | Multiset Type [Locator]
              | NewVar String BaseType
              | Consume
@@ -115,6 +116,7 @@ instance PrettyPrint Locator where
     prettyPrint (StrConst s) = [ show s ]
     prettyPrint (AddrConst s) = [s]
     prettyPrint (Var x) = [x]
+    prettyPrint (Field l x) = [ prettyStr l ++ "." ++ x]
     prettyPrint (Multiset t elems) = [ "[ " ++ prettyStr t ++ " ; " ++ intercalate ", " (map prettyStr elems) ++ " ]" ]
     prettyPrint (NewVar x t) = [ "var " ++ x ++ " : " ++ prettyStr t ]
     prettyPrint Consume = ["consume"]

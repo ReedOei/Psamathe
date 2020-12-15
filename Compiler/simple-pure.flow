@@ -1,4 +1,14 @@
+// TODO: Still need to generate structs
 type Token is fungible asset nat
+
+type Voter is unique immutable asset nat
+
+type ProposalName is unique immutable asset nat
+
+type Election is asset {
+    eligibleVoters : any list one Voter,
+    proposals : any map one ProposalName => any list one Voter
+}
 
 type Bid is {
     sender : one address,
@@ -14,6 +24,25 @@ transformer invert(b : any bool) -> res : any bool {
     try {
         b --[ true ]-> res
     } catch {}
+}
+
+transformer createProposal(this : one Election, proposal : any nat) {
+    proposal --> new ProposalName() --> var name : ProposalName
+    [ one Voter ; ] --> var voters : list one Voter
+    [ one { key : one ProposalName, value : any list one Voter } ;
+        {
+            key : one ProposalName |-> name,
+            value : any list one Voter |-> voters
+        }
+    ] --> this.proposals
+}
+
+transformer giveRightToVote(this : one Election, voter : any nat) {
+    voter --> new Voter() --> this.eligibleVoters
+}
+
+transformer vote(this : one Election, voter : any nat, proposal : any nat) {
+    this.eligibleVoters --[ [ any nat ; voter ] ]-> this.proposals[proposal]
 }
 
 transformer transfer(balances : any map one address => any nat, src : one address, amount : any nat, dst : one address) {

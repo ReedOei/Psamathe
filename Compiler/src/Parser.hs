@@ -151,6 +151,12 @@ opTable :: Stream s m Char => OperatorTable s st m Locator
 opTable =
     [
         [Postfix $ try $ do
+            symbol $ string "."
+            x <- parseVarName
+            pure $ \l -> Field l x
+        ]
+        ,
+        [ Postfix $ try $ do
             symbol $ string "["
             k <- parseLocatorSingle
             symbol $ string "]"
