@@ -16,11 +16,11 @@ transformer invert(b : any bool) -> res : any bool {
     } catch {}
 }
 
-transformer transfer(balances : map address => nat, src : address, amount : nat, dst : address) {
+transformer transfer(balances : any map one address => any nat, src : one address, amount : any nat, dst : one address) {
     balances[src] --[ amount ]-> balances[dst]
 }
 
-transformer transferTok(balances : map address => Token, src : address, amount : nat, dst : address) {
+transformer transferTok(balances : any map one address => any Token, src : one address, amount : any nat, dst : one address) {
     balances[src] --[ amount ]-> balances[dst]
 }
 
@@ -28,8 +28,8 @@ transformer transferTok(balances : map address => Token, src : address, amount :
 4 --> var y : nat
 x --> y
 
-[] --> var m : map any nat => any nat
-[ { key |-> 0, value |-> x } ] --> m
+[ any nat ; ] --> var m : map any nat => any nat
+[ any nat ; { key : any nat |-> 0, value : any nat |-> x } ] --> m
 
 try {
     4 --> y
@@ -39,13 +39,13 @@ try {
 
 false --> var b : bool
 
-[1,2,3] --> var nums : list nat
+[ any nat ; 1,2,3 ] --> var nums : list any nat
 
-nums --[ [ any nat; 4 ] ]-> var dest : list nat
+nums --[ [ any nat; 4, 12 ] ]-> var dest : list any nat
 
 [4,5,6] --[ [ any nat; 4 ] ]-> dest
 
-[true,false] --[ any such that id() ]-> var bs : list bool
+[true,false] --[ any such that id() ]-> var bs : list any bool
 
 y --[ 2 ]-> var z : nat
 
@@ -53,5 +53,5 @@ new Token(64) --> var myToks : Token
 
 new Bid(0x0, 2) --> var myBid : Bid
 
-[true,false] --> invert() --> var bs2 : list bool
+[true,false] --> invert() --> var bs2 : list any bool
 

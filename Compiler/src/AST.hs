@@ -28,6 +28,7 @@ data Locator = IntConst Integer
              | Multiset Type [Locator]
              | NewVar String BaseType
              | Consume
+             | RecordLit [String] [(VarDef, Locator)]
              | Filter Locator TyQuant String [Locator]
              | Select Locator Locator
     deriving (Show, Eq)
@@ -114,11 +115,12 @@ instance PrettyPrint Locator where
     prettyPrint (StrConst s) = [ show s ]
     prettyPrint (AddrConst s) = [s]
     prettyPrint (Var x) = [x]
-    prettyPrint (Multiset t elems) = [ "[ " ++ prettyStr t ++ " ; " ++ intercalate ", " (map prettyStr elems) ++ " ] " ]
+    prettyPrint (Multiset t elems) = [ "[ " ++ prettyStr t ++ " ; " ++ intercalate ", " (map prettyStr elems) ++ " ]" ]
     prettyPrint (NewVar x t) = [ "var " ++ x ++ " : " ++ prettyStr t ]
     prettyPrint Consume = ["consume"]
     prettyPrint (Filter l q f args) = [ prettyStr l ++ "[ " ++ prettyStr q ++ " such that " ++ f ++ "(" ++ intercalate "," (map prettyStr args) ++ ")]" ]
     prettyPrint (Select l k) = [ prettyStr l ++ "[" ++ prettyStr k ++ "]" ]
+    prettyPrint (RecordLit keys fields) = [ "record(" ++ intercalate ", " keys ++ ") {" ++ intercalate ", " (map (\(x, t) -> prettyStr x ++ " |-> " ++ prettyStr t) fields) ]
 
 instance PrettyPrint Transformer where
     prettyPrint (Call name args) = [ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
@@ -197,7 +199,7 @@ instance PrettyPrint SolStmt where
     prettyPrint (SolVarDef decl) = [ prettyStr decl ++ ";" ]
     prettyPrint (SolAssign e1 e2) = [ prettyStr e1 ++ " = " ++ prettyStr e2 ++ ";" ]
     prettyPrint (Delete e) = ["delete " ++ prettyStr e ++ ";"]
-    prettyPrint (For init step cond body) =
+    prettyPrint (For init cond step body) =
         ["for (" ++ prettyStr init ++ " " ++ prettyStr cond ++ "; " ++ prettyStr step ++ ") {"]
         ++ concatMap (map indent . prettyPrint) body
         ++ [ "}" ]
@@ -238,7 +240,7 @@ instance PrettyPrint SolDecl where
         ++ map (indent . (++";") . prettyStr) varDecls
         ++ [ "}" ]
     prettyPrint (Function name args vis rets body) =
-        [ "function " ++ name ++ "(" ++ intercalate "," (map prettyStr args) ++ ") " ++ prettyStr vis ++ " returns (" ++ intercalate "," (map prettyStr rets) ++ ") {" ]
+        [ "function " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") " ++ prettyStr vis ++ " returns (" ++ intercalate "," (map prettyStr rets) ++ ") {" ]
         ++ concatMap (map indent . prettyPrint) body
         ++ [ "}" ]
     prettyPrint (Constructor args body) =

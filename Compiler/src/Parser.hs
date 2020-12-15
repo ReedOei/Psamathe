@@ -6,6 +6,7 @@
 module Parser where
 
 import Text.Parsec hiding (Empty)
+import Text.Parsec.Expr
 
 import AST
 
@@ -15,7 +16,9 @@ parseProgram :: Parser Program
 parseProgram = Program <$> many parseDecl <*> many parseStmt
 
 parseDecl :: Parser Decl
-parseDecl = try parseTypeDecl <|> try parseTransformerDecl
+parseDecl = try parseTypeDecl <|>
+            try parseTransformerDeclNoRet <|>
+            try parseTransformerDecl
 
 parseTypeDecl :: Parser Decl
 parseTypeDecl = do
@@ -45,6 +48,18 @@ parseTransformerDecl = do
     body <- many parseStmt
     symbol $ string "}"
     pure $ TransformerDecl name args ret body
+
+parseTransformerDeclNoRet :: Parser Decl
+parseTransformerDeclNoRet = do
+    symbol $ string "transformer"
+    name <- parseVarName
+    symbol $ string "("
+    args <- parseDelimList "," parseVarDef
+    symbol $ string ")"
+    symbol $ string "{"
+    body <- many parseStmt
+    symbol $ string "}"
+    pure $ TransformerDecl name args ("__success", (Any,PsaBool)) $ body ++ [ Flow (BoolConst True) (Var "__success") ]
 
 parseVarDef :: Parser VarDef
 parseVarDef = do
@@ -114,13 +129,42 @@ parseTransformer = try parseConstruct <|> try parseCall
             pure $ Call name args
 
 parseLocator :: Parser Locator
-parseLocator = try parseAddr <|>
-               try parseInt <|>
-               try parseBool <|>
-               try parseString <|>
-               try parseNewVar <|>
-               try parseVar <|>
-               try parseMultiset
+parseLocator = buildExpressionParser opTable $ symbol parseLocatorSingle
+
+opTable :: Stream s m Char => OperatorTable s st m Locator
+opTable =
+    [
+        [Postfix $ try $ do
+            symbol $ string "["
+            k <- parseLocatorSingle
+            symbol $ string "]"
+            pure $ \l -> Select l k
+        ]
+    ]
+
+parseLocatorSingle :: Parser Locator
+parseLocatorSingle = try parseAddr <|>
+                     try parseInt <|>
+                     try parseString <|>
+                     try parseBool <|>
+                     try parseNewVar <|>
+                     try parseMultiset <|>
+                     try parseRecordLit <|>
+                     try parseVar
+
+parseRecordLit :: Parser Locator
+parseRecordLit = do
+    symbol $ string "{"
+    members <- parseDelimList "," parseRecordMember
+    symbol $ string "}"
+
+    pure $ RecordLit [] members
+
+parseRecordMember :: Parser (VarDef, Locator)
+parseRecordMember = do
+    vdef <- parseVarDef
+    symbol $ string "|->"
+    (vdef,) <$> parseLocator
 
 parseLocators :: Parser [Locator]
 parseLocators = parseDelimList "," parseLocator
@@ -139,7 +183,7 @@ parseVar = Var <$> parseVarName
 
 parseVarName :: Parser String
 parseVarName = do
-    c <- symbol $ oneOf prefix
+    c <- oneOf prefix
     suf <- many $ oneOf cs
     pure $ c:suf
     where
@@ -170,7 +214,16 @@ parseBaseType = parseConst "nat" Nat <|>
                 parseConst "address" Address <|>
                 parseMultisetType <|>
                 parseRecordType <|>
+                parseMapType <|>
                 parseNamedType
+
+parseMapType :: Parser BaseType
+parseMapType = do
+    symbol $ string "map"
+    keyTy <- parseType
+    symbol $ string "=>"
+    valTy <- parseType
+    pure $ Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valTy) ])
 
 parseRecordType :: Parser BaseType
 parseRecordType = do
@@ -189,23 +242,21 @@ parseMultisetType = do
     Table [] <$> parseType
 
 parseInt :: Parser Locator
-parseInt = IntConst . read <$> many1 digit
+parseInt = IntConst . read <$> symbol (many1 digit)
 
 parseBool :: Parser Locator
-parseBool = BoolConst <$> (parseConst "true" True <|> parseConst "false" False)
+parseBool = BoolConst <$> symbol (parseConst "true" True <|> parseConst "false" False)
 
 parseAddr :: Parser Locator
 parseAddr = do
-    string "0x"
+    symbol $ string "0x"
     AddrConst <$> many (oneOf "1234567890abcdef")
 
 parseString :: Parser Locator
-parseString = StrConst <$> (between (string "\"") (string "\"") $ many $ noneOf "\"")
+parseString = StrConst <$> symbol (between (string "\"") (string "\"") $ many $ noneOf "\"")
 
 whitespace :: Parser ()
-whitespace = do
-    oneOf " \r\t\n"
-    pure ()
+whitespace = oneOf " \r\t\n" >> pure ()
 
 lineSep :: Parser ()
 lineSep = skipMany (whitespace <|> try lineComment <|> try blockComment)
@@ -219,7 +270,7 @@ lineComment = do
 blockComment :: Parser ()
 blockComment = do
     string "/*"
-    many $ notFollowedBy $ string "*/"
+    manyTill anyChar $ try $ string "*/"
     pure ()
 
 symbol :: Stream s m Char => ParsecT s st m a -> ParsecT s st m a

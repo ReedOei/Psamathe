@@ -266,7 +266,7 @@ module PURE-FLOW-COMPILER
     rule defineVarDefsStructs(_ : _ T, Rest) => defineStructs(nameOf(T), T) defineVarDefsStructs(Rest)
 
     syntax KItem ::= "tryCatch"
-    rule <k> try { S1 } catch { S2 } => S1 ~> newScope ~> S2 ~> tryCatch ... </k>
+    rule <k> try { S1 } catch { S2 } => S1 ~> newScope ~> S2 ~> /ryCatch ... </k>
         <compiled> .List => ListItem(.SolStmts) ... </compiled>
 
     // TODO: We only want to pack the vars that we're actually going to end up using
