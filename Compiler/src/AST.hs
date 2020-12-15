@@ -1,3 +1,6 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 module AST where
 
 import Data.Char (toLower)
@@ -104,16 +107,61 @@ class PrettyPrint a where
 
 indent = ("    "++)
 
+instance PrettyPrint Locator where
+    prettyPrint (IntConst i) = [show i]
+    prettyPrint (BoolConst b) = [ map toLower $ show b ]
+    prettyPrint (StrConst s) = [ show s ]
+    prettyPrint (AddrConst s) = [s]
+    prettyPrint (Var x) = [x]
+    prettyPrint (Multiset t elems) = [ "[ " ++ prettyStr t ++ " ; " ++ intercalate ", " (map prettyStr elems) ++ " ] " ]
+    prettyPrint (NewVar x t) = [ "var " ++ x ++ " : " ++ prettyStr t ]
+    prettyPrint Consume = ["consume"]
+    prettyPrint (Filter l q f args) = [ prettyStr l ++ "[ " ++ prettyStr q ++ " such that " ++ f ++ "(" ++ intercalate "," (map prettyStr args) ++ ")]" ]
+    prettyPrint (Select l k) = [ prettyStr l ++ "[" ++ prettyStr k ++ "]" ]
+
+instance PrettyPrint Transformer where
+    prettyPrint (Call name args) = [ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
+    prettyPrint (Construct name args) = [ "new " ++ name ++ "(" ++ intercalate "," (map prettyStr args) ++ ")" ]
+
+instance PrettyPrint Stmt where
+    prettyPrint (Flow src dst) = [ prettyStr src ++ " --> " ++ prettyStr dst ]
+    prettyPrint (FlowTransform src transformer dst) = [ prettyStr src ++ " --> " ++ prettyStr transformer ++ " --> " ++ prettyStr dst ]
+
 instance PrettyPrint Modifier where
     prettyPrint Fungible = ["fungible"]
     prettyPrint Asset = ["asset"]
-    prettyPrint Immutable ["immutable"]
+    prettyPrint Immutable = ["immutable"]
     prettyPrint Unique = ["unique"]
     prettyPrint Consumable = ["consumable"]
+
+instance PrettyPrint TyQuant where
+    prettyPrint Empty = ["empty"]
+    prettyPrint Any = ["any"]
+    prettyPrint One = ["one"]
+    prettyPrint Nonempty = ["nonempty"]
+
+instance PrettyPrint Type where
+    prettyPrint (q,t) = [ prettyStr q ++ " " ++ prettyStr t ]
+
+instance PrettyPrint VarDef where
+    prettyPrint (x,t) = [ x ++ " : " ++ prettyStr t ]
+
+instance PrettyPrint BaseType where
+    prettyPrint Nat = ["nat"]
+    prettyPrint PsaBool = ["bool"]
+    prettyPrint PsaString = ["string"]
+    prettyPrint Address = ["address"]
+    prettyPrint (Named t) = [t]
+    prettyPrint (Table keys (q,t)) = [ "table(" ++ intercalate "," keys ++ ") " ++ prettyStr q ++ " " ++ prettyStr t ]
+    prettyPrint (Record keys fields) = [ "record(" ++ intercalate "," keys ++ ") {" ++ intercalate ", " (map prettyStr fields) ++ "}" ]
 
 instance PrettyPrint Decl where
     prettyPrint (TypeDecl name ms baseT) =
         [ "type " ++ name ++ " is " ++ intercalate " " (map prettyStr ms) ++ " " ++ prettyStr baseT ]
+    prettyPrint (TransformerDecl name args ret body) =
+        [ "transformer " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") -> " ++ prettyStr ret ++ "{"]
+        ++ concatMap (map indent . prettyPrint) body
+        ++ [ "}" ]
 
 instance PrettyPrint Program where
     prettyPrint (Program decls mainBody) =
@@ -177,7 +225,7 @@ instance PrettyPrint SolDecl where
         ++ map (indent . (++";") . prettyStr) varDecls
         ++ [ "}" ]
     prettyPrint (Function name args vis rets body) =
-        [ "function " ++ name ++ "(" ++ intercalate "," (map prettyStr args) ++ ") " ++ prettyStr vis ++ " returns (" ++ intercalate "," (map prettyStr rets) ++ " {" ]
+        [ "function " ++ name ++ "(" ++ intercalate "," (map prettyStr args) ++ ") " ++ prettyStr vis ++ " returns (" ++ intercalate "," (map prettyStr rets) ++ ") {" ]
         ++ concatMap (map indent . prettyPrint) body
         ++ [ "}" ]
     prettyPrint (Constructor args body) =

@@ -1,8 +1,8 @@
 type Token is fungible asset nat
 
 type Bid is {
-    sender : address,
-    amount : Token
+    sender : one address,
+    amount : any Token
 }
 
 transformer id(b : any bool) -> res : any bool {

@@ -16,14 +16,20 @@ compileFile fileName = do
     case parse parseProgram "" content of
         Left err -> error $ show err
         Right prog -> do
+            putStrLn "Parsed program:"
             putStrLn $ prettyStr prog
+            putStrLn "========================================================"
+            putStrLn "========================================================"
+            putStrLn "========================================================"
 
             let (compiled, env) = runState (compileProg prog) newEnv
 
+            putStrLn "Compiled program:"
             putStrLn $ prettyStr compiled
             putStrLn "========================================================"
             putStrLn "========================================================"
             putStrLn "========================================================"
+
             print env
 
 main :: IO ()

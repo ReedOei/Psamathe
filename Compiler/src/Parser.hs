@@ -47,7 +47,10 @@ parseTransformerDecl = do
     pure $ TransformerDecl name args ret body
 
 parseVarDef :: Parser VarDef
-parseVarDef = (,) <$> parseVarName <*> parseType
+parseVarDef = do
+    name <- parseVarName
+    symbol $ string ":"
+    (name,) <$> parseType
 
 parseStmt :: Parser Stmt
 parseStmt = try parseFlowTransform <|> try parseFlow

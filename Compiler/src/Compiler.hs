@@ -52,13 +52,25 @@ buildExpr l = error $ "Unsupported locator: " ++ show l
 compileProg :: Program -> State Env Contract
 compileProg (Program decls mainBody) = do
     mapM_ compileDecl decls
+    compiledDecls <- map snd . Map.toList . view solDecls <$> get
     stmts <- concat <$> mapM compileStmt mainBody
-    pure $ Contract "0.7.5" "C" [ Constructor [] stmts ]
+    pure $ Contract "0.7.5" "C" $ compiledDecls ++ [Constructor [] stmts]
 
 compileDecl :: Decl -> State Env ()
 compileDecl decl@(TypeDecl name ms baseT) = do
     modify $ over declarations $ Map.insert name decl
-compileDecl d = error $ "compileDecl not implemented for: " ++ show d
+    -- TODO: Need to generate the struct too
+compileDecl decl@(TransformerDecl name args ret body) = do
+    modify $ over declarations $ Map.insert name decl
+
+    solArgs <- concat <$> mapM toSolArg args
+    rets <- toSolArg ret
+
+    modify $ over typeEnv $ Map.union $ Map.fromList [ (x, t) | (x,(_,t)) <- ret : args ]
+    bodyStmts <- concat <$> mapM compileStmt body
+    modify $ set typeEnv Map.empty
+
+    modify $ over solDecls $ Map.insert name (Function name solArgs Internal rets bodyStmts)
 
 compileStmt :: Stmt -> State Env [SolStmt]
 compileStmt (Flow src dst) = do
@@ -109,6 +121,8 @@ receiveValue orig src (Var x) = do
         case demotedT of
             Nat | tIsFungible -> pure [ SolAssign (SolVar x) (SolAdd (SolVar x) src) ]
 
+            PsaBool | t == PsaBool -> pure [ SolAssign (SolVar x) (SolOr (SolVar x) src) ]
+
             Table [] _ ->
                 pure [ ExprStmt (SolCall (FieldAccess (SolVar x) "push") [ src ] ) ]
 
@@ -128,6 +142,12 @@ declareVar x t = do
     else
         -- TODO: Might need to change this so it's not always memory...
         pure $ SolVarLocDecl (toSolType t) Memory x
+
+toSolArg :: VarDef -> State Env [SolVarDecl]
+-- TODO: May need to generate multiple var decls per vardef b/c of Solidity (numerous) shortcomings regarding structs
+toSolArg (x,(_,t)) = do
+    decl <- declareVar x t
+    pure [decl]
 
 isPrimitiveExpr :: SolExpr -> Bool
 isPrimitiveExpr (SolInt _) = True
