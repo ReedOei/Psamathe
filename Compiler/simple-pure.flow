@@ -24,8 +24,6 @@ transformer transferTok(balances : map address => Token, src : address, amount :
     balances[src] --[ amount ]-> balances[dst]
 }
 
-;
-
 1 --> var x : nat
 4 --> var y : nat
 x --> y

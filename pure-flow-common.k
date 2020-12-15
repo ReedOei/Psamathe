@@ -7,8 +7,10 @@ module VARS
     syntax Vars ::= List{Var, ","} [klabel(locators)]
 
     // Some special variables
-    syntax Var ::= "bool" | "uint" | "address" | "string" | "nat" | "uint256"
+    syntax Var ::= "bool" | "uint" | "address" | "string" | "nat"
     syntax Var ::= "this" | "msg" | "sender" | "key" | "value" | "success"
+
+    syntax Hex ::= r"0x[a-f0-9]+" [token]
 endmodule
 
 module PURE-FLOW-COMMON-SYNTAX
@@ -41,7 +43,7 @@ module PURE-FLOW-COMMON-SYNTAX
                           | Var "|->" Locator
     syntax RecordMembers ::= List{RecordMember, ","}
 
-    syntax Locator ::= Bool | Int | Var
+    syntax Locator ::= Bool | Int | String | Hex | Var
                      | Locator "." Var [klabel(qualified)]
                      | "[" Locators "]"
                      | "[" Type ";" Locators "]"
@@ -374,7 +376,8 @@ module PURE-FLOW-COMMON
     syntax KItem ::= last(List) [function, functional]
     rule last(_ ListItem(A)) => A
     syntax BaseType ::= lastBaseType(List) [function, functional]
-    rule lastBaseType(_ ListItem(A)) => A
+    rule lastBaseType(_ ListItem(T)) => T
+    rule lastBaseType(_ ListItem(_ T)) => T
 
     syntax List ::= init(List) [function, functional]
     rule init(Init ListItem(_)) => Init
@@ -404,7 +407,7 @@ module PURE-FLOW-COMMON
 
     syntax Map ::= makeEnv(VarDefs) [function, functional]
     rule makeEnv(.VarDefs) => .Map
-    rule makeEnv(X : Q T, Rest) => (X |-> Q T) makeEnv(Rest)
+    rule makeEnv(X : T, Rest) => (X |-> T) makeEnv(Rest)
 
     syntax Locators ::= appendLoc(Locators, Locator) [function, functional]
     rule appendLoc(.Locators, K) => K
@@ -423,6 +426,40 @@ module PURE-FLOW-COMMON
     syntax Set ::= varsToSet(Vars) [function, functional]
     rule varsToSet(.Vars) => .Set
     rule varsToSet((X:Var, Xs)) => SetItem(X) varsToSet(Xs)
+
+    syntax Set ::= varsOf(Locator) [function, functional]
+                 | varsOfEach(Locators) [function, functional]
+                 | varsOfRecMembers(RecordMembers) [function, functional]
+                 | varsOfStmt(Stmt) [function, functional]
+                 | varsOfBlock(Stmts) [function, functional]
+
+    rule varsOf(_:Int) => .Set
+    rule varsOf(_:Bool) => .Set
+    rule varsOf(_:String) => .Set
+    rule varsOf(_:Hex) => .Set
+    rule varsOf(X:Var) => SetItem(X)
+    rule varsOf(L._) => varsOf(L)
+    rule varsOf([ _ ; Ls ]) => varsOfEach(Ls)
+    rule varsOf(record(_) { Members }) => varsOfRecMembers(Members)
+    rule varsOf(demote(L)) => varsOf(L)
+    rule varsOf(copy(L)) => varsOf(L)
+    rule varsOf(L[K]) => varsOf(L) varsOf(K)
+    rule varsOf(L[_ such that _(Args)]) => varsOf(L) varsOfEach(Args)
+    rule varsOf(consume) => .Set
+
+    rule varsOfRecMembers(.RecordMembers) => .Set
+    rule varsOfRecMembers(_ : _ |-> L, Members) => varsOf(L) varsOfRecMembers(Members)
+
+    rule varsOfEach(.Locators) => .Set
+    rule varsOfEach(L, Ls) => varsOf(L) varsOfEach(Ls)
+
+    rule varsOfStmt(A --> B) => varsOf(A) varsOf(B)
+    rule varsOfStmt(A --> new _(Args) --> B) => varsOf(A) varsOfEach(Args) varsOf(B)
+    rule varsOfStmt(A --> _(Args) --> B) => varsOf(A) varsOfEach(Args) varsOf(B)
+
+    rule varsOfBlock(.Stmts) => .Set
+    rule varsOfBlock(S) => varsOfBlock(S)
+    rule varsOfBlock(S1 S2) => varsOfBlock(S1) varsOfBlock(S2)
 
     syntax Map ::= union(Map, Map) [function, functional]
     rule union(.Map, N) => N

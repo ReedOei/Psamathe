@@ -1,18 +1,20 @@
 requires "pure-flow-common.k"
 
 module SOLIDITY-SYNTAX
-    imports DOMAINS-SYNTAX
+    imports DOMAINS
     imports VARS
 
-    syntax SolVar ::= SolType Var
+    syntax DataLoc ::= "memory" | "calldata" | "storage"
+    syntax SolVar ::= SolType DataLoc Var
+                    | SolType Var
     syntax SolArgs ::= List{SolVar, ","}
 
     syntax SolVarDef ::= SolVar ";"
     syntax SolVarDefs ::= List{SolVarDef, ""}
 
     syntax Access ::= Var
-                    | Expr "." Var
-    syntax Expr ::= Bool | Int | Access
+                    | Expr "." Var [klabel(qualified)]
+    syntax Expr ::= Bool | Int | Access | Hex | String
                   | Expr "++"
                   | Expr "(" Exprs ")"
                   | Expr "[" Expr "]"
@@ -33,9 +35,8 @@ module SOLIDITY-SYNTAX
                      | SolVarDef
                      | Expr "=" Expr ";"
                      | "delete" Expr ";"
-                     | "return" Var ";"
                      | "for" "(" SolStmt Expr ";" Expr ")" "{" SolStmts "}"
-                     | "try" Expr "returns" "(" SolVar ")" "{" SolStmts "}" "catch" "{" SolStmts "}"
+                     | "try" Expr "returns" "(" SolArgs ")" "{" SolStmts "}" "catch" "{" SolStmts "}"
                      | "if" "(" Expr ")" "{" SolStmts "}"
     syntax SolStmts ::= ".SolStmts"
                       | SolStmt
@@ -47,13 +48,59 @@ module SOLIDITY-SYNTAX
                      | "mapping" "(" SolType "=>" SolType ")"
 
     syntax Struct ::= "struct" Var "{" SolVarDefs "}"
-    syntax Function ::= "function" Var "(" SolArgs ")" "returns" "(" SolVar ")" "{" SolStmts "}"
+    syntax Visibility ::= "public" | "private" | "public" | "external"
+    syntax Function ::= "function" Var "(" SolArgs ")" Visibility "returns" "(" SolArgs ")" "{" SolStmts "}"
     syntax Constructor ::= "constructor" "(" SolArgs ")" "{" SolStmts "}"
 
     syntax SolDecl ::= Struct | Function | Constructor | SolVarDef
 
     syntax SolDecls ::= List{SolDecl, ""}
-    syntax Contract ::= "contract" Var "{" SolDecls "}"
+    syntax SolVerNum ::= "^0.7.5"
+    syntax SolVer ::= "pragma" "solidity" SolVerNum ";"
+    syntax Contract ::= SolVer "contract" Var "{" SolDecls "}"
+
+    syntax Set ::= varsOfExpr(Expr) [function, functional]
+                 | varsOfEachExpr(Exprs) [function, functional]
+                 | varsOfSolStmt(SolStmt) [function, functional]
+                 | varsOfSolStmts(SolStmts) [function, functional]
+                 | varsOfFields(SolFields) [function, functional]
+
+    rule varsOfExpr(_:Bool) => .Set
+    rule varsOfExpr(_:Int) => .Set
+    rule varsOfExpr(_:String) => .Set
+    rule varsOfExpr(_:Hex) => .Set
+    rule varsOfExpr(X:Var) => SetItem(X)
+    rule varsOfExpr(E._) => varsOfExpr(E)
+    rule varsOfExpr(E++) => varsOfExpr(E)
+    // TODO: If we ever call functions from something more complicated than f(x) (e.g., a[i].f(x)), we'll need to amend this
+    rule varsOfExpr((_:Expr(Args)):Expr) => varsOfEachExpr(Args)
+    rule varsOfExpr(_({ Fields })) => varsOfFields(Fields)
+    rule varsOfExpr(A + B) => varsOfExpr(A) varsOfExpr(B)
+    rule varsOfExpr(A - B) => varsOfExpr(A) varsOfExpr(B)
+    rule varsOfExpr(A || B) => varsOfExpr(A) varsOfExpr(B)
+    rule varsOfExpr(A < B) => varsOfExpr(A) varsOfExpr(B)
+    rule varsOfExpr(A <= B) => varsOfExpr(A) varsOfExpr(B)
+    rule varsOfExpr(A == B) => varsOfExpr(A) varsOfExpr(B)
+
+    rule varsOfEachExpr(.Exprs) => .Set
+    rule varsOfEachExpr(E, Es) => varsOfExpr(E) varsOfEachExpr(Es)
+
+    rule varsOfFields(.SolFields) => .Set
+    rule varsOfFields(_ : E, Fields) => varsOfExpr(E) varsOfFields(Fields)
+
+    rule varsOfSolStmt(E;) => varsOfExpr(E)
+    rule varsOfSolStmt(E1 = E2;) => varsOfExpr(E1) varsOfExpr(E2)
+    rule varsOfSolStmt(_:SolVarDef) => .Set
+    rule varsOfSolStmt(_ _ = E;) => varsOfExpr(E)
+    rule varsOfSolStmt(_ _ _ = E;) => varsOfExpr(E)
+    rule varsOfSolStmt(delete E;) => varsOfExpr(E)
+    rule varsOfSolStmt(for(S Cond ; Inc) { Body }) => varsOfSolStmt(S) varsOfExpr(Inc) varsOfExpr(Cond) varsOfSolStmts(Body)
+    rule varsOfSolStmt(if (Cond) { Body }) => varsOfSolStmts(Body) varsOfExpr(Cond)
+
+    rule varsOfSolStmts(.SolStmts) => .Set
+    rule varsOfSolStmts(S) => varsOfSolStmt(S)
+    rule varsOfSolStmts(.SolStmts S) => varsOfSolStmts(S)
+    rule varsOfSolStmts(S1:SolStmt S2:SolStmts) => varsOfSolStmt(S1) varsOfSolStmts(S2)
 endmodule
 
 module PURE-FLOW-COMPILER-SYNTAX
@@ -73,7 +120,9 @@ module PURE-FLOW-COMPILER
     syntax Located ::= Var
                      | SourceList
                      | intConst(Int)
+                     | addrConst(Hex)
                      | boolConst(Bool)
+                     | strConst(String)
                      | guardSelect(Located, Located)
                      | filterInto(TypeQuant, Var, Locateds, Located)
                      | fieldOf(Located, Var)
@@ -81,6 +130,7 @@ module PURE-FLOW-COMPILER
                      | receiveInFieldFrom(BaseType, Var, Expr, Expr)
                      | receiveFrom(BaseType, Expr, Expr)
                      | construct(Var, Locateds, Located)
+                     | callTransformer(Var, Locateds, Located)
     syntax Locateds ::= List{Located, ","} [klabel(locators)]
                       | Vars
     syntax Locators ::= Locateds
@@ -110,7 +160,7 @@ module PURE-FLOW-COMPILER
     rule .Stmts => . [structural]
     rule S1:Stmt Rest:Stmts => S1 ~> Rest [structural]
 
-    rule D:Decl => translateDecl(D)
+    rule D:Decl => translateDecl(D) [structural]
 
     syntax SolDecls ::= List2SolDecls(List) [function, functional]
     rule List2SolDecls(.List) => .SolDecls
@@ -128,10 +178,12 @@ module PURE-FLOW-COMPILER
     // Entry point
     // =========================================
 
-    rule run(Stmts) => newScope ~> Stmts ~> done
+    rule <k> run(Stmts) => Stmts ~> done ... </k>
+        <compiled> .List => ListItem(.SolStmts) ... </compiled>
 
     rule <k> done
              =>
+             pragma solidity ^0.7.5;
             contract String2Id("C") {
                 List2SolDecls(
                     values(Structs)
@@ -154,15 +206,14 @@ module PURE-FLOW-COMPILER
         <structs> Structs => union(Structs, defineStructs(T, BaseT)) </structs>
 
     syntax KItem ::= setupArgs(VarDefs)
-                   | defFunc(Var, VarDefs, Var, BaseType)
-                   | cleanupEnv(Set)
+                   | defFunc(Var, VarDefs, Var, Type)
 
-    rule translateDecl(transformer F(Args) -> X : _ T { Body })
-        => newScope ~>
-           setupArgs(X : empty T, Args) ~>
-           Body ~>
-           defFunc(F, Args, X, T) ~>
-           cleanupEnv(keys(makeEnv(X : empty T, Args)))
+    rule <k> translateDecl(transformer F(Args) -> X : Q T { Body })
+            => setupArgs(X : empty T, Args) ~>
+               Body ~>
+               defFunc(F, Args, X, Q T) ... </k>
+        <functions> ... .Map => F |-> transformer(X : Q T, Args, Body) ... </functions>
+        <compiled> .List => ListItem(.SolStmts) ... </compiled>
 
     rule setupArgs(.VarDefs) => .
     rule <k> setupArgs(X : _ T, Rest) => setupArgs(Rest) ... </k>
@@ -171,22 +222,30 @@ module PURE-FLOW-COMPILER
 
     syntax SolArgs ::= varDefsToSolArgs(VarDefs) [function, functional]
     rule varDefsToSolArgs(.VarDefs) => .SolArgs
-    rule varDefsToSolArgs(X : _ T, Rest) => baseTypeToSolType(T) X, varDefsToSolArgs(Rest)
+    rule varDefsToSolArgs(X : T, Rest) => varDefToSolVar(X : T), varDefsToSolArgs(Rest)
+
+    syntax Bool ::= isPrimitive(SolType) [function, functional]
+    rule isPrimitive(T) => T ==K uint orBool T ==K bool orBool T ==K address
+
+    syntax SolVar ::= varDefToSolVar(VarDef) [function]
+    rule varDefToSolVar(X : _ T) =>
+            #if isPrimitive(baseTypeToSolType(T)) #then
+                baseTypeToSolType(T) X
+            #else
+                baseTypeToSolType(T) memory X
+            #fi
 
     rule <k> defFunc(F, Args, RetVar, RetType) => . ... </k>
         <solFunctions>
             ...
-            .Map =>
-            F |->
-            function F(varDefsToSolArgs(Args)) returns (baseTypeToSolType(RetType) RetVar) {
+            .Map => F |->
+            function F(varDefsToSolArgs(Args)) public returns (varDefToSolVar(RetVar : RetType)) {
                 Body
             }
             ...
         </solFunctions>
+        <typeEnv> _ => .Map </typeEnv>
         <compiled> ListItem(Body) => .List ... </compiled>
-
-    rule <k> cleanupEnv(Xs) => . ... </k>
-        <typeEnv> Env => removeAll(Env, Xs) </typeEnv>
 
     syntax Map ::= defineStructs(Var, BaseType) [function, functional]
                  | defineVarDefsStructs(VarDefs) [function, functional]
@@ -205,73 +264,72 @@ module PURE-FLOW-COMPILER
 
     rule defineVarDefsStructs(.VarDefs) => .Map
     rule defineVarDefsStructs(_ : _ T, Rest) => defineStructs(nameOf(T), T) defineVarDefsStructs(Rest)
-    /* rule defineVarDefsStructs(_ : T:BaseType, Rest) => defineStructs(nameOf(T), T) defineVarDefsStructs(Rest) */
 
-    rule try { S1 } catch { S2 } => newScope ~> S1 ~> newScope ~> S2 ~> tryCatch
     syntax KItem ::= "tryCatch"
+    rule <k> try { S1 } catch { S2 } => S1 ~> newScope ~> S2 ~> tryCatch ... </k>
+        <compiled> .List => ListItem(.SolStmts) ... </compiled>
 
-    syntax KItem ::= test(K)
-
-    rule <k> tryCatch => newClosure(!I, Env, TryBlock) ... </k>
+    // TODO: We only want to pack the vars that we're actually going to end up using
+    rule <k> tryCatch => makeClosure(TryBlock, CatchBlock, removeAll(Env, keys(Env) -Set varsOfSolStmts(TryBlock))) ... </k>
         <typeEnv> Env </typeEnv>
+        <compiled> ListItem(CatchBlock) ListItem(TryBlock) => .List ... </compiled>
+
+    syntax KItem ::= makeClosure(SolStmts, SolStmts, Map)
+    rule <k> makeClosure(TryBlock, CatchBlock, Env) => . ... </k>
         <compiled>
-            ListItem(TryBlock) ListItem(CatchBlock) ListItem(ParentScope)
-            => ListItem(ParentScope
-                packScope(genVar(!J), Env)
-                (try this.(closureName(!I))(genVar(!J)) returns (closureTypeName(!I) genVar(!K)) {
-                    unpackScope(genVar(!K), Env)
+            ListItem(S => (S
+                (try this.(closureName(!I))(envToExprs(keys_list(Env))) returns (outNames(envToArgs(keys_list(Env), Env))) {
+                    unpackScope(Env)
                 } catch {
                     CatchBlock
-                }))
-            ... </compiled>
-        <structs> Structs => union(Structs, closureStruct(!I, Env)) </structs>
-
-    syntax KItem ::= newClosure(Int, Map, SolStmts)
-    rule <k> newClosure(I, Env, Body) => . ... </k>
-        <solFunctions> ... .Map => closureName(I) |->
-                function closureName(I)(closureTypeName(I) genVar(!J)) returns (closureTypeName(I) genVar(!K)) {
-                    unpackNewScope(genVar(!J), Env)
-                    Body
-                    packScope(genVar(!K), Env)
-                }
+                })))
+            ...
+        </compiled>
+        <solFunctions>
+            ...
+            .Map => closureName(!I) |->
+            function closureName(!I)(envToArgs(keys_list(Env), Env))
+                public returns (outNames(envToArgs(keys_list(Env), Env))) {
+                TryBlock
+                packScope(Env)
+            }
             ...
         </solFunctions>
 
-    syntax Map ::= closureStruct(Int, Map) [function, functional]
-    rule closureStruct(I, M)
-         => closureTypeName(I) |->
-                struct closureTypeName(I) {
-                    mapToSolVars(M)
-                }
+    syntax SolArgs ::= outNames(SolArgs) [function, functional]
+    rule outNames(.SolArgs) => .SolArgs
+    rule outNames(T X, Rest) => T outName(X), outNames(Rest)
+    rule outNames(T DL X, Rest) => T DL outName(X), outNames(Rest)
+
+    syntax Var ::= outName(Var) [function, functional]
+    rule outName(X) => String2Id(Id2String(X) +String "_out")
+
+    syntax Exprs ::= envToExprs(List) [function, functional]
+    rule envToExprs(.List) => .Exprs
+    rule envToExprs(ListItem(X) Rest) => X, envToExprs(Rest)
+
+    syntax SolArgs ::= envToArgs(List, Map) [function, functional]
+    rule envToArgs(.List, _) => .SolArgs
+    rule envToArgs(ListItem(X) Rest, (X |-> T) M) => varDefToSolVar(X : any T), envToArgs(Rest, M)
 
     syntax SolVarDefs ::= mapToSolVars(Map) [function, functional]
     rule mapToSolVars(.Map) => .SolVarDefs
     rule mapToSolVars((X |-> T) M) => baseTypeToSolType(T) X; mapToSolVars(M)
 
-    syntax SolStmts ::= packScope(Var, Map) [function, functional]
-    rule packScope(_, .Map) => .SolStmts
-    rule packScope(X, (Y |-> _) Env) => X.Y = Y; packScope(X, Env)
+    syntax SolStmts ::= packScope(Map) [function, functional]
+    rule packScope(.Map) => .SolStmts
+    rule packScope((Y |-> _) Env) => outName(Y) = Y; packScope(Env)
 
-    syntax SolStmts ::= unpackScope(Var, Map) [function, functional]
-    rule unpackScope(_, .Map) => .SolStmts
-    rule unpackScope(X, (Y |-> _) Env) => Y = X.Y; unpackScope(X, Env)
-
-    syntax SolStmts ::= unpackNewScope(Var, Map) [function, functional]
-    rule unpackNewScope(_, .Map) => .SolStmts
-    rule unpackNewScope(X, (Y |-> T) Env) => baseTypeToSolType(T) Y = X.Y; unpackNewScope(X, Env)
-
-    syntax Var ::= closureTypeName(Int) [function, functional]
-    rule closureTypeName(I) => String2Id("closure_type_" +String Int2String(I))
-
-    syntax VarDefs ::= mapToVarDefs(Map) [function, functional]
-    rule mapToVarDefs(.Map) => .VarDefs
-    rule mapToVarDefs((X |-> T) M) => X : T, mapToVarDefs(M)
+    syntax SolStmts ::= unpackScope(Map) [function, functional]
+    rule unpackScope(.Map) => .SolStmts
+    rule unpackScope((Y |-> _) Env) => Y = outName(Y); unpackScope(Env)
 
     syntax Var ::= closureName(Int) [function, functional]
     rule closureName(I) => String2Id("closure_" +String Int2String(I))
 
     syntax KItem ::= flow(Locator, Locator) [seqstrict]
-    rule <k> A --> B => flow(locate(A), locate(B)) ... </k>
+    rule A --> B => flow(locate(A), locate(B))
+    rule flow(Src, Dst) => lookupValues(Src, Dst) ~> appendStmts
 
     syntax KItem ::= "appendStmts"
     rule <k> New:SolStmts ~> appendStmts => . ... </k>
@@ -279,19 +337,21 @@ module PURE-FLOW-COMPILER
 
     syntax KItem ::= lookupValues(Located, Located)
 
-    rule flow(Src, Dst) => lookupValues(Src, Dst) ~> appendStmts
-
     rule <k> lookupValues(Src, Dst) => receiveValue(Src, Src, Dst) ... </k>
         <typeEnv> ... Src |-> nat ... </typeEnv>
     rule <k> lookupValues(Src, Dst) => receiveValue(Src, Src, Dst) ... </k>
         <typeEnv> ... Src |-> bool ... </typeEnv>
     rule lookupValues(intConst(V), Dst) => receiveValue(V, V, Dst)
+    rule lookupValues(addrConst(Addr), Dst) => receiveValue(Addr, Addr, Dst)
+    rule lookupValues(strConst(S), Dst) => receiveValue(S, S, Dst)
     rule lookupValues(boolConst(B), Dst) => receiveValue(B, B, Dst)
 
-    rule <k> lookupValues(Src, Dst) => receiveValue(Src[genVar(!I)], Src[genVar(!I)], Dst) ~> lookupValues(Src, Dst) ... </k>
+    syntax KItem ::= freshVar(Int)
+
+    rule <k> lookupValues(Src, Dst) => receiveValue(Src[genVar(!I)], Src[genVar(!I)], Dst) ~> freshVar(!I) ~> lookupValues(Src, Dst) ... </k>
         <typeEnv> ... Src |-> table(.Vars) _ ... </typeEnv>
-    rule <k> Body:SolStmts ~> lookupValues(Src, _) =>
-                for (uint genVar(!I) = 0; genVar(!I) < (Src.length); genVar(!I)++) {
+    rule <k> Body:SolStmts ~> freshVar(I) ~> lookupValues(Src, _) =>
+                for (uint genVar(I) = 0; genVar(I) < (Src.length); genVar(I)++) {
                     Body
                     // TODO: Need to delete the selected values
                 } ... </k>
@@ -300,10 +360,10 @@ module PURE-FLOW-COMPILER
     rule <k> lookupValues(Src, Dst) =>
                 receiveValue(buildExpr(Src).underlying_map[buildExpr(Src).keys[genVar(!I)]],
                              buildExpr(Src).underlying_map[buildExpr(Src).keys[genVar(!I)]],
-                             Dst) ~> lookupValues(Src, Dst) ... </k>
+                             Dst) ~> freshVar(!I) ~> lookupValues(Src, Dst) ... </k>
         <typeEnv> ... Src |-> map _ => _ ... </typeEnv>
-    rule <k> Body:SolStmts ~> lookupValues(Src, _) =>
-            for (uint genVar(!I) = 0; genVar(!I) < (buildExpr(Src).keys.length); genVar(!I)++) {
+    rule <k> Body:SolStmts ~> freshVar(I) ~> lookupValues(Src, _) =>
+            for (uint genVar(I) = 0; genVar(I) < (buildExpr(Src).keys.length); genVar(I)++) {
                 Body
                 // TODO: Need to delete the selected values
             } ... </k>
@@ -336,9 +396,12 @@ module PURE-FLOW-COMPILER
         <typeEnv> ... X |-> T ... </typeEnv>
     rule typeof(fieldOf(Dst, X)) => coerceMaybeType(lookupField(typeof(Dst), X))
     // TODO: Reduce duplication of typeof(L)
-    rule typeof(sourceSelect(L, K)) => #if typeof(K) in keyTypes(typeof(L)) #then valueType(typeof(L)) #else typeof(L) #fi
+    rule typeof(sourceSelect(L, K)) =>
+        #fun(LT => #if typeof(K) in keyTypes(LT) #then valueType(LT) #else LT #fi)(typeof(L))
     rule typeof(intConst(_)) => nat
     rule typeof(boolConst(_)) => bool
+    rule typeof(strConst(_)) => string
+    rule typeof(addrConst(_)) => address
 
     syntax Set ::= keyTypes(BaseType) [function]
     rule keyTypes(nat) => SetItem(nat)
@@ -413,13 +476,23 @@ module PURE-FLOW-COMPILER
             => receiveValue(Orig, buildCall(T, Args, Src), Dst) ... </k>
         <types> ... T |-> typeDef(_, record(_) { _ }) ... </types>
 
+    rule receiveValue(Orig, Src, callTransformer(F, Args, Dst)) => receiveValue(Orig, buildCall(F, Args, Src), Dst)
+
     rule receiveExpr(T, Orig, Src, Dst)
-        => Dst = Dst + Src;
-           #if _:Int :=K Orig #then .SolStmts #else Orig = Orig - Src; #fi
+        => #if _:Int :=K Orig #then
+            Dst = Dst + Src;
+           #else
+            Dst = Dst + Src;
+            Orig = Orig - Src;
+           #fi
         requires isFungible(T) andBool demoteBaseType(T) ==K nat
     rule receiveExpr(bool, Orig, Src, Dst)
-        => Dst = Dst || Src;
-           #if _:Bool :=K Orig #then .SolStmts #else Orig = false; #fi
+        => #if _:Bool :=K Orig #then
+            Dst = Dst || Src;
+           #else
+            Dst = Dst || Src;
+            Orig = false;
+           #fi
     rule receiveExpr(table(.Vars) _, Orig, Src, Dst) => Dst.push(Src);
     rule receiveExpr(map _ => _, Orig, Src, Dst) =>
             Dst.underlying_map[Src.key] = Src.value;
@@ -444,6 +517,8 @@ module PURE-FLOW-COMPILER
     rule buildExpr(X:Var) => X
     rule buildExpr(intConst(V)) => V
     rule buildExpr(boolConst(B)) => B
+    rule buildExpr(strConst(S)) => S
+    rule buildExpr(addrConst(Addr)) => Addr
 
     syntax Expr ::= containedIn(Expr, Located) [function]
     rule containedIn(_, source(_, .List)) => false
@@ -470,9 +545,13 @@ module PURE-FLOW-COMPILER
     rule appendExpr(.Exprs, E) => E
     rule appendExpr((E:Expr, Es), E') => E, appendExpr(Es, E')
 
-    syntax KItem ::= flowNew(Locator, Var, Locators, Locator) [strict(3,1,4)]
+    syntax KItem ::= flowNew(Locator, Var, Locators, Locator) [seqstrict(3,1,4)]
     rule A --> new T(Args) --> B => flowNew(locate(A), T, locateArgs(Args, .Locateds), locate(B))
     rule flowNew(Src, T, Args, Dst) => lookupValues(Src, construct(T, Args, Dst)) ~> appendStmts
+
+    syntax KItem ::= flowTransformer(Locator, Var, Locators, Locator) [seqstrict(3,1,4)]
+    rule (A --> F(Args) --> B):Stmt => flowTransformer(locate(A), F, locateArgs(Args, .Locateds), locate(B))
+    rule flowTransformer(Src, F, Args, Dst) => lookupValues(Src, callTransformer(F, Args, Dst)) ~> appendStmts
 
     syntax Locators ::= locateArgs(Locators, Locators)
     rule locateArgs(.Locators, Res) => Res
@@ -483,6 +562,8 @@ module PURE-FLOW-COMPILER
 
     rule locate(V:Int) => intConst(V)
     rule locate(B:Bool) => boolConst(B)
+    rule locate(S:String) => strConst(S)
+    rule locate(Addr:Hex) => addrConst(Addr)
 
     rule <k> locate([ Q T ; Locs ]) => locateEach(Q T, Locs, .List) ... </k>
         <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
@@ -494,7 +575,7 @@ module PURE-FLOW-COMPILER
 
     rule <k> locate(record(Keys) { Members }) => locateRecordFields(genVar(!I), Members) ~> genVar(!I) ... </k>
         <typeEnv> ... .Map => genVar(!I) |-> record(Keys) { membersToDefs(Members) } ... </typeEnv>
-        <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(record(Keys) { membersToDefs(Members) }) genVar(!I);)) ... </compiled>
+        <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(record(Keys) { membersToDefs(Members) }) memory genVar(!I);)) ... </compiled>
         <structs> Structs => union(Structs, defineStructs(nameOf(record(Keys) { membersToDefs(Members) }), record(Keys) { membersToDefs(Members) })) </structs>
 
     syntax KItem ::= locateRecordFields(Var, RecordMembers)
@@ -512,15 +593,9 @@ module PURE-FLOW-COMPILER
     rule locate(L.X) => locateField(locate(L), X)
     rule locateField(L, X) => fieldOf(L, X)
 
-    context locate(copy(HOLE => locate(copy(HOLE))))
-    rule <k> locate(copy(X:Var)) => X ... </k>
-        // TODO: Does this actually copy everything?
-        <compiled> ListItem(Ss => Ss (baseTypeToSolType(T) genVar(!I) = X;)) ... </compiled>
-        <typeEnv> ... (X |-> T) (.Map => genVar(!I) |-> T) ... </typeEnv>
-
     rule <k> locate(var X : T) => X ... </k>
         <typeEnv> ... .Map => X |-> T ... </typeEnv>
-        <compiled> ListItem(Ss:SolStmts => Ss (baseTypeToSolType(T) X;)) ... </compiled>
+        <compiled> ListItem(Ss:SolStmts => Ss (varDefToSolVar(X : any T);)) ... </compiled>
         <structs> Structs => union(Structs, defineStructs(nameOf(T), T)) </structs>
 
     syntax KItem ::= locateSelector(Locator, Locator) [seqstrict]
@@ -586,7 +661,10 @@ module PURE-FLOW-COMPILER
     rule [[ baseTypeToSolType(X:Var) => SolT ]]
         <typeEncoding> ... X |-> SolT ... </typeEncoding>
     rule baseTypeToSolType(record(Keys) { Fields }) => nameOf(record(Keys) { Fields })
+    // Tables with no keys are just implemented as arrays
+    rule baseTypeToSolType(table(.Vars) _ T) => baseTypeToSolType(T)[]
     rule baseTypeToSolType(table(Keys) T) => nameOf(table(Keys) T)
+        requires Keys =/=K .Vars
 
     syntax SolType ::= encodeType(Var, BaseType) [function, functional]
     rule encodeType(_, nat) => baseTypeToSolType(nat)
