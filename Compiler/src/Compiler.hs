@@ -76,11 +76,56 @@ compileStmt :: Stmt -> State Env [SolStmt]
 compileStmt (Flow src dst) = do
     (srcLoc, srcComp) <- locate src
     (dstLoc, dstComp) <- locate dst
-    transfer <- lookupValue (\orig val -> receiveValue orig val dstLoc) srcLoc
+    transfer <- lookupValue srcLoc $ \_ orig val -> receiveValue orig val dstLoc
 
     pure $ srcComp ++ dstComp ++ transfer
 
 compileStmt (FlowTransform src transformer dst) = error "unimplemented!"
+
+compileStmt (Try tryBlock catchBlock) = do
+    origEnv <- view typeEnv <$> get
+    let origVars = Map.keys origEnv
+
+    tryCompiled <- concat <$> mapM compileStmt tryBlock
+    modify $ over typeEnv $ Map.filterWithKey (\k _ -> k `Map.member` origEnv)
+
+    catchCompiled <- concat <$> mapM compileStmt catchBlock
+    modify $ over typeEnv $ Map.filterWithKey (\k _ -> k `Map.member` origEnv)
+
+    closureName <- ("closure_"++) <$> freshName
+
+    closureArgs <- makeClosureArgs origVars
+    closureRets <- makeClosureRets origVars
+    unpackClosureBlock <- makeUnpackClosureBlock origVars
+    packClosureBlock <- makePackClosureBlock origVars
+
+    modify $ over solDecls $ Map.insert closureName
+           $ Function closureName closureArgs Public closureRets $ tryCompiled ++ packClosureBlock
+
+    pure $ [ SolTry (SolCall (FieldAccess (SolVar "this") closureName) (map SolVar origVars))
+                    closureRets
+                    unpackClosureBlock
+                    catchCompiled ]
+
+makeClosureArgs :: [String] -> State Env [SolVarDecl]
+makeClosureArgs vars = mapM go vars
+    where
+        go x = declareVar x =<< typeOf x
+
+makeClosureRets :: [String] -> State Env [SolVarDecl]
+makeClosureRets vars = mapM go vars
+    where
+        go x = declareVar (x ++ "_out") =<< typeOf x
+
+makeUnpackClosureBlock :: [String] -> State Env [SolStmt]
+makeUnpackClosureBlock vars = concat <$> mapM go vars
+    where
+        go x = pure [ SolAssign (SolVar x) (SolVar (x ++ "_out")) ]
+
+makePackClosureBlock :: [String] -> State Env [SolStmt]
+makePackClosureBlock vars = concat <$> mapM go vars
+    where
+        go x = pure [ SolAssign (SolVar (x ++ "_out")) (SolVar x) ]
 
 locate :: Locator -> State Env (Locator, [SolStmt])
 locate (NewVar x t) = do
@@ -89,27 +134,49 @@ locate (NewVar x t) = do
     pure (Var x, [SolVarDef decl])
 locate l = pure (l, [])
 
-lookupValue :: (SolExpr -> SolExpr -> State Env [SolStmt]) -> Locator -> State Env [SolStmt]
-lookupValue f (IntConst i) = f (SolInt i) (SolInt i)
-lookupValue f (Var x) = do
+lookupValue :: Locator -> (BaseType -> SolExpr -> SolExpr -> State Env [SolStmt]) -> State Env [SolStmt]
+lookupValue (IntConst i) f = f Nat (SolInt i) (SolInt i)
+lookupValue (BoolConst b) f = f PsaBool (SolBool b) (SolBool b)
+lookupValue (StrConst s) f = f PsaString (SolStr s) (SolStr s)
+lookupValue (AddrConst addr) f = f Address (SolAddr addr) (SolAddr addr)
+lookupValue (Var x) f = do
     t <- typeOf x
     case t of
-        Nat -> f (SolVar x) (SolVar x)
-        PsaBool -> f (SolVar x) (SolVar x)
-        PsaString -> f (SolVar x) (SolVar x)
-        Address -> f (SolVar x) (SolVar x)
-        Table [] _ -> do
+        Nat -> f Nat (SolVar x) (SolVar x)
+        PsaBool -> f PsaBool (SolVar x) (SolVar x)
+        PsaString -> f PsaString (SolVar x) (SolVar x)
+        Address -> f Address (SolVar x) (SolVar x)
+        Table [] (_,t) -> do
             idxVarName <- freshName
             let idxVar = SolVar idxVarName
 
-            body <- f (SolIdx (SolVar x) idxVar) (SolIdx (SolVar x) idxVar)
+            body <- f t (SolIdx (SolVar x) idxVar) (SolIdx (SolVar x) idxVar)
 
             pure [ For (SolVarDefInit (SolVarDecl (SolTypeName "uint") idxVarName) (SolInt 0))
                        (SolLt idxVar (FieldAccess (SolVar x) "length"))
                        (SolPostInc idxVar)
                        body ]
-        _ -> error "Not implemented!"
-lookupValue f (Multiset t elems) = concat <$> mapM (lookupValue f) elems
+
+        _ -> error $ "lookupValue Var is not implemented for: " ++ show t
+
+lookupValue (Multiset t elems) f = concat <$> mapM (`lookupValue` f) elems
+
+lookupValue (Select l k) f = do
+    lookupValue k $ \kTy origK valK -> do
+        demotedT <- demoteBaseType kTy
+        tIsFungible <- isFungible kTy
+        case demotedT of
+            Nat | tIsFungible -> lookupValue l $ \lTy origL valL -> do
+                body <- f lTy origL valK
+                pure [ If (SolLte valK valL) body ]
+
+            PsaBool -> lookupValue l $ \lTy origL valL -> do
+                body <- f lTy origL valK
+                pure [ If (SolEq valL valK) body ]
+
+            _ -> error $ "lookupValue Select is not implemented for: " ++ show kTy
+
+lookupValue l _ = error $ "lookupValue is not implemented for: " ++ show l
 
 receiveValue :: SolExpr -> SolExpr -> Locator -> State Env [SolStmt]
 receiveValue orig src (Var x) = do

@@ -53,7 +53,10 @@ parseVarDef = do
     (name,) <$> parseType
 
 parseStmt :: Parser Stmt
-parseStmt = try parseFlowTransform <|> try parseFlow
+parseStmt = try parseFlowTransform <|>
+            try parseFlowSel <|>
+            try parseFlow <|>
+            try parseTry
 
 parseFlow :: Parser Stmt
 parseFlow = do
@@ -61,6 +64,15 @@ parseFlow = do
     symbol $ string "-->"
     dst <- parseLocator
     pure $ Flow src dst
+
+parseFlowSel :: Parser Stmt
+parseFlowSel = do
+    src <- parseLocator
+    symbol $ string "--["
+    sel <- parseLocator
+    symbol $ string "]->"
+    dst <- parseLocator
+    pure $ Flow (Select src sel) dst
 
 parseFlowTransform :: Parser Stmt
 parseFlowTransform = do
@@ -70,6 +82,18 @@ parseFlowTransform = do
     symbol $ string "-->"
     dst <- parseLocator
     pure $ FlowTransform src transformer dst
+
+parseTry :: Parser Stmt
+parseTry = do
+    symbol $ string "try"
+    symbol $ string "{"
+    tryBlock <- many parseStmt
+    symbol $ string "}"
+    symbol $ string "catch"
+    symbol $ string "{"
+    catchBlock <- many parseStmt
+    symbol $ string "}"
+    pure $ Try tryBlock catchBlock
 
 parseTransformer :: Parser Transformer
 parseTransformer = try parseConstruct <|> try parseCall

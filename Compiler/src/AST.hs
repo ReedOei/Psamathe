@@ -38,6 +38,7 @@ data Transformer = Call String [Locator]
 
 data Stmt = Flow Locator Locator
           | FlowTransform Locator Transformer Locator
+          | Try [Stmt] [Stmt]
     deriving (Show, Eq)
 
 data Decl = TypeDecl String [Modifier] BaseType
@@ -83,7 +84,7 @@ data SolStmt = ExprStmt SolExpr
              | SolAssign SolExpr SolExpr
              | Delete SolExpr
              | For SolStmt SolExpr SolExpr [SolStmt]
-             | Try SolExpr [SolVarDecl] [SolStmt] [SolStmt]
+             | SolTry SolExpr [SolVarDecl] [SolStmt] [SolStmt]
              | If SolExpr [SolStmt]
     deriving (Show, Eq)
 
@@ -126,6 +127,12 @@ instance PrettyPrint Transformer where
 instance PrettyPrint Stmt where
     prettyPrint (Flow src dst) = [ prettyStr src ++ " --> " ++ prettyStr dst ]
     prettyPrint (FlowTransform src transformer dst) = [ prettyStr src ++ " --> " ++ prettyStr transformer ++ " --> " ++ prettyStr dst ]
+    prettyPrint (Try tryBlock catchBlock) =
+        [ "try {" ]
+        ++ concatMap (map indent . prettyPrint) tryBlock
+        ++ [ "} catch { " ]
+        ++ concatMap (map indent . prettyPrint) catchBlock
+        ++ [ "}" ]
 
 instance PrettyPrint Modifier where
     prettyPrint Fungible = ["fungible"]
@@ -197,6 +204,12 @@ instance PrettyPrint SolStmt where
     prettyPrint (If cond thenBody) =
         ["if (" ++ prettyStr cond ++ ") {"]
         ++ concatMap (map indent . prettyPrint) thenBody
+        ++ [ "}" ]
+    prettyPrint (SolTry e rets tryBody catchBody) =
+        ["try " ++ prettyStr e ++ " returns (" ++ intercalate ", " (map prettyStr rets) ++ ") {"]
+        ++ concatMap (map indent . prettyPrint) tryBody
+        ++ [ "} catch {" ]
+        ++ concatMap (map indent . prettyPrint) catchBody
         ++ [ "}" ]
 
 instance PrettyPrint DataLoc where
