@@ -43,15 +43,15 @@ false --> var b : bool
 
 nums --[ [ any nat; 4, 12 ] ]-> var dest : list any nat
 
-[4,5,6] --[ [ any nat; 4 ] ]-> dest
+[ any nat ; 4,5,6] --[ [ any nat ; 4 ] ]-> dest
 
-[true,false] --[ any such that id() ]-> var bs : list any bool
+[ any bool ; true,false] --[ any such that id() ]-> var bs : list any bool
 
 y --[ 2 ]-> var z : nat
 
-new Token(64) --> var myToks : Token
+64 --> new Token() --> var myToks : Token
 
-new Bid(0x0, 2) --> var myBid : Bid
+2 --> new Bid(0x0) --> var myBid : Bid
 
-[true,false] --> invert() --> var bs2 : list any bool
+[ any bool ; true, false] --> invert() --> var bs2 : list any bool
 

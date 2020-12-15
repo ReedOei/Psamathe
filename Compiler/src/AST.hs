@@ -118,7 +118,7 @@ instance PrettyPrint Locator where
     prettyPrint (Multiset t elems) = [ "[ " ++ prettyStr t ++ " ; " ++ intercalate ", " (map prettyStr elems) ++ " ]" ]
     prettyPrint (NewVar x t) = [ "var " ++ x ++ " : " ++ prettyStr t ]
     prettyPrint Consume = ["consume"]
-    prettyPrint (Filter l q f args) = [ prettyStr l ++ "[ " ++ prettyStr q ++ " such that " ++ f ++ "(" ++ intercalate "," (map prettyStr args) ++ ")]" ]
+    prettyPrint (Filter l q f args) = [ prettyStr l ++ "[ " ++ prettyStr q ++ " such that " ++ f ++ "(" ++ intercalate "," (map prettyStr args) ++ ") ]" ]
     prettyPrint (Select l k) = [ prettyStr l ++ "[" ++ prettyStr k ++ "]" ]
     prettyPrint (RecordLit keys fields) = [ "record(" ++ intercalate ", " keys ++ ") {" ++ intercalate ", " (map (\(x, t) -> prettyStr x ++ " |-> " ++ prettyStr t) fields) ]
 

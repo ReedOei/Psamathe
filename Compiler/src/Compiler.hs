@@ -87,7 +87,22 @@ compileStmt (Flow src dst) = do
 
     pure $ srcComp ++ dstComp ++ transfer
 
-compileStmt (FlowTransform src transformer dst) = error "unimplemented!"
+compileStmt (FlowTransform src (Construct name args) dst) = do
+    argsRes <- mapM locate args
+    let (newArgs, initArgs) = unzip argsRes
+    (srcLoc, srcComp) <- locate src
+    (dstLoc, dstComp) <- locate dst
+    constructFun <- makeConstructor name
+    transfer <- lookupValues newArgs $ \vals -> lookupValue srcLoc $ \_ orig val -> receiveValue orig (constructFun (vals ++ [val])) dstLoc
+    pure $ concat initArgs ++ srcComp ++ dstComp ++ transfer
+
+compileStmt (FlowTransform src (Call name args) dst) = do
+    argsRes <- mapM locate args
+    let (newArgs, initArgs) = unzip argsRes
+    (srcLoc, srcComp) <- locate src
+    (dstLoc, dstComp) <- locate dst
+    transfer <- lookupValues newArgs $ \vals -> lookupValue srcLoc $ \_ orig val -> receiveValue orig (SolCall (SolVar name) (vals ++ [val])) dstLoc
+    pure $ concat initArgs ++ srcComp ++ dstComp ++ transfer
 
 compileStmt (Try tryBlock catchBlock) = do
     origEnv <- view typeEnv <$> get
@@ -113,6 +128,17 @@ compileStmt (Try tryBlock catchBlock) = do
                     closureRets
                     unpackClosureBlock
                     catchCompiled ]
+
+makeConstructor :: String -> State Env ([SolExpr] -> SolExpr)
+makeConstructor t = do
+    decl <- lookupTypeDecl t
+    case decl of
+        TypeDecl _ _ Nat -> pure $ \[arg] -> arg
+        TypeDecl _ _ PsaBool -> pure $ \[arg] -> arg
+        TypeDecl _ _ PsaString -> pure $ \[arg] -> arg
+        TypeDecl _ _ Address -> pure $ \[arg] -> arg
+        TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) args
+        _ -> error $ "Cannot make constructor for: " ++ show decl
 
 makeClosureArgs :: [String] -> State Env [SolVarDecl]
 makeClosureArgs vars = mapM go vars
@@ -247,7 +273,20 @@ lookupValue (Select l k) f = do
 
                     _ -> error $ "lookupValue Select is not implemented for: " ++ show kTy
 
+lookupValue (Filter l q predName args) f = do
+    argsRes <- mapM locate args
+    let (newArgs, initArgs) = unzip argsRes
+    (newL, initL) <- locate l
+    lookupValues newArgs $ \vals -> lookupValue newL $ \t orig src -> do
+        body <- f t orig src
+        argExprs <- mapM buildExpr newArgs
+        pure $ concat initArgs ++ initL ++ [ If (SolCall (SolVar predName) (vals ++ [src])) body ]
+
 lookupValue l _ = error $ "lookupValue is not implemented for: " ++ show l
+
+lookupValues :: [Locator] -> ([SolExpr] -> State Env [SolStmt]) -> State Env [SolStmt]
+lookupValues [] f = f []
+lookupValues (l:ls) f = lookupValue l $ \lTy origL srcL -> lookupValues ls $ \rest -> f (srcL:rest)
 
 receiveValue :: SolExpr -> SolExpr -> Locator -> State Env [SolStmt]
 receiveValue orig src (Var x) = do

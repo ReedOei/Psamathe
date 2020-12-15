@@ -70,6 +70,7 @@ parseVarDef = do
 parseStmt :: Parser Stmt
 parseStmt = try parseFlowTransform <|>
             try parseFlowSel <|>
+            try parseFlowFilter <|>
             try parseFlow <|>
             try parseTry
 
@@ -88,6 +89,21 @@ parseFlowSel = do
     symbol $ string "]->"
     dst <- parseLocator
     pure $ Flow (Select src sel) dst
+
+parseFlowFilter :: Parser Stmt
+parseFlowFilter = do
+    src <- parseLocator
+    symbol $ string "--["
+    q <- parseQuant
+    symbol $ string "such"
+    symbol $ string "that"
+    f <- parseVarName
+    symbol $ string "("
+    args <- parseLocators
+    symbol $ string ")"
+    symbol $ string "]->"
+    dst <- parseLocator
+    pure $ Flow (Filter src q f args) dst
 
 parseFlowTransform :: Parser Stmt
 parseFlowTransform = do
@@ -250,7 +266,7 @@ parseBool = BoolConst <$> symbol (parseConst "true" True <|> parseConst "false" 
 parseAddr :: Parser Locator
 parseAddr = do
     symbol $ string "0x"
-    AddrConst <$> many (oneOf "1234567890abcdef")
+    AddrConst . ("0x"++) <$> many (oneOf "1234567890abcdef")
 
 parseString :: Parser Locator
 parseString = StrConst <$> symbol (between (string "\"") (string "\"") $ many $ noneOf "\"")
