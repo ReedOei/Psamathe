@@ -6,6 +6,7 @@ module Compiler where
 -- TODO: Error messages
 -- TODO: Fail when filters select the wrong number of things
 -- TODO: Make try-catch actually compile correctly (b/c solidity is dumb...)
+-- TODO: Also, need to clean up **all** non-return vars when exiting the function, probably
 
 import Control.Lens
 import Control.Monad.State
@@ -269,7 +270,7 @@ lookupValue (Select l k) f = do
                 case demotedKTy of
                     Nat | kTyIsFungible -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valK
-                        pure [ If (SolLte valK valL) body ]
+                        pure $ [ Require (SolLte valK valL) (SolStr "UNDERFLOW") ] ++ body
 
                     PsaBool -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valK
@@ -368,7 +369,10 @@ receiveExpr t orig src dst = do
 
     (main, cleanup) <-
         case demotedT of
-            Nat | tIsFungible -> pure ([ SolAssign dst (SolAdd dst src) ], [ SolAssign orig (SolSub orig src) ])
+            Nat | tIsFungible ->
+                pure ([ Require (SolLt dst (SolAdd dst src)) (SolStr "OVERFLOW"),
+                        SolAssign dst (SolAdd dst src) ],
+                      [ SolAssign orig (SolSub orig src) ])
 
             Nat -> pure ([ SolAssign dst src ], [ Delete orig ])
 

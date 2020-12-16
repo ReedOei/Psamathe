@@ -88,6 +88,9 @@ data SolStmt = ExprStmt SolExpr
              | For SolStmt SolExpr SolExpr [SolStmt]
              | SolTry SolExpr [SolVarDecl] [SolStmt] [SolStmt]
              | If SolExpr [SolStmt]
+             | IfElse SolExpr [SolStmt] [SolStmt]
+             | Revert SolExpr
+             | Require SolExpr SolExpr
     deriving (Show, Eq)
 
 data Visibility = Public | Private | Internal | External
@@ -201,6 +204,8 @@ instance PrettyPrint SolStmt where
     prettyPrint (SolVarDef decl) = [ prettyStr decl ++ ";" ]
     prettyPrint (SolAssign e1 e2) = [ prettyStr e1 ++ " = " ++ prettyStr e2 ++ ";" ]
     prettyPrint (Delete e) = ["delete " ++ prettyStr e ++ ";"]
+    prettyPrint (Revert e) = ["revert(" ++ prettyStr e ++ ");"]
+    prettyPrint (Require e err) = ["require(" ++ prettyStr e ++ ", " ++ prettyStr err ++ ");"]
     prettyPrint (For init cond step body) =
         ["for (" ++ prettyStr init ++ " " ++ prettyStr cond ++ "; " ++ prettyStr step ++ ") {"]
         ++ concatMap (map indent . prettyPrint) body
@@ -208,6 +213,12 @@ instance PrettyPrint SolStmt where
     prettyPrint (If cond thenBody) =
         ["if (" ++ prettyStr cond ++ ") {"]
         ++ concatMap (map indent . prettyPrint) thenBody
+        ++ [ "}" ]
+    prettyPrint (IfElse cond thenBody elseBody) =
+        ["if (" ++ prettyStr cond ++ ") {"]
+        ++ concatMap (map indent . prettyPrint) thenBody
+        ++ [ "} else {" ]
+        ++ concatMap (map indent . prettyPrint) elseBody
         ++ [ "}" ]
     prettyPrint (SolTry e rets tryBody catchBody) =
         ["try " ++ prettyStr e ++ " returns (" ++ intercalate ", " (map prettyStr rets) ++ ") {"]
