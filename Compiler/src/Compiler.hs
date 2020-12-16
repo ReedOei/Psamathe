@@ -7,6 +7,12 @@ module Compiler where
 -- TODO: Also, need to clean up **all** non-return vars when exiting the function, probably. BUT BE CAREFUL WITH storage VARIABLES!!!
 -- TODO: Remove the keyset check for destination (e.g., a --> b[k]) should allocate k in `b` if `b` is a map, to match one of Solidity's few useful behaviors
 -- TODO: Add preprocessor!!
+-- TODO: Locators to implement: consume, copy(_)
+-- TODO: Check that assigning maps/arrays/records works fine
+-- TODO: Try to flow entire maps between each other
+-- TODO: Ensure that the `keys` and `keyset` and everything gets udpated properly
+-- TODO: Check that deletes are right too
+-- TODO: Remove delete from things that cause compilation to fail
 
 import Control.Lens hiding (Empty)
 import Control.Monad.State
@@ -484,7 +490,6 @@ isAsset (Named t) = do
             pure $ Asset `elem` ms || baseAsset
 isAsset (Record _ fields) = or <$> mapM (\(_,(_,t)) -> isAsset t) fields
 isAsset (Table _ (_,t)) = isAsset t
--- TODO: Update this for later, because tables should be fungible too?
 isAsset _ = pure False
 
 toSolType :: BaseType -> State Env SolType
