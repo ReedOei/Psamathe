@@ -1,2 +1,3 @@
 [ any nat ; ] --> var m : map any nat => any nat
+[ any nat ; { key : any nat |-> 0, value : any nat |-> 424 } ] --> m
 

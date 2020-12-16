@@ -57,7 +57,7 @@ data DataLoc = Memory | Calldata | Storage
 data SolType = SolTypeName String
              | SolArray SolType
              | SolMapping SolType SolType
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
 data SolVarDecl = SolVarLocDecl SolType DataLoc String
                 | SolVarDecl SolType String
@@ -249,10 +249,13 @@ instance PrettyPrint SolDecl where
         [ "constructor (" ++ intercalate "," (map prettyStr args) ++ ") {" ]
         ++ concatMap (map indent . prettyPrint) body
         ++ [ "}" ]
+    prettyPrint (FieldDef v) = [ prettyStr v ++ ";" ]
 
 instance PrettyPrint Contract where
     prettyPrint (Contract ver name decls) =
-        [ "pragma solidity ^" ++ ver ++ ";",
+        -- TODO: Should probably allow customizing this license at some point, but I just put MIT for now (2020-12, I hope you're not reading this years later) to make solc quiet.
+        [ "// SPDX-License-Identifier: MIT",
+          "pragma solidity ^" ++ ver ++ ";",
           "contract " ++ name ++ " {" ]
         ++ concatMap (map indent . prettyPrint) decls
         ++ [ "}" ]

@@ -3,6 +3,10 @@
 
 module Compiler where
 
+-- TODO: Error messages
+-- TODO: Fail when filters select the wrong number of things
+-- TODO: Make try-catch actually compile correctly (b/c solidity is dumb...)
+
 import Control.Lens
 import Control.Monad.State
 
@@ -17,14 +21,16 @@ import AST
 data Env = Env { _freshCounter :: Integer,
                  _typeEnv :: Map String BaseType,
                  _declarations :: Map String Decl,
-                 _solDecls :: Map String SolDecl }
+                 _solDecls :: Map String SolDecl,
+                 _allocators :: Map SolType String }
     deriving (Show, Eq)
 makeLenses ''Env
 
 newEnv = Env { _freshCounter = 0,
                _typeEnv = Map.empty,
                _declarations = Map.empty,
-               _solDecls = Map.empty }
+               _solDecls = Map.empty,
+               _allocators = Map.empty }
 
 freshName :: State Env String
 freshName = do
@@ -33,6 +39,22 @@ freshName = do
 
 freshVar :: State Env Locator
 freshVar = Var <$> freshName
+
+allocateNew :: SolType -> State Env (SolExpr, [SolStmt])
+allocateNew t = do
+    curState <- Map.lookup t . view allocators <$> get
+    allocator <- case curState of
+        Nothing -> do
+            allocator <- freshName
+            modify $ over allocators $ Map.insert t allocator
+            pure allocator
+        Just allocator -> pure allocator
+
+    -- allocatedName <- freshName
+    -- pure (SolVar allocatedName,
+    --       [ SolVarDefInit (SolVarDecl t allocatedName)
+    --                       (SolCall (FieldAccess (SolVar allocator) "push") []) ])
+    pure (SolCall (FieldAccess (SolVar allocator) "push") [], [])
 
 typeOf :: String -> State Env BaseType
 typeOf x = do
@@ -63,8 +85,10 @@ compileProg :: Program -> State Env Contract
 compileProg (Program decls mainBody) = do
     mapM_ compileDecl decls
     stmts <- concat <$> mapM compileStmt mainBody
-    compiledDecls <- map snd . Map.toList . view solDecls <$> get
-    pure $ Contract "0.7.5" "C" $ compiledDecls ++ [Constructor [] stmts]
+    compiledDecls <- Map.elems . view solDecls <$> get
+    allocators <- Map.toList . view allocators <$> get
+    let allocatorDecls = [ FieldDef (SolVarDecl (SolArray t) x) | (t,x) <- allocators ]
+    pure $ Contract "0.7.5" "C" $ allocatorDecls ++ compiledDecls ++ [Constructor [] stmts]
 
 compileDecl :: Decl -> State Env ()
 compileDecl decl@(TypeDecl name _ baseT) = do
@@ -163,12 +187,12 @@ makeConstructor t = do
         _ -> error $ "Cannot make constructor for: " ++ show decl
 
 makeClosureArgs :: [String] -> State Env [SolVarDecl]
-makeClosureArgs vars = mapM go vars
+makeClosureArgs vars = concat <$> mapM go vars
     where
         go x = declareVar x =<< typeOf x
 
 makeClosureRets :: [String] -> State Env [SolVarDecl]
-makeClosureRets vars = mapM go vars
+makeClosureRets vars = concat <$> mapM go vars
     where
         go x = declareVar (x ++ "_out") =<< typeOf x
 
@@ -185,16 +209,16 @@ makePackClosureBlock vars = concat <$> mapM go vars
 locate :: Locator -> State Env (Locator, [SolStmt])
 locate (NewVar x t) = do
     modify $ over typeEnv $ Map.insert x t
-    decl <- declareVar x t
-    pure (Var x, [SolVarDef decl])
+    defs <- defineVar x t
+    pure (Var x, defs)
 
 locate (RecordLit keys members) = do
     newRecord <- freshName
-    decl <- declareVar newRecord $ Record keys $ map fst members
+    defs <- defineVar newRecord $ Record keys $ map fst members
     modify $ over typeEnv $ Map.insert newRecord $ Record keys $ map fst members
     initStmts <- concat <$> mapM (locateMember newRecord) members
 
-    pure (Var newRecord, [ SolVarDef decl ] ++ initStmts)
+    pure (Var newRecord, defs ++ initStmts)
     where
         locateMember newRecord ((x, (_, t)), l) =
             lookupValue l $ \lTy orig src ->
@@ -238,8 +262,8 @@ lookupValue (Select l k) f = do
         case demotedLTy of
             Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])
                 | kTy == keyTy -> lookupValue k $ \_ origK valK -> do
-                f valueTy (FieldAccess (SolIdx (FieldAccess origL "underlying_map") valK) "value")
-                    $ FieldAccess (SolIdx (FieldAccess valL "underyling_map") valK) "value"
+                f valueTy (SolIdx (FieldAccess origL "underlying_map") valK)
+                    $ SolIdx (FieldAccess valL "underlying_map") valK
 
             _ ->
                 case demotedKTy of
@@ -367,20 +391,42 @@ receiveExpr t orig src dst = do
     else
         pure $ main ++ cleanup
 
-declareVar :: String -> BaseType -> State Env SolVarDecl
-declareVar x t = do
+dataLocFor :: BaseType -> State Env (Maybe DataLoc)
+dataLocFor t = do
     demotedT <- demoteBaseType t
+    useStorage <- inStorage t
     if isPrimitive demotedT then
-        SolVarDecl <$> toSolType t <*> pure x
+        pure Nothing
+    else if useStorage then
+        pure $ Just Storage
     else
-        -- TODO: Might need to change this so it's not always memory...
-        SolVarLocDecl <$> toSolType t <*> pure Memory <*> pure x
+        pure $ Just Memory
+
+declareWithLoc :: String -> BaseType -> Maybe DataLoc -> State Env [SolVarDecl]
+declareWithLoc x t Nothing = pure <$> (SolVarDecl <$> toSolType t <*> pure x)
+declareWithLoc x t (Just loc) = pure <$> (SolVarLocDecl <$> toSolType t <*> pure loc <*> pure x)
+
+declareVar :: String -> BaseType -> State Env [SolVarDecl]
+declareVar x t = declareWithLoc x t =<< dataLocFor t
+
+defineVar :: String -> BaseType -> State Env [SolStmt]
+defineVar x t = do
+    loc <- dataLocFor t
+    case loc of
+        Just Storage -> do
+            decls <- declareVar x t
+            concat <$> (flip mapM decls $ \decl -> do
+                (init, setup) <- allocateNew $ varDeclType decl
+                pure $ setup ++ [SolVarDefInit decl init])
+        _ -> map SolVarDef <$> declareVar x t
 
 toSolArg :: VarDef -> State Env [SolVarDecl]
 -- TODO: May need to generate multiple var decls per vardef b/c of Solidity (numerous) shortcomings regarding structs
-toSolArg (x,(_,t)) = do
-    decl <- declareVar x t
-    pure [decl]
+toSolArg (x,(_,t)) = declareVar x t
+
+varDeclType :: SolVarDecl -> SolType
+varDeclType (SolVarDecl t _) = t
+varDeclType (SolVarLocDecl t _ _) = t
 
 isPrimitiveExpr :: SolExpr -> Bool
 isPrimitiveExpr (SolInt _) = True
@@ -414,7 +460,12 @@ toSolType ty@(Table (k:ks) t) = do
 toSolType ty@(Record keys fields) = do
     defineStruct (encodeBaseType ty) ty
     pure $ SolTypeName $ encodeBaseType ty
-toSolType (Named t) = toSolType =<< demoteBaseType (Named t)
+toSolType (Named t) = do
+    demotedT <- demoteBaseType (Named t)
+    if isPrimitive demotedT then
+        toSolType demotedT
+    else
+        pure $ SolTypeName t
 
 encodeBaseType :: BaseType -> String
 encodeBaseType Nat = "nat"
@@ -489,4 +540,13 @@ lookupField (Named t) x = do
     decl <- lookupTypeDecl t
     case decl of
         TypeDecl _ _ baseT -> lookupField baseT x
+
+inStorage :: BaseType -> State Env Bool
+inStorage (Table _ _) = pure True
+inStorage (Record _ fields) = or <$> mapM (\(_,(_,t)) -> inStorage t) fields
+inStorage (Named t) = do
+    typeDecl <- lookupTypeDecl t
+    case typeDecl of
+        TypeDecl _ _ baseT -> inStorage baseT
+inStorage _ = pure False
 
