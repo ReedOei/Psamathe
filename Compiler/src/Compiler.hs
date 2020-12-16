@@ -3,12 +3,12 @@
 
 module Compiler where
 
--- TODO: Error messages
--- TODO: Fail when filters select the wrong number of things
--- TODO: Make try-catch actually compile correctly (b/c solidity is dumb...)
--- TODO: Also, need to clean up **all** non-return vars when exiting the function, probably
+-- TODO: Error message improvements (i.e., make them more readable), make sure all error messages added (e.g., when selecting by table, need to make sure everything get selected)
+-- TODO: Also, need to clean up **all** non-return vars when exiting the function, probably. BUT BE CAREFUL WITH storage VARIABLES!!!
+-- TODO: Remove the keyset check for destination (e.g., a --> b[k]) should allocate k in `b` if `b` is a map, to match one of Solidity's few useful behaviors
+-- TODO: Add preprocessor!!
 
-import Control.Lens
+import Control.Lens hiding (Empty)
 import Control.Monad.State
 
 import Data.List (intercalate)
@@ -51,10 +51,6 @@ allocateNew t = do
             pure allocator
         Just allocator -> pure allocator
 
-    -- allocatedName <- freshName
-    -- pure (SolVar allocatedName,
-    --       [ SolVarDefInit (SolVarDecl t allocatedName)
-    --                       (SolCall (FieldAccess (SolVar allocator) "push") []) ])
     pure (SolCall (FieldAccess (SolVar allocator) "push") [], [])
 
 typeOf :: String -> State Env BaseType
@@ -114,13 +110,14 @@ defineStruct name PsaBool = pure ()
 defineStruct name PsaString = pure ()
 defineStruct name Address = pure ()
 defineStruct name (Record _ fields) = do
-    newStruct <- Struct name <$> mapM (\(x,(_,t)) -> SolVarDecl <$> toSolType t <*> pure x) fields
+    newStruct <- Struct name . (SolVarDecl (SolTypeName "bool") "initialized":) <$> mapM (\(x,(_,t)) -> SolVarDecl <$> toSolType t <*> pure x) fields
     modify $ over solDecls $ Map.insert name newStruct
 defineStruct name ty@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valTy)) ])) = do
     solKeyTy <- toSolType keyTy
     solValTy <- toSolType valTy
     let newStruct = Struct name [
                         SolVarDecl (SolMapping solKeyTy solValTy) "underlying_map",
+                        SolVarDecl (SolMapping solKeyTy (SolTypeName "bool")) "keyset",
                         SolVarDecl (SolArray solKeyTy) "keys"
                     ]
     modify $ over solDecls $ Map.insert name newStruct
@@ -184,7 +181,8 @@ makeConstructor t = do
         TypeDecl _ _ PsaBool -> pure $ \[arg] -> arg
         TypeDecl _ _ PsaString -> pure $ \[arg] -> arg
         TypeDecl _ _ Address -> pure $ \[arg] -> arg
-        TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) args
+        -- First argument is the "initialized" field
+        TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) $ [ SolBool True ] ++ args
         _ -> error $ "Cannot make constructor for: " ++ show decl
 
 makeClosureArgs :: [String] -> State Env [SolVarDecl]
@@ -219,7 +217,9 @@ locate (RecordLit keys members) = do
     modify $ over typeEnv $ Map.insert newRecord $ Record keys $ map fst members
     initStmts <- concat <$> mapM (locateMember newRecord) members
 
-    pure (Var newRecord, defs ++ initStmts)
+    pure (Var newRecord,
+          [ SolAssign (FieldAccess (SolVar newRecord) "initialized") (SolBool True) ]
+          ++ defs ++ initStmts)
     where
         locateMember newRecord ((x, (_, t)), l) =
             lookupValue l $ \lTy orig src ->
@@ -263,8 +263,9 @@ lookupValue (Select l k) f = do
         case demotedLTy of
             Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])
                 | kTy == keyTy -> lookupValue k $ \_ origK valK -> do
-                f valueTy (SolIdx (FieldAccess origL "underlying_map") valK)
-                    $ SolIdx (FieldAccess valL "underlying_map") valK
+                body <- f valueTy (SolIdx (FieldAccess origL "underlying_map") valK) (SolIdx (FieldAccess valL "underlying_map") valK)
+                pure $ [ Require (SolIdx (FieldAccess origL "keyset") valK) (SolStr "KEY_NOT_FOUND") ]
+                       ++ body
 
             _ ->
                 case demotedKTy of
@@ -274,16 +275,17 @@ lookupValue (Select l k) f = do
 
                     PsaBool -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valK
-                        pure [ If (SolEq valL valK) body ]
+                        pure $ [ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") ] ++ body
 
                     PsaString -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valL
-                        pure [ If (SolEq valL valK) body ]
+                        pure $ [ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") ] ++ body
 
                     Address -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valL
-                        pure [ If (SolEq valL valK) body ]
+                        pure $ [ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") ] ++ body
 
+                    -- TODO: This needs to make sure that every element gets found
                     Table [] _ -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valL
                         pure [ If (SolEq valL valK) body ]
@@ -297,7 +299,18 @@ lookupValue (Filter l q predName args) f = do
     lookupValues newArgs $ \vals -> lookupValue newL $ \t orig src -> do
         body <- f t orig src
         argExprs <- mapM buildExpr newArgs
-        pure $ concat initArgs ++ initL ++ [ If (SolCall (SolVar predName) (vals ++ [src])) body ]
+        counterName <- freshName
+        pure $ [ SolVarDefInit (SolVarDecl (SolTypeName "uint") counterName) (SolInt 0) ]
+               ++ concat initArgs
+               ++ initL
+               ++ [ If (SolCall (SolVar predName) (vals ++ [src]))
+                        ([ ExprStmt (SolPostInc (SolVar counterName)) ] ++ body) ]
+               ++ [ Require (checkCounter q (SolVar counterName)) (SolStr "FAILED_TO_SELECT_RIGHT_NUM") ]
+    where
+        checkCounter Empty counter = SolEq counter (SolInt 0)
+        checkCounter Any _ = SolBool True
+        checkCounter One counter = SolEq counter (SolInt 1)
+        checkCounter Nonempty counter = SolLte (SolInt 1) counter
 
 lookupValue l _ = error $ "lookupValue is not implemented for: " ++ show l
 
@@ -370,7 +383,7 @@ receiveExpr t orig src dst = do
     (main, cleanup) <-
         case demotedT of
             Nat | tIsFungible ->
-                pure ([ Require (SolLt dst (SolAdd dst src)) (SolStr "OVERFLOW"),
+                pure ([ Require (SolLte dst (SolAdd dst src)) (SolStr "OVERFLOW"),
                         SolAssign dst (SolAdd dst src) ],
                       [ SolAssign orig (SolSub orig src) ])
 
@@ -380,12 +393,21 @@ receiveExpr t orig src dst = do
 
             Table [] _ -> pure ([ ExprStmt (SolCall (FieldAccess dst "push") [ src ] ) ], [ Delete orig ])
 
-            Record keys fields -> pure ([ SolAssign dst src ], [ Delete orig ])
+            Record keys fields -> do
+                tIsAsset <- isAsset t
+                if tIsAsset then
+                    pure ([ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED"),
+                            SolAssign dst src ],
+                          [ Delete orig ])
+                else
+                    pure ([ SolAssign dst src ],
+                          [ Delete orig ])
 
             Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ]) ->
                 pure ([ SolAssign (SolIdx (FieldAccess dst "underlying_map") (FieldAccess src "key"))
-                                  (FieldAccess src "value")
-                      , ExprStmt (SolCall (FieldAccess (FieldAccess dst "keys") "push") [FieldAccess src "key"]) ],
+                                  (FieldAccess src "value"),
+                        SolAssign (SolIdx (FieldAccess dst "keyset") (FieldAccess src "key")) (SolBool True),
+                        ExprStmt (SolCall (FieldAccess (FieldAccess dst "keys") "push") [FieldAccess src "key"]) ],
                       [ Delete orig ])
 
             _ -> error $ "receiveExpr not implemented for: " ++ show demotedT
@@ -421,7 +443,8 @@ defineVar x t = do
             decls <- declareVar x t
             concat <$> (flip mapM decls $ \decl -> do
                 (init, setup) <- allocateNew $ varDeclType decl
-                pure $ setup ++ [SolVarDefInit decl init])
+                pure $ setup ++ [ SolVarDefInit decl init ])
+
         _ -> map SolVarDef <$> declareVar x t
 
 toSolArg :: VarDef -> State Env [SolVarDecl]
@@ -451,6 +474,18 @@ isFungible Nat = pure True
 isFungible (Named t) = (Fungible `elem`) <$> modifiers t
 -- TODO: Update this for later, because tables should be fungible too?
 isFungible _ = pure False
+
+isAsset :: BaseType -> State Env Bool
+isAsset (Named t) = do
+    decl <- lookupTypeDecl t
+    case decl of
+        TypeDecl _ ms baseT -> do
+            baseAsset <- isAsset baseT
+            pure $ Asset `elem` ms || baseAsset
+isAsset (Record _ fields) = or <$> mapM (\(_,(_,t)) -> isAsset t) fields
+isAsset (Table _ (_,t)) = isAsset t
+-- TODO: Update this for later, because tables should be fungible too?
+isAsset _ = pure False
 
 toSolType :: BaseType -> State Env SolType
 toSolType Nat = pure $ SolTypeName "uint"

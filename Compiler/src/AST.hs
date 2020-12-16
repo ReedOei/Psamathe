@@ -123,13 +123,13 @@ instance PrettyPrint Locator where
     prettyPrint (Multiset t elems) = [ "[ " ++ prettyStr t ++ " ; " ++ intercalate ", " (map prettyStr elems) ++ " ]" ]
     prettyPrint (NewVar x t) = [ "var " ++ x ++ " : " ++ prettyStr t ]
     prettyPrint Consume = ["consume"]
-    prettyPrint (Filter l q f args) = [ prettyStr l ++ "[ " ++ prettyStr q ++ " such that " ++ f ++ "(" ++ intercalate "," (map prettyStr args) ++ ") ]" ]
+    prettyPrint (Filter l q f args) = [ prettyStr l ++ "[ " ++ prettyStr q ++ " such that " ++ f ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") ]" ]
     prettyPrint (Select l k) = [ prettyStr l ++ "[" ++ prettyStr k ++ "]" ]
     prettyPrint (RecordLit keys fields) = [ "record(" ++ intercalate ", " keys ++ ") {" ++ intercalate ", " (map (\(x, t) -> prettyStr x ++ " |-> " ++ prettyStr t) fields) ]
 
 instance PrettyPrint Transformer where
     prettyPrint (Call name args) = [ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
-    prettyPrint (Construct name args) = [ "new " ++ name ++ "(" ++ intercalate "," (map prettyStr args) ++ ")" ]
+    prettyPrint (Construct name args) = [ "new " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
 
 instance PrettyPrint Stmt where
     prettyPrint (Flow src dst) = [ prettyStr src ++ " --> " ++ prettyStr dst ]
@@ -166,8 +166,8 @@ instance PrettyPrint BaseType where
     prettyPrint PsaString = ["string"]
     prettyPrint Address = ["address"]
     prettyPrint (Named t) = [t]
-    prettyPrint (Table keys (q,t)) = [ "table(" ++ intercalate "," keys ++ ") " ++ prettyStr q ++ " " ++ prettyStr t ]
-    prettyPrint (Record keys fields) = [ "record(" ++ intercalate "," keys ++ ") {" ++ intercalate ", " (map prettyStr fields) ++ "}" ]
+    prettyPrint (Table keys (q,t)) = [ "table(" ++ intercalate ", " keys ++ ") " ++ prettyStr q ++ " " ++ prettyStr t ]
+    prettyPrint (Record keys fields) = [ "record(" ++ intercalate ", " keys ++ ") {" ++ intercalate ", " (map prettyStr fields) ++ "}" ]
 
 instance PrettyPrint Decl where
     prettyPrint (TypeDecl name ms baseT) =
@@ -185,11 +185,11 @@ instance PrettyPrint SolExpr where
     prettyPrint (SolBool b) = [ map toLower $ show b ]
     prettyPrint (SolInt i) = [ show i ]
     prettyPrint (SolStr s) = [ show s ]
-    prettyPrint (SolAddr addr)  = [ addr ]
+    prettyPrint (SolAddr addr)  = [ "address(" ++ addr ++ ")" ]
     prettyPrint (SolVar x) = [ x ]
     prettyPrint (FieldAccess e x) = [ prettyStr e ++ "." ++ x ]
     prettyPrint (SolPostInc e) = [ prettyStr e ++ "++" ]
-    prettyPrint (SolCall recv args) = [ prettyStr recv ++ "(" ++ intercalate "," (map prettyStr args) ++ ")" ]
+    prettyPrint (SolCall recv args) = [ prettyStr recv ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
     prettyPrint (SolIdx e idxE) = [ prettyStr e ++ "[" ++ prettyStr idxE ++ "]" ]
     prettyPrint (SolAdd e1 e2) = [ "(" ++ prettyStr e1 ++ ") + (" ++ prettyStr e2 ++ ")" ]
     prettyPrint (SolSub e1 e2) = [ "(" ++ prettyStr e1 ++ ") - (" ++ prettyStr e2 ++ ")" ]
@@ -253,11 +253,11 @@ instance PrettyPrint SolDecl where
         ++ map (indent . (++";") . prettyStr) varDecls
         ++ [ "}" ]
     prettyPrint (Function name args vis rets body) =
-        [ "function " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") " ++ prettyStr vis ++ " returns (" ++ intercalate "," (map prettyStr rets) ++ ") {" ]
+        [ "function " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") " ++ prettyStr vis ++ " returns (" ++ intercalate ", " (map prettyStr rets) ++ ") {" ]
         ++ concatMap (map indent . prettyPrint) body
         ++ [ "}" ]
     prettyPrint (Constructor args body) =
-        [ "constructor (" ++ intercalate "," (map prettyStr args) ++ ") {" ]
+        [ "constructor (" ++ intercalate ", " (map prettyStr args) ++ ") {" ]
         ++ concatMap (map indent . prettyPrint) body
         ++ [ "}" ]
     prettyPrint (FieldDef v) = [ prettyStr v ++ ";" ]

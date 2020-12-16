@@ -19,11 +19,11 @@ transformer id(b : any bool) -> res : any bool {
 }
 
 // TODO: If we want to make the pure-flow language practical, we'll need to be able to optimize code like this
-/* transformer invert(b : any bool) -> res : any bool { */
-/*     try { */
-/*         b --[ true ]-> res */
-/*     } catch {} */
-/* } */
+transformer invert(b : any bool) -> res : any bool {
+    try {
+        b --[ true ]-> res
+    } catch {}
+}
 
 transformer createProposal(self : one Election, proposal : any nat) {
     proposal --> new ProposalName() --> var name : ProposalName
@@ -81,5 +81,5 @@ y --[ 2 ]-> var z : nat
 
 2 --> new Bid(0x0) --> var myBid : Bid
 
-/* [ any bool ; true, false] --> invert() --> var bs2 : list any bool */
+[ any bool ; true, false] --> invert() --> var bs2 : list any bool
 

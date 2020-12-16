@@ -1,9 +1,10 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Main where
 
+import Control.Lens
 import Control.Monad.State
 import Control.Monad
-
-import Data.List (intercalate)
 
 import System.Environment
 
@@ -13,14 +14,22 @@ import AST
 import Parser
 import Compiler
 
-compileFile debug fileName = do
+data Config = Config {
+        _debug :: Bool
+    }
+makeLenses ''Config
+
+defaultConfig = Config { _debug = False }
+
+compileFile :: Config -> FilePath -> IO ()
+compileFile config fileName = do
     content <- readFile fileName
     case parse parseProgram "" content of
         Left err -> error $ show err
         Right prog -> do
             let (compiled, env) = runState (compileProg prog) newEnv
 
-            if debug then do
+            if config^.debug then do
                 putStrLn "Processed program:"
                 putStrLn $ prettyStr prog
                 putStrLn "========================================================"
@@ -29,7 +38,7 @@ compileFile debug fileName = do
 
                 putStrLn "Compiled program:"
             else
-                pure()
+                pure ()
 
             putStrLn $ prettyStr compiled
 
@@ -38,6 +47,6 @@ main = do
     args <- getArgs
 
     case args of
-        [fname] -> compileFile False fname
+        [fname] -> compileFile defaultConfig fname
         _ -> pure ()
 
