@@ -266,6 +266,9 @@ definition offset_comp :: "Offset \<Rightarrow> Offset \<Rightarrow> Offset" (in
 lemma offset_comp_assoc: "(\<O> \<circ>\<^sub>o \<P>) \<circ>\<^sub>o \<Q> = \<O> \<circ>\<^sub>o (\<P> \<circ>\<^sub>o \<Q>)"
   by (auto simp: offset_comp_def)
 
+lemma comp_id_nop: "foldl (\<circ>) f (replicate n id) = f"
+  by (induction n, auto)
+
 definition var_store_sync :: "Env \<Rightarrow> Offset \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> bool" where
   "var_store_sync \<Gamma> \<O> \<mu> \<equiv>
       \<forall>x l \<tau>. (\<mu> x = Some l \<and> \<Gamma> (Loc l) = Some \<tau>) \<longrightarrow> \<Gamma> (V x) = Some (\<O>\<^sup>l[\<tau>])"
@@ -888,20 +891,17 @@ next
   then show ?case by simp
 qed
 
-(* TODO: Clean up this and the other version *)
+(* TODO: Clean up/merge this and the other version *)
 lemma located_env_compat2:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f \<L>) (\<mu>, \<rho>)"
+      and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f \<L>) \<P> (\<mu>, \<rho>)"
       and "located \<L>"
       and "type_preserving f"
-    shows "compat \<Delta> \<O> (\<mu>, \<rho>)" and "\<Delta> = update_locations \<Gamma> (build_offset f \<L>)"
+    shows "compat \<Delta> \<O> (build_offset f \<L> \<circ>\<^sub>o \<P>) (\<mu>, \<rho>)" and "\<Delta> = update_locations \<Gamma> (build_offset f \<L>)"
   using assms
   using located_env_compat apply auto[1]
   using assms(1) assms(2) assms(3) assms(4) located_env_compat by auto
-
-lemma comp_id_nop: "foldl (\<circ>) f (replicate n id) = f"
-  by (induction n, auto)
 
 lemma insert_many_ids: "(insert_many \<O> id \<LL>)\<^sup>l[\<tau>] = (\<O>\<^sup>l[\<tau>])"
   by (auto simp: insert_many_def apply_offset_def comp_id_nop)
@@ -927,13 +927,13 @@ lemma var_store_sync_build_id_empty:
 lemma locator_progress:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
   assumes "\<Gamma> \<turnstile>{m} f ; \<L> : \<tau> \<stileturn> \<Delta>"
-      and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f \<L>) (\<mu>, \<rho>)"
+      and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f \<L>) \<P> (\<mu>, \<rho>)"
       and "\<L> wf"
       and "finite (dom \<rho>)"
       and "type_preserving f"
   shows "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. <(\<mu>, \<rho>), \<L>> \<rightarrow> <(\<mu>', \<rho>'), \<L>'> )"
   using assms
-proof(induction arbitrary: \<mu> \<rho> m \<O> rule: loc_type.induct)
+proof(induction arbitrary: \<mu> \<rho> m \<O> \<P> rule: loc_type.induct)
   case (Nat \<Gamma> f n)
   then show ?case by (meson ENat gen_loc)
 next
@@ -953,7 +953,7 @@ next
   then show ?case by simp
 next
   case (VarDef x \<Gamma> f t)
-  then have env_compat: "compat \<Gamma> \<O> (\<mu>, \<rho>)" by simp
+  then have env_compat: "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" by simp
   have not_in_lookup: "x \<notin> dom \<mu>" using VarDef by (auto simp: compat_def)
   have "finite (dom \<rho>)" using VarDef by simp
   then obtain l where has_loc: "l \<notin> dom \<rho>" using gen_loc env_compat not_in_lookup by blast
@@ -968,7 +968,10 @@ next
   then show ?case by simp
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
-  then have env_compat: "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f Tail \<circ>\<^sub>o build_offset f \<L>) (\<mu>, \<rho>)"
+  then have env_compat: "compat \<Gamma> 
+                                (\<O> \<circ>\<^sub>o build_offset f Tail \<circ>\<^sub>o build_offset f \<L>)
+                                \<P>
+                                (\<mu>, \<rho>)"
     by (simp add: offset_comp_assoc)
 
   from ConsList and wf_locator.cases 
@@ -976,10 +979,10 @@ next
 
   from this and env_compat 
   have loc_induct: "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. < (\<mu>, \<rho>) , \<L> > \<rightarrow> < (\<mu>', \<rho>') , \<L>' >)"
-    and tail_induct: "\<And>\<mu>' \<rho>'. \<lbrakk>compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (\<mu>, \<rho>)\<rbrakk>
+    and tail_induct: "\<And>\<mu>' \<rho>'. \<lbrakk>compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (build_offset f \<L> \<circ>\<^sub>o \<P>) (\<mu>, \<rho>)\<rbrakk>
                          \<Longrightarrow> located Tail \<or> (\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >)"
     apply (simp add: ConsList.IH(1) insert_many_add union_commute)
-    by (simp add: ConsList.IH(2) ConsList.prems(4) \<open>Tail wf\<close> \<open>finite (dom \<rho>)\<close>)
+    by (simp add: ConsList.IH(2) \<open>Tail wf\<close> \<open>type_preserving f\<close> compat_elim(6) offset_comp_assoc)
    
   show ?case
   proof(cases "located \<L>")
@@ -992,7 +995,7 @@ next
       from this and loc_l show ?thesis by simp
     next
       case False
-      from loc_l have "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (\<mu>, \<rho>)" 
+      from loc_l have "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (build_offset f \<L> \<circ>\<^sub>o \<P>) (\<mu>, \<rho>)" 
         using located_env_compat ConsList env_compat
         by (smt add.commute insert_many_add)
       then have "\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >"
@@ -1008,14 +1011,14 @@ next
   case (Copy \<Gamma> L \<tau> f)
   then have "L wf" using wf_locator.cases by blast
 
-  then have "compat \<Gamma> \<O> (\<mu>, \<rho>)" using Copy by simp
-  then have "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) (\<mu>, \<rho>)"
+  then have "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" using Copy by simp
+  then have "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) \<P> (\<mu>, \<rho>)"
     using compat_elim(3) compat_transfer_var_sync var_store_sync_build_id by blast
 
   have "type_preserving id" by (auto simp: type_preserving_def base_type_compat_refl)
 
   then have ih: "located L \<or> (\<exists>\<mu>' \<rho>' a. <(\<mu>, \<rho>) , L> \<rightarrow> <(\<mu>', \<rho>') , a>)"
-    using Copy.IH \<open>L wf\<close> \<open>Psamathe.compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) (\<mu>, \<rho>)\<close> compat_elim(6) by blast
+    using Copy.IH \<open>L wf\<close> \<open>Psamathe.compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) \<P> (\<mu>, \<rho>)\<close> compat_elim(6) by blast
 
   obtain l where "l \<notin> dom \<rho>" using Copy.prems(3) gen_loc by auto 
     
