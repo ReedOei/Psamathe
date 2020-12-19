@@ -31,7 +31,7 @@
     title = {Psamathe},
     url = {https://github.com/ReedOei/Psamathe},
     year = {2020},
-    month = oct
+    month = nov
 }
 
 @misc{erc20Consensys,
@@ -88,12 +88,14 @@
   year={2014}
 }
 
-@misc{psamatheExtended,
-	title={{Psamathe: A DSL with Flows for Safer Blockchain Assets}},
-	url={http://reedoei.com/files/psamathe.pdf},
-	author={Reed Oei and Michael Coblenz and Jonathan Aldrich},
-	year={2020},
-	lastaccessed={October 9, 2020}
+@misc{oei2020psamathe,
+      title={{Psamathe: A DSL with Flows for Safe Blockchain Assets}},
+      author={Oei, Reed and Coblenz, Michael and Aldrich, Jonathan},
+      year={2020},
+      eprint={2010.04800},
+      archivePrefix={arXiv},
+      primaryClass={cs.PL},
+      url={https://arxiv.org/abs/2010.04800}
 }
 
 @misc{DAO,
@@ -114,13 +116,24 @@
     doi = {10.1007/s10664-019-09796-5}
 }
 
-@misc{coblenz2019obsidian,
-    title={Obsidian: Typestate and Assets for Safer Blockchain Programming},
-    author={Michael Coblenz and Reed Oei and Tyler Etzel and Paulette Koronkevich and Miles Baker and Yannick Bloem and Brad A. Myers and Joshua Sunshine and Jonathan Aldrich},
-    year={2019},
-    eprint={1909.03523},
-    archivePrefix={arXiv},
-    primaryClass={cs.PL}
+@article{coblenzobsidian,
+    author = {Coblenz, Michael and Oei, Reed and Etzel, Tyler and Koronkevich, Paulette and Baker, Miles and Bloem, Yannick and Myers, Brad A. and Sunshine, Joshua and Aldrich, Jonathan},
+    title = {Obsidian: Typestate and Assets for Safer Blockchain Programming},
+    year = {2020},
+    issue_date = {December 2020},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    volume = {42},
+    number = {3},
+    issn = {0164-0925},
+    url = {https://doi.org/10.1145/3417516},
+    doi = {10.1145/3417516},
+    abstract = {Blockchain platforms are coming into use for processing critical transactions among participants who have not established mutual trust. Many blockchains are programmable, supporting smart contracts, which maintain persistent state and support transactions that transform the state. Unfortunately, bugs in many smart contracts have been exploited by hackers. Obsidian is a novel programming language with a type system that enables static detection of bugs that are common in smart contracts today. Obsidian is based on a core calculus, Silica, for which we proved type soundness. Obsidian uses typestate to detect improper state manipulation and uses linear types to detect abuse of assets. We integrated a permissions system that encodes a notion of ownership to allow for safe, flexible aliasing. We describe two case studies that evaluate Obsidian’s applicability to the domains of parametric insurance and supply chain management, finding that Obsidian’s type system facilitates reasoning about high-level states and ownership of resources. We compared our Obsidian implementation to a Solidity implementation, observing that the Solidity implementation requires much boilerplate checking and tracking of state, whereas Obsidian does this work statically.},
+    journal = {ACM Trans. Program. Lang. Syst.},
+    month = nov,
+    articleno = {14},
+    numpages = {82},
+    keywords = {alias control, ownership, permissions, smart contracts, type systems, blockchain, Typestate, linearity}
 }
 
 @inproceedings{luuOyente,
