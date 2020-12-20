@@ -1,5 +1,6 @@
 // This is the "readable" version of the hashmap example.
 // Most of the abbreviations should be expandable with relatively simple macros and/or type inference.
+// This version uses the "locators", which resolve into locations at runtime
 
 // Note that this is only **kind of** a hashmap (the time complexities are wrong, because there's no nth operation to give constant time list lookup).
 
@@ -24,37 +25,45 @@ transformer emptyMap() -> res : empty HashMap {
 }
 
 transformer hasHash(k : nat, bucket : Bucket) -> res : bool {
-    try {
-        k --> hash() --> var hashed : nat
-        [ bucket.hash ] --[ hashed ]-> var temp : nat
-        true --> res
-    } catch {
-        false --> res
-    }
+    k --> hash() --> var hashed : nat
+    (hashed in [ bucket.hash ]) --> res
+
+    // abbreviates
+
+    /* try { */
+    /*     [ bucket.hash ] --[ hashed ]-> bucket.hash */
+    /*     true --> res */
+    /* } catch { */
+    /*     false --> res */
+    /* } */
 }
 
 transformer hasKey(k : nat, entry : Entry) -> res : bool {
-    try {
-        [ entry.key ] --[ k ]-> var temp : nat
-        true --> res
-    } catch {
-        false --> res
-    }
+    (k in [ entry.key ]) --> res
+
+    // abbreviates
+
+    /* try { */
+    /*     [ entry.key ] --[ k ]-> entry.key */
+    /*     true --> res */
+    /* } catch { */
+    /*     false --> res */
+    /* } */
 }
 
 transformer insert(m : any HashMap, k : nat, v : nat) -> res : nonempty HashMap {
     var newEntry : Entry <-- new Entry(k, v)
     try {
         // If the hash already appears in the map
-        var bucket : Bucket <-[ ! such that hasHash(k) ]-- m
-        [ newEntry ] --> bucket.entries
-        [ bucket ] --> m
+        [ newEntry ] --> m[! such that hasHash(k)].entries
+
+        // Explicit-copy version
+        [ newEntry ] --> ( @entries <-[ ! such that hasHash(copy(k)) ]-- m )
     } catch {
         // Otherwise we need to construct a new entry holding just the newly inserted key-value pair.
-        var hashed : nat <-- hash() <-- k
-        var entries : any list Entry <-- [ newEntry ]
-        var newBucket : Bucket <-- new Bucket(hashed, entries)
-        [ newBucket ] --> m
+        [ new Bucket(hash(k), [ newEntry ]) ] --> m
+        // Copy version
+        [ new Bucket(hash(copy(k)), [ newEntry ]) ] --> m
     }
     m --> res
 }
@@ -63,44 +72,10 @@ transformer insert(m : any HashMap, k : nat, v : nat) -> res : nonempty HashMap 
 // In this case, this is not necessary, because nats aren't assets, but in general you wouldn't want to just delete the value in the map.
 transformer select(m : any HashMap, k : nat) -> res : { newMap : any HashMap, v : nat } {
     // Extract the entry we care about. This will fail if the entry is not present.
-    var bucket : Bucket <-[ ! such that hasHash(k) ]-- m
-    var entry : Entry <-[ ! such that hasKey(k) ]-- bucket.entries
-    var v : nat <-- entry.value
-    [ bucket ] --> m
-
+    var v : nat <-- @value <-[ ! such that hasKey(k) ]-- @entries <-[ ! such that hasHash(k) ]-- m
+    var v : nat <-- @value <-[ ! such that hasKey(copy(k)) ]-- @entries <-[ ! such that hasHash(copy(k)) ]-- m
+    var v : nat <-- m[! such that hasHash(k)].entries[! such that hasKey(k)].value
     { newMap |-> m, v |-> v } --> res
-}
-
-interface resource(R) {
-    type elem
-    type selector
-
-    transformer empty() -> res : empty R
-    transformer single(e : elem) -> res : ! R
-
-    transformer combine[q,r](a : q R, b : r R) -> res : (q + r) R
-
-    transformer selectVals[q,r](a : q R, b : r list ! selector) -> res : { newA : (q - r) R, selected : r R }
-}
-
-implementation resource(type map[k, v] is list ! { key : k, value : v }) {
-    type elem is { key : k, value : v }
-    type selector is k + { key : k, value : v }
-
-    transformer empty() -> res : empty map[k, v] {
-        [] -> res
-    }
-
-    transformer single(e : ! { key : k, value : v }) -> res : ! map[k, v] {
-        [ e ] --> res
-    }
-
-    transformer combine[q,r](a : q map[k, v], b : r map[k, v]) -> res : (q + r) map[k, v] {
-        a --> b
-        b --> res
-    }
-
-    transformer selectVals[q,r](a : q R, b : r list ! selector) -> res : { newA : (q - r) R, selected : r R }
 }
 
 ;

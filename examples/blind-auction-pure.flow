@@ -55,18 +55,6 @@ transformer reveal(this : BlindAuction, msg : Message, reveals : list Reveal) {
     // Maybe this means a different name than zip should be used (which typically just truncates the longer list).
     zip(this.bids[msg.sender], reveals)
         --[ any such that revealed(_) ]-> revealBid(this, _) --> placeBid(this, _)
-
-    // Alternative, SQL-style
-    (
-        locate any bidReveal
-        // Still using "zip" instead of "join" or something because "join" is a product-like operation, which is wrong in terms of linearity
-        in zip (
-            locate any bid
-            in this.bids
-            where bid.sender = msg.sender
-        ) with reveals
-        where revealed(bidReveal)
-    ) --> revealBid(this, _) --> placeBid(this, _)
 }
 
 transformer revealed(arg : { fst : Bid, snd : Reveal }) -> res : bool {
@@ -74,9 +62,7 @@ transformer revealed(arg : { fst : Bid, snd : Reveal }) -> res : bool {
     try {
         [ bid.blindedBid ] --[ hashed ]-> bid.blindedBid
         true --> res
-    } catch {
-        false --> res
-    }
+    } catch { }
 }
 
 transformer revealBid(this : BlindAuction, arg : { fst : Bid, snd : Reveal }) -> toPlace : list { sender : address, value : ether } {
@@ -107,12 +93,6 @@ transformer placeBid(this : BlindAuction, toPlace : { sender : address, value : 
 
 transformer withdraw(this : BlindAuction, msg : Message) {
     this.pendingReturns[msg.sender].value --> msg.sender.balance
-    // Alternative
-    (
-        locate any pendingReturn
-        in this.pendingReturns
-        where pendingReturn.sender = msg.value
-    ).value --> msg.sender.balance
 }
 
 transformer auctionEnd(this : BlindAuction) {

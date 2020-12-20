@@ -13,6 +13,10 @@ module Compiler where
 -- TODO: Ensure that the `keys` and `keyset` and everything gets udpated properly
 -- TODO: Check that deletes are right too
 -- TODO: Remove delete from things that cause compilation to fail
+-- TODO: Add typechecker!!!
+-- TODO: Make parser to use Parsec's symbol thing properly
+-- TODO: Reorganize tests into actual Haskell tests
+-- TODO: Add .travis.yml configuration for actually testing the Haskell compiler, and make the Travis build work in general
 
 import Control.Lens hiding (Empty)
 import Control.Monad.State
