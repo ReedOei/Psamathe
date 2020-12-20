@@ -14,4 +14,6 @@ contract-vers.csv
 *.bak
 formalization/*.out
 pure-flow-compiler/*
+*-kompiled/*
+kore-exec.tar.gz
 

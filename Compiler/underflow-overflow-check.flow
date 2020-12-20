@@ -1,0 +1,4 @@
+1 --> var x : nat
+
+x --[ 42 ]-> var y : nat
+
