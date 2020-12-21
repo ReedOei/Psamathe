@@ -5,9 +5,9 @@ module Config where
 import Control.Lens (makeLenses)
 
 data Config = Config {
-        _debug :: Bool
+        _debug :: Integer
     }
 makeLenses ''Config
 
-defaultConfig = Config { _debug = False }
+defaultConfig = Config { _debug = 0 }
 
