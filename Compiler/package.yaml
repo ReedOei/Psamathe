@@ -1,6 +1,6 @@
-name:                Compiler
+name:                Psamathe
 version:             0.1.0.0
-github:              "githubuser/Compiler"
+github:              "ReedOei/Psamathe"
 license:             BSD3
 author:              "Author name here"
 maintainer:          "example@example.com"
@@ -38,10 +38,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - Compiler
+    - Psamathe
 
 tests:
-  Compiler-test:
+  Psamathe-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -49,4 +49,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - Compiler
+    - Psamathe

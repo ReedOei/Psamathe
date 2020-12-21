@@ -11,15 +11,11 @@ import System.Environment
 import Text.Parsec
 
 import AST
-import Parser
 import Compiler
+import Env
+import Parser
 
-data Config = Config {
-        _debug :: Bool
-    }
-makeLenses ''Config
-
-defaultConfig = Config { _debug = False }
+import Config
 
 compileFile :: Config -> FilePath -> IO ()
 compileFile config fileName = do
