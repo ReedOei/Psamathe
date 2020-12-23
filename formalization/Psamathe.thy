@@ -18,7 +18,7 @@ datatype Locator = N nat | B bool | S Stored
   | EmptyList Type ("[ _ ; ]")
   | ConsList Type "Locator" "Locator" ("[ _ ; _ , _ ]")
   | Copy Locator ("copy'(_')")
-datatype Stmt = Flow Locator Locator
+datatype Stmt = Flow Locator Locator ("_ \<longlonglongrightarrow> _")
 datatype Prog = Prog "Stmt list"
 
 type_synonym Env = "(Stored, Type) map"
@@ -70,6 +70,7 @@ fun located :: "Locator \<Rightarrow> bool" where
   "located (S (Loc _)) = True"
 | "located [ \<tau> ; ] = True"
 | "located [ \<tau> ; Head, Tail ] = (located Head \<and> located Tail)"
+| "located copy(L) = located L"
 | "located _ = False"
 
 fun lookupResource :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat \<Rightarrow> Resource" where
@@ -90,24 +91,28 @@ fun select :: "Store \<Rightarrow> Stored \<Rightarrow> Resource" where
 fun freshLoc :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat" where
   "freshLoc \<rho> = Max (dom \<rho>) + 1"
 
-fun ensureTableExists :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat \<Rightarrow> BaseTy \<Rightarrow> (nat \<rightharpoonup> Resource)" where
-  "ensureTableExists \<rho> l t = (if l \<in> dom \<rho> then \<rho> else \<rho>(l \<mapsto> Res (t, Table [])))"
-
 fun resourceSum :: "Resource \<Rightarrow> Resource \<Rightarrow> Resource" (infix "+\<^sub>r" 50) where
   "(Res (t1, Num n1))    +\<^sub>r (Res (t2, Num n2))    = (if t1 = t2 then Res (t1, Num (n1 + n2)) else error)"
 | "(Res (t1, Bool b1))   +\<^sub>r (Res (t2, Bool b2))   = (if t1 = t2 then Res (t1, Bool (b1 \<or> b2)) else error)"
 | "(Res (t1, Table vs1)) +\<^sub>r (Res (t2, Table vs2)) = (if t1 = t2 then Res (t1, Table (vs1 @ vs2)) else error)"
 | "_ +\<^sub>r _ = error"
 
+fun demoteResource :: "Resource \<Rightarrow> Resource" where
+  "demoteResource (Res (t, Num n)) = Res (demote\<^sub>* t, Num n)"
+| "demoteResource (Res (t, Bool b)) = Res (demote\<^sub>* t, Bool b)"
+| "demoteResource (Res (t, Table vs)) = Res (demote\<^sub>* t, Table (map demoteResource vs))"
+| "demoteResource error = error"
+
 fun deepCopy :: "(nat \<rightharpoonup> Resource) \<Rightarrow> Locator \<Rightarrow> Resource" where
-  "deepCopy \<rho> (S (Loc k)) = selectLoc \<rho> k"
-| "deepCopy \<rho> [\<tau>; ] = Res (table [] \<tau>, Table [])"
+  "deepCopy \<rho> (S (Loc k)) = demoteResource (selectLoc \<rho> k)"
+| "deepCopy \<rho> [\<tau>; ] = Res (table [] (demote \<tau>), Table [])"
 | "deepCopy \<rho> [\<tau>; Head, Tail] = 
   (
     case deepCopy \<rho> Tail of
       Res (t, Table rest) \<Rightarrow> Res (t, Table (deepCopy \<rho> Head # rest))
     | _ \<Rightarrow> error
   )"
+| "deepCopy \<rho> copy(L) = deepCopy \<rho> L"
 (* Ignore everything else, we'll only call deepCopy on "located" Locators *)
 | "deepCopy \<rho> _ = error"
 
@@ -124,7 +129,14 @@ inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightar
 | EConsListTailCongr: "\<lbrakk> located \<L> ; < \<Sigma>, Tail > \<rightarrow> < \<Sigma>', Tail' > \<rbrakk>
               \<Longrightarrow> < \<Sigma>, [ \<tau> ; \<L>, Tail ] > \<rightarrow> < \<Sigma>', [ \<tau> ; \<L>, Tail' ] >"
 | ECopyCongr: "\<lbrakk> <\<Sigma>, L> \<rightarrow> <\<Sigma>', L'> \<rbrakk> \<Longrightarrow> <\<Sigma>, copy(L)> \<rightarrow> <\<Sigma>', copy(L')>"
+
+(* NOTE: THIS IS WRONG (but kept for later, if needed). We can't peform the copy (i.e., call deepCopy) 
+         until we actual start subtracting things from the locator, because the deepCopy will copy 
+         things as they were **before** the flow, not as they are at this point in evaluation 
+         (e.g., consider [ x, copy(x) ]) *)
+(*
 | ECopyEval: "\<lbrakk> located L; l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> <(\<mu>, \<rho>), copy(L)> \<rightarrow> <(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), S (Loc (SLoc l))>"
+*)
 
 (* TODO: Update when adding new types *)
 fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" (infix "\<approx>" 50) where
@@ -168,9 +180,9 @@ next
   then show ?case by (cases t2, cases t3, auto)
 next
   case (table k1 e1)
+  (* TODO: Pretty gross, can we improve? *)
   then obtain q1 t1e and k2 q2 t2e and k3 q3 t3e 
     where "e1 = (q1,t1e)" and "t2 = table k2 (q2,t2e)" and "t3 = table k3 (q3,t3e)"
-    (* TODO: Pretty gross, can we improve? *)
     by (metis BaseTy.distinct(4) BaseTy.inject BaseTy.simps(7) base_type_compat.elims(2))
   then show ?case using table by fastforce
 qed
@@ -181,12 +193,26 @@ fun exactType :: "Resource \<Rightarrow> Type option" where
 | "exactType (Res (t, Table vs)) = Some (toQuant (length vs), t)"
 | "exactType error = None"
 
+(* TODO: Update when adding more types *)
+fun baseTypeMatches :: "Resource \<Rightarrow> bool" where
+  "baseTypeMatches (Res (natural, Num _)) = True"
+| "baseTypeMatches (Res (boolean, Bool _)) = True"
+| "baseTypeMatches (Res (table _ _, Table _)) = True"
+| "baseTypeMatches error = True"
+| "baseTypeMatches _ = False"
+
+lemma baseTypeMatches_emptyVal_works: "baseTypeMatches (Res (t, emptyVal t))"
+  by (cases t, auto)
+
 fun less_general_quant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" (infix "\<sqsubseteq>" 50) where
   "less_general_quant q any = True"
 | "less_general_quant one r = (r \<in> {one, nonempty})"
 | "less_general_quant nonempty r = (r = nonempty)"
 | "less_general_quant empty r = (r = empty)"
 | "less_general_quant any r = (r = any)"
+
+fun less_general_type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>\<tau>" 50) where
+  "less_general_type (q,t) (r,u) = (q \<sqsubseteq> r \<and> t \<approx> u)"
 
 lemma less_general_quant_refl: "q \<sqsubseteq> q"
   by (cases q, auto)
@@ -205,9 +231,6 @@ lemma less_general_quant_trans:
   apply (cases q1, auto)
   apply (cases q2, auto, cases q3, auto)+
   by (cases q2, auto)
-
-fun less_general_type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>\<tau>" 50) where
-  "less_general_type (q,t) (r,u) = (q \<sqsubseteq> r \<and> t \<approx> u)"
 
 lemma less_general_type_refl: "\<tau> \<sqsubseteq>\<^sub>\<tau> \<tau>"
   apply (cases \<tau>)
@@ -373,10 +396,11 @@ definition compat :: "Env \<Rightarrow> Offset \<Rightarrow> Offset \<Rightarrow
   "compat \<Gamma> \<O> \<P> \<Sigma> \<equiv> case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow> 
                         var_dom \<Gamma> = dom \<mu> \<and>
                         (\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>) \<and>
-                        var_store_sync \<Gamma> \<O> \<mu> \<and>
+                        var_store_sync \<Gamma> \<O> \<mu> \<and> 
                         inj \<mu> \<and> finite (dom \<rho>) \<and>
-                        env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>) \<and>
-                        env_select_loc_compat \<Gamma> \<P> \<rho>"
+                        env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>) \<and>             
+                        env_select_loc_compat \<Gamma> \<P> \<rho> \<and>
+                        (\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r)"
 
 lemma compatI[intro]:
   assumes "var_dom \<Gamma> = dom \<mu>"
@@ -386,6 +410,7 @@ lemma compatI[intro]:
     and "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
     and "finite (dom \<rho>)"
     and "env_select_loc_compat \<Gamma> \<P> \<rho>"
+    and "\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r"
   shows "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
   using assms
   by (simp add: compat_def)
@@ -549,6 +574,7 @@ lemma compat_elim[elim]:
     and "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
     and "finite (dom \<rho>)"
     and "env_select_loc_compat \<Gamma> \<P> \<rho>"
+    and "\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r"
   using assms
   by (auto simp: compat_def env_select_loc_compat_refs_compat)
 
@@ -931,15 +957,36 @@ next
     show "inj \<mu>" using compat_elim Loc by auto
     show "env_select_var_compat (\<Gamma>(Loc l \<mapsto> f \<tau>)) \<O> (build_offset f (S (Loc l)) \<circ>\<^sub>o \<P>) (\<mu>, \<rho>)" 
       using Loc
-      apply (unfold compat_def, clarsimp)
-      sorry
+      apply (unfold env_select_var_compat_def, clarsimp)     
+      apply (simp add: empty_offset_insert)
+(* TODO: Clean *)
+    proof -
+      fix x :: "char list" and a :: TyQuant and b :: BaseTy and la :: StorageLoc
+      assume a1: "\<mu> x = Some la"
+      assume a2: "\<Gamma> (V x) = Some (a, b)"
+      assume "Psamathe.compat \<Gamma> (\<O> \<circ>\<^sub>o empty_offset(l := empty_offset l @ [f])) \<P> (\<mu>, \<rho>)"
+      then have f3: "env_select_var_compat \<Gamma> (\<O> \<circ>\<^sub>o empty_offset(l := empty_offset l @ [f])) \<P> (\<mu>, \<rho>)"
+        by (metis compat_elim(6))
+      have "\<forall>f s fa fb p. \<exists>pa. \<forall>fc cs fd fe csa ff. (fc cs \<noteq> Some s \<or> fd (V cs) \<noteq> Some p \<or> \<not> env_select_var_compat fd fa fb (fc, f) \<or> Some pa = exactType (selectLoc f s)) \<and> (fe csa \<noteq> Some s \<or> ff (V csa) \<noteq> Some p \<or> \<not> env_select_var_compat ff fa fb (fe, f) \<or> fa \<circ>\<^sub>o fb\<^sup>s[pa] \<sqsubseteq>\<^sub>\<tau> p)"
+        by (metis env_select_var_compat_use)
+      then obtain pp :: "(nat \<Rightarrow> Resource option) \<Rightarrow> StorageLoc \<Rightarrow> (StorageLoc \<Rightarrow> (TyQuant \<times> BaseTy \<Rightarrow> TyQuant \<times> BaseTy) list) \<Rightarrow> (StorageLoc \<Rightarrow> (TyQuant \<times> BaseTy \<Rightarrow> TyQuant \<times> BaseTy) list) \<Rightarrow> TyQuant \<times> BaseTy \<Rightarrow> TyQuant \<times> BaseTy" where
+        f4: "\<And>f cs s fa p fb fc fd fe csa ff. (f cs \<noteq> Some s \<or> fa (V cs) \<noteq> Some p \<or> \<not> env_select_var_compat fa fb fc (f, fd) \<or> Some (pp fd s fb fc p) = exactType (selectLoc fd s)) \<and> (fe csa \<noteq> Some s \<or> ff (V csa) \<noteq> Some p \<or> \<not> env_select_var_compat ff fb fc (fe, fd) \<or> fb \<circ>\<^sub>o fc\<^sup>s[pp fd s fb fc p] \<sqsubseteq>\<^sub>\<tau> p)"
+        by (metis (no_types))
+      then have "\<And>f p fa fb fc. f (V x) \<noteq> Some p \<or> \<not> env_select_var_compat f fa fb (\<mu>, fc) \<or> fa \<circ>\<^sub>o fb\<^sup>la[pp fc la fa fb p] \<sqsubseteq>\<^sub>\<tau> p"
+        using a1 by blast
+      then have "\<exists>t ba. exactType (selectLoc \<rho> la) = Some (t, ba) \<and> \<O> \<circ>\<^sub>o empty_offset (l := empty_offset l @ [f]) \<circ>\<^sub>o \<P>\<^sup>la[(t, ba)] \<sqsubseteq>\<^sub>\<tau> (a, b)"
+        using f4 f3 a2 a1 by (metis (no_types) surj_pair)
+      then show "\<exists>t ba. exactType (selectLoc \<rho> la) = Some (t, ba) \<and> \<O>\<^sup>la[empty_offset (l := empty_offset l @ [f])\<^sup>la[\<P>\<^sup>la[(t, ba)]]] \<sqsubseteq>\<^sub>\<tau> (a, b)"
+        by fastforce
+    qed
     show "finite (dom \<rho>)" using compat_elim Loc by auto
     show "env_select_loc_compat (\<Gamma>(Loc l \<mapsto> f \<tau>)) (build_offset f (S (Loc l)) \<circ>\<^sub>o \<P>) \<rho>" using Loc
       apply (unfold compat_def, clarsimp)
       by (simp add: env_select_loc_compat_upd2)
     show "\<Gamma>(Loc l \<mapsto> f \<tau>) = update_locations \<Gamma> (build_offset f (S (Loc l)))" using Loc
       apply (unfold compat_def, clarsimp)
-      by (simp add: update_locations_step)  
+      by (simp add: update_locations_step)
+    show "\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r" using Loc compat_elim by auto
   qed
 next
   case (VarDef x \<Gamma> f t)
@@ -1110,11 +1157,7 @@ next
   then show ?case
   proof(cases "located L")
     case True
-    then show ?thesis
-    proof(intro disjI2 exI)
-      show "<(\<mu>, \<rho>), copy(L)> \<rightarrow> <(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), S (Loc (SLoc l))>"
-        by (simp add: ECopyEval True \<open>l \<notin> dom \<rho>\<close>)
-    qed
+    then show ?thesis by simp
   next
     case False
     then show ?thesis using ih using ECopyCongr by blast
@@ -1158,6 +1201,7 @@ lemma add_fresh_loc:
       and "valid_ref l r"
       and "\<tau> \<sqsubseteq>\<^sub>\<tau> \<sigma>"
       and "k = parent l"
+      and "baseTypeMatches r"
     shows "compat (\<Gamma>(Loc l \<mapsto> \<sigma>)) (\<O>(l @@ f)) \<P> (\<mu>, \<rho>(k \<mapsto> r))"
 proof(rule compatI)
   show "var_dom (\<Gamma>(Loc l \<mapsto> \<sigma>)) = dom \<mu>" 
@@ -1188,12 +1232,10 @@ proof(rule compatI)
 
   show "inj \<mu>" using assms compat_elim by auto
 
-  (* TODO: Should really clean this part up *)
   show "env_select_var_compat (\<Gamma>(Loc l \<mapsto> \<sigma>)) (\<O>(l @@ f)) \<P> (\<mu>, \<rho>(k \<mapsto> r))"
     using assms
-    apply (auto simp: env_select_var_compat_def)
-    apply (cases l, auto)
-    sorry
+    apply (auto simp: env_select_var_compat_def compat_def)
+    by (metis (mono_tags, lifting) assms(1) compat_elim(3) compat_elim(6) domIff fun_upd_triv map_le_imp_upd_le offset_upd_dif option.discI ranI select_loc_preserve_var upd_None_map_le)
 
   show "finite (dom (\<rho>(k \<mapsto> r)))"
     using assms compat_elim by auto
@@ -1296,6 +1338,10 @@ proof(rule compatI)
       qed
     qed
   qed
+
+  show "\<forall>j r'. (\<rho>(k \<mapsto> r)) j = Some r' \<longrightarrow> baseTypeMatches r'" 
+    using assms compat_elim
+    by auto
 qed
 
 lemma add_fresh_num:
@@ -1305,6 +1351,7 @@ lemma add_fresh_num:
       and "Loc (Amount l n) \<notin> dom \<Gamma>"
       and "l \<notin> dom \<rho>"
       and "exactType (Res (t, Num n)) = Some \<tau>"
+      and "baseTypeMatches (Res (t, Num n))"
     shows "compat (\<Gamma>(Loc (Amount l n) \<mapsto> \<tau>)) (\<O>((Amount l n) @@ f)) \<P> (\<mu>, \<rho>(l \<mapsto> Res (t, Num n)))"
   apply (rule add_fresh_loc)
   using assms apply auto
@@ -1692,6 +1739,10 @@ proof(intro compatI)
     apply simp
     apply (rule update_loc_env_select_loc_compat_spec[where \<O> = \<O>])
     using assms(6) by auto
+
+  show "compat (update_locations \<Gamma> \<O>) \<P> (\<O> \<circ>\<^sub>o \<Q>) (\<mu>, \<rho>)
+    \<Longrightarrow> \<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r"
+    using compat_elim by auto
 qed
 
 lemma located_dom_const:
@@ -1803,7 +1854,8 @@ next
   then show ?case using head_ty tail_ty loc_type.ConsList by simp
 next
   case (Copy \<Gamma> L \<tau> f)
-  then show ?case by simp
+  then show ?case
+    by (metis loc_type.Copy located.simps(4) typecheck_id_env_same_source)
 qed
 
 lemma offset_dom_empty_is_empty[simp]: "offset_dom empty_offset = {}"
@@ -1875,10 +1927,72 @@ proof -
     by (cases x, auto)
 qed
 
+lemma demoteBaseType_base_type_compat:
+  assumes "t1 \<approx> t2"
+  shows "demote\<^sub>* t1 \<approx> demote\<^sub>* t2"
+  using assms
+proof(induction t1 arbitrary: t2)
+  case natural
+  then show ?case by (cases t2, auto)
+next
+  case boolean
+  then show ?case by (cases t2, auto)
+next
+  case (table x1 x2)
+  then show ?case
+    apply (cases x2, auto)
+  proof -
+    fix a :: TyQuant and b :: BaseTy
+    assume a1: "x2 = (a, b)"
+    assume a2: "table x1 (a, b) \<approx> t2"
+    obtain ccss :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> char list list" and tt :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> TyQuant" and bb :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> BaseTy" and ccssa :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> char list list" and tta :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> TyQuant" and bba :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> BaseTy" where
+      f3: "\<forall>x0 x1a. (\<exists>v2 v3 v4 v5 v6 v7. x1a = table v2 (v3, v4) \<and> x0 = table v5 (v6, v7) \<and> v4 \<approx> v7) = (x1a = table (ccss x0 x1a) (tt x0 x1a, bb x0 x1a) \<and> x0 = table (ccssa x0 x1a) (tta x0 x1a, bba x0 x1a) \<and> bb x0 x1a \<approx> bba x0 x1a)"
+      by moura
+    { assume "table x1 (a, b) \<noteq> natural \<or> t2 \<noteq> natural"
+      have "t2 = table (ccssa t2 (table x1 (a, b))) (tta t2 (table x1 (a, b)), bba t2 (table x1 (a, b))) \<or> table x1 (a, b) = boolean \<and> t2 = boolean"
+        using f3 a2 base_type_compat.elims(2) by fastforce
+      then have "table x1 (a, demote\<^sub>* b) \<approx> demote\<^sub>* t2"
+        using a2 a1 by (metis base_type_compat.simps(3) demote.simps demoteBase.simps(3) snd_conv snds.intros table.IH) }
+    then show "table x1 (a, demote\<^sub>* b) \<approx> demote\<^sub>* t2"
+      by simp
+  qed
+qed
+
+lemma demote_lt:
+  assumes "\<tau> \<sqsubseteq>\<^sub>\<tau> \<sigma>"
+  shows "demote \<tau> \<sqsubseteq>\<^sub>\<tau> demote \<sigma>"
+  using assms
+  apply (cases \<tau>, cases \<sigma>, auto)
+  by (simp add: demoteBaseType_base_type_compat)
+
+lemma demoteResource_works: "exactType (demoteResource r) = map_option demote (exactType r)"
+proof(cases r)
+  case (Res x1)
+  obtain t v where "x1 = (t,v)" by (cases x1)
+  then show ?thesis using Res by (cases v, auto)
+next
+  case error
+  then show ?thesis by simp
+qed
+
+lemma demoteBaseType_idem[simp]: "demote\<^sub>* (demote\<^sub>* t) = demote\<^sub>* t"
+  by (induction t, auto)
+
+lemma demote_idem[simp]: "demote (demote \<tau>) = demote \<tau>"
+  by (cases \<tau>, auto)
+
+lemma exactType_has_same_base_type:
+  assumes "exactType r = Some (q, t)"
+  obtains v where "r = Res (t, v)"
+  using assms
+  apply (cases r, auto)
+  by (metis exactType_preserves_tyquant option.inject prod.inject)
+
 lemma deepCopy_makes_demoted:
-  assumes "\<Gamma> \<turnstile>{s} id ; L : \<tau> \<stileturn> \<Delta>" 
-      and "compat \<Gamma> empty_offset \<P> (\<mu>, \<rho>)"
+  assumes "\<Gamma> \<turnstile>{s} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "compat \<Gamma> empty_offset empty_offset (\<mu>, \<rho>)"
       and "located L"
+      and "f = id" (* TODO: Not sure why I can't just put this directly in the first assumption... *) 
   shows "\<exists>\<sigma>. exactType (deepCopy \<rho> L) = Some \<sigma> \<and> \<sigma> \<sqsubseteq>\<^sub>\<tau> demote \<tau>"
   using assms
 proof(induction arbitrary: \<mu> \<rho> rule: loc_type.induct)
@@ -1892,81 +2006,42 @@ next
   then show ?case by simp
 next
   case (Loc \<Gamma> l \<tau> m f)
-  then show ?case
-    apply auto
-    sorry
+  then obtain \<tau>' where "exactType (selectLoc \<rho> l) = Some \<tau>'" and "\<tau>' \<sqsubseteq>\<^sub>\<tau> \<tau>"
+    by (metis compat_elim(8) empty_offset_apply env_select_loc_compat_def)
+  show ?case
+  proof(intro exI[where x = "demote \<tau>'"] conjI)
+    show "exactType (deepCopy \<rho> (S (Loc l))) = Some (demote \<tau>')"
+      apply (auto simp: demoteResource_works)
+      by (metis \<open>exactType (selectLoc \<rho> l) = Some \<tau>'\<close> demote.elims)
+    show "demote \<tau>' \<sqsubseteq>\<^sub>\<tau> demote \<tau>"
+      by (simp add: \<open>\<tau>' \<sqsubseteq>\<^sub>\<tau> \<tau>\<close> demote_lt)
+  qed
 next
   case (VarDef x \<Gamma> f t)
   then show ?case by simp
 next
   case (EmptyList \<Gamma> f \<tau>)
-  then show ?case 
-    sorry
+  then show ?case by (auto simp: base_type_compat_refl)
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
-  then show ?case
+  then have "located \<L>" and "located Tail" using located.cases by auto
+  then obtain \<sigma> 
+    where head_ty: "exactType (deepCopy \<rho> \<L>) = Some \<sigma>" and "\<sigma> \<sqsubseteq>\<^sub>\<tau> demote \<tau>"
+    using ConsList by blast
+  obtain \<pi>
+    where tail_ty: "exactType (deepCopy \<rho> Tail) = Some \<pi>" and "\<pi> \<sqsubseteq>\<^sub>\<tau> demote (q, table [] \<tau>)"
+    using ConsList \<open>located Tail\<close> typecheck_id_env_same_source by blast
+  then obtain q' t' where "\<pi> = (q', t')" and "q' \<sqsubseteq> q" and "t' \<approx> demote\<^sub>* (table [] \<tau>)"
+    by (metis demote.cases demote.simps less_general_type.simps)
+  then obtain vs where "deepCopy \<rho> Tail = Res (t', vs)"
+    using tail_ty exactType_has_same_base_type by blast
+  then show ?case using ConsList
     apply auto
     sorry
 next
   case (Copy \<Gamma> L \<tau> f)
-  then show ?case by simp
-qed
-
-lemma deepCopy_located:
-  assumes "located L" 
-      and "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>" 
-      and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f L) \<P> (\<mu>, \<rho>)"
-      and "type_preserving f"
-  shows "deepCopy \<rho> L \<noteq> error"
-  using assms
-proof(induction L arbitrary: \<Gamma> m f \<tau> \<Delta> \<O>)
-case (N x)
-  then show ?case by auto
-next
-  case (B x)
-  then show ?case by auto
-next
-  case (S x)
-  then have "\<Gamma> x = Some \<tau>" using loc_type.cases by blast
-  then show ?case using compat_elim
-    apply (cases x)
-    using S.prems(1) apply auto[1]
-    by (metis Resource.distinct(1) S.prems(3) compat_loc_in_env deepCopy.simps(1) domI)
-next
-case (VDef x1a x2a)
-  then show ?case by auto
-next
-  case (EmptyList x)
-  then show ?case by auto
-next
-  case (ConsList \<tau>' L1 L2)
-
-  then have compat: "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f L2 \<circ>\<^sub>o build_offset f L1) \<P> (\<mu>, \<rho>)"
-    by (simp add: offset_comp_assoc)
-
-  obtain \<Delta>'' and q
-    where head_ty: "\<Gamma> \<turnstile>{s} f ; L1 : \<tau>' \<stileturn> \<Delta>''" 
-      and tail_ty: "\<Delta>'' \<turnstile>{s} f ; L2 : (q, table [] \<tau>') \<stileturn> \<Delta>"
-      and "\<tau> = (one \<oplus> q, table [] \<tau>')"
-    using ConsList 
-    apply auto 
-    apply (erule loc_type.cases)
-    by blast+
-
-  (* Probably need to use located_env_compat to get the right compat *)
-
-  then have "deepCopy \<rho> L1 \<noteq> error" using ConsList compat by auto
-
-  then have "deepCopy \<rho> L2 \<noteq> error" using ConsList
-    sorry
-
-  then show ?case
-    apply auto
-    sorry
-next
-  case (Copy L)
-  then show ?case   
-    sorry
+  then have "located L" using located.cases by simp
+  then show ?case using Copy by auto
 qed
 
 lemma in_var_lookup_in_store:
@@ -2258,6 +2333,10 @@ next
     show "env_select_loc_compat (\<Delta>(Loc (SLoc l) \<mapsto> (empty, t))) \<P>
      (\<rho>(l \<mapsto> Res (t, emptyVal t)))"
       sorry
+
+    show "\<forall>la r. (\<rho>(l \<mapsto> Res (t, emptyVal t))) la = Some r \<longrightarrow> baseTypeMatches r"
+      using EVarDef compat_elim
+      by (simp add: baseTypeMatches_emptyVal_works)
   qed
 
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : (empty,t) \<stileturn> ?\<Delta>'"
@@ -2446,6 +2525,9 @@ next
   then show ?case using \<open>demote \<sigma> = \<tau>\<close>
     apply simp
     by (metis compat_id surj_pair)
+qed
+
+(* 
 next
   case (ECopyEval L l \<rho> \<mu>)
 
@@ -2508,7 +2590,6 @@ next
 
     show "(\<mu>, \<rho>) \<subseteq>\<^sub>s (\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L))" 
       by (auto simp: map_le_def \<open>l \<notin> dom \<rho>\<close>)
-  qed
-qed
+  qed *)
 
 end
