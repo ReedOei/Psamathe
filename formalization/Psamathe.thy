@@ -227,10 +227,6 @@ lemma less_general_type_trans:
   apply (cases \<tau>, cases \<sigma>, cases \<pi>)
   by (auto simp: less_general_quant_trans base_type_compat_trans)
 
-fun ty_res_compat :: "Type \<Rightarrow> Resource \<Rightarrow> bool" (infix "\<triangleq>" 50) where
-  "(q,t1) \<triangleq> (Res (t2,_)) = (t1 \<approx> t2)"
-| "_ \<triangleq> error = False"
-
 fun var_dom :: "Env \<Rightarrow> string set" where
   "var_dom \<Gamma> = { x . V x \<in> dom \<Gamma> }"
 
@@ -664,16 +660,6 @@ fun less_eq_Type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<le>\<
 
 definition mode_compat :: "Mode \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> bool" where
   "mode_compat m f \<equiv> case m of s \<Rightarrow> \<forall>\<tau>. f \<tau> \<le>\<^sub>\<tau> \<tau> | d \<Rightarrow> \<forall>\<tau>. \<tau> \<le>\<^sub>\<tau> f \<tau>"
-
-definition idempotent :: "('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-  "idempotent f \<equiv> f = f \<circ> f"
-
-lemma type_preserving_ty_res_compat:
-  assumes "\<tau> \<triangleq> r" and "type_preserving f"
-  shows "f \<tau> \<triangleq> r"
-  using assms
-  apply (auto simp: type_preserving_def)
-  by (metis assms(2) ty_res_compat.elims(2) ty_res_compat.simps(1) type_preserving_works)
 
 lemma var_store_sync_use:
   assumes "var_store_sync \<Gamma> \<O> \<mu>"
@@ -1144,13 +1130,6 @@ lemma not_in_offset_dom_is_id:
   using assms
   by (auto simp: offset_dom_def apply_offset_def)
 
-(* TODO: Probably can delete along with all the rest of the ty_res_compat_stuff *)
-lemma subtype_base_type_compat:
-  assumes "\<tau> \<triangleq> r" and "\<tau> \<sqsubseteq>\<^sub>\<tau> \<sigma>"
-  shows "\<sigma> \<triangleq> r"
-  using assms
-  sorry
-
 lemma list_elem_length:
   assumes "x \<in> set xs"
   shows "length xs \<ge> 1"
@@ -1617,29 +1596,6 @@ lemma type_preserving_offset_works:
   using type_preserving_def type_preserving_list_comp apply force
   using assms less_general_type.simps type_preserving_def type_preserving_list_comp type_preserving_offset_def by blast
 
-lemma ty_preserve_update_loc:
-  assumes "type_preserving_offset \<O>" 
-    and "\<Gamma> x = Some \<tau>" 
-    and "\<tau> \<triangleq> r"
-    and "update_locations \<Gamma> \<O> x = Some \<sigma>"
-  shows "\<sigma> \<triangleq> r"
-proof(cases x)
-  case (V x1)
-  then show ?thesis using assms by auto 
-next
-  case (Loc x2)
-  then show ?thesis using assms
-    apply (auto simp: type_preserving_offset_def)
-    by (simp add: assms(1) type_preserving_offset_works type_preserving_ty_res_compat)
-qed
-
-lemma type_preserving_back:
-  assumes "type_preserving f"
-      and "f \<tau> \<triangleq> r"
-    shows "\<tau> \<triangleq> r"
-  using assms
-  by (metis (no_types, lifting) base_type_compat_trans surjective_pairing ty_res_compat.elims(2) ty_res_compat.simps(1) type_preserving_def)
-
 lemma env_select_loc_compat_use:
   assumes "env_select_loc_compat \<Gamma> \<O> \<rho>"
       and "\<Gamma> (Loc l) = Some \<tau>"
@@ -1654,7 +1610,6 @@ lemma type_preserving_offset_comp:
   shows "type_preserving_offset (\<O> \<circ>\<^sub>o \<P>)"
   using assms
   by (auto simp: type_preserving_offset_def offset_comp_def)
-
 
 lemma update_loc_env_select_loc_compat_spec:
   assumes "env_select_loc_compat \<Delta>' (\<O> \<circ>\<^sub>o \<Q>) \<rho>"
