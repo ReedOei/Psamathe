@@ -8,8 +8,11 @@ cache:
         - $HOME/.stack
 
 before_install:
+    - sudo apt install -y docker
     - curl -sSL https://get.haskellstack.org/ | sh
+    - docker pull makarius/isabelle:Isabelle2020
 
 script:
     - (cd Compiler && stack test)
+    - docker run -v "$(pwd)"/formalization:/mnt makarius/isabelle:Isabelle2020 build -d/mnt/ Psamathe
 

@@ -1,0 +1,4 @@
+session Psamathe = HOL +
+sessions "HOL-Library"
+theories
+  Psamathe
