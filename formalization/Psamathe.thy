@@ -324,6 +324,34 @@ definition env_select_var_compat :: "Env \<Rightarrow> Offset \<Rightarrow> Offs
   "env_select_var_compat \<Gamma> \<O> \<P> \<Sigma> \<equiv> case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow>
     \<forall>x \<tau> l. \<Gamma> (V x) = Some \<tau> \<and> \<mu> x = Some l \<longrightarrow> (\<exists>\<sigma>. exactType (selectLoc \<rho> l) = Some \<sigma> \<and> ((\<O> \<circ>\<^sub>o \<P>)\<^sup>l[\<sigma>]) \<sqsubseteq>\<^sub>\<tau> \<tau>)"
 
+definition env_select_loc_compat :: "Env \<Rightarrow> Offset \<Rightarrow> (nat \<rightharpoonup> Resource) \<Rightarrow> bool" where
+  "env_select_loc_compat \<Gamma> \<O> \<rho> \<equiv>
+    \<forall>l \<tau>. \<Gamma> (Loc l) = Some \<tau> \<longrightarrow> (\<exists>\<sigma>. exactType (selectLoc \<rho> l) = Some \<sigma> \<and> (\<O>\<^sup>l[\<sigma>]) \<sqsubseteq>\<^sub>\<tau> \<tau>)"
+
+definition env_select_compat :: "Env \<Rightarrow> Offset \<Rightarrow> Offset \<Rightarrow> Store \<Rightarrow> bool" where
+  "env_select_compat \<Gamma> \<O> \<P> \<Sigma> \<equiv> 
+    case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow> env_select_var_compat \<Gamma> \<O> \<P> \<Sigma> \<and> env_select_loc_compat \<Gamma> \<P> \<rho>"
+
+lemma env_select_compatI[intro]:
+  assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+      and "env_select_loc_compat \<Gamma> \<P> \<rho>"
+    shows "env_select_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+  using assms
+  by (auto simp: env_select_compat_def)
+
+lemma env_select_compatD:
+  assumes "env_select_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+  shows "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" and "env_select_loc_compat \<Gamma> \<P> \<rho>"
+  using assms
+  by (auto simp: env_select_compat_def)
+
+lemma env_select_compatE[elim]:
+  assumes "env_select_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+      and "\<lbrakk> env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>); env_select_loc_compat \<Gamma> \<P> \<rho> \<rbrakk> \<Longrightarrow> P \<Gamma> \<O> \<P> \<mu> \<rho>"
+    shows "P \<Gamma> \<O> \<P> \<mu> \<rho>"
+  using assms
+  by (auto simp: env_select_compat_def)
+
 lemma env_select_var_compat_use:
   assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
     and "\<Gamma> (V x) = Some \<tau>" 
@@ -333,50 +361,35 @@ lemma env_select_var_compat_use:
   apply (auto simp: env_select_var_compat_def)
   by (metis old.prod.exhaust)
 
-definition env_select_loc_correct :: "Env \<Rightarrow> Offset \<Rightarrow> (nat \<rightharpoonup> Resource) \<Rightarrow> bool" where
-  "env_select_loc_correct \<Gamma> \<O> \<rho> \<equiv>
-    \<forall>l \<tau>. \<Gamma> (Loc l) = Some \<tau> \<longrightarrow> (\<exists>\<sigma>. exactType (selectLoc \<rho> l) = Some \<sigma> \<and> (\<O>\<^sup>l[\<sigma>]) \<sqsubseteq>\<^sub>\<tau> \<tau>)"
+lemma env_select_compat_use:
+  assumes "env_select_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+    and "\<Gamma> (V x) = Some \<tau>" 
+    and "\<mu> x = Some l"
+  obtains \<sigma> where "exactType (selectLoc \<rho> l) = Some \<sigma>" and "(\<O> \<circ>\<^sub>o \<P>)\<^sup>l[\<sigma>] \<sqsubseteq>\<^sub>\<tau> \<tau>"
+  using assms
+  using env_select_compatD(1) env_select_var_compat_use by blast
 
 definition loc_dom_refs_compat :: "Env \<Rightarrow> (nat \<rightharpoonup> Resource) \<Rightarrow> bool" where
   "loc_dom_refs_compat \<Gamma> \<rho> \<equiv> (\<Union> (image storageLocRefs (loc_dom \<Gamma>))) \<subseteq> dom \<rho>"
 
-(* NOTE: compat can take a function from Vars/Locs to updaters (default to id) instead of a single function,
-          this may let us get rid of some of the issues we face due to the updater changing throughout 
-          the rules ... *)
 definition compat :: "Env \<Rightarrow> Offset \<Rightarrow> Offset \<Rightarrow> Store \<Rightarrow> bool" where
-  (* NOTE: Some of these are probably redundant (e.g., env_select_loc_correct probably subsumes loc_dom_refs_compat *)
+  (* NOTE: Some of these are probably redundant (e.g., env_select_loc_compat probably subsumes loc_dom_refs_compat *)
   "compat \<Gamma> \<O> \<P> \<Sigma> \<equiv> case \<Sigma> of (\<mu>, \<rho>) \<Rightarrow> 
                         var_dom \<Gamma> = dom \<mu> \<and>
-                        loc_dom_refs_compat \<Gamma> \<rho> \<and>
                         (\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>) \<and>
                         var_store_sync \<Gamma> \<O> \<mu> \<and>
                         inj \<mu> \<and> finite (dom \<rho>) \<and>
                         env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>) \<and>
-                        env_select_loc_correct \<Gamma> \<P> \<rho>"
-
-lemma compat_elim[elim]:
-  fixes \<Gamma> \<mu> \<rho> x
-  assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
-  shows "var_dom \<Gamma> = dom \<mu>" 
-    and "loc_dom_refs_compat \<Gamma> \<rho>"
-    and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>" 
-    and "var_store_sync \<Gamma> \<O> \<mu>"
-    and "inj \<mu>" 
-    and "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
-    and "finite (dom \<rho>)"
-    and "env_select_loc_correct \<Gamma> \<P> \<rho>"
-  using assms
-  by (auto simp: compat_def)
+                        env_select_loc_compat \<Gamma> \<P> \<rho>"
 
 lemma compatI[intro]:
-  assumes "var_dom \<Gamma> = dom \<mu>" 
-    and "loc_dom_refs_compat \<Gamma> \<rho>"
+  assumes "var_dom \<Gamma> = dom \<mu>"
     and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>" 
     and "var_store_sync \<Gamma> \<O> \<mu>"
     and "inj \<mu>" 
     and "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
     and "finite (dom \<rho>)"
-    and "env_select_loc_correct \<Gamma> \<P> \<rho>"
+    and "env_select_loc_compat \<Gamma> \<P> \<rho>"
   shows "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
   using assms
   by (simp add: compat_def)
@@ -499,19 +512,53 @@ lemma select_loc_preserve_var:
     and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>"
   shows "selectLoc \<rho> l = selectLoc \<rho>' l"
   using assms
-  apply (cases l)
-  sorry
+  by (metis (mono_tags, lifting) Resource.distinct(1) in_type_env_select option.simps(5) select.simps(1) select_loc_update)
 
 lemma compat_loc_in_env:
   fixes \<Gamma> \<mu> \<rho> l
-  assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" and "Loc l \<in> dom \<Gamma>"
+  assumes "env_select_loc_compat \<Gamma> \<P> \<rho>" and "Loc l \<in> dom \<Gamma>"
   obtains r where "selectLoc \<rho> l = Res r"
   using assms
-  sorry
+  by (metis domD env_select_loc_compat_def exactType.elims not_Some_eq)
+
+lemma toQuant_empty[simp]: "toQuant 0 = empty"
+  by (auto simp: toQuant_def)
+
+lemma toQuant_one[simp]: "toQuant (Suc 0) = one"
+  by (auto simp: toQuant_def)
+
+lemma select_loc_parent:
+  assumes "selectLoc \<rho> l \<noteq> error"
+  obtains r where "\<rho> (parent l) = Some r"
+  using assms
+  apply (cases l, auto)
+  apply fastforce
+  by (cases "\<rho> (parent l)", auto)+
+
+lemma env_select_loc_compat_refs_compat:
+  assumes "env_select_loc_compat \<Gamma> \<P> \<rho>"
+  shows "loc_dom_refs_compat \<Gamma> \<rho>"
+  using assms
+  apply (auto simp: env_select_loc_compat_def loc_dom_refs_compat_def)
+  by (metis Resource.distinct(1) assms compat_loc_in_env domI select_loc_parent)
+
+lemma compat_elim[elim]:
+  fixes \<Gamma> \<mu> \<rho> x
+  assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+  shows "var_dom \<Gamma> = dom \<mu>" 
+    and "loc_dom_refs_compat \<Gamma> \<rho>"
+    and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>" 
+    and "var_store_sync \<Gamma> \<O> \<mu>"
+    and "inj \<mu>" 
+    and "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+    and "finite (dom \<rho>)"
+    and "env_select_loc_compat \<Gamma> \<P> \<rho>"
+  using assms
+  by (auto simp: compat_def env_select_loc_compat_refs_compat)
 
 lemma select_loc_preserve_loc:
   fixes \<Gamma> \<mu> \<rho> \<rho>' l
-  assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "Loc l \<in> dom \<Gamma>"
+  assumes "env_select_loc_compat \<Gamma> \<P> \<rho>" and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "Loc l \<in> dom \<Gamma>"
   shows "selectLoc \<rho> l = selectLoc \<rho>' l"
   using assms
   by (metis Resource.distinct(1) compat_loc_in_env select_loc_update)
@@ -532,27 +579,7 @@ next
   case (Loc x2)
   then show ?thesis using assms
     apply (simp only: select.simps)
-    using compat_elim(6) select_loc_preserve_loc by blast
-qed
-
-lemma select_preserve2:
-  fixes \<Gamma> \<mu> \<rho> \<mu>' \<rho>' x
-  assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" and "\<mu> \<subseteq>\<^sub>m \<mu>'" and "\<rho> \<subseteq>\<^sub>m \<rho>'" and "x \<in> dom \<Gamma>"
-    and "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>"
-  shows "select (\<mu>, \<rho>) x = select (\<mu>', \<rho>') x"
-  using assms
-proof(cases x)
-  case (V x1)
-  then have "x1 \<in> dom \<mu>" using assms
-    sorry
-  then have "\<mu> x1 = \<mu>' x1" using assms by (simp add: map_le_def)
-  then show ?thesis using assms V \<open>x1 \<in> dom \<mu>\<close>
-    apply auto
-    by (metis assms(4) assms(5) option.simps(5) select_loc_preserve_var)
-next
-  case (Loc x2)
-  then show ?thesis using assms
-    by (simp add: select_loc_preserve_loc)
+    using compat_elim(8) select_loc_preserve_loc by blast
 qed
 
 lemma not_err_in_dom:
@@ -572,11 +599,11 @@ qed
 
 lemma fresh_loc_not_in_env:
   fixes \<Gamma> \<mu> \<rho> l k j
-  assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" and "k \<in> storageLocRefs l" and "k \<notin> dom \<rho>"
+  assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" and "k \<in> storageLocRefs l" and "k \<notin> dom \<rho>"
   shows "Loc l \<notin> dom \<Gamma>"
   using assms compat_loc_in_env not_err_in_dom
   apply auto
-  by (metis Resource.distinct(1) assms(3) domI)
+  by (metis (full_types) Resource.distinct(1) assms(3) compat_elim(8) domI)
 
 lemma gen_loc:
   fixes m :: "(nat, 'a) map"
@@ -838,18 +865,18 @@ qed
 lemma [simp]: "(empty_offset(l @@ f) \<circ>\<^sub>o \<P>)\<^sup>l[\<tau>] = f(\<P>\<^sup>l[\<tau>])"
   by (simp add: offset_upd)
 
-lemma env_select_loc_correct_upd:
+lemma env_select_loc_compat_upd:
   assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
       and "\<Gamma> (Loc l) = Some \<tau>"
       and "type_preserving f"
-  shows "env_select_loc_correct (\<Gamma>(Loc l \<mapsto> f \<tau>)) (empty_offset(l @@ f) \<circ>\<^sub>o \<P>) \<rho>"
-proof(unfold env_select_loc_correct_def, intro allI impI, safe)
+  shows "env_select_loc_compat (\<Gamma>(Loc l \<mapsto> f \<tau>)) (empty_offset(l @@ f) \<circ>\<^sub>o \<P>) \<rho>"
+proof(unfold env_select_loc_compat_def, intro allI impI, safe)
   obtain "\<sigma>" where loc_ty: "exactType (selectLoc \<rho> l) = Some \<sigma>" using assms
-    apply (auto simp: compat_def env_select_loc_correct_def)
+    apply (auto simp: compat_def env_select_loc_compat_def)
     by (metis demote.cases)
 
   then have "\<P>\<^sup>l[\<sigma>] \<sqsubseteq>\<^sub>\<tau> \<tau>" using assms
-    by (metis compat_elim(8) env_select_loc_correct_def option.inject)
+    by (metis compat_elim(8) env_select_loc_compat_def option.inject)
 
   then have sub_ty: "(empty_offset(l @@ f) \<circ>\<^sub>o \<P>)\<^sup>l[\<sigma>] \<sqsubseteq>\<^sub>\<tau> f \<tau>" using assms
     apply (auto simp: type_preserving_def offset_upd)
@@ -869,22 +896,22 @@ proof(unfold env_select_loc_correct_def, intro allI impI, safe)
   next
     case False
     then obtain \<pi> where "exactType (selectLoc \<rho> k) = Some \<pi>" using assms lookup_ty
-      by (metis compat_elim(8) env_select_loc_correct_def fun_upd_apply)
+      by (metis compat_elim(8) env_select_loc_compat_def fun_upd_apply)
     then show ?thesis using False assms
-      by (smt Stored.inject(2) apply_offset_distrib compat_elim(8) empty_offset_apply env_select_loc_correct_def fun_upd_apply lookup_ty offset_upd_dif)
+      by (smt Stored.inject(2) apply_offset_distrib compat_elim(8) empty_offset_apply env_select_loc_compat_def fun_upd_apply lookup_ty offset_upd_dif)
   qed
 qed
 
 lemma empty_offset_insert: "(\<lambda>k. if l = k then [f] else []) = empty_offset(l @@ f)"
   by (auto simp: empty_offset_def)
 
-lemma env_select_loc_correct_upd2:
+lemma env_select_loc_compat_upd2:
   assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
       and "\<Gamma> (Loc l) = Some \<tau>"
       and "type_preserving f"
-    shows "env_select_loc_correct (\<Gamma>(Loc l \<mapsto> f \<tau>)) ((\<lambda>k. if l = k then [f] else []) \<circ>\<^sub>o \<P>) \<rho>"
+    shows "env_select_loc_compat (\<Gamma>(Loc l \<mapsto> f \<tau>)) ((\<lambda>k. if l = k then [f] else []) \<circ>\<^sub>o \<P>) \<rho>"
   using assms
-  using env_select_loc_correct_upd empty_offset_insert by auto
+  using env_select_loc_compat_upd empty_offset_insert by auto
 
 lemma located_env_compat:
   fixes "\<Gamma>" and "\<L>" and "\<tau>" and "\<Delta>"
@@ -911,16 +938,6 @@ next
   show ?case
   proof(intro conjI compatI)
     show "var_dom (\<Gamma>(Loc l \<mapsto> f \<tau>)) = dom \<mu>" using compat_elim Loc by auto
-    show "loc_dom_refs_compat (\<Gamma>(Loc l \<mapsto> f \<tau>)) \<rho>" using Loc l_in_dom
-      apply (unfold loc_dom_refs_compat_def)
-    proof
-      fix n
-      assume "n \<in> \<Union> (storageLocRefs ` loc_dom (\<Gamma>(Loc l \<mapsto> f \<tau>)))"
-      assume "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset f (S (Loc l))) \<P> (\<mu>, \<rho>)"
-      then have "loc_dom_refs_compat \<Gamma> \<rho>" using compat_elim by auto
-      then show "n \<in> dom \<rho>" using l_in_dom \<open> n \<in> \<Union> (storageLocRefs ` loc_dom (\<Gamma>(Loc l \<mapsto> f \<tau>))) \<close>
-        by (auto simp: loc_dom_refs_compat_def)
-    qed
     show "\<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>" using compat_elim Loc by auto
     show "var_store_sync (\<Gamma>(Loc l \<mapsto> f \<tau>)) \<O> \<mu>" using Loc l_in_dom
       apply (unfold compat_def, clarsimp, safe)
@@ -931,9 +948,9 @@ next
       apply (unfold compat_def, clarsimp)
       sorry
     show "finite (dom \<rho>)" using compat_elim Loc by auto
-    show "env_select_loc_correct (\<Gamma>(Loc l \<mapsto> f \<tau>)) (build_offset f (S (Loc l)) \<circ>\<^sub>o \<P>) \<rho>" using Loc
+    show "env_select_loc_compat (\<Gamma>(Loc l \<mapsto> f \<tau>)) (build_offset f (S (Loc l)) \<circ>\<^sub>o \<P>) \<rho>" using Loc
       apply (unfold compat_def, clarsimp)
-      by (simp add: env_select_loc_correct_upd2)
+      by (simp add: env_select_loc_compat_upd2)
     show "\<Gamma>(Loc l \<mapsto> f \<tau>) = update_locations \<Gamma> (build_offset f (S (Loc l)))" using Loc
       apply (unfold compat_def, clarsimp)
       by (simp add: update_locations_step)  
@@ -1152,20 +1169,6 @@ fun valid_ref :: "StorageLoc \<Rightarrow> Resource \<Rightarrow> bool" where
 | "valid_ref (ResLoc _ v) (Res (_, Table vals)) = (v \<in> set vals)"
 | "valid_ref _ _ = False"
 
-lemma toQuant_empty[simp]: "toQuant 0 = empty"
-  by (auto simp: toQuant_def)
-
-lemma toQuant_one[simp]: "toQuant (Suc 0) = one"
-  by (auto simp: toQuant_def)
-
-lemma select_loc_parent:
-  assumes "selectLoc \<rho> l \<noteq> error"
-  obtains r where "\<rho> (parent l) = Some r"
-  using assms
-  apply (cases l, auto)
-  apply fastforce
-  by (cases "\<rho> (parent l)", auto)+
-
 lemma add_fresh_loc:
   assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
       and "offset_dom \<O> \<subseteq> loc_dom \<Gamma>"
@@ -1180,22 +1183,6 @@ lemma add_fresh_loc:
 proof(rule compatI)
   show "var_dom (\<Gamma>(Loc l \<mapsto> \<sigma>)) = dom \<mu>" 
     using assms compat_elim by auto
-
-  show "loc_dom_refs_compat (\<Gamma>(Loc l \<mapsto> \<sigma>)) (\<rho>(k \<mapsto> r))"
-  proof(unfold loc_dom_refs_compat_def)
-    have orig_compat: "\<Union> (storageLocRefs ` loc_dom \<Gamma>) \<subseteq> dom \<rho>" 
-      using assms compat_elim by (auto simp: loc_dom_refs_compat_def)
-    show "\<Union> (storageLocRefs ` loc_dom (\<Gamma>(Loc l \<mapsto> \<sigma>))) \<subseteq> dom (\<rho>(k \<mapsto> r))"
-    proof
-      fix n
-      assume "n \<in> \<Union> (storageLocRefs ` loc_dom (\<Gamma>(Loc l \<mapsto> \<sigma>)))"
-      then obtain j where "n \<in> storageLocRefs j" and "j \<in> loc_dom (\<Gamma>(Loc l \<mapsto> \<sigma>))"
-        by auto
-      then show "n \<in> dom (\<rho>(k \<mapsto> r))" using orig_compat
-        apply auto
-        by (simp add: assms(9))
-    qed
-  qed
 
   show "\<forall>la. la \<notin> dom (\<rho>(k \<mapsto> r)) \<longrightarrow> la \<notin> references \<mu>"
     using assms compat_elim by auto
@@ -1232,9 +1219,9 @@ proof(rule compatI)
   show "finite (dom (\<rho>(k \<mapsto> r)))"
     using assms compat_elim by auto
 
-  show "env_select_loc_correct (\<Gamma>(Loc l \<mapsto> \<sigma>)) \<P> (\<rho>(k \<mapsto> r))"
+  show "env_select_loc_compat (\<Gamma>(Loc l \<mapsto> \<sigma>)) \<P> (\<rho>(k \<mapsto> r))"
     using assms
-  proof(unfold env_select_loc_correct_def, intro allI impI)
+  proof(unfold env_select_loc_compat_def, intro allI impI)
     fix m \<tau>'
     assume r_ty: "exactType r = Some \<tau>" 
       and "parent l \<notin> dom \<rho>"
@@ -1301,32 +1288,32 @@ proof(rule compatI)
     next
       case False
       then have m_ty: "\<Gamma> (Loc m) = Some \<tau>'" using \<open>(\<Gamma>(Loc l \<mapsto> \<sigma>)) (Loc m) = Some \<tau>'\<close> by auto
-      have sel_correct: "env_select_loc_correct \<Gamma> \<P> \<rho>" using assms compat_elim by auto
+      have sel_correct: "env_select_loc_compat \<Gamma> \<P> \<rho>" using assms compat_elim by auto
       then obtain \<pi> \<pi>' where "exactType (selectLoc \<rho> m) = Some \<pi> \<and> (\<P>\<^sup>m[\<pi>]) \<sqsubseteq>\<^sub>\<tau> \<pi>'" using m_ty
-        apply (unfold env_select_loc_correct_def)
+        apply (unfold env_select_loc_compat_def)
         apply auto
         by (metis demote.cases m_ty)
       then obtain r' where "\<rho> (parent m) = Some r'" using assms m_ty
-        by (metis Resource.distinct(1) compat_elim(6) compat_loc_in_env domI select_loc_parent)
+        by (metis Resource.distinct(1) compat_loc_in_env domI sel_correct select_loc_parent)
       then show ?thesis
       proof(cases m)
         case (SLoc x1)
         then show ?thesis using False assms sel_correct
           apply auto
-          apply (metis (no_types, lifting) Stored.inject(2) \<open>(\<Gamma>(Loc l \<mapsto> \<sigma>)) (Loc m) = Some \<tau>'\<close> compat_elim(6) domI fresh_loc_not_in_env fun_upd_apply insertI1 k_fresh parent.simps(1) storageLocRefs.elims)
-          by (metis env_select_loc_correct_def lookupResource.simps m_ty old.prod.exhaust selectLoc.simps(3))
+          apply (metis (no_types, lifting) Stored.inject(2) \<open>(\<Gamma>(Loc l \<mapsto> \<sigma>)) (Loc m) = Some \<tau>'\<close> domI fresh_loc_not_in_env fun_upd_apply insertI1 k_fresh parent.simps(1) storageLocRefs.elims)
+          by (metis env_select_loc_compat_def lookupResource.simps m_ty old.prod.exhaust selectLoc.simps(3))
       next
         case (Amount x21 x22)
         then show ?thesis using False assms sel_correct
           apply auto
           using \<open>\<rho> (parent m) = Some r'\<close> apply auto[1]
-          by (metis demote.cases env_select_loc_correct_def m_ty selectLoc.simps(1))
+          by (metis demote.cases env_select_loc_compat_def m_ty selectLoc.simps(1))
       next
         case (ResLoc x31 x32)
         then show ?thesis using False assms sel_correct
           apply auto
           using \<open>\<rho> (parent m) = Some r'\<close> apply auto[1]
-          by (metis demote.cases env_select_loc_correct_def m_ty selectLoc.simps(2))
+          by (metis demote.cases env_select_loc_compat_def m_ty selectLoc.simps(2))
       qed
     qed
   qed
@@ -1653,13 +1640,13 @@ lemma type_preserving_back:
   using assms
   by (metis (no_types, lifting) base_type_compat_trans surjective_pairing ty_res_compat.elims(2) ty_res_compat.simps(1) type_preserving_def)
 
-lemma env_select_loc_correct_use:
-  assumes "env_select_loc_correct \<Gamma> \<O> \<rho>"
+lemma env_select_loc_compat_use:
+  assumes "env_select_loc_compat \<Gamma> \<O> \<rho>"
       and "\<Gamma> (Loc l) = Some \<tau>"
     obtains \<sigma> where "exactType (selectLoc \<rho> l) = Some \<sigma>" and "\<O>\<^sup>l[\<sigma>] \<sqsubseteq>\<^sub>\<tau> \<tau>"
   using assms
-  apply (auto simp: env_select_loc_correct_def)
-  using assms(1) env_select_loc_correct_def that by blast
+  apply (auto simp: env_select_loc_compat_def)
+  using assms(1) env_select_loc_compat_def that by blast
 
 lemma type_preserving_offset_comp:
   assumes "type_preserving_offset \<O>"
@@ -1669,16 +1656,16 @@ lemma type_preserving_offset_comp:
   by (auto simp: type_preserving_offset_def offset_comp_def)
 
 
-lemma update_loc_env_select_loc_correct_spec:
-  assumes "env_select_loc_correct \<Delta>' (\<O> \<circ>\<^sub>o \<Q>) \<rho>"
+lemma update_loc_env_select_loc_compat_spec:
+  assumes "env_select_loc_compat \<Delta>' (\<O> \<circ>\<^sub>o \<Q>) \<rho>"
     and "update_locations (temp_update_env \<Gamma> \<Delta>') \<O> = \<Delta>'"
-    and "env_select_loc_correct \<Gamma> \<Q> \<rho>'"
+    and "env_select_loc_compat \<Gamma> \<Q> \<rho>'"
     and "\<rho>' \<subseteq>\<^sub>m \<rho>"
     and "type_preserving_offset \<O>"
     and "type_preserving_offset \<Q>"
     and "offset_dom \<O> \<subseteq> loc_dom \<Gamma>"
-  shows "env_select_loc_correct (temp_update_env \<Gamma> \<Delta>') \<Q> \<rho>"
-proof(unfold env_select_loc_correct_def, intro impI allI)
+  shows "env_select_loc_compat (temp_update_env \<Gamma> \<Delta>') \<Q> \<rho>"
+proof(unfold env_select_loc_compat_def, intro impI allI)
   fix l \<tau>
   assume "temp_update_env \<Gamma> \<Delta>' (Loc l) = Some \<tau>"
   then have "update_locations (temp_update_env \<Gamma> \<Delta>') \<O> (Loc l) = Some (\<O>\<^sup>l[\<tau>])" by simp
@@ -1687,7 +1674,7 @@ proof(unfold env_select_loc_correct_def, intro impI allI)
     case True
     then have "temp_update_env \<Gamma> \<Delta>' (Loc l) = \<Gamma> (Loc l)" by simp
     then show ?thesis
-      by (metis \<open>temp_update_env \<Gamma> \<Delta>' (Loc l) = Some \<tau>\<close> assms(3) assms(4) env_select_loc_correct_def exactType.simps(4) option.distinct(1) select_loc_update)
+      by (metis \<open>temp_update_env \<Gamma> \<Delta>' (Loc l) = Some \<tau>\<close> assms(3) assms(4) env_select_loc_compat_def exactType.simps(4) option.distinct(1) select_loc_update)
   next
     case False
     then have "l \<notin> loc_dom \<Gamma>" by auto
@@ -1696,7 +1683,7 @@ proof(unfold env_select_loc_correct_def, intro impI allI)
     obtain \<sigma> 
       where l_ty: "exactType (selectLoc \<rho> l) = Some \<sigma>" 
         and "(\<O> \<circ>\<^sub>o \<Q>)\<^sup>l[\<sigma>] \<sqsubseteq>\<^sub>\<tau> (\<O>\<^sup>l[\<tau>])"
-      by (metis \<open>update_locations (temp_update_env \<Gamma> \<Delta>') \<O> (Loc l) = Some (\<O>\<^sup>l[\<tau>])\<close> assms(1) assms(2) env_select_loc_correct_def)
+      by (metis \<open>update_locations (temp_update_env \<Gamma> \<Delta>') \<O> (Loc l) = Some (\<O>\<^sup>l[\<tau>])\<close> assms(1) assms(2) env_select_loc_compat_def)
     then have offset_ty_lt: "\<Q>\<^sup>l[\<sigma>] \<sqsubseteq>\<^sub>\<tau> \<tau>"
       by (simp add: \<open>apply_offset \<O> l = id\<close>)
     have "type_preserving (apply_offset \<O> l)"
@@ -1716,7 +1703,7 @@ lemma temp2:
       and "offset_dom \<O> \<subseteq> loc_dom \<Gamma>'"
       and "\<Gamma> = temp_update_env \<Gamma>' \<Delta>'"
       and "update_locations \<Gamma> \<O> = \<Delta>'"
-      and "env_select_loc_correct \<Gamma>' \<Q> \<rho>'"
+      and "env_select_loc_compat \<Gamma>' \<Q> \<rho>'"
       and "\<rho>' \<subseteq>\<^sub>m \<rho>"
     shows "compat \<Gamma> (\<P> \<circ>\<^sub>o \<O>) \<Q> (\<mu>, \<rho>)"
   using assms
@@ -1726,12 +1713,6 @@ proof(intro compatI)
     apply simp
     using update_loc_preserve_dom
     by force
-
-  show "\<lbrakk>compat (update_locations \<Gamma> \<O>) \<P> (\<O> \<circ>\<^sub>o \<Q>) (\<mu>, \<rho>)\<rbrakk> 
-        \<Longrightarrow> loc_dom_refs_compat \<Gamma> \<rho>"
-    apply (unfold loc_dom_refs_compat_def)
-    apply auto
-    by (metis Resource.distinct(1) compat_elim(6) compat_loc_in_env domI select_loc_parent update_loc_preserve_dom)
 
   show "compat (update_locations \<Gamma> \<O>) \<P> (\<O> \<circ>\<^sub>o \<Q>) (\<mu>, \<rho>) \<Longrightarrow> \<forall>l. l \<notin> dom \<rho> \<longrightarrow> l \<notin> references \<mu>"
     by (auto simp: compat_def)
@@ -1751,10 +1732,10 @@ proof(intro compatI)
 
   show "\<lbrakk>compat (update_locations \<Gamma> \<O>) \<P> (\<O> \<circ>\<^sub>o \<Q>) (\<mu>, \<rho>); offset_dom \<O> \<subseteq> loc_dom \<Gamma>';
          type_preserving_offset \<O>; type_preserving_offset \<Q>; \<Gamma> = temp_update_env \<Gamma>' \<Delta>';
-         env_select_loc_correct \<Gamma>' \<Q> \<rho>'; \<rho>' \<subseteq>\<^sub>m \<rho>\<rbrakk>
-        \<Longrightarrow> env_select_loc_correct \<Gamma> \<Q> \<rho>"
+         env_select_loc_compat \<Gamma>' \<Q> \<rho>'; \<rho>' \<subseteq>\<^sub>m \<rho>\<rbrakk>
+        \<Longrightarrow> env_select_loc_compat \<Gamma> \<Q> \<rho>"
     apply simp
-    apply (rule update_loc_env_select_loc_correct_spec[where \<O> = \<O>])
+    apply (rule update_loc_env_select_loc_compat_spec[where \<O> = \<O>])
     using assms(6) by auto
 qed
 
@@ -2053,11 +2034,8 @@ lemma loc_dom_refs_compat_upd:
 lemma not_in_dom_compat:
   assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" and "l \<notin> dom \<rho>" and "l = parent k"
   shows "Loc k \<notin> dom \<Gamma>"
-proof(rule fresh_loc_not_in_env)
-  show "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" using assms compat_elim by auto
-  show "l \<in> storageLocRefs k" using assms by auto
-  show "l \<notin> dom \<rho>" using assms by auto
-qed
+  using assms
+  by (auto simp: fresh_loc_not_in_env)
 
 lemma exactType_of_empty[simp]:
   shows "exactType (Res (t, emptyVal t)) = Some (empty, t)"
@@ -2159,7 +2137,7 @@ proof(induction arbitrary: \<Gamma> \<tau> f m \<Delta> \<P>)
 
   have loc_ty_sub: "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env ?\<Gamma>'" using ENat fresh_loc_not_in_env
     apply (auto simp: map_le_def)
-    by (metis compat_elim(6) domI domIff parent.simps(2))
+    by (metis domI domIff parent.simps(2))
 
   obtain \<Gamma>' and \<Delta>'
     where "compat \<Gamma>' (build_offset f (S ?\<L>')) \<P> (\<mu>, ?\<rho>')"
@@ -2195,7 +2173,7 @@ next
 
   have loc_ty_sub: "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env ?\<Gamma>'"using EBool fresh_loc_not_in_env
     apply (auto simp: map_le_def)
-    by (metis compat_elim(6) domI domIff parent.simps(1))
+    by (metis domI domIff parent.simps(1))
 
   obtain \<Gamma>' and \<Delta>'
     where "compat \<Gamma>' (build_offset f (S ?\<L>')) \<P> (\<mu>, ?\<rho>')"
@@ -2264,11 +2242,10 @@ next
     then have compat: "compat ?\<Gamma>' (build_offset f (S ?\<L>')) \<P> (\<mu>, \<rho>)" 
       using False EVar x_ty final_env
       apply (auto simp: compat_def var_store_sync_def)
-      apply (simp add: loc_dom_refs_compat_upd)
       apply (simp add: apply_offset_def)
       apply (simp add: apply_offset_def)
       using injD apply fastforce
-        apply (simp add: apply_offset_def)
+      apply (simp add: apply_offset_def)
       sorry
 
     have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'" using False loc_type.Loc 
@@ -2300,10 +2277,6 @@ next
     show "var_dom (\<Delta>(Loc (SLoc l) \<mapsto> (empty, t))) = dom (\<mu>(x \<mapsto> SLoc l))"
       using final_env EVarDef by (auto simp: compat_def)
 
-    show "loc_dom_refs_compat (\<Delta>(Loc (SLoc l) \<mapsto> (empty, t))) (\<rho>(l \<mapsto> Res (t, emptyVal t)))"
-      apply (auto simp: loc_dom_refs_compat_def)
-      using EVarDef.prems(2) final_env not_in_dom_compat by fastforce
-
     show "\<forall>k. k \<notin> dom (\<rho>(l \<mapsto> Res (t, emptyVal t))) \<longrightarrow> k \<notin> references (\<mu>(x \<mapsto> SLoc l))"
       using EVarDef.prems(6) wf_locator.cases by auto
 
@@ -2327,7 +2300,7 @@ next
     show "finite (dom (\<rho>(l \<mapsto> Res (t, emptyVal t))))"
       using EVarDef by (auto simp: compat_def)
 
-    show "env_select_loc_correct (\<Delta>(Loc (SLoc l) \<mapsto> (empty, t))) \<P>
+    show "env_select_loc_compat (\<Delta>(Loc (SLoc l) \<mapsto> (empty, t))) \<P>
      (\<rho>(l \<mapsto> Res (t, emptyVal t)))"
       sorry
   qed
@@ -2466,7 +2439,7 @@ next
     (* TODO: Cleanup *)
 
     obtain \<mu>' \<rho>' where "\<Sigma>' = (\<mu>', \<rho>')" by (cases \<Sigma>')
-    have "env_select_loc_correct \<Gamma> \<P> \<rho>" using EConsListTailCongr.prems(2) \<open>\<Sigma> = (\<mu>, \<rho>)\<close> by auto
+    have "env_select_loc_compat \<Gamma> \<P> \<rho>" using EConsListTailCongr.prems(2) \<open>\<Sigma> = (\<mu>, \<rho>)\<close> by auto
     then show "compat ?\<Gamma>' (build_offset f [ \<tau>' ; \<L> , Tail' ]) \<P> \<Sigma>'" using \<open>\<Sigma>' = (\<mu>', \<rho>')\<close>
       apply auto    
       apply (rule temp2)
