@@ -414,6 +414,16 @@ lemma compatI[intro]:
   using assms
   by (simp add: compat_def)
 
+lemma compat_same_store_upd:
+  assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+    and "var_dom \<Gamma>' = dom \<mu>"
+    and "var_store_sync \<Gamma>' \<O>' \<mu>"
+    and "env_select_var_compat \<Gamma>' \<O>' \<P>' (\<mu>, \<rho>)"
+    and "env_select_loc_compat \<Gamma>' \<P>' \<rho>"
+  shows "compat \<Gamma>' \<O>' \<P>' (\<mu>, \<rho>)"
+  using assms
+  by (auto simp: compat_def)
+
 lemma loc_dom_refs_compat_use:
   assumes "l \<notin> dom \<rho>"
       and "l \<in> storageLocRefs k"
@@ -2246,6 +2256,12 @@ next
     using env_select_var_compat_def by auto
 qed
 
+lemma apply_offset_neq[simp]: 
+  assumes "j \<noteq> l"
+  shows "(\<lambda>k. if l = k then [f] else [])\<^sup>j[\<tau>] = \<tau>"
+  using assms
+  by (auto simp: apply_offset_def)
+
 lemma locator_preservation:
   fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
   assumes "<\<Sigma>, \<L>> \<rightarrow> <\<Sigma>', \<L>'>"
@@ -2273,8 +2289,7 @@ proof(induction arbitrary: \<Gamma> \<tau> f m \<Delta> \<P>)
     using \<open>\<tau> = (toQuant n, natural)\<close> fresh_loc_not_in_env \<open> \<rho> \<subseteq>\<^sub>m ?\<rho>' \<close>
     apply (simp_all add: empty_offset_insert)
     apply (rule add_fresh_num)
-    apply simp_all
-    sorry
+    by simp_all
 
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> ?\<Delta>'"
     by (metis Loc fun_upd_same)
@@ -2310,7 +2325,10 @@ next
     apply (simp_all add: empty_offset_insert)
     apply (rule add_fresh_loc)
     apply simp_all
-    sorry
+    apply (simp_all add: empty_offset_insert)
+    apply (rule add_fresh_loc)
+    apply simp_all
+    by (simp_all add: empty_offset_insert)
 
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> ?\<Delta>'"
     by (metis Loc fun_upd_same)
@@ -2364,9 +2382,54 @@ next
       then have a2: "\<Gamma> (Loc l) = Some \<tau>" using x_ty
         by auto
     
-      then have compat: "compat ?\<Gamma>' (build_offset f (S ?\<L>')) \<P> (\<mu>, \<rho>)"
-        using EVar a1 a2 x_ty final_env
-        sorry
+      have compat: "compat ?\<Gamma>' (build_offset f (S ?\<L>')) \<P> (\<mu>, \<rho>)"
+      proof(rule compat_same_store_upd, simp_all add: final_env True)
+        show "compat \<Gamma> (build_offset f (S (V x))) \<P> (\<mu>, \<rho>)" using EVar by simp
+
+        show "{xa. xa = x \<or> V xa \<in> dom \<Gamma>} = dom \<mu>" using EVar compat_elim x_ty
+          by (metis (mono_tags, lifting) Collect_cong domI var_dom.simps)
+
+        show "var_store_sync (\<Gamma>(V x \<mapsto> f \<tau>)) (\<lambda>k. if l = k then [f] else []) \<mu>"
+          using x_ty a1 a2 EVar
+          apply (auto simp: var_store_sync_def apply_offset_def)
+          using compat_elim injD
+          apply metis
+          by (simp add: \<open>\<forall>x k \<tau>. \<mu> x = Some k \<and> \<Gamma> (Loc k) = Some \<tau> \<longrightarrow> \<Gamma> (V x) = Some \<tau>\<close>)
+
+        have "inj \<mu>" using EVar compat_elim by auto
+        then have "\<forall>y. y \<noteq> x \<longrightarrow> \<mu> y \<noteq> Some l"
+          using \<open>\<mu> x = Some l\<close> inj_eq by fastforce
+
+        have "\<exists>\<sigma>. exactType (selectLoc \<rho> l) = Some \<sigma> \<and> (\<P>\<^sup>l[\<sigma>]) \<sqsubseteq>\<^sub>\<tau> \<tau>"
+          sorry
+      
+        then show "env_select_var_compat (\<Gamma>(V x \<mapsto> f \<tau>)) (\<lambda>k. if l = k then [f] else []) \<P> (\<mu>, \<rho>)"
+          using x_ty a1 a2 EVar
+          apply (unfold compat_def)
+          apply (auto simp: env_select_var_compat_def type_preserving_def)
+          apply (simp add: empty_offset_insert)
+           apply (metis empty_offset_apply less_general_type.elims(2) offset_upd)
+        proof -
+          fix y k \<sigma>'
+          assume "\<mu> y = Some k" and "y \<noteq> x" and "\<Gamma> (V y) = Some \<sigma>'"
+          then have "k \<noteq> l"
+            using \<open>\<forall>y. y \<noteq> x \<longrightarrow> \<mu> y \<noteq> Some l\<close> by auto 
+          have "\<forall>x \<tau>' l.
+        \<Gamma> (V x) = Some \<tau>' \<and> \<mu> x = Some l \<longrightarrow>
+        (\<exists>aa ba. exactType (selectLoc \<rho> l) = Some (aa, ba) \<and> \<P>\<^sup>l[(aa, ba)] \<sqsubseteq>\<^sub>\<tau> \<tau>')"
+            using EVar by (auto simp: compat_def env_select_var_compat_def)
+          then have "\<exists>aa ba. exactType (selectLoc \<rho> k) = Some (aa, ba) \<and> (\<P>\<^sup>k[(aa, ba)]) \<sqsubseteq>\<^sub>\<tau> \<sigma>'"
+            using \<open>\<Gamma> (V y) = Some \<sigma>'\<close> \<open>\<mu> y = Some k\<close>
+            by blast
+          then show "\<exists>a b. exactType (selectLoc \<rho> k) = Some (a, b) \<and> 
+                     \<lambda>k. if l = k then [f] else []\<^sup>k[\<P>\<^sup>k[(a, b)]] \<sqsubseteq>\<^sub>\<tau> \<sigma>'"
+            by (simp add: \<open>k \<noteq> l\<close>)
+        qed
+
+        show "env_select_loc_compat (\<Gamma>(V x \<mapsto> f \<tau>)) \<P> \<rho>"
+          apply (auto simp: env_select_loc_compat_def)
+          by (metis EVar.prems(2) compat_elim(8) demote.cases env_select_loc_compat_use)
+      qed
     
       have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'"
         by (simp add: Loc final_env a2)
@@ -2444,14 +2507,13 @@ next
       apply (meson EVarDef.hyps(1) compat_elim(1) compat_elim(6) domI in_type_env_compat)
       by (metis EVarDef.hyps(2) in_mono mem_Collect_eq not_in_dom_compat parent.simps(1))
 
-    show "finite (dom (\<rho>(l \<mapsto> Res (t, emptyVal t))))"
+    show "finite (dom ?\<rho>')"
       using EVarDef by (auto simp: compat_def)
 
-    show "env_select_loc_compat (\<Delta>(Loc (SLoc l) \<mapsto> (empty, t))) \<P>
-     (\<rho>(l \<mapsto> Res (t, emptyVal t)))"
+    show "env_select_loc_compat ?\<Gamma>' \<P> ?\<rho>'"
       sorry
 
-    show "\<forall>la r. (\<rho>(l \<mapsto> Res (t, emptyVal t))) la = Some r \<longrightarrow> baseTypeMatches r"
+    show "\<forall>la r. ?\<rho>' la = Some r \<longrightarrow> baseTypeMatches r"
       using EVarDef compat_elim
       by (simp add: baseTypeMatches_emptyVal_works)
   qed
@@ -2561,7 +2623,8 @@ next
       by (simp add: \<open>Psamathe.compat \<Delta>'' (build_offset f Tail) (build_offset f \<L> \<circ>\<^sub>o \<P>) (\<mu>, \<rho>)\<close> \<open>\<Sigma> = (\<mu>, \<rho>)\<close>)
     show "type_preserving f" using EConsListTailCongr by simp
     show "Tail wf" using \<open>Tail wf\<close> by simp
-    show "offset_dom (build_offset f \<L> \<circ>\<^sub>o \<P>) \<subseteq> loc_dom \<Delta>''" sorry
+    show "offset_dom (build_offset f \<L> \<circ>\<^sub>o \<P>) \<subseteq> loc_dom \<Delta>''"
+      by (smt EConsListTailCongr.hyps(1) EConsListTailCongr.prems(3) a2 env_dom_eq_sub_dom_eq head_ty in_mono located_locations_in_offset_dom offset_dom_member_distrib subsetI update_loc_preserve_dom) 
     show "type_preserving_offset (build_offset f \<L> \<circ>\<^sub>o \<P>)"
       by (simp add: EConsListTailCongr.prems(4) EConsListTailCongr.prems(5) type_preserving_build type_preserving_offset_comp)
   qed

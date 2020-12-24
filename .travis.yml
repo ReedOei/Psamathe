@@ -2,11 +2,6 @@ addons:
     apt:
         update: true
 
-cache:
-    directories:
-        - $HOME/.m2
-        - $HOME/.stack
-
 before_install:
     - sudo apt install -y docker
     - curl -sSL https://get.haskellstack.org/ | sh
