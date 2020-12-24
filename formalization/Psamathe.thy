@@ -2262,6 +2262,46 @@ lemma apply_offset_neq[simp]:
   using assms
   by (auto simp: apply_offset_def)
 
+lemma env_select_var_compat_apply_f:
+  assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" 
+      and "\<Gamma> (V x) = Some \<tau>"
+      and "\<mu> x = Some l" 
+      and "type_preserving f" 
+      and "inj \<mu>"
+  shows "env_select_var_compat (\<Gamma>(V x \<mapsto> f \<tau>)) (empty_offset(l @@ f) \<circ>\<^sub>o \<O>) \<P> (\<mu>, \<rho>)"
+proof(unfold env_select_var_compat_def, auto)
+  obtain \<sigma> where "exactType (selectLoc \<rho> l) = Some \<sigma>" and "\<O>\<^sup>l[\<P>\<^sup>l[\<sigma>]] \<sqsubseteq>\<^sub>\<tau> \<tau>"
+    using assms
+    by (metis apply_offset_distrib env_select_var_compat_use)
+  then obtain q t where "\<sigma> = (q, t)" by (cases \<sigma>, auto)
+
+  fix k \<tau>'
+  assume "\<mu> x = Some k" and "f \<tau> = \<tau>'"
+  then have "l = k" using assms(3) domD by auto
+  then show "\<exists>aa ba. exactType (selectLoc \<rho> k) = Some (aa, ba) 
+                  \<and> (empty_offset(l := empty_offset l @ [f])\<^sup>k[\<O>\<^sup>k[\<P>\<^sup>k[(aa, ba)]]]) \<sqsubseteq>\<^sub>\<tau> \<tau>'"
+  proof(intro exI conjI)
+    show "exactType (selectLoc \<rho> k) = Some (q, t)"
+      using \<open>\<sigma> = (q, t)\<close> \<open>exactType (selectLoc \<rho> l) = Some \<sigma>\<close> \<open>l = k\<close> by auto
+    show "empty_offset(l := empty_offset l @ [f])\<^sup>k[\<O>\<^sup>k[\<P>\<^sup>k[(q, t)]]] \<sqsubseteq>\<^sub>\<tau> \<tau>'"
+      using \<open>f \<tau> = \<tau>'\<close> assms
+      apply (auto simp: type_preserving_def)
+      by (metis \<open>\<O>\<^sup>l[\<P>\<^sup>l[\<sigma>]] \<sqsubseteq>\<^sub>\<tau> \<tau>\<close> \<open>\<sigma> = (q, t)\<close> \<open>l = k\<close> empty_offset_apply less_general_type.elims(2) offset_upd)
+  qed
+next
+  fix y \<tau> k
+  assume "y \<noteq> x" and "\<Gamma> (V y) = Some \<tau>" and "\<mu> y = Some k"
+  then obtain \<sigma> where "exactType (selectLoc \<rho> k) = Some \<sigma>" and "\<O>\<^sup>k[\<P>\<^sup>k[\<sigma>]] \<sqsubseteq>\<^sub>\<tau> \<tau>"
+    using assms
+    by (metis apply_offset_distrib env_select_var_compat_use)
+  then obtain q t where "\<sigma> = (q, t)" by (cases \<sigma>, auto)
+  have "l \<noteq> k" using \<open>y \<noteq> x\<close> \<open>inj \<mu>\<close> \<open>\<mu> y = Some k\<close> assms(3) inj_eq by fastforce 
+  then show "\<exists>aa ba.
+              exactType (selectLoc \<rho> k) = Some (aa, ba) \<and>
+              empty_offset(l := empty_offset l @ [f])\<^sup>k[\<O>\<^sup>k[\<P>\<^sup>k[(aa, ba)]]] \<sqsubseteq>\<^sub>\<tau> \<tau>"
+    using \<open>\<O>\<^sup>k[\<P>\<^sup>k[\<sigma>]] \<sqsubseteq>\<^sub>\<tau> \<tau>\<close> \<open>\<sigma> = (q, t)\<close> \<open>exactType (selectLoc \<rho> k) = Some \<sigma>\<close> offset_upd_dif by auto
+qed
+
 lemma locator_preservation:
   fixes "\<Sigma>" and "\<L>" and "\<Sigma>'" and "\<L>'"
   assumes "<\<Sigma>, \<L>> \<rightarrow> <\<Sigma>', \<L>'>"
@@ -2401,7 +2441,7 @@ next
           using \<open>\<mu> x = Some l\<close> inj_eq by fastforce
 
         have "\<exists>\<sigma>. exactType (selectLoc \<rho> l) = Some \<sigma> \<and> (\<P>\<^sup>l[\<sigma>]) \<sqsubseteq>\<^sub>\<tau> \<tau>"
-          sorry
+          using EVar.prems(2) a2 compat_elim(8) env_select_loc_compat_use by blast
       
         then show "env_select_var_compat (\<Gamma>(V x \<mapsto> f \<tau>)) (\<lambda>k. if l = k then [f] else []) \<P> (\<mu>, \<rho>)"
           using x_ty a1 a2 EVar
@@ -2446,17 +2486,38 @@ next
   next
     case False
 
-    obtain r where "\<rho> (parent l) = Some r" using EVar
+    obtain r where in_store: "\<rho> (parent l) = Some r" using EVar
       by (meson compat_elim(3) domD in_var_lookup_in_store)
 
-    then have compat: "compat ?\<Gamma>' (build_offset f (S ?\<L>')) \<P> (\<mu>, \<rho>)" 
-      using False EVar x_ty final_env
-      apply (auto simp: compat_def var_store_sync_def)
-      apply (simp add: apply_offset_def)
-      apply (simp add: apply_offset_def)
-      using injD apply fastforce
-      apply (simp add: apply_offset_def)
-      sorry
+    have compat: "compat ?\<Gamma>' (build_offset f (S ?\<L>')) \<P> (\<mu>, \<rho>)" 
+      apply (rule compat_same_store_upd[where \<Gamma> = \<Gamma> and \<O> = "build_offset f (S (V x))" and \<P> = \<P>])
+      apply (simp_all add: final_env False)
+    proof -
+      show "compat \<Gamma> empty_offset \<P> (\<mu>, \<rho>)" using EVar by simp
+
+      have "var_dom \<Gamma> = dom \<mu>" using EVar compat_elim by auto
+      then show "{xa. xa = x \<or> V xa \<in> dom \<Gamma>} = dom \<mu>"
+        using final_env by (auto simp: EVar.hyps)
+
+      show "var_store_sync (\<Gamma>(V x \<mapsto> f \<tau>, Loc l \<mapsto> \<tau>)) (\<lambda>k. if l = k then [f] else []) \<mu>"
+        using EVar x_ty
+        apply (auto simp: var_store_sync_def)
+          apply (simp_all add: apply_offset_def)
+        using injD
+        apply (metis compat_elim(5))
+        by (simp add: \<open>\<forall>x k \<tau>. \<mu> x = Some k \<and> \<Gamma> (Loc k) = Some \<tau> \<longrightarrow> \<Gamma> (V x) = Some \<tau>\<close>)
+
+      show "env_select_var_compat (\<Gamma>(V x \<mapsto> f \<tau>, Loc l \<mapsto> \<tau>)) (\<lambda>k. if l = k then [f] else []) \<P> (\<mu>, \<rho>)"
+        using EVar x_ty
+        apply auto
+        apply (rule env_select_var_compat_insert_loc)
+        apply (simp add: empty_offset_insert)
+        by (metis compat_elim(5) compat_elim(6) env_select_var_compat_apply_f offset_comp_empty_r)
+
+      show "env_select_loc_compat (\<Gamma>(V x \<mapsto> f \<tau>, Loc l \<mapsto> \<tau>)) \<P> \<rho>"
+        using EVar x_ty
+        by (smt Stored.distinct(1) Stored.inject(2) \<open>Psamathe.compat \<Gamma> empty_offset \<P> (\<mu>, \<rho>)\<close> compat_elim(6) compat_elim(8) env_select_compatI env_select_compat_use env_select_loc_compat_def map_upd_Some_unfold offset_comp_empty_l)
+    qed
 
     have typed: "?\<Gamma>' \<turnstile>{s} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'" using False loc_type.Loc 
       apply (simp add: final_env)
@@ -2510,8 +2571,33 @@ next
     show "finite (dom ?\<rho>')"
       using EVarDef by (auto simp: compat_def)
 
-    show "env_select_loc_compat ?\<Gamma>' \<P> ?\<rho>'"
-      sorry
+    have "env_select_loc_compat \<Gamma> \<P> \<rho>" using EVarDef compat_elim by auto
+    have "SLoc l \<notin> offset_dom \<P>"
+      using EVarDef
+      by (metis loc_dom.simps mem_Collect_eq not_in_dom_compat parent.simps(1) subsetD)
+    then show "env_select_loc_compat ?\<Gamma>' \<P> ?\<rho>'"
+      apply (simp add: final_env)
+      apply (auto simp: env_select_loc_compat_def)
+       apply (simp add: not_in_offset_dom_is_id base_type_compat_refl)
+      using \<open>env_select_loc_compat \<Gamma> \<P> \<rho>\<close>
+      apply (auto simp: env_select_loc_compat_def)
+    proof -
+      fix k \<tau>
+      assume "\<Gamma> (Loc k) = Some \<tau>" 
+        and "\<forall>l a b.
+           \<Gamma> (Loc l) = Some (a, b) \<longrightarrow> (\<exists>aa ba. exactType (selectLoc \<rho> l) = Some (aa, ba) \<and> \<P>\<^sup>l[(aa, ba)] \<sqsubseteq>\<^sub>\<tau> (a, b))"
+      then obtain q' t' where "exactType (selectLoc \<rho> k) = Some (q', t')" and "\<P>\<^sup>k[(q', t')] \<sqsubseteq>\<^sub>\<tau> \<tau>"
+        by (metis demote.cases)
+      then show "\<exists>aa ba. exactType (selectLoc (\<rho>(l \<mapsto> Res (t, emptyVal t))) k) = Some (aa, ba) \<and> (\<P>\<^sup>k[(aa, ba)]) \<sqsubseteq>\<^sub>\<tau> \<tau>"
+      proof(intro exI conjI)
+        show "exactType (selectLoc (\<rho>(l \<mapsto> Res (t, emptyVal t))) k) = Some (q', t')"
+          using select_loc_preserve_loc
+          by (metis (mono_tags, lifting) EVarDef.hyps(2) \<open>\<Gamma> (Loc k) = Some \<tau>\<close> \<open>env_select_loc_compat \<Gamma> \<P> \<rho>\<close> \<open>exactType (selectLoc \<rho> k) = Some (q', t')\<close> domI fun_upd_other map_le_def)
+
+        show "\<P>\<^sup>k[(q', t')] \<sqsubseteq>\<^sub>\<tau> \<tau> \<Longrightarrow> \<P>\<^sup>k[(q', t')] \<sqsubseteq>\<^sub>\<tau> \<tau>"
+          by assumption
+      qed
+    qed
 
     show "\<forall>la r. ?\<rho>' la = Some r \<longrightarrow> baseTypeMatches r"
       using EVarDef compat_elim
