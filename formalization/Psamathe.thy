@@ -30,7 +30,7 @@ fun sub_store :: "Store \<Rightarrow> Store \<Rightarrow> bool" (infix "\<subset
 definition toQuant :: "nat \<Rightarrow> TyQuant" where
   "toQuant n \<equiv> (if n = 0 then empty else if n = 1 then one else nonempty)"
 
-fun addQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> TyQuant" ("_ \<oplus> _") where
+fun addQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> TyQuant" (infix "\<oplus>" 60) where
   "(q \<oplus> empty) = q"
 | "(empty \<oplus> q) = q"
 | "(nonempty \<oplus> r) = nonempty"
@@ -77,11 +77,11 @@ fun lookupResource :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat \<Righ
   "lookupResource \<rho> l = (case \<rho> l of None \<Rightarrow> error | Some r \<Rightarrow> r)"
 
 fun selectLoc :: "(nat, Resource) map \<Rightarrow> StorageLoc \<Rightarrow> Resource" where
-  "selectLoc \<rho> (Amount l n) = (case \<rho> l of Some (Res (t,_)) \<Rightarrow> Res (t, Num n) | _ \<Rightarrow> error)"
+  "selectLoc \<rho> (Amount l n) = (case \<rho> l of Some (Res (t, Num _)) \<Rightarrow> Res (t, Num n) | _ \<Rightarrow> error)"
 | "selectLoc \<rho> (ResLoc l r) = 
     (case \<rho> l of 
         Some (Res (t, Table vals)) \<Rightarrow> if r \<in> set vals then Res (t, Table [r]) else error
-       | None \<Rightarrow> error)"
+       | _ \<Rightarrow> error)"
 | "selectLoc \<rho> (SLoc l) = lookupResource \<rho> l"
 
 fun select :: "Store \<Rightarrow> Stored \<Rightarrow> Resource" where
@@ -198,7 +198,6 @@ fun baseTypeMatches :: "Resource \<Rightarrow> bool" where
   "baseTypeMatches (Res (natural, Num _)) = True"
 | "baseTypeMatches (Res (boolean, Bool _)) = True"
 | "baseTypeMatches (Res (table _ _, Table _)) = True"
-| "baseTypeMatches error = True"
 | "baseTypeMatches _ = False"
 
 lemma baseTypeMatches_emptyVal_works: "baseTypeMatches (Res (t, emptyVal t))"
@@ -1988,6 +1987,111 @@ lemma exactType_has_same_base_type:
   apply (cases r, auto)
   by (metis exactType_preserves_tyquant option.inject prod.inject)
 
+lemma store_matches_select_loc_matches:
+  assumes "\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r"
+    and "selectLoc \<rho> k \<noteq> error"
+  shows "baseTypeMatches (selectLoc \<rho> k)"
+  using assms
+  apply (cases k, auto)
+    apply (metis option.case_eq_if option.split_sel)
+proof -
+  fix i n
+  assume a1: "(case \<rho> i of None \<Rightarrow> error | Some (Res (t, Num xa)) \<Rightarrow> Res (t, Num n) | Some (Res (t, _)) \<Rightarrow> error
+         | Some error \<Rightarrow> error) \<noteq>
+        error"
+  then obtain t x where lookup: "\<rho> i = Some (Res (t, x))" 
+    apply (cases "\<rho> i", auto)
+    by (metis Resource.simps(5) demoteResource.cases)
+  then have "(case x of Num xa \<Rightarrow> Res (t, Num n) | _ \<Rightarrow> error) \<noteq> error" using a1
+    by simp
+  then obtain m where "x = Num m" by (cases x, auto)
+  then show "baseTypeMatches
+            (case \<rho> i of None \<Rightarrow> error | Some (Res (t, Num xa)) \<Rightarrow> Res (t, Num n) | Some (Res (t, _)) \<Rightarrow> error
+             | Some error \<Rightarrow> error)"
+    using lookup \<open>\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r\<close>
+    apply auto
+    by (metis baseTypeMatches.simps(1) baseTypeMatches.simps(4) baseTypeMatches.simps(6) emptyVal.elims)
+next
+  fix i v
+  assume a1: "(case \<rho> i of None \<Rightarrow> error
+         | Some (Res (t, Table vals)) \<Rightarrow> if v \<in> set vals then Res (t, Table [v]) else error
+         | Some (Res (t, _)) \<Rightarrow> error | Some error \<Rightarrow> error) \<noteq>
+        error"
+  then obtain t x where lookup: "\<rho> i = Some (Res (t, x))"
+    apply (cases "\<rho> i", auto)
+    by (metis assms(1) baseTypeMatches.simps(12) demoteResource.cases)
+  then have "(case x of Table vals \<Rightarrow> if v \<in> set vals then Res (t, Table [v]) else error | _ \<Rightarrow> error) \<noteq> error"
+    using a1 by simp
+  then obtain vs where "x = Table vs" and "v \<in> set vs" 
+    apply (cases x, auto)
+    by meson
+  then show "baseTypeMatches
+            (case \<rho> i of None \<Rightarrow> error
+             | Some (Res (t, Table vals)) \<Rightarrow> if v \<in> set vals then Res (t, Table [v]) else error
+             | Some (Res (t, _)) \<Rightarrow> error | Some error \<Rightarrow> error)"
+    using lookup \<open>\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r\<close>
+    apply simp
+    by (metis baseTypeMatches.simps(10) baseTypeMatches.simps(3) baseTypeMatches.simps(5) emptyVal.elims)
+qed
+
+lemma store_matches_deepCopy_matches:
+  assumes "\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r"
+    and "deepCopy \<rho> L \<noteq> error"
+  shows "baseTypeMatches (deepCopy \<rho> L)"
+  using assms
+  apply (induction L, auto)
+proof -
+  fix x
+  assume "deepCopy \<rho> (S x) \<noteq> error" and "\<forall>l r. \<rho> l = Some r \<longrightarrow> baseTypeMatches r"
+  then show "baseTypeMatches (deepCopy \<rho> (S x))"
+    apply (cases x, auto)
+    by (metis baseTypeMatches.elims(2) baseTypeMatches.simps(3) demoteBase.simps(1) demoteBase.simps(2) demoteBase.simps(3) demoteResource.simps(1) demoteResource.simps(2) demoteResource.simps(3) demoteResource.simps(4) store_matches_select_loc_matches)
+next
+  fix L1 L2
+  assume "(case deepCopy \<rho> L2 of Res (t, Table rest) \<Rightarrow> Res (t, Table (deepCopy \<rho> L1 # rest)) | Res (t, _) \<Rightarrow> error
+         | error \<Rightarrow> error) \<noteq>
+        error"
+  then obtain t vs where l2_copy: "deepCopy \<rho> L2 = Res (t, Table vs)"
+    apply (cases "deepCopy \<rho> L2", auto)
+    by (metis Val.exhaust Val.simps(10) Val.simps(11))
+  assume "deepCopy \<rho> L2 \<noteq> error \<Longrightarrow> baseTypeMatches (deepCopy \<rho> L2)"
+  then have "baseTypeMatches (deepCopy \<rho> L2)"
+    by (simp add: l2_copy)
+  then show "baseTypeMatches
+            (case deepCopy \<rho> L2 of Res (t, Table rest) \<Rightarrow> Res (t, Table (deepCopy \<rho> L1 # rest)) | Res (t, _) \<Rightarrow> error
+             | error \<Rightarrow> error)"
+    using l2_copy
+    apply auto
+    by (metis baseTypeMatches.simps(10) baseTypeMatches.simps(11) baseTypeMatches.simps(3) emptyVal.elims)
+qed
+
+lemma exactType_table_len:
+  assumes "exactType (Res (t, Table vs)) = Some (q, t)"
+  shows "toQuant (length vs) \<sqsubseteq> q"
+  using assms
+  by (simp add: less_general_quant_refl)
+
+lemma quant_add[simp]: "toQuant (n + m) = toQuant n \<oplus> toQuant m"
+  by (auto simp: toQuant_def)
+
+lemma quant_add_comm: "q \<oplus> r = r \<oplus> q"
+  by (smt TyQuant.exhaust addQuant.simps(1) addQuant.simps(10) addQuant.simps(12) addQuant.simps(2) addQuant.simps(3) addQuant.simps(4) addQuant.simps(5) addQuant.simps(6) addQuant.simps(8) addQuant.simps(9))
+
+lemma quant_add_lt_left:
+  assumes "r \<sqsubseteq> r'"
+  shows "q \<oplus> r \<sqsubseteq> q \<oplus> r'"
+  using assms
+  apply (cases q, auto)
+  apply (smt TyQuant.exhaust addQuant.simps(1) addQuant.simps(2) addQuant.simps(3) addQuant.simps(4))
+  apply (metis TyQuant.distinct(11) TyQuant.distinct(3) TyQuant.distinct(5) TyQuant.distinct(7) TyQuant.distinct(9) TyQuant.exhaust addQuant.simps(1) addQuant.simps(12) addQuant.simps(13) addQuant.simps(8) assms less_general_quant.simps(1) less_general_quant.simps(10) less_general_quant.simps(12) less_general_quant.simps(13) less_general_quant.simps(6) less_general_quant.simps(9) less_general_quant_refl less_general_quant_trans)
+  apply (smt TyQuant.exhaust addQuant.simps(1) addQuant.simps(10) addQuant.simps(11) addQuant.simps(9) insert_iff less_general_quant.simps(11) less_general_quant.simps(2) less_general_quant.simps(4) less_general_quant.simps(5) less_general_quant_refl singletonD)
+  by (smt TyQuant.exhaust addQuant.simps(1) addQuant.simps(5) addQuant.simps(6) addQuant.simps(7) less_general_quant.simps(7))
+
+lemma approx_quant_add_lt:
+  assumes "toQuant n \<sqsubseteq> q" and "toQuant m \<sqsubseteq> r"
+  shows "toQuant (n + m) \<sqsubseteq> q \<oplus> r"
+  by (metis assms(1) assms(2) less_general_quant_trans quant_add quant_add_comm quant_add_lt_left)
+
 lemma deepCopy_makes_demoted:
   assumes "\<Gamma> \<turnstile>{s} f ; L : \<tau> \<stileturn> \<Delta>"
       and "compat \<Gamma> empty_offset empty_offset (\<mu>, \<rho>)"
@@ -2033,11 +2137,24 @@ next
     using ConsList \<open>located Tail\<close> typecheck_id_env_same_source by blast
   then obtain q' t' where "\<pi> = (q', t')" and "q' \<sqsubseteq> q" and "t' \<approx> demote\<^sub>* (table [] \<tau>)"
     by (metis demote.cases demote.simps less_general_type.simps)
-  then obtain vs where "deepCopy \<rho> Tail = Res (t', vs)"
+  then obtain vs where copy: "deepCopy \<rho> Tail = Res (t', vs)"
     using tail_ty exactType_has_same_base_type by blast
-  then show ?case using ConsList
+  then have "baseTypeMatches (Res (t', vs))" using assms 
+    by (smt ConsList.prems(1) Resource.distinct(1) compat_elim(9) store_matches_deepCopy_matches) 
+  (* TODO: Ugh naming *)
+  obtain qe1 te1 where "\<tau> = (qe1,te1)" by (cases \<tau>)
+  then obtain ks qe2 te2 where "t' = table ks (qe2,te2)" and "te2 \<approx> demote\<^sub>* te1" 
+    using \<open>t' \<approx> demote\<^sub>* (table [] \<tau>)\<close>
+    by (cases t', auto)
+  then obtain elems where "vs = Table elems"
+    using \<open>baseTypeMatches (Res (t', vs))\<close> baseTypeMatches.elims(2) by fastforce
+  then have simp_copy: "deepCopy \<rho> Tail = Res (t', Table elems)"
+    by (simp add: copy)
+  then have "toQuant (length elems) \<sqsubseteq> q" using \<open>q' \<sqsubseteq> q\<close>
+    using \<open>\<pi> = (q', t')\<close> exactType_table_len tail_ty by auto
+  then show ?case using ConsList copy \<open>t' \<approx> demote\<^sub>* (table [] \<tau>)\<close> simp_copy
     apply auto
-    sorry
+    by (metis add_Suc gen_length_def length_code quant_add quant_add_lt_left toQuant_one)
 next
   case (Copy \<Gamma> L \<tau> f)
   then have "located L" using located.cases by simp
