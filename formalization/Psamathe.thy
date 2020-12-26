@@ -8,9 +8,9 @@ datatype BaseTy = natural | boolean
 type_synonym Type = "TyQuant \<times> BaseTy"
 datatype Mode = s | d
 
-datatype Val = Num nat | Bool bool | Table "Resource list"
-  and Resource = Res "BaseTy \<times> Val" | error
-datatype StorageLoc = SLoc nat | Amount nat nat | ResLoc nat Resource
+datatype Val = Num nat | Bool bool | Table "Val list"
+datatype Resource = Res "BaseTy \<times> Val" | error
+datatype StorageLoc = SLoc nat | Amount nat nat | ResLoc nat Val
 datatype Stored = V string | Loc StorageLoc
 
 datatype Locator = N nat | B bool | S Stored
@@ -18,7 +18,7 @@ datatype Locator = N nat | B bool | S Stored
   | EmptyList Type ("[ _ ; ]")
   | ConsList Type "Locator" "Locator" ("[ _ ; _ , _ ]")
   | Copy Locator ("copy'(_')")
-datatype Stmt = Flow Locator Locator ("_ \<longlonglongrightarrow> _")
+datatype Stmt = Flow Locator Locator (infix "\<longlonglongrightarrow>" 40)
 datatype Prog = Prog "Stmt list"
 
 type_synonym Env = "(Stored, Type) map"
@@ -97,10 +97,18 @@ fun resourceSum :: "Resource \<Rightarrow> Resource \<Rightarrow> Resource" (inf
 | "(Res (t1, Table vs1)) +\<^sub>r (Res (t2, Table vs2)) = (if t1 = t2 then Res (t1, Table (vs1 @ vs2)) else error)"
 | "_ +\<^sub>r _ = error"
 
+fun resourceSub :: "Resource \<Rightarrow> Resource \<Rightarrow> Resource" (infix "-\<^sub>r" 50) where
+  "(Res (t1, Num n1))    -\<^sub>r (Res (t2, Num n2))    = (if t1 = t2 then Res (t1, Num (n1 - n2)) else error)"
+| "(Res (t1, Bool b1))   -\<^sub>r (Res (t2, Bool b2))   = 
+    (if t1 = t2 then if b2 then Res (t1, Bool False) else Res (t1, Bool b1) else error)"
+| "(Res (t1, Table vs1)) -\<^sub>r (Res (t2, Table vs2)) = 
+    (if t1 = t2 then Res (t1, Table (filter (\<lambda>v. v \<notin> set vs2) vs1)) else error)"
+| "_ -\<^sub>r _ = error"
+
 fun demoteResource :: "Resource \<Rightarrow> Resource" where
   "demoteResource (Res (t, Num n)) = Res (demote\<^sub>* t, Num n)"
 | "demoteResource (Res (t, Bool b)) = Res (demote\<^sub>* t, Bool b)"
-| "demoteResource (Res (t, Table vs)) = Res (demote\<^sub>* t, Table (map demoteResource vs))"
+| "demoteResource (Res (t, Table vs)) = Res (demote\<^sub>* t, Table vs)"
 | "demoteResource error = error"
 
 fun deepCopy :: "(nat \<rightharpoonup> Resource) \<Rightarrow> Locator \<Rightarrow> Resource" where
@@ -108,8 +116,8 @@ fun deepCopy :: "(nat \<rightharpoonup> Resource) \<Rightarrow> Locator \<Righta
 | "deepCopy \<rho> [\<tau>; ] = Res (table [] (demote \<tau>), Table [])"
 | "deepCopy \<rho> [\<tau>; Head, Tail] = 
   (
-    case deepCopy \<rho> Tail of
-      Res (t, Table rest) \<Rightarrow> Res (t, Table (deepCopy \<rho> Head # rest))
+    case (deepCopy \<rho> Head, deepCopy \<rho> Tail) of
+      (Res (t1, v), Res (t2, Table vs)) \<Rightarrow> Res (t2, Table (v # vs))
     | _ \<Rightarrow> error
   )"
 | "deepCopy \<rho> copy(L) = deepCopy \<rho> L"
@@ -130,13 +138,10 @@ inductive loc_eval :: "Store \<Rightarrow> Locator \<Rightarrow> Store \<Rightar
               \<Longrightarrow> < \<Sigma>, [ \<tau> ; \<L>, Tail ] > \<rightarrow> < \<Sigma>', [ \<tau> ; \<L>, Tail' ] >"
 | ECopyCongr: "\<lbrakk> <\<Sigma>, L> \<rightarrow> <\<Sigma>', L'> \<rbrakk> \<Longrightarrow> <\<Sigma>, copy(L)> \<rightarrow> <\<Sigma>', copy(L')>"
 
-(* NOTE: THIS IS WRONG (but kept for later, if needed). We can't peform the copy (i.e., call deepCopy) 
-         until we actual start subtracting things from the locator, because the deepCopy will copy 
-         things as they were **before** the flow, not as they are at this point in evaluation 
-         (e.g., consider [ x, copy(x) ]) *)
-(*
-| ECopyEval: "\<lbrakk> located L; l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> <(\<mu>, \<rho>), copy(L)> \<rightarrow> <(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), S (Loc (SLoc l))>"
-*)
+inductive stmt_ok :: "Env \<Rightarrow> Stmt \<Rightarrow> Env \<Rightarrow> bool" ("_ \<turnstile> _ ok \<stileturn> _") where
+  Flow: "\<lbrakk> \<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>;
+           \<Delta> \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (_,t) \<stileturn> \<Xi> \<rbrakk>
+         \<Longrightarrow> \<Gamma> \<turnstile> (Src \<longlonglongrightarrow> Dst) ok \<stileturn> \<Xi>"
 
 (* TODO: Update when adding new types *)
 fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" (infix "\<approx>" 50) where
@@ -265,6 +270,26 @@ fun parent :: "StorageLoc \<Rightarrow> nat" where
 | "parent (Amount l _) = l"
 | "parent (ResLoc l _) = l"
 
+inductive stmt_eval :: "Store \<Rightarrow> Stmt list \<Rightarrow> Store \<Rightarrow> Stmt list \<Rightarrow> bool"
+  ("\<langle> _ , _ \<rangle> \<rightarrow> \<langle> _ , _ \<rangle>") where
+  EFlowSrcCongr: "\<lbrakk> < \<Sigma>, Src > \<rightarrow> < \<Sigma>', Src' > \<rbrakk> \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src' \<longlonglongrightarrow> Dst ] \<rangle>"
+| EFlowDstCongr: "\<lbrakk> located Src ; < \<Sigma>, Dst > \<rightarrow> < \<Sigma>', Dst' > \<rbrakk> 
+                  \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src \<longlonglongrightarrow> Dst' ] \<rangle>"
+(* TODO: Need to generalize this rule more so destination can be anything *)
+| EFlowLoc: "\<lbrakk> \<rho> (parent l) = Some r1;
+               selectLoc \<rho> l = r2;
+               \<rho> k = Some dr \<rbrakk>
+             \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc (SLoc k)) ]\<rangle> \<rightarrow> 
+                 \<langle>(\<mu>, \<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2)), []\<rangle>"
+
+(* NOTE: THIS IS WRONG (but kept for later, if needed). We can't peform the copy (i.e., call deepCopy) 
+         until we actual start subtracting things from the locator, because the deepCopy will copy 
+         things as they were **before** the flow, not as they are at this point in evaluation 
+         (e.g., consider [ x, copy(x) ]) *)
+(*
+| ECopyEval: "\<lbrakk> located L; l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> <(\<mu>, \<rho>), copy(L)> \<rightarrow> <(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), S (Loc (SLoc l))>"
+*)
+
 fun storageLocRefs :: "StorageLoc \<Rightarrow> nat set" where
   "storageLocRefs l = {parent l}"
 
@@ -293,6 +318,9 @@ inductive wf_locator :: "Locator \<Rightarrow> bool" ("_ wf" 10) where
 | CopyWf: "\<lbrakk> L wf \<rbrakk> \<Longrightarrow> (copy(L)) wf"
 | ConsLocWf: "\<lbrakk> located \<L> ; \<L> wf ; Tail wf \<rbrakk> \<Longrightarrow> [ \<tau> ; \<L>, Tail ] wf"
 | ConsNotLocWf: "\<lbrakk> \<not>(located \<L>) ; \<L> wf ; locations Tail = {#}; Tail wf \<rbrakk> \<Longrightarrow> [ \<tau> ; \<L>, Tail ] wf"
+
+inductive wf_stmt :: "Stmt \<Rightarrow> bool" ("_ stmt'_wf" 10) where
+  FlowWf: "\<lbrakk> Src wf; Dst wf \<rbrakk> \<Longrightarrow> (Src \<longlonglongrightarrow> Dst) stmt_wf"
 
 fun var_ty_env :: "Env \<Rightarrow> (string \<rightharpoonup> Type)" where
   "var_ty_env \<Gamma> = (\<lambda>x. \<Gamma> (V x))"
@@ -2058,19 +2086,28 @@ proof -
     by (metis baseTypeMatches.elims(2) baseTypeMatches.simps(3) demoteBase.simps(1) demoteBase.simps(2) demoteBase.simps(3) demoteResource.simps(1) demoteResource.simps(2) demoteResource.simps(3) demoteResource.simps(4) store_matches_select_loc_matches)
 next
   fix L1 L2
-  assume "(case deepCopy \<rho> L2 of Res (t, Table rest) \<Rightarrow> Res (t, Table (deepCopy \<rho> L1 # rest)) | Res (t, _) \<Rightarrow> error
+  assume "(case deepCopy \<rho> L1 of
+         Res (t1, v) \<Rightarrow>
+           case deepCopy \<rho> L2 of Res (t2, Table vs) \<Rightarrow> Res (t2, Table (v # vs)) | Res (t2, _) \<Rightarrow> error | error \<Rightarrow> error
          | error \<Rightarrow> error) \<noteq>
         error"
-  then obtain t vs where l2_copy: "deepCopy \<rho> L2 = Res (t, Table vs)"
-    apply (cases "deepCopy \<rho> L2", auto)
+  then obtain te t v vs 
+    where l1_copy: "deepCopy \<rho> L1 = Res (te, v)" and l2_copy: "deepCopy \<rho> L2 = Res (t, Table vs)"
+    apply (cases "deepCopy \<rho> L1", cases "deepCopy \<rho> L2", auto)
     by (metis Val.exhaust Val.simps(10) Val.simps(11))
   assume "deepCopy \<rho> L2 \<noteq> error \<Longrightarrow> baseTypeMatches (deepCopy \<rho> L2)"
+     and "deepCopy \<rho> L1 \<noteq> error \<Longrightarrow> baseTypeMatches (deepCopy \<rho> L1)"
   then have "baseTypeMatches (deepCopy \<rho> L2)"
-    by (simp add: l2_copy)
+        and "baseTypeMatches (deepCopy \<rho> L1)"
+    apply (simp add: l2_copy)
+    using \<open>deepCopy \<rho> L1 \<noteq> error \<Longrightarrow> baseTypeMatches (deepCopy \<rho> L1)\<close> l1_copy by auto
   then show "baseTypeMatches
-            (case deepCopy \<rho> L2 of Res (t, Table rest) \<Rightarrow> Res (t, Table (deepCopy \<rho> L1 # rest)) | Res (t, _) \<Rightarrow> error
+            (case deepCopy \<rho> L1 of
+             Res (t1, v) \<Rightarrow>
+               case deepCopy \<rho> L2 of Res (t2, Table vs) \<Rightarrow> Res (t2, Table (v # vs)) | Res (t2, _) \<Rightarrow> error
+               | error \<Rightarrow> error
              | error \<Rightarrow> error)"
-    using l2_copy
+    using l2_copy l1_copy
     apply auto
     by (metis baseTypeMatches.simps(10) baseTypeMatches.simps(11) baseTypeMatches.simps(3) emptyVal.elims)
 qed
@@ -2164,7 +2201,8 @@ next
     using \<open>\<pi> = (q', t')\<close> exactType_table_len tail_ty by auto
   then show ?case using ConsList copy \<open>t' \<approx> demote\<^sub>* (table [] \<tau>)\<close> simp_copy
     apply auto
-    by (metis add_Suc gen_length_def length_code quant_add quant_add_lt_left toQuant_one)
+    sorry
+    (* TODO: Need to get more info about the copy of the head to make this work out *)
 next
   case (Copy \<Gamma> L \<tau> f)
   then have "located L" using located.cases by simp
@@ -2791,6 +2829,83 @@ next
   then show ?case using \<open>demote \<sigma> = \<tau>\<close>
     apply simp
     by (metis compat_id surj_pair)
+qed
+
+fun build_stmt_offset :: "Stmt \<Rightarrow> Offset" where
+  "build_stmt_offset (Src \<longlonglongrightarrow> Dst) = (build_offset (\<lambda>(_,t). (empty,t)) Src)"
+
+lemma type_preserving_add: "type_preserving (\<lambda>(r, s). (r \<oplus> q, s))"
+  apply (auto simp: type_preserving_def base_type_compat_refl)
+  using quant_add_comm quant_add_lt_left by auto
+
+theorem stmt_progress:
+  assumes "\<Gamma> \<turnstile> Stmt ok \<stileturn> \<Delta>"
+      and "compat \<Gamma> (build_stmt_offset Stmt) empty_offset (\<mu>, \<rho>)"
+      and "Stmt stmt_wf"
+      and "finite (dom \<rho>)"
+    shows "\<exists>\<mu>' \<rho>' Stmts'. \<langle> (\<mu>, \<rho>), [Stmt] \<rangle> \<rightarrow> \<langle> (\<mu>', \<rho>'), Stmts' \<rangle>"
+  using assms
+proof(induction arbitrary: \<mu> \<rho>)
+  case (Flow \<Gamma> Src q t \<Delta> Dst uu \<Xi>)
+  then have "Src wf" and "Dst wf" using wf_stmt.cases by blast+
+  then show ?case
+  proof(cases "located Src")
+    case True
+    then show ?thesis
+    proof(cases "located Dst")
+      case True
+      (* TODO: Won't be able to prove this right now, because we need to more rules to deal with 
+               all the possible source and destination types. That's fine, this is just proof-of-concept 
+               atm, leave sorrys in for now. *)
+      then show ?thesis sorry
+    next
+      case False
+      have "compat \<Delta> (build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) 
+                      ((build_offset (\<lambda>(_,t). (empty,t)) Src) \<circ>\<^sub>o empty_offset) (\<mu>, \<rho>) 
+          \<and> \<Delta> = update_locations \<Gamma> (build_offset (\<lambda>(_,t). (empty,t)) Src)"
+      proof(rule located_env_compat)
+        show "\<Gamma> \<turnstile>{s} \<lambda>(_, t). (TyQuant.empty, t) ; Src : (q, t) \<stileturn> \<Delta>" using Flow by simp
+
+        (* TODO: Current issue is that build_stmt_offset doesn't really know what to do because it 
+                 basically needs to typecheck in order to calculate the offset *)
+        show "compat \<Gamma> (build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst \<circ>\<^sub>o build_offset (\<lambda>(_, t). (empty, t)) Src)
+                     empty_offset (\<mu>, \<rho>)"
+          sorry
+
+        show "located Src" using \<open>located Src\<close> by simp
+        show "type_preserving (\<lambda>(_, t). (TyQuant.empty, t))" using type_preserving_with_quant by simp
+      qed
+      
+      then have dst_compat: "compat \<Delta> (build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) (build_offset (\<lambda>(_,t). (empty,t)) Src) (\<mu>, \<rho>)"
+        by (metis offset_comp_empty_r)
+      have "located Dst \<or> (\<exists>\<mu>' \<rho>' Dst'. <(\<mu>, \<rho>), Dst> \<rightarrow> <(\<mu>', \<rho>'), Dst'>)"
+      proof(rule locator_progress)
+        show "\<Delta> \<turnstile>{d} \<lambda>(r, s). (r \<oplus> q, s) ; Dst : (uu, t) \<stileturn> \<Xi>" 
+          using Flow by simp
+
+        show "compat \<Delta> (empty_offset \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) (build_offset (\<lambda>(_,t). (empty,t)) Src) (\<mu>, \<rho>)"
+          using dst_compat by simp
+
+        show "Dst wf" using \<open>Dst wf\<close> by simp
+        show "finite (dom \<rho>)" using Flow by simp
+        show "type_preserving (\<lambda>(r, s). (r \<oplus> q, s))" using type_preserving_add by simp
+      qed
+      then obtain \<mu>' \<rho>' Dst' where "<(\<mu>, \<rho>), Dst> \<rightarrow> <(\<mu>', \<rho>'), Dst'>" using False by auto
+        
+      then show ?thesis
+        using \<open>located Src\<close> Flow EFlowDstCongr locator_progress type_preserving_add
+        apply simp
+        apply (intro exI)
+        apply (rule EFlowDstCongr[where \<Sigma>' = "(\<mu>', \<rho>')" and Dst' = Dst'])
+        by simp
+    qed
+  next
+    case False
+    then show ?thesis 
+      using Flow EFlowSrcCongr locator_progress type_preserving_with_quant
+      apply simp
+      by (metis Stmt.inject offset_comp_empty_l wf_stmt.cases)
+  qed
 qed
 
 (* 
