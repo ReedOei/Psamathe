@@ -275,12 +275,18 @@ inductive stmt_eval :: "Store \<Rightarrow> Stmt list \<Rightarrow> Store \<Righ
   EFlowSrcCongr: "\<lbrakk> < \<Sigma>, Src > \<rightarrow> < \<Sigma>', Src' > \<rbrakk> \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src' \<longlonglongrightarrow> Dst ] \<rangle>"
 | EFlowDstCongr: "\<lbrakk> located Src ; < \<Sigma>, Dst > \<rightarrow> < \<Sigma>', Dst' > \<rbrakk> 
                   \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src \<longlonglongrightarrow> Dst' ] \<rangle>"
-(* TODO: Need to generalize this rule more so destination can be anything *)
+(* TODO: Need to generalize this rule more so destination can be any kind of StorageLoc *)
 | EFlowLoc: "\<lbrakk> \<rho> (parent l) = Some r1;
                selectLoc \<rho> l = r2;
                \<rho> k = Some dr \<rbrakk>
              \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc (SLoc k)) ]\<rangle> \<rightarrow> 
                  \<langle>(\<mu>, \<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2)), []\<rangle>"
+| EFlowEmptyList: "\<lbrakk> located Dst \<rbrakk> \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ [ \<tau>; ] \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> \<langle>(\<mu>, \<rho>), []\<rangle>"
+| EFlowConsList: "\<lbrakk> located Head; located Tail; located Dst \<rbrakk> 
+                  \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ [ \<tau>; Head, Tail ] \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> \<langle>(\<mu>, \<rho>), [ Head \<longlonglongrightarrow> Dst, Tail \<longlonglongrightarrow> Dst]\<rangle>"
+| EFlowCopy: "\<lbrakk> located L; located Dst; l \<notin> dom \<rho> \<rbrakk>
+              \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ copy(L) \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> 
+                  \<langle>(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), [ S (Loc (SLoc l)) \<longlonglongrightarrow> Dst ]\<rangle>" 
 
 (* NOTE: THIS IS WRONG (but kept for later, if needed). We can't peform the copy (i.e., call deepCopy) 
          until we actual start subtracting things from the locator, because the deepCopy will copy 
@@ -805,15 +811,6 @@ proof(rule ext)
   qed
 qed
 
-definition insert_many :: "Offset \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Offset" where
-  "insert_many \<O> f \<LL> \<equiv> (\<lambda>l. \<O> l @ replicate (count \<LL> l) f)"
-
-definition offset_of :: "(Type \<Rightarrow> Type) \<Rightarrow> StorageLoc multiset \<Rightarrow> Offset" where
-  "offset_of \<equiv> insert_many (\<lambda>l. [])"
-
-lemma offset_of_add: "offset_of f (\<LL> + \<KK>) = insert_many (offset_of f \<LL>) f \<KK>"
-  by (auto simp: insert_many_def offset_of_def replicate_add)
-
 lemma update_locations_step: 
   assumes "\<Gamma>(Loc l) = Some \<tau>" 
   shows "\<Gamma>(Loc l \<mapsto> f \<tau>) = update_locations \<Gamma> (\<lambda>a. if l = a then [f] else [])"
@@ -822,35 +819,7 @@ proof(rule ext)
   show "(\<Gamma>(Loc l \<mapsto> f \<tau>)) x = update_locations \<Gamma> (\<lambda>a. if l = a then [f] else []) x" 
     using assms
     apply (cases x)
-    by (auto simp: offset_of_def insert_many_def apply_offset_def option.map_id)
-qed
-
-lemma insert_many_single[simp]: 
-  "insert_many \<O> f (add_mset l \<LL>) = insert_many (\<O>(l @@ f)) f \<LL>"
-  by (auto simp: insert_many_def)
-
-lemma insert_many_id[simp]: "insert_many \<O> f {#} = \<O>"
-  by (auto simp: insert_many_def)
-
-lemma insert_many_add: "insert_many \<O> f (\<LL> + \<KK>) = insert_many (insert_many \<O> f \<LL>) f \<KK>"
-proof(rule ext)
-  fix x
-  show "insert_many \<O> f (\<LL> + \<KK>) x = insert_many (insert_many \<O> f \<LL>) f \<KK> x"
-    apply (cases x)
-    by (auto simp: insert_many_def replicate_add)
-qed
-
-lemma update_comm: "update_locations (update_locations \<Gamma> (offset_of f \<LL>)) (offset_of f \<K>) 
-       = update_locations \<Gamma> (insert_many (offset_of f \<LL>) f \<K>)"
-proof(rule ext)
-  fix x
-  show "update_locations (update_locations \<Gamma> (offset_of f \<LL>)) (offset_of f \<K>) x =
-         update_locations \<Gamma> (insert_many (offset_of f \<LL>) f \<K>) x"
-    apply (cases x)
-     apply (auto simp: insert_many_def apply_offset_def offset_of_def)
-    apply (cases "\<Gamma> x")
-    apply auto
-    by (metis append_replicate_commute foldl_append foldl_comp)
+    by (auto simp: apply_offset_def option.map_id)
 qed
 
 definition empty_offset :: "Offset" where
@@ -1066,15 +1035,6 @@ lemma located_env_compat2:
   using located_env_compat apply auto[1]
   using assms(1) assms(2) assms(3) assms(4) located_env_compat by auto
 
-lemma insert_many_ids: "(insert_many \<O> id \<LL>)\<^sup>l[\<tau>] = (\<O>\<^sup>l[\<tau>])"
-  by (auto simp: insert_many_def apply_offset_def comp_id_nop)
-
-lemma var_store_sync_id_insert:
-  assumes "var_store_sync \<Gamma> \<O> \<Sigma>"
-  shows "var_store_sync \<Gamma> (insert_many \<O> id \<LL>) \<Sigma>"
-  using assms
-  by (auto simp: var_store_sync_def insert_many_ids)
-
 lemma var_store_sync_build_id:
   assumes "var_store_sync \<Gamma> \<O> \<Sigma>"
   shows "var_store_sync \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) \<Sigma>"
@@ -1150,7 +1110,7 @@ next
   have loc_induct: "located \<L> \<or> (\<exists>\<mu>' \<rho>' \<L>'. < (\<mu>, \<rho>) , \<L> > \<rightarrow> < (\<mu>', \<rho>') , \<L>' >)"
     and tail_induct: "\<And>\<mu>' \<rho>'. \<lbrakk>compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (build_offset f \<L> \<circ>\<^sub>o \<P>) (\<mu>, \<rho>)\<rbrakk>
                          \<Longrightarrow> located Tail \<or> (\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >)"
-    apply (simp add: ConsList.IH(1) insert_many_add union_commute)
+    apply (simp add: ConsList.IH(1) union_commute)
     by (simp add: ConsList.IH(2) \<open>Tail wf\<close> \<open>type_preserving f\<close> compat_elim(7) offset_comp_assoc)
    
   show ?case
@@ -1165,8 +1125,7 @@ next
     next
       case False
       from loc_l have "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset f Tail) (build_offset f \<L> \<circ>\<^sub>o \<P>) (\<mu>, \<rho>)" 
-        using located_env_compat ConsList env_compat
-        by (smt add.commute insert_many_add)
+        using located_env_compat ConsList env_compat by blast
       then have "\<exists>\<mu>' \<rho>' Tail'. < (\<mu>, \<rho>) , Tail > \<rightarrow> < (\<mu>', \<rho>') , Tail' >"
         using tail_induct ConsList False by blast
       then show ?thesis using EConsListTailCongr loc_l by blast
@@ -2907,70 +2866,5 @@ proof(induction arbitrary: \<mu> \<rho>)
       by (metis Stmt.inject offset_comp_empty_l wf_stmt.cases)
   qed
 qed
-
-(* 
-next
-  case (ECopyEval L l \<rho> \<mu>)
-
-  then obtain \<sigma> where loc_ty: "\<Gamma> \<turnstile>{s} id ; L : \<sigma> \<stileturn> \<Gamma>" and "demote \<sigma> = \<tau>" and final_env: "\<Gamma> = \<Delta>"
-    apply auto
-    apply (erule loc_type.cases)
-    apply auto
-    by auto
-
-  have "compat \<Gamma> empty_offset \<P> (\<mu>, \<rho>)" using ECopyEval by simp
-
-  let ?\<L>' = "Loc (SLoc l)"
-  let ?\<Gamma>' = "\<Delta>(?\<L>' \<mapsto> \<tau>)"
-  let ?\<Delta>' = "?\<Gamma>'(?\<L>' \<mapsto> f \<tau>)"
-  let ?\<rho>' = "\<rho>(l \<mapsto> deepCopy \<rho> L)"
-
-  show ?case
-  proof(intro exI conjI)      
-    obtain \<sigma>' where copy_ty: "exactType (deepCopy \<rho> L) = Some \<sigma>'" and "\<sigma>' \<sqsubseteq>\<^sub>\<tau> \<tau>"
-      using loc_ty \<open>located L\<close> \<open>Psamathe.compat \<Gamma> empty_offset \<P> (\<mu>, \<rho>)\<close> \<open>demote \<sigma> = \<tau>\<close> deepCopy_makes_demoted 
-      by blast
-
-    show "compat ?\<Gamma>' (build_offset f (S ?\<L>')) \<P> (\<mu>, ?\<rho>')"
-      apply (simp add: empty_offset_insert)
-    proof(rule add_fresh_loc[where \<tau> = \<sigma>'])
-      show "compat \<Delta> empty_offset \<P> (\<mu>, \<rho>)"
-        using \<open>Psamathe.compat \<Gamma> empty_offset \<P> (\<mu>, \<rho>)\<close> final_env by auto
-      
-      show "offset_dom empty_offset \<subseteq> loc_dom \<Delta>" by simp
-
-      (* TODO: Should this also be a part of compat? *)
-      show "offset_dom \<P> \<subseteq> loc_dom \<Delta>"
-        using ECopyEval.prems(3) final_env by auto
-
-      show "Loc (SLoc l) \<notin> dom \<Delta>"
-        using ECopyEval.hyps(2) \<open>Psamathe.compat \<Delta> empty_offset \<P> (\<mu>, \<rho>)\<close> not_in_dom_compat by auto
-
-      show "parent (SLoc l) \<notin> dom \<rho>"
-        by (simp add: ECopyEval.hyps(2))
-       
-      show "exactType (deepCopy \<rho> L) = Some \<sigma>'" using copy_ty by simp
-
-      show "valid_ref (SLoc l) (deepCopy \<rho> L)"
-        apply (cases "deepCopy \<rho> L")
-        using copy_ty by auto
-
-      show "\<sigma>' \<sqsubseteq>\<^sub>\<tau> \<tau>" by (simp add: \<open>\<sigma>' \<sqsubseteq>\<^sub>\<tau> \<tau>\<close>)
-
-      show "l = parent (SLoc l)" by simp
-    qed
-  next
-    show "?\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> ?\<Delta>'" using loc_type.Loc
-      by (meson fun_upd_same)
-  next
-    show "var_ty_env \<Delta> = var_ty_env ?\<Delta>'" by simp
-  next
-    show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env (\<Delta>(Loc (SLoc l) \<mapsto> \<tau>))" using ECopyEval final_env
-      apply (auto simp: map_le_def)
-      by (metis ECopyEval.hyps(2) domI not_in_dom_compat parent.simps(1))
-
-    show "(\<mu>, \<rho>) \<subseteq>\<^sub>s (\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L))" 
-      by (auto simp: map_le_def \<open>l \<notin> dom \<rho>\<close>)
-  qed *)
 
 end
