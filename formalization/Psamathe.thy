@@ -2816,7 +2816,42 @@ proof(induction arbitrary: \<mu> \<rho>)
       (* TODO: Won't be able to prove this right now, because we need to more rules to deal with 
                all the possible source and destination types. That's fine, this is just proof-of-concept 
                atm, leave sorrys in for now. *)
-      then show ?thesis sorry
+      then show ?thesis
+      proof(cases Src)
+        case (N x1)
+        then show ?thesis using \<open>located Src\<close> by simp
+      next
+        case (B x2)
+        then show ?thesis using \<open>located Src\<close> by simp
+      next
+        case (S x3)
+        then show ?thesis sorry
+      next
+        case (VDef x41 x42)
+        then show ?thesis using \<open>located Src\<close> by simp
+      next
+        case (EmptyList x5)
+        then show ?thesis using EFlowEmptyList True by blast 
+      next
+        case (ConsList x61 x62 x63)
+        then show ?thesis
+          apply (intro exI)
+          apply simp
+          apply (rule EFlowConsList)
+          using \<open>located Src\<close> apply simp
+          using \<open>located Src\<close> apply simp
+          using \<open>located Dst\<close> by simp
+      next
+        case (Copy x7)
+        obtain l where fresh: "l \<notin> dom \<rho>" using Flow.prems(3) gen_loc by auto 
+        show ?thesis using Copy
+          apply simp
+          apply (intro exI)
+          apply (rule EFlowCopy)
+          using \<open>located Src\<close> apply simp
+          using \<open>located Dst\<close> apply simp
+          using fresh by simp
+      qed
     next
       case False
       have "compat \<Delta> (build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) 
