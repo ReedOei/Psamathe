@@ -344,12 +344,6 @@ fun var_ty_env :: "Env \<Rightarrow> (string \<rightharpoonup> Type)" where
 fun loc_ty_env :: "Env \<Rightarrow> (StorageLoc \<rightharpoonup> Type)" where
   "loc_ty_env \<Gamma> = (\<lambda>l. \<Gamma> (Loc l))"
 
-fun bind_option :: "('a \<Rightarrow> 'b option) \<Rightarrow> 'a option \<Rightarrow> 'b option" where
-  "bind_option f x = (case map_option f x of Some b \<Rightarrow> b | _ \<Rightarrow> None)"
-
-fun lookup_var_loc :: "Env \<Rightarrow> (string \<rightharpoonup> StorageLoc) \<Rightarrow> (string \<rightharpoonup> Type)" (infix "\<circ>\<^sub>l" 30) where
-  "lookup_var_loc \<Gamma> \<mu> = ((\<lambda>l. \<Gamma> (Loc l)) \<circ>\<^sub>m \<mu>)"
-
 type_synonym Offset = "StorageLoc \<Rightarrow> (Type \<Rightarrow> Type) list" 
 
 definition apply_offset :: "Offset \<Rightarrow> StorageLoc \<Rightarrow> Type \<Rightarrow> Type" ("_\<^sup>_[_]" 110) where
@@ -3051,11 +3045,36 @@ next
   case (EFlowDstCongr Src \<Sigma> Dst \<Sigma>' Dst')
   then show ?case sorry
 next
-case (EFlowLoc \<rho> l r1 r2 k dr \<mu>)
+  case (EFlowLoc \<rho> l r1 r2 k dr \<mu>)
   then show ?case sorry
 next
   case (EFlowEmptyList Dst \<mu> \<rho> \<tau>)
-  then show ?case sorry
+  then obtain q r t \<Delta>' 
+    where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; [ \<tau>; ] : (q,t) \<stileturn> \<Delta>'"
+      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r, t) \<stileturn> \<Delta>"
+    using stmt_ok.simps by auto
+  then have "\<Gamma> = \<Delta>'" and "q = empty" and "t = table [] \<tau>"
+    using loc_type.cases by blast+
+  then show ?case
+  proof(intro exI conjI)
+    show "compat \<Delta>' (build_stmts_offset []) empty_offset (\<mu>, \<rho>)"
+      (* TODO: Should be able to solve this using located_env_compat? But what about the locations 
+               in Dst? We need to somehow disregard those?*)
+      sorry
+
+    show "\<Delta>' \<turnstile> [] oks \<stileturn> \<Delta>'" by simp
+
+    show "var_ty_env \<Delta> = var_ty_env \<Delta>'"
+      using \<open>located Dst\<close> dst_ty
+      (* TODO: This works because Dst is located, so it can't declare any new variables *)
+      sorry
+
+    show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Delta>'"
+      by (simp add: \<open>\<Gamma> = \<Delta>'\<close>)
+
+    show "[] stmts_wf"
+      by (simp add: EmptyStmtsWf)
+  qed
 next
   case (EFlowConsList Head Tail Dst \<mu> \<rho> \<tau>)
   then show ?case sorry

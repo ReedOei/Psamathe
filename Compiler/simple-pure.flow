@@ -59,12 +59,6 @@ x --> y
 [ any nat ; ] --> var m : map any nat => any nat
 [ any nat ; { key : any nat |-> 0, value : any nat |-> x } ] --> m
 
-/* try { */
-/*     4 --> y */
-/* } catch { */
-/*     5 --> y */
-/* } */
-
 false --> var b : bool
 
 [ any nat ; 1,2,3 ] --> var nums : list any nat
