@@ -322,21 +322,16 @@ fun locations :: "Locator \<Rightarrow> StorageLoc multiset" where
 | "locations [ \<tau> ; ] = {#}"
 | "locations [ \<tau> ; \<L>, Tail ] = (locations \<L> + locations Tail)"
 
-inductive wf_locator :: "Locator \<Rightarrow> bool" ("_ wf" 10) where
-  EmptyWf: "[ \<tau> ; ] wf"
-| VarWf: "S x wf"
-| NatWf: "N n wf"
-| BoolWf: "B b wf"
-| CopyWf: "\<lbrakk> L wf \<rbrakk> \<Longrightarrow> (copy(L)) wf"
-| ConsLocWf: "\<lbrakk> located \<L> ; \<L> wf ; Tail wf \<rbrakk> \<Longrightarrow> [ \<tau> ; \<L>, Tail ] wf"
-| ConsNotLocWf: "\<lbrakk> \<not>(located \<L>) ; \<L> wf ; locations Tail = {#}; Tail wf \<rbrakk> \<Longrightarrow> [ \<tau> ; \<L>, Tail ] wf"
+fun wf_locator :: "Locator \<Rightarrow> bool" ("_ wf" 10) where
+  "(copy(L) wf) = (L wf)"
+| "([ \<tau> ; L, Tail ] wf) = ((L wf) \<and> (Tail wf) \<and> (\<not>(located L) \<longrightarrow> locations Tail = {#}))"
+| "(_ wf) = True"
 
-inductive wf_stmt :: "Stmt \<Rightarrow> bool" ("_ stmt'_wf" 10) where
-  FlowWf: "\<lbrakk> Src wf; Dst wf \<rbrakk> \<Longrightarrow> (Src \<longlonglongrightarrow> Dst) stmt_wf"
+fun wf_stmt :: "Stmt \<Rightarrow> bool" ("_ stmt'_wf" 10) where
+  "(Src \<longlonglongrightarrow> Dst stmt_wf) = ((Src wf) \<and> (Dst wf))"
 
-inductive wf_stmts :: "Stmt list \<Rightarrow> bool" ("_ stmts'_wf" 10) where
-  EmptyStmtsWf: "[] stmts_wf"
-| ConsStmtsWf: "\<lbrakk> S1 stmt_wf ; \<S> stmts_wf \<rbrakk> \<Longrightarrow> (S1 # \<S>) stmts_wf"
+fun wf_stmts :: "Stmt list \<Rightarrow> bool" ("_ stmts'_wf" 10) where
+  "wf_stmts Stmts = (\<forall>Stmt \<in> set Stmts. (Stmt stmt_wf))"
 
 fun var_ty_env :: "Env \<Rightarrow> (string \<rightharpoonup> Type)" where
   "var_ty_env \<Gamma> = (\<lambda>x. \<Gamma> (V x))"
@@ -1141,7 +1136,7 @@ next
   qed
 next
   case (Copy \<Gamma> L \<tau> f)
-  then have "L wf" using wf_locator.cases by blast
+  then have "L wf" by simp
 
   then have "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" using Copy by simp
   then have "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset id L) \<P> (\<mu>, \<rho>)"
@@ -1403,23 +1398,17 @@ next
   then show ?case using loc_type.EmptyList by blast 
 next
   case (ConsList \<Gamma> f \<L> \<tau> \<Delta> Tail q \<Xi>)
-  then have "\<L> wf" and "Tail wf"
-    apply auto 
-    apply (erule wf_locator.cases)
-    apply auto
-    apply (erule wf_locator.cases)
-    by auto
   then obtain \<Delta>' where "\<Gamma>' \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta>'" and "var_ty_env \<Delta> = var_ty_env \<Delta>'" 
     using ConsList by auto
   then obtain \<Xi>' where "\<Delta>' \<turnstile>{s} f ; Tail : (q, table [] \<tau>) \<stileturn> \<Xi>'" and "var_ty_env \<Xi> = var_ty_env \<Xi>'"
-    using ConsList \<open> Tail wf \<close>
+    using ConsList
     by auto
   then show ?case using ConsList loc_type.ConsList
     apply auto
-    by (metis \<open>Tail wf\<close> \<open>\<L> wf\<close> loc_type.ConsList)
+    by (metis loc_type.ConsList)
 next
   case (Copy \<Gamma> L \<tau> f)
-  then have "L wf" using wf_locator.cases by blast
+  then have "L wf" by auto
   then have "(\<Gamma>' \<turnstile>{s} id ; L : \<tau> \<stileturn> \<Gamma>') \<and> var_ty_env \<Gamma> = var_ty_env \<Gamma>' \<and> loc_ty_env \<Gamma>' = loc_ty_env \<Gamma>'"
     using Copy typecheck_id_env_same_source
     by (metis locations.simps(6))
@@ -1447,11 +1436,7 @@ lemma head_step_wf:
     shows "locations Tail = {#} \<and> (Tail wf)"
   using assms
   apply auto
-   apply (erule wf_locator.cases)
-  apply auto
-  apply (simp add: step_not_located)
-   apply (erule wf_locator.cases)
-  by auto
+  by (simp add: step_not_located)
 
 fun temp_update_env :: "Env \<Rightarrow> Env \<Rightarrow> Env" where
   "temp_update_env \<Gamma> \<Delta> (V x) = \<Delta> (V x)"
@@ -2344,7 +2329,15 @@ proof(induction arbitrary: \<Gamma> \<tau> f m \<Delta> \<P>)
 
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> ?\<Delta>'"
     by (metis Loc fun_upd_same)
-  have "\<Delta> = \<Gamma>" using ENat.prems using loc_type.cases by blast
+  have "m = s"
+    using ENat.prems
+    apply simp
+    apply (erule loc_type.cases)
+    by auto
+  have "\<Delta> = \<Gamma>" using ENat.prems
+    apply simp
+    apply (erule loc_type.cases)
+    by auto
 
   then have var_ty_same: "var_ty_env \<Delta> = var_ty_env ?\<Delta>'" by simp
 
@@ -2361,8 +2354,7 @@ proof(induction arbitrary: \<Gamma> \<tau> f m \<Delta> \<P>)
     using compat typed var_ty_same loc_ty_sub
     by (simp add: \<open>\<rho> \<subseteq>\<^sub>m ?\<rho>'\<close>) 
 
-  then show ?case using ENat.prems
-    by (meson Loc VarWf compat fun_upd_same loc_ty_sub var_ty_same)
+  then show ?case using ENat.prems \<open>m = s\<close> wf_locator.simps(5) by blast
 next
   case (EBool l \<rho> \<mu> b)
   then have "\<rho> \<subseteq>\<^sub>m \<rho>(l \<mapsto> Res (boolean, Bool b))" by (auto simp: map_le_def) 
@@ -2384,6 +2376,11 @@ next
 
   have typed: "?\<Gamma>' \<turnstile>{s} f ; S ?\<L>' : \<tau> \<stileturn> ?\<Delta>'"
     by (metis Loc fun_upd_same)
+  have "m = s"
+    using EBool.prems
+    apply simp
+    apply (erule loc_type.cases)
+    by auto
   have "\<Delta> = \<Gamma>" using EBool.prems using loc_type.cases by blast
 
   then have var_ty_same: "var_ty_env \<Delta> = var_ty_env ?\<Delta>'" by simp
@@ -2401,8 +2398,8 @@ next
     using compat typed var_ty_same loc_ty_sub
     by (simp add: \<open>\<rho> \<subseteq>\<^sub>m ?\<rho>'\<close>) 
 
-  then show ?case using EBool.prems
-    by (meson Loc VarWf compat fun_upd_same loc_ty_sub var_ty_same)
+  then show ?case using EBool.prems \<open>m = s\<close>
+    using wf_locator.simps(5) by blast
 next
   case (EVar \<mu> x l \<rho>)
   then have x_ty: "\<Gamma> (V x) = Some \<tau>" and final_env: "\<Delta> = \<Gamma>(V x \<mapsto> f \<tau>)" 
@@ -2495,7 +2492,7 @@ next
           and "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'"
         using compat typed var_ty_same loc_ty_sub by auto
 
-      then show ?thesis using EVar.prems VarWf by blast
+      then show ?thesis using EVar.prems wf_locator.simps(5) by blast 
   next
     case False
 
@@ -2544,7 +2541,7 @@ next
         and "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'"
       using compat typed var_ty_same loc_ty_sub by auto
 
-    then show ?thesis using EVar.prems VarWf by blast
+    then show ?thesis using EVar.prems wf_locator.simps(5) by blast
   qed
 next
   case (EVarDef x \<mu> l \<rho> t)
@@ -2562,10 +2559,16 @@ next
       using final_env EVarDef by (auto simp: compat_def)
 
     show "\<forall>k. k \<notin> dom (\<rho>(l \<mapsto> Res (t, emptyVal t))) \<longrightarrow> k \<notin> references (\<mu>(x \<mapsto> SLoc l))"
-      using EVarDef.prems(6) wf_locator.cases by auto
+      using EVarDef
+      apply (auto simp: compat_def)
+      by blast
 
     show "var_store_sync (\<Delta>(Loc (SLoc l) \<mapsto> (empty, t))) (build_offset f (S (Loc (SLoc l)))) (\<mu>(x \<mapsto> SLoc l))"
-      using EVarDef.prems(6) wf_locator.cases by blast
+      using EVarDef final_env
+      apply (unfold compat_def var_store_sync_def)
+      apply (auto simp: apply_offset_def)
+      apply (metis EVarDef.hyps(2) parent.simps(1) ranI)
+      using apply_offset_def empty_offset_apply by auto
 
     show "inj (\<mu>(x \<mapsto> SLoc l))"
       using EVarDef compat_elim
@@ -2623,26 +2626,27 @@ next
   then have var_ty_same: "var_ty_env \<Delta> = var_ty_env ?\<Delta>'" by simp
 
   have loc_ty_sub: "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env ?\<Gamma>'"
-    apply auto
-    using EVarDef.prems(6) wf_locator.simps by blast
+    apply (auto simp: map_le_def final_env)
+    apply (metis EVarDef.hyps(2) EVarDef.prems(2) domI not_in_dom_compat parent.simps(1))
+    by (metis EVarDef.hyps(2) EVarDef.prems(2) domI not_in_dom_compat parent.simps(1))
 
   have "\<tau> = (empty,t)" using EVarDef loc_type.cases by blast
 
   then show ?case
     using \<open>\<tau> = (TyQuant.empty, t)\<close> compat loc_ty_sub typed var_ty_same
-    by (smt EVarDef.hyps(1) EVarDef.hyps(2) VarWf fun_upd_other map_le_def sub_store.simps)
+    by (smt EVarDef.hyps(1) EVarDef.hyps(2) fun_upd_other map_le_def sub_store.simps wf_locator.simps(5))
 next               
   case (EConsListHeadCongr \<Sigma> \<L> \<Sigma>' \<L>' \<tau>' Tail \<Gamma> \<tau>)
 
-  have "\<L> wf" using EConsListHeadCongr wf_locator.cases
-    by blast
+  have "\<L> wf" using EConsListHeadCongr by auto
 
   obtain \<Delta>'' and q
     where "\<Gamma> \<turnstile>{s} f ; \<L> : \<tau>' \<stileturn> \<Delta>''" and tail_ty: "\<Delta>'' \<turnstile>{s} f ; Tail : (q, table [] \<tau>') \<stileturn> \<Delta>"
       and "\<tau> = (one \<oplus> q, table [] \<tau>')" and "m = s"
     using EConsListHeadCongr 
-    apply auto 
-    apply (erule loc_type.cases)
+    apply auto
+    using step_not_located apply auto[1] 
+     apply (erule loc_type.cases)
     by blast+
 
   have "locations Tail = {#}" and "Tail wf" using EConsListHeadCongr
@@ -2684,7 +2688,7 @@ next
     show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'" using loc_ty_sub by simp
     show "\<Sigma> \<subseteq>\<^sub>s \<Sigma>'" by (simp add: \<open>\<Sigma> \<subseteq>\<^sub>s \<Sigma>'\<close>) 
     show "[ \<tau>' ; \<L>' , Tail ] wf"
-      by (metis ConsLocWf ConsNotLocWf EConsListHeadCongr.IH EConsListHeadCongr.prems(2) EConsListHeadCongr.prems(3) EConsListHeadCongr.prems(4) EConsListHeadCongr.prems(5) \<open>Tail wf\<close> \<open>\<Gamma> \<turnstile>{s} f ; \<L> : \<tau>' \<stileturn> \<Delta>''\<close> \<open>\<L> wf\<close> \<open>locations Tail = {#}\<close> build_offset.simps(7) build_offset_no_locs offset_comp_empty_l)
+      by (metis EConsListHeadCongr.IH EConsListHeadCongr.prems(2) EConsListHeadCongr.prems(3) EConsListHeadCongr.prems(4) EConsListHeadCongr.prems(5) \<open>Tail wf\<close> \<open>\<Gamma> \<turnstile>{s} f ; \<L> : \<tau>' \<stileturn> \<Delta>''\<close> \<open>\<L> wf\<close> \<open>locations Tail = {#}\<close> build_offset.simps(7) build_offset_no_locs offset_comp_empty_l wf_locator.simps(2))
   qed
 next
   case (EConsListTailCongr \<L> \<Sigma> Tail \<Sigma>' Tail' \<tau>')
@@ -2701,8 +2705,7 @@ next
 
   obtain \<mu> \<rho> where "\<Sigma> = (\<mu>, \<rho>)" by (cases \<Sigma>)
 
-  have "\<L> wf" and "Tail wf" using EConsListTailCongr wf_locator.cases
-    by blast+
+  have "\<L> wf" and "Tail wf" using EConsListTailCongr by auto
   have "compat \<Delta>'' (build_offset f Tail) (build_offset f \<L> \<circ>\<^sub>o \<P>) (\<mu>,\<rho>)" 
     apply (rule located_env_compat2)
     using EConsListTailCongr \<open> located \<L> \<close> head_ty \<open>\<L> wf\<close> \<open>Tail wf\<close>
@@ -2778,7 +2781,7 @@ next
     show "\<Sigma> \<subseteq>\<^sub>s \<Sigma>'" by (simp add: \<open>\<Sigma> \<subseteq>\<^sub>s \<Sigma>'\<close>) 
 
     show "[ \<tau>' ; \<L> , Tail' ] wf"
-      using ConsLocWf EConsListTailCongr.hyps(1) \<open>\<L> wf\<close> \<open>\<exists>\<Gamma>' \<Delta>'''. Psamathe.compat \<Gamma>' (build_offset f Tail') (build_offset f \<L> \<circ>\<^sub>o \<P>) \<Sigma>' \<and> \<Gamma>' \<turnstile>{s} f ; Tail' : (q, table [] \<tau>') \<stileturn> \<Delta>''' \<and> var_ty_env \<Delta> = var_ty_env \<Delta>''' \<and> \<Sigma> \<subseteq>\<^sub>s \<Sigma>' \<and> loc_ty_env \<Delta>'' \<subseteq>\<^sub>m loc_ty_env \<Gamma>' \<and> (Tail' wf)\<close> by blast
+      using EConsListTailCongr.hyps(1) \<open>\<L> wf\<close> \<open>\<exists>\<Gamma>' \<Delta>'''. Psamathe.compat \<Gamma>' (build_offset f Tail') (build_offset f \<L> \<circ>\<^sub>o \<P>) \<Sigma>' \<and> \<Gamma>' \<turnstile>{s} f ; Tail' : (q, table [] \<tau>') \<stileturn> \<Delta>''' \<and> var_ty_env \<Delta> = var_ty_env \<Delta>''' \<and> \<Sigma> \<subseteq>\<^sub>s \<Sigma>' \<and> loc_ty_env \<Delta>'' \<subseteq>\<^sub>m loc_ty_env \<Gamma>' \<and> (Tail' wf)\<close> by auto
   qed
 next
   case (ECopyCongr \<Sigma> L \<Sigma>' L')
@@ -2800,7 +2803,7 @@ next
       by (metis compat_elim(4) compat_elim(6) compat_transfer_var_sync env_select_var_compat_id finite_store.cases offset_comp_empty_l var_store_sync_build_id)
 
     show "type_preserving id" by (simp add: type_preserving_id)
-    show "L wf" using ECopyCongr wf_locator.cases by blast
+    show "L wf" using ECopyCongr by simp 
     show "offset_dom \<P> \<subseteq> loc_dom \<Gamma>" using ECopyCongr by auto
     show "type_preserving_offset \<P>" using ECopyCongr by auto
   qed
@@ -2811,8 +2814,8 @@ next
     using Copy typecheck_id_env_same_source by blast
 
   then show ?case using \<open>demote \<sigma> = \<tau>\<close>
-    apply simp
-    by (metis CopyWf \<open>\<exists>\<Gamma>'' \<Delta>''. Psamathe.compat \<Gamma>'' (build_offset id L') \<P> \<Sigma>' \<and> \<Gamma>'' \<turnstile>{s} id ; L' : \<sigma> \<stileturn> \<Delta>'' \<and> var_ty_env \<Delta> = var_ty_env \<Delta>'' \<and> \<Sigma> \<subseteq>\<^sub>s \<Sigma>' \<and> loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'' \<and> (L' wf)\<close> \<open>m = s\<close> compat_id sub_store.elims(2))
+    apply auto
+    by (metis \<open>\<exists>\<Gamma>'' \<Delta>''. Psamathe.compat \<Gamma>'' (build_offset id L') \<P> \<Sigma>' \<and> \<Gamma>'' \<turnstile>{s} id ; L' : \<sigma> \<stileturn> \<Delta>'' \<and> var_ty_env \<Delta> = var_ty_env \<Delta>'' \<and> \<Sigma> \<subseteq>\<^sub>s \<Sigma>' \<and> loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'' \<and> (L' wf)\<close> \<open>m = s\<close> compat_id surj_pair)
 qed
 
 fun build_stmt_offset :: "Stmt \<Rightarrow> Offset" where
@@ -2821,6 +2824,28 @@ fun build_stmt_offset :: "Stmt \<Rightarrow> Offset" where
 lemma type_preserving_add: "type_preserving (\<lambda>(r, s). (r \<oplus> q, s))"
   apply (auto simp: type_preserving_def base_type_compat_refl)
   using quant_add_comm quant_add_lt_left by auto
+
+lemma loc_typed_src:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "m = s"
+      and "\<And>n. L = N n \<Longrightarrow> P L"
+      and "\<And>b. L = B b \<Longrightarrow> P L"
+      and "\<And>x. L = S x \<Longrightarrow> P L"
+      and "\<And>q k \<sigma>. \<lbrakk> \<tau> = (q, table k \<sigma>); L = [ \<sigma>; ] \<rbrakk> \<Longrightarrow> P L"
+      and "\<And>q k \<sigma> Head Tail. \<lbrakk> \<tau> = (q, table k \<sigma>); L = [ \<sigma> ; Head, Tail ] \<rbrakk> \<Longrightarrow> P L"
+      and "\<And>L'. \<lbrakk> L = copy(L') \<rbrakk> \<Longrightarrow> P L"
+    shows "P L"
+  using assms
+  by (induction, auto)
+
+lemma loc_typed_dst:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "m = d"
+      and "\<And>x t. L = var x : t \<Longrightarrow> P L"
+      and "\<And>x. L = S x \<Longrightarrow> P L"
+    shows "P L"
+  using assms
+  by (induction, auto)
 
 theorem stmt_progress:
   assumes "\<Gamma> \<turnstile> Stmt ok \<stileturn> \<Delta>"
@@ -2831,7 +2856,11 @@ theorem stmt_progress:
   using assms
 proof(induction arbitrary: \<mu> \<rho>)
   case (Flow \<Gamma> Src q t \<Delta> Dst uu \<Xi>)
-  then have "Src wf" and "Dst wf" using wf_stmt.cases by blast+
+  then obtain q r t \<Xi> \<Delta>' 
+    where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>'" 
+      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>"
+    using stmt_ok.simps by auto
+  have "Src wf" and "Dst wf" using Flow by auto
   (* TODO: Maybe need to split this into more lemmas, because I don't really like the 
             super deep case nesting... *)
   then show ?case
@@ -2840,32 +2869,54 @@ proof(induction arbitrary: \<mu> \<rho>)
     then show ?thesis
     proof(cases "located Dst")
       case True
-      then show ?thesis
-      proof(cases Src)
-        case (N x1)
-        then show ?thesis using \<open>located Src\<close> by simp
+      show ?thesis
+      proof(rule loc_typed_src[where L = Src])
+        show "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>'" using src_ty by assumption
+        show "s = s" by simp
       next
-        case (B x2)
-        then show ?thesis using \<open>located Src\<close> by simp
+        fix n
+        assume "Src = N n"
+        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+          using \<open>located Src\<close> True by auto
       next
-        case (S x3)
-        then show ?thesis
-        proof(cases x3)
+        fix b
+        assume "Src = B b"
+        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+          using \<open>located Src\<close> True by auto
+      next
+        fix x
+        assume src: "Src = S x"
+        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+        proof(cases x)
           case (V x1)
-          then show ?thesis using \<open>located Src\<close> S by simp
+          then show ?thesis using \<open>located Src\<close> src by simp
         next
           case (Loc x2)
-          then show ?thesis sorry
+          show ?thesis     
+          proof(rule loc_typed_dst)
+            show "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>" using dst_ty by simp
+            show "d = d" by simp
+          next
+            fix x t 
+            assume "Dst = var x : t" 
+            then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+              sorry
+          next
+            fix x
+            assume "Dst = S x" 
+            then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+              sorry
+          qed
         qed
       next
-        case (VDef x41 x42)
-        then show ?thesis using \<open>located Src\<close> by simp
+        fix q' k \<sigma>
+        assume "(q, t) = (q', table k \<sigma>)" and "Src = [ \<sigma> ; ]"
+        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+          using EFlowEmptyList True by blast
       next
-        case (EmptyList x5)
-        then show ?thesis using EFlowEmptyList True by blast 
-      next
-        case (ConsList x61 x62 x63)
-        then show ?thesis
+        fix q' k \<sigma> Head Tail
+        assume "(q, t) = (q', table k \<sigma>)" and "Src = [ \<sigma> ; Head , Tail ]"
+        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
           apply (intro exI)
           apply simp
           apply (rule EFlowConsList)
@@ -2873,9 +2924,10 @@ proof(induction arbitrary: \<mu> \<rho>)
           using \<open>located Src\<close> apply simp
           using \<open>located Dst\<close> by simp
       next
-        case (Copy x7)
+        fix L'
         obtain l where fresh: "l \<notin> dom \<rho>" using Flow.prems(3) gen_loc by auto 
-        show ?thesis using Copy
+        assume "Src = copy(L')" 
+        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
           apply simp
           apply (intro exI)
           apply (rule EFlowCopy)
@@ -2885,11 +2937,11 @@ proof(induction arbitrary: \<mu> \<rho>)
       qed
     next
       case False
-      have "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) 
+      have "compat \<Delta>' (\<O> \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) 
                       ((build_offset (\<lambda>(_,t). (empty,t)) Src) \<circ>\<^sub>o empty_offset) (\<mu>, \<rho>) 
-          \<and> \<Delta> = update_locations \<Gamma> (build_offset (\<lambda>(_,t). (empty,t)) Src)"
+          \<and> \<Delta>' = update_locations \<Gamma> (build_offset (\<lambda>(_,t). (empty,t)) Src)"
       proof(rule located_env_compat)
-        show "\<Gamma> \<turnstile>{s} \<lambda>(_, t). (TyQuant.empty, t) ; Src : (q, t) \<stileturn> \<Delta>" using Flow by simp
+        show "\<Gamma> \<turnstile>{s} \<lambda>(_, t). (empty, t) ; Src : (q, t) \<stileturn> \<Delta>'" using src_ty by simp
 
         (* TODO: Current issue is that build_stmt_offset doesn't really know what to do because it 
                  basically needs to typecheck in order to calculate the offset *)
@@ -2901,14 +2953,15 @@ proof(induction arbitrary: \<mu> \<rho>)
         show "type_preserving (\<lambda>(_, t). (TyQuant.empty, t))" using type_preserving_with_quant by simp
       qed
       
-      then have dst_compat: "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) (build_offset (\<lambda>(_,t). (empty,t)) Src) (\<mu>, \<rho>)"
+      then have dst_compat: "compat \<Delta>' (\<O> \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) 
+                                        (build_offset (\<lambda>(_,t). (empty,t)) Src) (\<mu>, \<rho>)"
         by (metis offset_comp_empty_r)
       have "located Dst \<or> (\<exists>\<mu>' \<rho>' Dst'. <(\<mu>, \<rho>), Dst> \<rightarrow> <(\<mu>', \<rho>'), Dst'>)"
       proof(rule locator_progress)
-        show "\<Delta> \<turnstile>{d} \<lambda>(r, s). (r \<oplus> q, s) ; Dst : (uu, t) \<stileturn> \<Xi>" 
-          using Flow by simp
+        show "\<Delta>' \<turnstile>{d} \<lambda>(r, s). (r \<oplus> q, s) ; Dst : (r, t) \<stileturn> \<Xi>" 
+          using dst_ty by simp
 
-        show "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) (build_offset (\<lambda>(_,t). (empty,t)) Src) (\<mu>, \<rho>)"
+        show "compat \<Delta>' (\<O> \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) (build_offset (\<lambda>(_,t). (empty,t)) Src) (\<mu>, \<rho>)"
           using dst_compat by simp
 
         show "Dst wf" using \<open>Dst wf\<close> by simp
@@ -2952,7 +3005,6 @@ next
   then have "S1 stmt_wf" and "Stmts stmts_wf" 
     using wf_stmt.cases wf_stmts.cases
     apply auto[1]
-    apply fastforce
     using Cons.prems(3) wf_stmts.cases by auto
   obtain \<Delta>' where "\<Gamma> \<turnstile> S1 ok \<stileturn> \<Delta>'" and "\<Delta>' \<turnstile> Stmts oks \<stileturn> \<Delta>"
     using Cons by auto
@@ -3035,11 +3087,8 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
       sorry
 
     show "[Src' \<longlonglongrightarrow> Dst] stmts_wf"
-      apply (rule ConsStmtsWf)
-      apply (rule FlowWf)
       apply (simp add: \<open>Src' wf\<close>)
-      using EFlowSrcCongr.prems(3) wf_stmt.cases wf_stmts.cases apply auto[1]
-      by (simp add: EmptyStmtsWf)
+      using loc_typed_dst new_dst_ty wf_locator.simps(5) wf_locator.simps(6) by blast
   qed
 next
   case (EFlowDstCongr Src \<Sigma> Dst \<Sigma>' Dst')
@@ -3072,8 +3121,7 @@ next
     show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Delta>'"
       by (simp add: \<open>\<Gamma> = \<Delta>'\<close>)
 
-    show "[] stmts_wf"
-      by (simp add: EmptyStmtsWf)
+    show "[] stmts_wf" by simp
   qed
 next
   case (EFlowConsList Head Tail Dst \<mu> \<rho> \<tau>)
