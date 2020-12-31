@@ -328,7 +328,7 @@ fun wf_locator :: "Locator \<Rightarrow> bool" ("_ wf" 10) where
 | "(_ wf) = True"
 
 fun wf_stmt :: "Stmt \<Rightarrow> bool" ("_ stmt'_wf" 10) where
-  "(Src \<longlonglongrightarrow> Dst stmt_wf) = ((Src wf) \<and> (Dst wf))"
+  "(Src \<longlonglongrightarrow> Dst stmt_wf) = ((Src wf) \<and> (Dst wf) \<and> (\<not>(located Src) \<longrightarrow> locations Dst = {#}))"
 
 fun wf_stmts :: "Stmt list \<Rightarrow> bool" ("_ stmts'_wf" 10) where
   "wf_stmts Stmts = (\<forall>Stmt \<in> set Stmts. (Stmt stmt_wf))"
@@ -821,7 +821,7 @@ proof(rule ext)
     by (auto simp: apply_offset_def option.map_id)
 qed
 
-definition empty_offset :: "Offset" where
+definition empty_offset :: "Offset" ("0\<^sub>\<O>") where
   "empty_offset \<equiv> (\<lambda>l. [])"
 
 lemma empty_offset_apply[simp]: "empty_offset\<^sup>l[\<tau>] = \<tau>"
@@ -3016,6 +3016,13 @@ next
     by assumption
 qed
 
+lemma located_var_env_same:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+      and "located L"
+    shows "var_ty_env \<Gamma> = var_ty_env \<Delta>"
+  using assms
+  by (induction, auto)
+
 theorem stmts_preservation:
   assumes "\<langle>\<Sigma>, \<S>\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>'\<rangle>"
       and "\<Gamma> \<turnstile> \<S> oks \<stileturn> \<Delta>"
@@ -3034,6 +3041,10 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
     where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>'" 
       and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>"
     using stmt_ok.simps by auto
+  have "\<not>(located Src)"
+    using EFlowSrcCongr.hyps step_not_located by auto
+  then have "locations Dst = {#}"
+    using EFlowSrcCongr by auto
   have "\<exists>\<Gamma>' \<Delta>''. compat \<Gamma>' (build_offset (\<lambda>(_,t). (empty, t)) Src') empty_offset \<Sigma>'
                  \<and> (\<Gamma>' \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src' : (q,t) \<stileturn> \<Delta>'')
                  \<and> var_ty_env \<Delta>' = var_ty_env \<Delta>'' \<and> \<Sigma> \<subseteq>\<^sub>s \<Sigma>'
@@ -3042,17 +3053,7 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
     show "< \<Sigma> , Src > \<rightarrow> < \<Sigma>' , Src' >" using EFlowSrcCongr by simp
     show "\<Gamma> \<turnstile>{s} \<lambda>(_, t). (empty, t) ; Src : (q, t) \<stileturn> \<Delta>'" using src_ty by simp
     show "compat \<Gamma> (build_offset (\<lambda>(_, t). (empty, t)) Src) empty_offset \<Sigma>"
-      (* TODO: I think for this, we will need to use \<S> stmts_wf to get that only the src is 
-               evaluated, so the rest of the Stmts have no locations, and therefore there is 
-               actually nothing else in the offset. Notably, this means that the rule for evaluating
-               the flow of lists will need to be changed because it currently moves the tail, which
-               is partially evaluated, into the Tail of the list of stmts, which violates this property
-               alternatively, we could send values as soon as they are ready, which would resolve 
-               the problem, but is a more complicated process overall... 
-          
-               Actually, we may not need to worry about this, and be able to just use the fact that
-               Dst is unevaluated? Because there is no tail of statements here? Not sure about other cases though *)
-      sorry
+      using EFlowSrcCongr.prems(2) by auto
     show "offset_dom empty_offset \<subseteq> loc_dom \<Gamma>" by simp
     show "type_preserving_offset empty_offset" by (simp add: empty_offset_type_preserving)
     show "type_preserving (\<lambda>(_, t). (TyQuant.empty, t))" by (simp add: type_preserving_with_quant)
@@ -3067,32 +3068,39 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
       and "Src' wf"
     by auto
   (* I think this should work out *)
-  then obtain \<Xi>' where new_dst_ty: "\<Delta>'' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>'"
+  then obtain \<Xi>' 
+    where new_dst_ty: "\<Delta>'' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>'"
+       (* TODO: This part should work out because the var_ty_env of \<Delta>' is the same as \<Delta>'' *)
+      and "var_ty_env \<Delta> = var_ty_env \<Xi>'"
     sorry
   then show ?case
   proof(intro exI conjI)
     show "compat \<Gamma>' (build_stmts_offset [Src' \<longlonglongrightarrow> Dst]) empty_offset \<Sigma>'"
-      (* TODO: This will also need to rely on the fact that Dst is totally unevaluated *)
-      sorry
+      by (metis \<open>Psamathe.compat \<Gamma>' (build_offset (\<lambda>(_, t). (empty, t)) Src') empty_offset \<Sigma>'\<close> build_stmt_offset.simps build_stmts_offset.simps(1) build_stmts_offset.simps(2) offset_comp_empty_l)
 
     show "\<Gamma>' \<turnstile> [Src' \<longlonglongrightarrow> Dst] oks \<stileturn> \<Xi>'" using new_src_ty new_dst_ty
       apply simp
       apply (rule Flow)
       by assumption+
 
-    show "var_ty_env \<Delta> = var_ty_env \<Xi>'"
-      sorry
-
-    show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'"
-      sorry
+    show "var_ty_env \<Delta> = var_ty_env \<Xi>'" using \<open>var_ty_env \<Delta> = var_ty_env \<Xi>'\<close> by auto
+    show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'" using \<open>loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'\<close> by auto
 
     show "[Src' \<longlonglongrightarrow> Dst] stmts_wf"
       apply (simp add: \<open>Src' wf\<close>)
-      using loc_typed_dst new_dst_ty wf_locator.simps(5) wf_locator.simps(6) by blast
+      apply auto
+      using loc_typed_dst new_dst_ty wf_locator.simps(5) wf_locator.simps(6) apply blast
+      by (simp add: \<open>locations Dst = {#}\<close>)
   qed
 next
   case (EFlowDstCongr Src \<Sigma> Dst \<Sigma>' Dst')
-  then show ?case sorry
+  then have "\<Gamma> \<turnstile> (Src \<longlonglongrightarrow> Dst) ok \<stileturn> \<Delta>" by simp
+  then obtain q r t \<Xi> \<Delta>' 
+    where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>'" 
+      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>"
+    using stmt_ok.simps by auto
+  then show ?case
+    sorry
 next
   case (EFlowLoc \<rho> l r1 r2 k dr \<mu>)
   then show ?case sorry
@@ -3114,9 +3122,7 @@ next
     show "\<Delta>' \<turnstile> [] oks \<stileturn> \<Delta>'" by simp
 
     show "var_ty_env \<Delta> = var_ty_env \<Delta>'"
-      using \<open>located Dst\<close> dst_ty
-      (* TODO: This works because Dst is located, so it can't declare any new variables *)
-      sorry
+      using \<open>located Dst\<close> dst_ty located_var_env_same by auto
 
     show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Delta>'"
       by (simp add: \<open>\<Gamma> = \<Delta>'\<close>)
