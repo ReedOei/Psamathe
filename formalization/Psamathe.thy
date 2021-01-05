@@ -1994,17 +1994,22 @@ lemma offset_dom_member_distrib:
 lemma [simp]: "dom (loc_ty_env \<Gamma>) = loc_dom \<Gamma>"
   by auto
 
+lemma type_check_loc_dom_same:
+  assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
+  shows "loc_dom \<Gamma> = loc_dom \<Delta>"
+  using assms
+  apply (induction, auto)
+  by metis
+
 lemma located_locations_in_offset_dom:
   assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
-      and "located L"
     shows "offset_dom (build_offset f L) \<subseteq> loc_dom \<Gamma>"
   using assms
   apply (induction, auto)
-  using apply_offset_def empty_offset_apply apply auto[1]
-  apply (auto simp: offset_dom_def apply_offset_def empty_offset_def)[1]
-  using eq_id_iff apply fastforce
+  apply (smt mem_Collect_eq offset_dom_def)
   apply (drule offset_dom_member_distrib)
-  by (smt demote.cases domD domI loc_ty_env.simps located_dom_const mem_Collect_eq subset_iff)
+  apply auto
+  by (metis demote.cases domD loc_dom.simps mem_Collect_eq subset_iff type_check_loc_dom_same)
 
 lemma empty_offset_type_preserving: "type_preserving_offset empty_offset"
   by (auto simp: type_preserving_offset_def empty_offset_def)
@@ -3330,19 +3335,20 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
 next
   case (EFlowDstCongr Src \<Sigma> Dst \<Sigma>' Dst')
   then have "\<Gamma> \<turnstile> (Src \<longlonglongrightarrow> Dst) ok \<stileturn> \<Delta>" by simp
-  then obtain q r t \<Xi> \<Delta>' 
+  then obtain q r t \<Delta>'
     where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>'" 
-      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>"
+      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Delta>"
     using stmt_ok.simps by auto
   then have typecheck_match_src: "typecheck \<Gamma> s (\<lambda>(_, t). (empty, t)) Src = Some ((q,t), \<Delta>')"
     by (simp add: typecheck_matches_loc_type)
+  obtain \<mu> \<rho> where "\<Sigma> = (\<mu>, \<rho>)" by (cases "\<Sigma>")
   have "\<exists>\<Gamma>' \<Delta>''. compat \<Gamma>' (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) Dst') (build_offset (\<lambda>(_,t). (empty, t)) Src) \<Sigma>'
                  \<and> (\<Gamma>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst' : (r,t) \<stileturn> \<Delta>'')
-                 \<and> var_ty_env \<Xi> = var_ty_env \<Delta>'' \<and> \<Sigma> \<subseteq>\<^sub>s \<Sigma>'
+                 \<and> var_ty_env \<Delta> = var_ty_env \<Delta>'' \<and> \<Sigma> \<subseteq>\<^sub>s \<Sigma>'
                  \<and> loc_ty_env \<Delta>' \<subseteq>\<^sub>m loc_ty_env \<Gamma>' \<and> (Dst' wf)"
   proof(rule locator_preservation)
     show "< \<Sigma> , Dst > \<rightarrow> < \<Sigma>' , Dst' >" using EFlowDstCongr by simp
-    show "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r, t) \<stileturn> \<Xi>" using dst_ty by simp
+    show "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r, t) \<stileturn> \<Delta>" using dst_ty by simp
 
     show "compat \<Delta>' (build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) (build_offset (\<lambda>(_,t). (empty, t)) Src) \<Sigma>"
       using EFlowDstCongr typecheck_match_src
@@ -3356,25 +3362,64 @@ next
         using a2 a1 located_env_compat src_ty type_preserving_with_quant by fastforce
     qed
     
-    show "offset_dom (build_offset (\<lambda>(_,t). (empty, t)) Src) \<subseteq> loc_dom \<Delta>'" 
-      sorry
+    show "offset_dom (build_offset (\<lambda>(_,t). (empty, t)) Src) \<subseteq> loc_dom \<Delta>'"
+      using located_locations_in_offset_dom src_ty type_check_loc_dom_same by auto
     show "type_preserving_offset (build_offset (\<lambda>(_,t). (empty, t)) Src)"
       by (simp add: type_preserving_build type_preserving_with_quant)
     show "type_preserving (\<lambda>(r, s). (r \<oplus> q, s))" by (simp add: type_preserving_add)
     show "Dst wf" using EFlowDstCongr by simp
   qed
   then obtain \<Delta>'' and \<Xi>'
-    where "compat \<Delta>'' (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) Dst') (build_offset (\<lambda>(_,t). (empty, t)) Src) \<Sigma>'"
+    where new_compat: "compat \<Delta>'' (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) Dst') (build_offset (\<lambda>(_,t). (empty, t)) Src) \<Sigma>'"
       and "\<Delta>'' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst' : (r,t) \<stileturn> \<Xi>'"
-      and "var_ty_env \<Xi> = var_ty_env \<Xi>'"
+      and var_env_same: "var_ty_env \<Delta> = var_ty_env \<Xi>'"
       and "\<Sigma> \<subseteq>\<^sub>s \<Sigma>'"
-      and "loc_ty_env \<Delta>' \<subseteq>\<^sub>m loc_ty_env \<Delta>''"
+      and loc_ty_env_subset: "loc_ty_env \<Delta>' \<subseteq>\<^sub>m loc_ty_env \<Delta>''"
       and "Dst' wf"
     by auto
   show ?case
   proof(intro exI conjI)
-    show "compat (temp_update_env \<Gamma> \<Delta>'') (build_stmts_offset (temp_update_env \<Gamma> \<Delta>'') [Src \<longlonglongrightarrow> Dst']) 0\<^sub>\<O> \<Sigma>'"
-      sorry
+    obtain \<mu>' \<rho>' where "\<Sigma>' = (\<mu>', \<rho>')" by (cases \<Sigma>')
+    have new_src_ty: "(temp_update_env \<Gamma> \<Delta>'') \<turnstile>{s} (\<lambda>(_, y). (empty, y)) ; Src : (q,t) \<stileturn> \<Delta>''"
+      using EFlowDstCongr.hyps(1) \<open>loc_ty_env \<Delta>' \<subseteq>\<^sub>m loc_ty_env \<Delta>''\<close> located_var_ignore src_ty by auto
+    then have "typecheck (temp_update_env \<Gamma> \<Delta>'') s (\<lambda>(_, y). (empty, y)) Src = Some ((q,t), \<Delta>'')"
+      by (simp add: typecheck_matches_loc_type)
+    then show "compat (temp_update_env \<Gamma> \<Delta>'') (build_stmts_offset (temp_update_env \<Gamma> \<Delta>'') [Src \<longlonglongrightarrow> Dst']) 0\<^sub>\<O> \<Sigma>'"
+      using \<open>\<Sigma>' = (\<mu>', \<rho>')\<close>
+      apply auto
+    proof (rule temp2)
+      show updated: "update_locations (temp_update_env \<Gamma> \<Delta>'') (build_offset (\<lambda>(_, y). (empty, y)) Src) = \<Delta>''"
+        apply (rule temp1[where \<Delta> = \<Delta>'])
+        apply (rule located_env_compat2(2)[symmetric])
+        using src_ty apply assumption
+        using EFlowDstCongr typecheck_match_src \<open>\<Sigma> = (\<mu>, \<rho>)\<close> apply auto[1]
+        using EFlowDstCongr apply auto[1]
+        apply (simp add: type_preserving_with_quant)
+        using loc_ty_env_subset apply auto[1]
+        using located_locations_in_offset_dom src_ty by auto
+
+      then show "compat (update_locations (temp_update_env \<Gamma> \<Delta>'') (build_offset (\<lambda>(_, t). (empty, t)) Src))
+         (build_offset (\<lambda>(r, y). (r \<oplus> q, y)) Dst') (build_offset (\<lambda>(_, t). (empty, t)) Src \<circ>\<^sub>o 0\<^sub>\<O>) (\<mu>', \<rho>')"
+        using \<open>\<Sigma>' = (\<mu>', \<rho>')\<close> new_compat by auto
+
+      show "type_preserving_offset (build_offset (\<lambda>(_, t). (empty, t)) Src)"
+        by (simp add: type_preserving_build type_preserving_with_quant)
+
+      show "type_preserving_offset 0\<^sub>\<O>"
+        by (simp add: empty_offset_type_preserving)
+
+      show "offset_dom (build_offset (\<lambda>(_, y). (empty, y)) Src) \<subseteq> loc_dom \<Gamma>"
+        using located_locations_in_offset_dom src_ty by auto
+
+      show "temp_update_env \<Gamma> \<Delta>'' = temp_update_env \<Gamma> \<Delta>''" by simp
+
+      show "env_select_loc_compat \<Gamma> 0\<^sub>\<O> \<rho>"
+        using EFlowDstCongr.prems(2) \<open>\<Sigma> = (\<mu>, \<rho>)\<close> by auto
+
+      show "\<rho> \<subseteq>\<^sub>m \<rho>'"
+        using \<open>\<Sigma> = (\<mu>, \<rho>)\<close> \<open>\<Sigma> \<subseteq>\<^sub>s \<Sigma>'\<close> \<open>\<Sigma>' = (\<mu>', \<rho>')\<close> by auto 
+    qed
+
     show "(temp_update_env \<Gamma> \<Delta>'') \<turnstile> [Src \<longlonglongrightarrow> Dst'] oks \<stileturn> \<Xi>'"
       apply simp
     proof(rule Flow)
@@ -3383,8 +3428,7 @@ next
       show "\<Delta>'' \<turnstile>{d} \<lambda>(r, s). (r \<oplus> q, s) ; Dst' : (r, t) \<stileturn> \<Xi>'"
         by (simp add: \<open>\<Delta>'' \<turnstile>{d} \<lambda>(r, s). (r \<oplus> q, s) ; Dst' : (r, t) \<stileturn> \<Xi>'\<close>)
     qed
-    show "var_ty_env \<Delta> = var_ty_env \<Xi>'"
-      sorry
+    show "var_ty_env \<Delta> = var_ty_env \<Xi>'" using var_env_same by simp
     show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env (temp_update_env \<Gamma> \<Delta>'')"
       by (auto simp: map_le_def)
     show "[Src \<longlonglongrightarrow> Dst'] stmts_wf"
