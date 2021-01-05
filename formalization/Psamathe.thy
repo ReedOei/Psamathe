@@ -122,7 +122,7 @@ next
       apply (cases x)
        apply (cases "\<exists>\<tau>. \<Gamma> x = Some \<tau>")
       apply auto
-      sorry
+sorry
   next
     fix x t \<Gamma> m f \<tau> \<Delta>
     assume "typecheck \<Gamma> m f (var x : t) = Some (\<tau>, \<Delta>)" 
@@ -322,7 +322,7 @@ fun exactType :: "Resource \<Rightarrow> Type option" where
 fun baseTypeMatches :: "BaseTy \<Rightarrow> Val \<Rightarrow> bool" where
   "baseTypeMatches natural (Num _) = True"
 | "baseTypeMatches boolean (Bool _) = True"
-(* TODO: The table case might need to be more specified, and say that all the values also match *)
+(* TODO: The table case might need to be more specific, and say that all the values also match the specified type... *)
 | "baseTypeMatches (table _ _) (Table _) = True"
 | "baseTypeMatches (named name baseT) v = baseTypeMatches baseT v"
 | "baseTypeMatches _ _ = False"
@@ -411,14 +411,6 @@ inductive stmt_eval :: "Store \<Rightarrow> Stmt list \<Rightarrow> Store \<Righ
               \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ copy(L) \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> 
                   \<langle>(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), [ S (Loc (SLoc l)) \<longlonglongrightarrow> Dst ]\<rangle>" 
 | EStmtsCongr: "\<lbrakk> \<langle>\<Sigma>, [S1]\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>\<^sub>1'\<rangle> \<rbrakk> \<Longrightarrow> \<langle>\<Sigma>, S1 # \<S>\<^sub>2\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>\<^sub>1' @ \<S>\<^sub>2'\<rangle>"
-
-(* NOTE: THIS IS WRONG (but kept for later, if needed). We can't peform the copy (i.e., call deepCopy) 
-         until we actual start subtracting things from the locator, because the deepCopy will copy 
-         things as they were **before** the flow, not as they are at this point in evaluation 
-         (e.g., consider [ x, copy(x) ]) *)
-(*
-| ECopyEval: "\<lbrakk> located L; l \<notin> dom \<rho> \<rbrakk> \<Longrightarrow> <(\<mu>, \<rho>), copy(L)> \<rightarrow> <(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), S (Loc (SLoc l))>"
-*)
 
 fun storageLocRefs :: "StorageLoc \<Rightarrow> nat set" where
   "storageLocRefs l = {parent l}"
@@ -3255,6 +3247,34 @@ lemma offset_uncomp_prop:
   apply (metis offset_comp_empty_r)
   by (metis assms offset_comp_empty_r)
 
+(* TODO: This is kind of annoying, but I'm not sure if there's any other way to write this... *)
+lemma baseTypeMatches_unique_val_Num:
+  assumes "baseTypeMatches t (Num n)"
+  shows "\<not>(baseTypeMatches t (Bool b))" and "\<not>(baseTypeMatches t (Table vs))"
+  using assms
+  by (induction t, auto)
+
+lemma baseTypeMatches_unique_val_Bool:
+  assumes "baseTypeMatches t (Bool b)"
+  shows "\<not>(baseTypeMatches t (Num n))" and "\<not>(baseTypeMatches t (Table vs))"
+  using assms
+  by (induction t, auto)
+
+lemma baseTypeMatches_unique_val_Table:
+  assumes "baseTypeMatches t (Table vs)"
+  shows "\<not>(baseTypeMatches t (Bool b))" and "\<not>(baseTypeMatches t (Num n))"
+  using assms
+  by (induction t, auto)
+
+lemma resource_add_same_base_type:
+  assumes "baseTypeMatches t v1" and "baseTypeMatches t v2"
+  shows "\<exists>q'. exactType (Res (t,v1) +\<^sub>r Res (t,v2)) = Some (q',t)"
+  using assms
+  apply (cases v1)
+  apply (cases v2, auto simp: baseTypeMatches_unique_val_Num)
+  apply (cases v2, auto simp: baseTypeMatches_unique_val_Bool)
+  by (cases v2, auto simp: baseTypeMatches_unique_val_Table)
+
 theorem stmts_preservation:
   assumes "\<langle>\<Sigma>, \<S>\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>'\<rangle>"
       and "\<Gamma> \<turnstile> \<S> oks \<stileturn> \<Delta>"
@@ -3263,15 +3283,14 @@ theorem stmts_preservation:
     shows "\<exists>\<Gamma>' \<Delta>'. compat \<Gamma>' (build_stmts_offset \<Gamma>' \<S>') empty_offset \<Sigma>'
                 \<and> (\<Gamma>' \<turnstile> \<S>' oks \<stileturn> \<Delta>')
                 \<and> var_ty_env \<Delta> = var_ty_env \<Delta>'
-                \<and> loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'
                 \<and> (\<S>' stmts_wf)"
   using assms
 proof(induction arbitrary: \<Gamma> \<Delta>)
   case (EFlowSrcCongr \<Sigma> Src \<Sigma>' Src' Dst)
   then have "\<Gamma> \<turnstile> (Src \<longlonglongrightarrow> Dst) ok \<stileturn> \<Delta>" by simp
-  then obtain q r t \<Xi> \<Delta>' 
+  then obtain q r t \<Delta>' 
     where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>'" 
-      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>"
+      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Delta>"
     using stmt_ok.simps by auto
   then have typecheck_match_src: "typecheck \<Gamma> s (\<lambda>(_, t). (empty, t)) Src = Some ((q,t), \<Delta>')"
     by (simp add: typecheck_matches_loc_type)
@@ -3306,11 +3325,17 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
   then have typecheck_match_new_src: "typecheck \<Gamma>' s (\<lambda>(_, t). (empty, t)) Src' = Some ((q,t), \<Delta>'')"
     by (simp add: typecheck_matches_loc_type)
   (* I think this should work out *)
+  have "\<exists>\<Delta>'. (\<Delta>'' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Delta>') 
+             \<and> var_ty_env \<Delta> = var_ty_env \<Delta>' \<and> loc_ty_env \<Delta>' = loc_ty_env \<Delta>''"
+    apply (rule prf_compat_not_located)
+    using dst_ty apply assumption
+    using \<open>var_ty_env \<Delta>' = var_ty_env \<Delta>''\<close> EFlowSrcCongr \<open>locations Dst = {#}\<close> by auto
   then obtain \<Xi>' 
     where new_dst_ty: "\<Delta>'' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>'"
        (* TODO: This part should work out because the var_ty_env of \<Delta>' is the same as \<Delta>'' *)
       and "var_ty_env \<Delta> = var_ty_env \<Xi>'"
-    sorry
+      and "loc_ty_env \<Xi>' = loc_ty_env \<Delta>''"
+    by auto
   then show ?case
   proof(intro exI conjI)
     show "compat \<Gamma>' (build_stmts_offset \<Gamma>' [Src' \<longlonglongrightarrow> Dst]) empty_offset \<Sigma>'"
@@ -3324,7 +3349,6 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
       by assumption+
 
     show "var_ty_env \<Delta> = var_ty_env \<Xi>'" using \<open>var_ty_env \<Delta> = var_ty_env \<Xi>'\<close> by auto
-    show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'" using \<open>loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Gamma>'\<close> by auto
 
     show "[Src' \<longlonglongrightarrow> Dst] stmts_wf"
       apply (simp add: \<open>Src' wf\<close>)
@@ -3338,7 +3362,7 @@ next
   then obtain q r t \<Delta>'
     where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>'" 
       and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Delta>"
-    using stmt_ok.simps by auto
+    using stmt_ok.simps by auto 
   then have typecheck_match_src: "typecheck \<Gamma> s (\<lambda>(_, t). (empty, t)) Src = Some ((q,t), \<Delta>')"
     by (simp add: typecheck_matches_loc_type)
   obtain \<mu> \<rho> where "\<Sigma> = (\<mu>, \<rho>)" by (cases "\<Sigma>")
@@ -3429,18 +3453,17 @@ next
         by (simp add: \<open>\<Delta>'' \<turnstile>{d} \<lambda>(r, s). (r \<oplus> q, s) ; Dst' : (r, t) \<stileturn> \<Xi>'\<close>)
     qed
     show "var_ty_env \<Delta> = var_ty_env \<Xi>'" using var_env_same by simp
-    show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env (temp_update_env \<Gamma> \<Delta>'')"
-      by (auto simp: map_le_def)
     show "[Src \<longlonglongrightarrow> Dst'] stmts_wf"
       using EFlowDstCongr \<open>Dst' wf\<close> by auto
   qed
 next
   case (EFlowLoc \<rho> l r1 r2 k dr \<mu>)
   then have "\<Gamma> \<turnstile> (S (Loc l) \<longlonglongrightarrow> S (Loc (SLoc k))) ok \<stileturn> \<Delta>" by simp
-  then obtain q r t \<Xi> \<Delta>' 
+  then obtain q r t \<Delta>' 
     where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; S (Loc l) : (q,t) \<stileturn> \<Delta>'" 
-      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; S (Loc (SLoc k)) : (r,t) \<stileturn> \<Xi>"
+      and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; S (Loc (SLoc k)) : (r,t) \<stileturn> \<Delta>"
     using stmt_ok.simps by auto
+  then have "\<Gamma> (Loc l) = Some (q,t)" using loc_type.cases by blast
   have src_loc_compat: "compat \<Delta>' (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) (S (Loc (SLoc k)))) 
                   (build_offset (\<lambda>(_,t). (empty, t)) (S (Loc l)) \<circ>\<^sub>o 0\<^sub>\<O>) (\<mu>, \<rho>) 
         \<and> \<Delta>' = update_locations \<Gamma> (build_offset (\<lambda>(_,t). (empty, t)) (S (Loc l)))"
@@ -3449,11 +3472,11 @@ next
     apply auto
     (* TODO: This will work once we fix build_stmts_offset *)
     sorry
-  have "compat \<Xi> 0\<^sub>\<O>
+  have "compat \<Delta> 0\<^sub>\<O>
                   (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) (S (Loc (SLoc k))) 
                    \<circ>\<^sub>o build_offset (\<lambda>(_,t). (empty, t)) (S (Loc l)))
                   (\<mu>, \<rho>)
-        \<and> \<Xi> = update_locations \<Delta>' (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) (S (Loc (SLoc k))))"
+        \<and> \<Delta> = update_locations \<Delta>' (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) (S (Loc (SLoc k))))"
     apply (rule located_env_compat)
     using EFlowLoc located_env_compat dst_ty src_loc_compat type_preserving_add
     by auto
@@ -3463,14 +3486,53 @@ next
     show "compat ?\<Gamma>' (build_stmts_offset ?\<Gamma>' []) 0\<^sub>\<O> (\<mu>, \<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2))"
       (* TODO: Once we finish the above, all we should have to do is show that the selection/subtract/add
                we did really brings everything into sync (basically, we really do want empty_offset, 
-               instead of \<P>) *) 
-      sorry
+               instead of \<P>) *)
+    proof(rule compatI)
+      show "var_dom ?\<Gamma>' = dom \<mu>" using EFlowLoc compat_elim update_loc_preserve_dom by auto
+
+      show "\<forall>la. la \<notin> dom (\<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2)) \<longrightarrow> la \<notin> references \<mu>"
+        using EFlowLoc compat_elim by auto
+
+      show "var_store_sync ?\<Gamma>' (build_stmts_offset ?\<Gamma>' []) \<mu>"
+        using EFlowLoc.prems(2) compat_elim(4) var_store_sync_update by fastforce
+
+      show "inj \<mu>" using EFlowLoc compat_elim by auto
+
+      show "env_select_var_compat ?\<Gamma>' (build_stmts_offset ?\<Gamma>' []) 0\<^sub>\<O> (\<mu>, \<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2))"
+        sorry
+
+      show "finite (dom (\<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2)))" 
+        using EFlowLoc compat_elim by auto
+
+      show "env_select_loc_compat ?\<Gamma>' 0\<^sub>\<O> (\<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2))"
+        using \<open>\<Gamma> (Loc l) = Some (q, t)\<close> 
+      proof(unfold env_select_loc_compat_def, intro allI impI)
+        fix j \<tau>
+        assume "update_locations \<Gamma> (build_stmts_offset \<Gamma> [S (Loc l) \<longlonglongrightarrow> S (Loc (SLoc k))]) (Loc j) = Some \<tau>"
+        then show "\<exists>\<sigma>. exactType (selectLoc (\<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2)) j) = Some \<sigma> \<and> (0\<^sub>\<O>\<^sup>j[\<sigma>]) \<sqsubseteq>\<^sub>\<tau> \<tau>"
+          using EFlowLoc
+          apply auto
+           apply (cases "j = SLoc k")
+          apply (auto simp: apply_offset_def)
+        (* TODO: Will probably need lots of new lemmas for this... *)
+          sorry
+      qed
+
+      show "\<forall>la r. (\<rho>(parent l \<mapsto> r1 -\<^sub>r r2, k \<mapsto> dr +\<^sub>r r2)) la = Some r \<longrightarrow> (\<exists>t v. r = Res (t, v) \<and> baseTypeMatches t v)"
+        sorry
+    qed
+    
     show "?\<Gamma>' \<turnstile> [] oks \<stileturn> ?\<Gamma>'" by simp
+
     show "var_ty_env \<Delta> = var_ty_env ?\<Gamma>'"
-      apply simp
-      sorry
-    show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env ?\<Gamma>'"
-      sorry
+      apply (simp only: update_locations_var_ty_env_id[symmetric])
+    proof(rule sym, rule trans)
+      show "var_ty_env \<Gamma> = var_ty_env \<Delta>'"
+        using located_var_env_same src_ty by auto
+      show "var_ty_env \<Delta>' = var_ty_env \<Delta>"
+        using located_var_env_same dst_ty by auto
+    qed
+
     show "[] stmts_wf" by simp
   qed
 next
@@ -3492,9 +3554,6 @@ next
 
     show "var_ty_env \<Delta> = var_ty_env \<Delta>'"
       using \<open>located Dst\<close> dst_ty located_var_env_same by auto
-
-    show "loc_ty_env \<Gamma> \<subseteq>\<^sub>m loc_ty_env \<Delta>'"
-      by (simp add: \<open>\<Gamma> = \<Delta>'\<close>)
 
     show "[] stmts_wf" by simp
   qed
