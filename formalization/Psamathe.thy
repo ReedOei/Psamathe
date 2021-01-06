@@ -252,6 +252,27 @@ inductive stmt_ok :: "Env \<Rightarrow> Stmt \<Rightarrow> Env \<Rightarrow> boo
            \<Delta> \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (_,t) \<stileturn> \<Xi> \<rbrakk>
          \<Longrightarrow> \<Gamma> \<turnstile> (Src \<longlonglongrightarrow> Dst) ok \<stileturn> \<Xi>"
 
+fun typecheck_stmt :: "Env \<Rightarrow> Stmt \<Rightarrow> Env" where
+  "typecheck_stmt \<Gamma> (Src \<longlonglongrightarrow> Dst) = 
+    (case typecheck \<Gamma> s (\<lambda>(_,t). (empty, t)) Src of
+      Some ((q,_), \<Delta>) \<Rightarrow> 
+        (case typecheck \<Delta> d (\<lambda>(r,s). (r \<oplus> q, s)) Dst of 
+          Some (_, \<Xi>) \<Rightarrow> \<Xi>
+          | _ \<Rightarrow> \<Gamma>)
+    | _ \<Rightarrow> \<Gamma>)"
+
+lemma typecheck_stmt_works:
+  assumes "\<Gamma> \<turnstile> Stmt ok \<stileturn> \<Delta>"
+  shows "typecheck_stmt \<Gamma> Stmt = \<Delta>"
+  using assms
+proof(induction)
+  case (Flow \<Gamma> Src q t \<Delta> Dst uu \<Xi>)
+  then have "typecheck \<Gamma> s (\<lambda>(_, t). (empty, t)) Src = Some ((q, t), \<Delta>)"
+        and "typecheck \<Delta> d (\<lambda>(r, s). (r \<oplus> q, s)) Dst = Some ((uu, t), \<Xi>)"
+    by (auto simp: typecheck_matches_loc_type)
+  then show ?case by auto
+qed
+
 fun stmts_ok :: "Env \<Rightarrow> Stmt list \<Rightarrow> Env \<Rightarrow> bool" ("_ \<turnstile> _ oks \<stileturn> _") where
   "(\<Gamma> \<turnstile> [] oks \<stileturn> \<Delta>) = (\<Gamma> = \<Delta>)"
 | "(\<Gamma> \<turnstile> (S1 # \<S>) oks \<stileturn> \<Xi>) = (\<exists>\<Delta>. (\<Gamma> \<turnstile> S1 ok \<stileturn> \<Delta>) \<and> (\<Delta> \<turnstile> \<S> oks \<stileturn> \<Xi>))"
@@ -3071,7 +3092,7 @@ qed
 fun build_stmt_offset :: "Env \<Rightarrow> Stmt \<Rightarrow> Offset" where
   "build_stmt_offset \<Gamma> (Src \<longlonglongrightarrow> Dst) = 
     (case typecheck \<Gamma> s (\<lambda>(_,t). (empty, t)) Src of
-      Some ((q,_), \<Delta>') \<Rightarrow> (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) Dst \<circ>\<^sub>o build_offset (\<lambda>(_,t). (empty,t)) Src)
+      Some ((q,_), \<Delta>) \<Rightarrow> build_offset (\<lambda>(r,s). (r \<oplus> q, s)) Dst \<circ>\<^sub>o build_offset (\<lambda>(_,t). (empty,t)) Src
     | _ \<Rightarrow> 0\<^sub>\<O>)"
 
 lemma type_preserving_add: "type_preserving (\<lambda>(r, s). (r \<oplus> q, s))"
@@ -3269,8 +3290,8 @@ qed
 
 fun build_stmts_offset :: "Env \<Rightarrow> Stmt list \<Rightarrow> Offset" where
   "build_stmts_offset \<Gamma> [] = empty_offset"
-| "build_stmts_offset \<Gamma> (S1 # \<S>) = (build_stmts_offset \<Gamma> \<S> \<circ>\<^sub>o build_stmt_offset \<Gamma> S1)"
-                                                                    
+| "build_stmts_offset \<Gamma> (S1 # \<S>) = (build_stmts_offset (typecheck_stmt \<Gamma> S1) \<S> \<circ>\<^sub>o build_stmt_offset \<Gamma> S1)"
+  
 theorem stmts_progress:
   assumes "\<Gamma> \<turnstile> Stmts oks \<stileturn> \<Delta>"
       and "compat \<Gamma> (build_stmts_offset \<Gamma> Stmts) empty_offset (\<mu>, \<rho>)"
@@ -3393,7 +3414,7 @@ lemma no_locations_build_stmts_offset_is_empty:
   assumes "\<forall>Stmt \<in> set Stmts. stmt_locations Stmt = {#}"
   shows "build_stmts_offset \<Gamma> Stmts = 0\<^sub>\<O>"
   using assms
-  apply (induction Stmts)
+  apply (induction Stmts arbitrary: \<Gamma>)
   apply auto
   by (simp add: no_locations_build_stmt_offset_is_empty)
 
@@ -3404,6 +3425,100 @@ lemma stmts_wf_suf_wf:
   apply (induction \<S>\<^sub>2)
    apply auto
   by (cases \<S>\<^sub>1, auto)+
+
+lemma build_stmts_append[simp]:
+  "build_stmts_offset \<Gamma> (\<S>\<^sub>1 @ \<S>\<^sub>2) = build_stmts_offset (foldl typecheck_stmt \<Gamma> \<S>\<^sub>1) \<S>\<^sub>2 \<circ>\<^sub>o build_stmts_offset \<Gamma> \<S>\<^sub>1"
+  apply (induction \<S>\<^sub>1 arbitrary: \<Gamma> \<S>\<^sub>2, auto)
+  by (simp add: offset_comp_assoc)
+
+lemma stmt_append_ok:
+  assumes "\<Gamma> \<turnstile> \<S>\<^sub>1 oks \<stileturn> \<Delta>" and "\<Delta> \<turnstile> \<S>\<^sub>2 oks \<stileturn> \<Xi>"
+  shows "\<Gamma> \<turnstile> (\<S>\<^sub>1 @ \<S>\<^sub>2) oks \<stileturn> \<Xi>"
+  using assms
+  by (induction \<S>\<^sub>1 arbitrary: \<Gamma> \<Delta> \<S>\<^sub>2 \<Xi>, auto)
+
+lemma prf_compat_not_located_stmt:
+  assumes "\<Gamma> \<turnstile> Stmt ok \<stileturn> \<Delta>"
+      and "var_ty_env \<Gamma> = var_ty_env \<Gamma>'"
+      and "Stmt stmt_wf"
+      and "stmt_locations Stmt = {#}"
+    shows "\<exists>\<Delta>'. (\<Gamma>' \<turnstile> Stmt ok \<stileturn> \<Delta>') 
+              \<and> var_ty_env \<Delta> = var_ty_env \<Delta>' 
+              \<and> loc_ty_env \<Delta>' = loc_ty_env \<Gamma>'"
+  using assms
+proof(induction arbitrary: \<Gamma>')
+  case (Flow \<Gamma> Src q t \<Delta> Dst uu \<Xi>)
+
+  have "\<exists>\<Delta>'. (\<Gamma>' \<turnstile>{s} \<lambda>(_, t). (empty, t) ; Src : (q, t) \<stileturn> \<Delta>') 
+                \<and> var_ty_env \<Delta> = var_ty_env \<Delta>' \<and> loc_ty_env \<Delta>' = loc_ty_env \<Gamma>'"
+    apply (rule prf_compat_not_located)
+    using Flow(1) apply assumption
+    using Flow by auto
+
+  then obtain \<Delta>' 
+    where src_ty_new: "\<Gamma>' \<turnstile>{s} \<lambda>(_, t). (empty, t) ; Src : (q, t) \<stileturn> \<Delta>'" 
+      and "var_ty_env \<Delta> = var_ty_env \<Delta>'" 
+      and loc_ty_new: "loc_ty_env \<Delta>' = loc_ty_env \<Gamma>'"
+    by auto
+
+  have "\<exists>\<Xi>'. (\<Delta>' \<turnstile>{d} \<lambda>(r, s). (r \<oplus> q, s) ; Dst : (uu, t) \<stileturn> \<Xi>') 
+                \<and> var_ty_env \<Xi> = var_ty_env \<Xi>' \<and> loc_ty_env \<Xi>' = loc_ty_env \<Delta>'"
+    apply (rule prf_compat_not_located)
+    using Flow(2) apply assumption
+    using \<open>var_ty_env \<Delta> = var_ty_env \<Delta>'\<close> apply auto[1]
+    using Flow by auto
+
+  then obtain \<Xi>'
+    where "\<Delta>' \<turnstile>{d} \<lambda>(r, s). (r \<oplus> q, s) ; Dst : (uu, t) \<stileturn> \<Xi>'"
+      and "var_ty_env \<Xi> = var_ty_env \<Xi>'"
+      and "loc_ty_env \<Xi>' = loc_ty_env \<Delta>'"
+    by auto
+
+  then show ?case using src_ty_new loc_ty_new by (metis stmt_ok.intros)
+qed
+
+lemma prf_compat_not_located_stmts:
+  assumes "\<Gamma> \<turnstile> Stmts oks \<stileturn> \<Delta>"
+      and "var_ty_env \<Gamma> = var_ty_env \<Gamma>'"
+      and "Stmts stmts_wf"
+      and "\<forall>Stmt \<in> set Stmts. stmt_locations Stmt = {#}"
+    shows "\<exists>\<Delta>'. (\<Gamma>' \<turnstile> Stmts oks \<stileturn> \<Delta>') 
+              \<and> var_ty_env \<Delta> = var_ty_env \<Delta>' 
+              \<and> loc_ty_env \<Delta>' = loc_ty_env \<Gamma>'"
+  using assms
+proof (induction Stmts arbitrary: \<Gamma>' \<Gamma> \<Delta>)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons Stmt Stmts)
+  then obtain \<Delta>' 
+    where stmt_ok: "\<Gamma> \<turnstile> Stmt ok \<stileturn> \<Delta>'" 
+      and tail_ok: "\<Delta>' \<turnstile> Stmts oks \<stileturn> \<Delta>"
+    by auto
+  
+  have "\<exists>\<Delta>''. (\<Gamma>' \<turnstile> Stmt ok \<stileturn> \<Delta>'') 
+              \<and> var_ty_env \<Delta>' = var_ty_env \<Delta>'' 
+              \<and> loc_ty_env \<Delta>'' = loc_ty_env \<Gamma>'"
+    apply (rule prf_compat_not_located_stmt)
+    using stmt_ok apply assumption
+    using Cons by auto
+  then obtain \<Delta>''
+    where "\<Gamma>' \<turnstile> Stmt ok \<stileturn> \<Delta>''" 
+      and "var_ty_env \<Delta>' = var_ty_env \<Delta>''" 
+      and "loc_ty_env \<Delta>'' = loc_ty_env \<Gamma>'"
+    by auto
+
+  have "\<exists>\<Xi>. (\<Delta>'' \<turnstile> Stmts oks \<stileturn> \<Xi>) 
+              \<and> var_ty_env \<Delta> = var_ty_env \<Xi> 
+              \<and> loc_ty_env \<Xi> = loc_ty_env \<Delta>''"
+    apply (rule Cons.IH)
+    using tail_ok apply assumption
+    using \<open>var_ty_env \<Delta>' = var_ty_env \<Delta>''\<close> apply auto[1]
+    using Cons apply auto
+    by (metis list.set_intros(1) list.set_intros(2) wf_stmts.elims(3))
+
+  then show ?case using \<open>\<Gamma>' \<turnstile> Stmt ok \<stileturn> \<Delta>''\<close> \<open>loc_ty_env \<Delta>'' = loc_ty_env \<Gamma>'\<close> by auto
+qed
 
 theorem stmts_preservation:
   assumes "\<langle>\<Sigma>, \<S>\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>'\<rangle>"
@@ -3767,8 +3882,10 @@ next
   qed
 next
   case (EStmtsCongr \<Sigma> S1 \<Sigma>' \<S>\<^sub>1' \<S>\<^sub>2)
-  then obtain \<Delta>' where s1_ok: "\<Gamma> \<turnstile> S1 ok \<stileturn> \<Delta>'" and "\<Delta>' \<turnstile> \<S>\<^sub>2 oks \<stileturn> \<Delta>"
+  then obtain \<Delta>' where s1_ok: "\<Gamma> \<turnstile> S1 ok \<stileturn> \<Delta>'" and tail_ok: "\<Delta>' \<turnstile> \<S>\<^sub>2 oks \<stileturn> \<Delta>"
     by auto
+
+  (* TODO: Very annoying to have to repeat everything twice, basically... *)
   have "\<exists>\<Gamma>' \<Delta>''.
            (compat \<Gamma>' (build_stmts_offset \<Gamma>' \<S>\<^sub>1') 0\<^sub>\<O> \<Sigma>') \<and>
            (\<Gamma>' \<turnstile> \<S>\<^sub>1' oks \<stileturn> \<Delta>'') \<and> var_ty_env \<Delta>' = var_ty_env \<Delta>'' \<and> (\<S>\<^sub>1' stmts_wf)"
@@ -3783,22 +3900,32 @@ next
   qed
   then obtain \<Gamma>' \<Delta>''
     where "compat \<Gamma>' (build_stmts_offset \<Gamma>' \<S>\<^sub>1') 0\<^sub>\<O> \<Sigma>'"
-      and "\<Gamma>' \<turnstile> \<S>\<^sub>1' oks \<stileturn> \<Delta>''"
+      and new_stmts_ok: "\<Gamma>' \<turnstile> \<S>\<^sub>1' oks \<stileturn> \<Delta>''"
       and "var_ty_env \<Delta>' = var_ty_env \<Delta>''"
       and "\<S>\<^sub>1' stmts_wf"
     by auto
 
-  (* TODO: This should definitely work, similar to however we did for lists when we update 
-           the head then re-well-type the Tail. *)
-  obtain \<Xi> where "\<Gamma>' \<turnstile> \<S>\<^sub>1' @ \<S>\<^sub>2 oks \<stileturn> \<Xi>" and "var_ty_env \<Delta> = var_ty_env \<Xi>"
-    sorry
+  have "\<exists>\<Xi>. (\<Delta>'' \<turnstile> \<S>\<^sub>2 oks \<stileturn> \<Xi>) 
+              \<and> var_ty_env \<Delta> = var_ty_env \<Xi> 
+              \<and> loc_ty_env \<Xi> = loc_ty_env \<Delta>''"
+    apply (rule prf_compat_not_located_stmts)
+    using tail_ok apply assumption
+    using \<open>var_ty_env \<Delta>' = var_ty_env \<Delta>''\<close> apply auto[1]
+    apply (metis EStmtsCongr.prems(3) append_Cons append_Nil stmts_wf_suf_wf)
+    using EStmtsCongr.prems(3) by auto
+  then obtain \<Xi> where rest_ok: "\<Delta>'' \<turnstile> \<S>\<^sub>2 oks \<stileturn> \<Xi>" and "var_ty_env \<Delta> = var_ty_env \<Xi>"
+    by auto
 
   then show ?case
   proof(intro exI conjI)
-    show "compat \<Gamma>' (build_stmts_offset \<Gamma>' (\<S>\<^sub>1' @ \<S>\<^sub>2)) 0\<^sub>\<O> \<Sigma>'"
-      sorry
+    have "build_stmts_offset (foldl typecheck_stmt \<Gamma>' \<S>\<^sub>1') \<S>\<^sub>2 = 0\<^sub>\<O>"
+      using EStmtsCongr no_locations_build_stmts_offset_is_empty
+      by simp
+    then show "compat \<Gamma>' (build_stmts_offset \<Gamma>' (\<S>\<^sub>1' @ \<S>\<^sub>2)) 0\<^sub>\<O> \<Sigma>'"
+      by (simp add: \<open>Psamathe.compat \<Gamma>' (build_stmts_offset \<Gamma>' \<S>\<^sub>1') 0\<^sub>\<O> \<Sigma>'\<close>)
 
-    show "\<Gamma>' \<turnstile> \<S>\<^sub>1' @ \<S>\<^sub>2 oks \<stileturn> \<Xi>" by (simp add: \<open>\<Gamma>' \<turnstile> \<S>\<^sub>1' @ \<S>\<^sub>2 oks \<stileturn> \<Xi>\<close>) 
+    show "\<Gamma>' \<turnstile> \<S>\<^sub>1' @ \<S>\<^sub>2 oks \<stileturn> \<Xi>"
+      using new_stmts_ok rest_ok stmt_append_ok by auto 
 
     show "var_ty_env \<Delta> = var_ty_env \<Xi>"
       using \<open>var_ty_env \<Delta> = var_ty_env \<Xi>\<close> by auto
