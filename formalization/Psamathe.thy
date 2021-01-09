@@ -9,7 +9,7 @@ datatype BaseTy = natural | boolean
 type_synonym Type = "TyQuant \<times> BaseTy"
 datatype Mode = s | d
 
-datatype Val = Num nat | Bool bool | Table "Val list"
+datatype Val = Num nat | Bool bool | Table "Val multiset"
 datatype Resource = Res "BaseTy \<times> Val" | error
 datatype StorageLoc = SLoc nat | Amount nat nat | ResLoc nat Val
 datatype Stored = V string | Loc StorageLoc
@@ -20,6 +20,7 @@ datatype Locator = N nat | B bool | S Stored
   | ConsList Type "Locator" "Locator" ("[ _ ; _ , _ ]")
   | Copy Locator ("copy'(_')")
 datatype Stmt = Flow Locator Locator (infix "\<longlonglongrightarrow>" 40)
+  | Revert
 datatype Prog = Prog "Stmt list"
 
 type_synonym Env = "(Stored, Type) map"
@@ -172,7 +173,7 @@ qed *)
 fun emptyVal :: "BaseTy \<Rightarrow> Val" where
   "emptyVal natural = Num 0"
 | "emptyVal boolean = Bool False"
-| "emptyVal (table keys t) = Table []"
+| "emptyVal (table keys t) = Table {#}"
 | "emptyVal (named name baseT) = emptyVal baseT"
 
 fun located :: "Locator \<Rightarrow> bool" where
@@ -189,7 +190,7 @@ fun selectLoc :: "(nat, Resource) map \<Rightarrow> StorageLoc \<Rightarrow> Res
   "selectLoc \<rho> (Amount l n) = (case \<rho> l of Some (Res (t, Num _)) \<Rightarrow> Res (t, Num n) | _ \<Rightarrow> error)"
 | "selectLoc \<rho> (ResLoc l r) = 
     (case \<rho> l of 
-        Some (Res (t, Table vals)) \<Rightarrow> if r \<in> set vals then Res (t, Table [r]) else error
+        Some (Res (t, Table vals)) \<Rightarrow> if r \<in># vals then Res (t, Table {#r#}) else error
        | _ \<Rightarrow> error)"
 | "selectLoc \<rho> (SLoc l) = lookupResource \<rho> l"
 
@@ -200,19 +201,36 @@ fun select :: "Store \<Rightarrow> Stored \<Rightarrow> Resource" where
 fun freshLoc :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat" where
   "freshLoc \<rho> = Max (dom \<rho>) + 1"
 
-fun resourceSum :: "Resource \<Rightarrow> Resource \<Rightarrow> Resource" (infix "+\<^sub>r" 50) where
+fun resourceSum :: "Resource \<Rightarrow> Resource \<Rightarrow> Resource" (infix "+\<^sub>r" 65) where
   "(Res (t1, Num n1))    +\<^sub>r (Res (t2, Num n2))    = (if t1 = t2 then Res (t1, Num (n1 + n2)) else error)"
 | "(Res (t1, Bool b1))   +\<^sub>r (Res (t2, Bool b2))   = (if t1 = t2 then Res (t1, Bool (b1 \<or> b2)) else error)"
-| "(Res (t1, Table vs1)) +\<^sub>r (Res (t2, Table vs2)) = (if t1 = t2 then Res (t1, Table (vs1 @ vs2)) else error)"
+| "(Res (t1, Table vs1)) +\<^sub>r (Res (t2, Table vs2)) = (if t1 = t2 then Res (t1, Table (vs1 + vs2)) else error)"
 | "_ +\<^sub>r _ = error"
 
-fun resourceSub :: "Resource \<Rightarrow> Resource \<Rightarrow> Resource" (infix "-\<^sub>r" 50) where
-  "(Res (t1, Num n1))    -\<^sub>r (Res (t2, Num n2))    = (if t1 = t2 then Res (t1, Num (n1 - n2)) else error)"
+fun resourceSub :: "Resource \<Rightarrow> Resource \<Rightarrow> Resource" (infix "-\<^sub>r" 65) where
+  "(Res (t1, Num n1))    -\<^sub>r (Res (t2, Num n2))    = 
+    (if t1 = t2 \<and> n1 \<ge> n2 then Res (t1, Num (n1 - n2)) else error)"
 | "(Res (t1, Bool b1))   -\<^sub>r (Res (t2, Bool b2))   = 
-    (if t1 = t2 then if b2 then Res (t1, Bool False) else Res (t1, Bool b1) else error)"
+    (if t1 = t2 \<and> (b2 \<longrightarrow> b1) then 
+        if b2 then Res (t1, Bool False) 
+     else Res (t1, Bool b1) else error)"
 | "(Res (t1, Table vs1)) -\<^sub>r (Res (t2, Table vs2)) = 
-    (if t1 = t2 then Res (t1, Table (filter (\<lambda>v. v \<notin> set vs2) vs1)) else error)"
+    (if t1 = t2 \<and> vs2 \<subseteq># vs1 then
+      Res (t1, Table (vs1 - vs2))
+     else error)"
 | "_ -\<^sub>r _ = error"
+
+lemma res_cancel:
+  assumes "(Res (t1,v1) -\<^sub>r Res (t2,v2)) \<noteq> error"
+  shows "(Res (t1,v1) -\<^sub>r (Res (t2,v2))) +\<^sub>r Res (t2,v2) = Res (t1,v1)"
+  using assms
+  apply (cases v1, auto)
+  apply (cases v2, auto)
+  apply meson+
+  apply (cases v2, auto)
+  apply meson+
+  apply (cases v2, auto)
+  by meson+
 
 fun demoteResource :: "Resource \<Rightarrow> Resource" where
   "demoteResource (Res (t, Num n)) = Res (demote\<^sub>* t, Num n)"
@@ -222,11 +240,11 @@ fun demoteResource :: "Resource \<Rightarrow> Resource" where
 
 fun deepCopy :: "(nat \<rightharpoonup> Resource) \<Rightarrow> Locator \<Rightarrow> Resource" where
   "deepCopy \<rho> (S (Loc k)) = demoteResource (selectLoc \<rho> k)"
-| "deepCopy \<rho> [\<tau>; ] = Res (table [] (demote \<tau>), Table [])"
+| "deepCopy \<rho> [\<tau>; ] = Res (table [] (demote \<tau>), Table {#})"
 | "deepCopy \<rho> [\<tau>; Head, Tail] = 
   (
     case (deepCopy \<rho> Head, deepCopy \<rho> Tail) of
-      (Res (t1, v), Res (t2, Table vs)) \<Rightarrow> Res (t2, Table (v # vs))
+      (Res (t1, v), Res (t2, Table vs)) \<Rightarrow> Res (t2, Table ({#v#} + vs))
     | _ \<Rightarrow> error
   )"
 | "deepCopy \<rho> copy(L) = deepCopy \<rho> L"
@@ -251,6 +269,7 @@ inductive stmt_ok :: "Env \<Rightarrow> Stmt \<Rightarrow> Env \<Rightarrow> boo
   Flow: "\<lbrakk> \<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; Src : (q,t) \<stileturn> \<Delta>;
            \<Delta> \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (_,t) \<stileturn> \<Xi> \<rbrakk>
          \<Longrightarrow> \<Gamma> \<turnstile> (Src \<longlonglongrightarrow> Dst) ok \<stileturn> \<Xi>"
+| Revert: "\<Gamma> \<turnstile> Revert ok \<stileturn> \<Gamma>"
 
 fun typecheck_stmt :: "Env \<Rightarrow> Stmt \<Rightarrow> Env" where
   "typecheck_stmt \<Gamma> (Src \<longlonglongrightarrow> Dst) = 
@@ -260,6 +279,7 @@ fun typecheck_stmt :: "Env \<Rightarrow> Stmt \<Rightarrow> Env" where
           Some (_, \<Xi>) \<Rightarrow> \<Xi>
           | _ \<Rightarrow> \<Gamma>)
     | _ \<Rightarrow> \<Gamma>)"
+| "typecheck_stmt \<Gamma> Revert = \<Gamma>"
 
 lemma typecheck_stmt_works:
   assumes "\<Gamma> \<turnstile> Stmt ok \<stileturn> \<Delta>"
@@ -271,6 +291,9 @@ proof(induction)
         and "typecheck \<Delta> d (\<lambda>(r, s). (r \<oplus> q, s)) Dst = Some ((uu, t), \<Xi>)"
     by (auto simp: typecheck_matches_loc_type)
   then show ?case by auto
+next
+  case (Revert \<Gamma>)
+  then show ?case by simp
 qed
 
 fun stmts_ok :: "Env \<Rightarrow> Stmt list \<Rightarrow> Env \<Rightarrow> bool" ("_ \<turnstile> _ oks \<stileturn> _") where
@@ -336,7 +359,7 @@ qed
 fun exactType :: "Resource \<Rightarrow> Type option" where
   "exactType (Res (t, Num n)) = Some (toQuant n, t)"
 | "exactType (Res (t, Bool b)) = Some (if b then (one, t) else (empty, t))"
-| "exactType (Res (t, Table vs)) = Some (toQuant (length vs), t)"
+| "exactType (Res (t, Table vs)) = Some (toQuant (size vs), t)"
 | "exactType error = None"
 
 (* TODO: Update when adding more types *)
@@ -419,10 +442,14 @@ inductive stmt_eval :: "Store \<Rightarrow> Stmt list \<Rightarrow> Store \<Righ
 | EFlowDstCongr: "\<lbrakk> located Src ; < \<Sigma>, Dst > \<rightarrow> < \<Sigma>', Dst' > \<rbrakk> 
                   \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src \<longlonglongrightarrow> Dst' ] \<rangle>"
 | EFlowLoc: "\<lbrakk> \<rho> (parent l) = Some r1;
-               selectLoc \<rho> l = r2;
-               \<rho> (parent k) = Some dr \<rbrakk>
-             \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc k) ]\<rangle> \<rightarrow> 
+               selectLoc \<rho> l = r2; r1 -\<^sub>r r2 \<noteq> error;
+               (\<rho>(parent l \<mapsto> r1 -\<^sub>r r2)) (parent k) = Some dr; dr +\<^sub>r r2 \<noteq> error \<rbrakk>
+             \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc k) ]\<rangle> \<rightarrow>
                  \<langle>(\<mu>, \<rho>(parent l \<mapsto> r1 -\<^sub>r r2, parent k \<mapsto> dr +\<^sub>r r2)), []\<rangle>"
+| EFlowLocFail: "\<lbrakk> \<rho> (parent l) = Some r1;
+                   selectLoc \<rho> l = r2; r1 -\<^sub>r r2 = error \<or> dr +\<^sub>r r2 = error;
+                   (\<rho>(parent l \<mapsto> r1 -\<^sub>r r2)) (parent k) = Some dr \<rbrakk>
+             \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc k) ]\<rangle> \<rightarrow> \<langle>(\<mu>, \<rho>), [ Revert ]\<rangle>"
 | EFlowEmptyList: "\<lbrakk> located Dst \<rbrakk> \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ [ \<tau>; ] \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> \<langle>(\<mu>, \<rho>), []\<rangle>"
 (* TODO: For this, we may ned to distinguish between located things and copy; this will also help 
          us fix copy. Located is what we need to use when something is an actual location, and 
@@ -462,6 +489,7 @@ fun wf_locator :: "Locator \<Rightarrow> bool" ("_ wf" 10) where
 
 fun wf_stmt :: "Stmt \<Rightarrow> bool" ("_ stmt'_wf" 10) where
   "(Src \<longlonglongrightarrow> Dst stmt_wf) = ((Src wf) \<and> (Dst wf) \<and> (\<not>(located Src) \<longrightarrow> locations Dst = {#}))"
+| "(Revert stmt_wf) = True"
 
 fun stmt_locations :: "Stmt \<Rightarrow> StorageLoc multiset" where
   "stmt_locations (Src \<longlonglongrightarrow> Dst) = (locations Src + locations Dst)"
@@ -1323,22 +1351,22 @@ lemma not_in_offset_dom_is_id:
   using assms
   by (auto simp: offset_dom_def apply_offset_def)
 
-lemma list_elem_length:
-  assumes "x \<in> set xs"
-  shows "length xs \<ge> 1"
+lemma multiset_elem_length:
+  assumes "x \<in># xs"
+  shows "size xs \<ge> 1"
   using assms
   by (induction xs, auto)
 
-lemma list_elem_tyquant:
-  assumes "x \<in> set xs"
-  shows "one \<sqsubseteq> toQuant (length xs)"
+lemma multiset_elem_tyquant:
+  assumes "x \<in># xs"
+  shows "one \<sqsubseteq> toQuant (size xs)"
   using assms
   by (auto simp: toQuant_def)
 
 fun valid_ref :: "StorageLoc \<Rightarrow> Resource \<Rightarrow> bool" where
   "valid_ref (SLoc _) (Res _) = True"
 | "valid_ref (Amount _ n) (Res (_, Num m)) = (toQuant n \<sqsubseteq> toQuant m)"
-| "valid_ref (ResLoc _ v) (Res (_, Table vals)) = (v \<in> set vals)"
+| "valid_ref (ResLoc _ v) (Res (_, Table vals)) = (v \<in># vals)"
 | "valid_ref _ _ = False"
 
 lemma add_fresh_loc:
@@ -1446,16 +1474,16 @@ proof(rule compatI)
           by (simp add: assms(9))
       next
         case (ResLoc x31 v)
-        then obtain t vs where r_decon: "r = Res (t, Table vs)" and "v \<in> set vs"
+        then obtain t vs where r_decon: "r = Res (t, Table vs)" and "v \<in># vs"
           using valid valid_ref.elims(2) by blast
         have "\<P>\<^sup>ResLoc k v[(toQuant (Suc 0), t)] = (toQuant (Suc 0), t)" by (simp add: k_not_in_offset_id)
         then show "\<exists>a b. exactType (selectLoc (\<rho>(k \<mapsto> r)) l) = Some (a, b) \<and> (\<P>\<^sup>l[(a, b)]) \<sqsubseteq>\<^sub>\<tau> \<sigma>" 
           using ResLoc r_ty r_decon \<open> \<tau>' = \<sigma> \<close> exact_ty_compat sigma_decon
           apply auto
-          apply (meson less_general_quant_trans list_elem_tyquant)
+          apply (meson less_general_quant_trans multiset_elem_tyquant)
           apply (simp add: assms(9))
-          apply (simp add: \<open>v \<in> set vs\<close>)
-          by (simp add: \<open>v \<in> set vs\<close>)
+          apply (simp add: \<open>v \<in># vs\<close>)
+          by (simp add: \<open>v \<in># vs\<close>)
       qed
     next
       case False
@@ -1953,7 +1981,7 @@ next
       apply (cases x)
       apply (auto simp: map_le_def)
       apply force
-      by (smt domIff option.discI)
+      by force
   qed
 
   then show ?case using Loc loc_type.Loc
@@ -2157,7 +2185,7 @@ lemma baseTypeMatches_bools:
   by (induction t, auto)
 
 lemma baseTypeMatches_tables:
-  assumes "baseTypeMatches t (Table vs)" and "set ws \<subseteq> set vs"
+  assumes "baseTypeMatches t (Table vs)" and "ws \<subseteq># vs"
   shows "baseTypeMatches t (Table ws)"
   using assms
   by (induction t, auto)
@@ -2190,19 +2218,19 @@ proof -
 next
   fix i v
   assume a1: "(case \<rho> i of None \<Rightarrow> error
-         | Some (Res (t, Table vals)) \<Rightarrow> if v \<in> set vals then Res (t, Table [v]) else error
+         | Some (Res (t, Table vals)) \<Rightarrow> if v \<in># vals then Res (t, Table {#v#}) else error
          | Some (Res (t, _)) \<Rightarrow> error | Some error \<Rightarrow> error) \<noteq>
         error"
   then obtain t x where lookup: "\<rho> i = Some (Res (t, x))"
     apply (cases "\<rho> i", auto)
     using store_ok by blast
-  then have "(case x of Table vals \<Rightarrow> if v \<in> set vals then Res (t, Table [v]) else error | _ \<Rightarrow> error) \<noteq> error"
+  then have "(case x of Table vals \<Rightarrow> if v \<in># vals then Res (t, Table {#v#}) else error | _ \<Rightarrow> error) \<noteq> error"
     using a1 by simp
-  then obtain vs where "x = Table vs" and "v \<in> set vs" 
+  then obtain vs where "x = Table vs" and "v \<in># vs" 
     apply (cases x, auto)
     by meson
   then show "\<exists>t v'. (case \<rho> i of None \<Rightarrow> error
-                  | Some (Res (t, Table vals)) \<Rightarrow> if v \<in> set vals then Res (t, Table [v]) else error
+                  | Some (Res (t, Table vals)) \<Rightarrow> if v \<in># vals then Res (t, Table {#v#}) else error
                   | Some (Res (t, _)) \<Rightarrow> error | Some error \<Rightarrow> error) =
                  Res (t, v') \<and>
                  baseTypeMatches t v'"
@@ -2226,7 +2254,7 @@ lemma baseTypeMatches_table_prepend:
   assumes "baseTypeMatches t2 (Table vs)"
       and "baseTypeMatches t1 v1"
       (* and t2 = table _ (q,t1); also handle the named type case *)      
-    shows "baseTypeMatches t2 (Table (v1 # vs))"
+    shows "baseTypeMatches t2 (Table ({#v1#} + vs))"
   using assms
   by (induction t2, auto)
 
@@ -2254,7 +2282,7 @@ next
   fix L1 L2
   assume "(case deepCopy \<rho> L1 of
          Res (t1, v) \<Rightarrow>
-           case deepCopy \<rho> L2 of Res (t2, Table vs) \<Rightarrow> Res (t2, Table (v # vs)) | Res (t2, _) \<Rightarrow> error | error \<Rightarrow> error
+           case deepCopy \<rho> L2 of Res (t2, Table vs) \<Rightarrow> Res (t2, Table ({#v#} + vs)) | Res (t2, _) \<Rightarrow> error | error \<Rightarrow> error
          | error \<Rightarrow> error) \<noteq>
         error"
   then obtain te t v vs 
@@ -2268,7 +2296,7 @@ next
     by (auto simp: l1_copy l2_copy)
   then show "\<exists>t v. (case deepCopy \<rho> L1 of
                   Res (t1, v) \<Rightarrow>
-                    case deepCopy \<rho> L2 of Res (t2, Table vs) \<Rightarrow> Res (t2, Table (v # vs)) | Res (t2, _) \<Rightarrow> error
+                    case deepCopy \<rho> L2 of Res (t2, Table vs) \<Rightarrow> Res (t2, Table ({#v#} + vs)) | Res (t2, _) \<Rightarrow> error
                     | error \<Rightarrow> error
                   | error \<Rightarrow> error) =
                  Res (t, v) \<and>
@@ -2278,7 +2306,7 @@ qed
 
 lemma exactType_table_len:
   assumes "exactType (Res (t, Table vs)) = Some (q, t)"
-  shows "toQuant (length vs) \<sqsubseteq> q"
+  shows "toQuant (size vs) \<sqsubseteq> q"
   using assms
   by (simp add: less_general_quant_refl)
 
@@ -2369,7 +2397,7 @@ next
     using \<open>baseTypeMatches t' vs\<close> baseTypeMatches.elims(2) by blast
   then have simp_copy: "deepCopy \<rho> Tail = Res (t', Table elems)"
     by (simp add: copy)
-  then have "toQuant (length elems) \<sqsubseteq> q" using \<open>q' \<sqsubseteq> q\<close>
+  then have "toQuant (size elems) \<sqsubseteq> q" using \<open>q' \<sqsubseteq> q\<close>
     using \<open>\<pi> = (q', t')\<close> exactType_table_len tail_ty by auto
   then show ?case 
     using ConsList copy \<open>t' \<approx> demote\<^sub>* (table [] \<tau>)\<close> simp_copy head_copy
@@ -2438,7 +2466,7 @@ next
 
   assume "(case deepCopy \<rho> \<L> of
          Res (t1, v) \<Rightarrow>
-           case deepCopy \<rho> Tail of Res (t2, Table vs) \<Rightarrow> Res (t2, Table (v # vs)) | Res (t2, _) \<Rightarrow> error
+           case deepCopy \<rho> Tail of Res (t2, Table vs) \<Rightarrow> Res (t2, Table ({#v#} + vs)) | Res (t2, _) \<Rightarrow> error
            | error \<Rightarrow> error
          | error \<Rightarrow> error) =
         error"
@@ -2799,7 +2827,7 @@ next
 
       show "env_select_loc_compat (\<Gamma>(V x \<mapsto> f \<tau>, Loc l \<mapsto> \<tau>)) \<P> \<rho>"
         using EVar x_ty
-        by (smt Stored.distinct(1) Stored.inject(2) \<open>Psamathe.compat \<Gamma> empty_offset \<P> (\<mu>, \<rho>)\<close> compat_elim(6) compat_elim(8) env_select_compatI env_select_compat_use env_select_loc_compat_def map_upd_Some_unfold offset_comp_empty_l)
+        by (smt Stored.distinct(1) Stored.inject(2) \<open>Psamathe.compat \<Gamma> 0\<^sub>\<O> \<P> (\<mu>, \<rho>)\<close> compat_elim(6) compat_elim(8) env_select_loc_compat_def env_select_var_compat_use map_upd_Some_unfold offset_comp_empty_l)
     qed
 
     have typed: "?\<Gamma>' \<turnstile>{m} f ; S (Loc l) : \<tau> \<stileturn> ?\<Delta>'" using False loc_type.Loc 
@@ -3096,6 +3124,7 @@ fun build_stmt_offset :: "Env \<Rightarrow> Stmt \<Rightarrow> Offset" where
     (case typecheck \<Gamma> s (\<lambda>(_,t). (empty, t)) Src of
       Some ((q,_), \<Delta>) \<Rightarrow> build_offset (\<lambda>(r,s). (r \<oplus> q, s)) Dst \<circ>\<^sub>o build_offset (\<lambda>(_,t). (empty,t)) Src
     | _ \<Rightarrow> 0\<^sub>\<O>)"
+| "build_stmt_offset \<Gamma> Revert = 0\<^sub>\<O>"
 
 lemma type_preserving_add: "type_preserving (\<lambda>(r, s). (r \<oplus> q, s))"
   apply (auto simp: type_preserving_def base_type_compat_refl)
@@ -3129,7 +3158,7 @@ lemma stmt_progress:
       and "compat \<Gamma> (\<O> \<circ>\<^sub>o build_stmt_offset \<Gamma> Stmt) empty_offset (\<mu>, \<rho>)"
       and "Stmt stmt_wf"
       and "finite (dom \<rho>)"
-    shows "\<exists>\<mu>' \<rho>' Stmts'. \<langle> (\<mu>, \<rho>), [Stmt] \<rangle> \<rightarrow> \<langle> (\<mu>', \<rho>'), Stmts' \<rangle>"
+    shows "Stmt = Revert \<or> (\<exists>\<mu>' \<rho>' Stmts'. \<langle> (\<mu>, \<rho>), [Stmt] \<rangle> \<rightarrow> \<langle> (\<mu>', \<rho>'), Stmts' \<rangle>)"
   (* TODO: Maybe need to split this into more lemmas, because I don't really like the 
             super deep case nesting... *)
   using assms
@@ -3150,17 +3179,17 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
       next
         fix n
         assume "Src = N n"
-        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+        then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
           using \<open>located Src\<close> True by auto
       next
         fix b
         assume "Src = B b"
-        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+        then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
           using \<open>located Src\<close> True by auto
       next
         fix x
         assume src: "Src = S x"
-        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+        then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
         proof(cases x)
           case (V x1)
           then show ?thesis using \<open>located Src\<close> src by simp
@@ -3184,12 +3213,12 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
           next
             fix x t 
             assume "Dst = var x : t" 
-            then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+            then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
               using True by auto
           next
             fix y
             assume dst: "Dst = S y" 
-            then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+            then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
             proof(cases y)
               case (V x1)
               then show ?thesis using True \<open>Dst = S y\<close> by auto
@@ -3208,28 +3237,31 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
                 using Flow typecheck_match \<open>located Src\<close> apply auto
                 apply (simp add: offset_comp_assoc)
                 by (simp add: type_preserving_with_quant)
-              then obtain dest_res where "\<rho> (parent y2) = Some dest_res"
+              then obtain dest_res where "(\<rho>(parent x2 \<mapsto> parent_res -\<^sub>r res)) (parent y2) = Some dest_res"
                 using Flow dst
                 apply simp
                 by (metis \<open>\<Delta> y = Some (r, t)\<close> domD domI local.Loc not_in_dom_compat)
               then show ?thesis using src Loc dst \<open>x = Loc x2\<close>
-                apply (intro exI)
+                apply (cases "parent_res -\<^sub>r res \<noteq> error \<and> dest_res +\<^sub>r res \<noteq> error")
+                apply (intro exI disjI2)
                 apply simp
                 apply (rule EFlowLoc)
-                using parent selected by auto
+                using parent selected apply auto
+                using EFlowLocFail \<open>(\<rho>(parent x2 \<mapsto> parent_res -\<^sub>r res)) (parent y2) = Some dest_res\<close> apply blast
+                using EFlowLocFail \<open>(\<rho>(parent x2 \<mapsto> parent_res -\<^sub>r res)) (parent y2) = Some dest_res\<close> by blast
             qed
           qed
         qed
       next
         fix q' k \<sigma>
         assume "(q, t) = (q', table k \<sigma>)" and "Src = [ \<sigma> ; ]"
-        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+        then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
           using EFlowEmptyList True by blast
       next
         fix q' k \<sigma> Head Tail
         assume "(q, t) = (q', table k \<sigma>)" and "Src = [ \<sigma> ; Head , Tail ]"
-        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
-          apply (intro exI)
+        then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
+          apply (intro exI disjI2)
           apply simp
           apply (rule EFlowConsList)
           using \<open>located Src\<close> apply simp
@@ -3239,9 +3271,9 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
         fix L'
         obtain l where fresh: "l \<notin> dom \<rho>" using Flow gen_loc by auto
         assume "Src = copy(L')" 
-        then show "\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>"
+        then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
           apply simp
-          apply (intro exI)
+          apply (intro exI disjI2)
           apply (rule EFlowCopy)
           using \<open>located Src\<close> apply simp
           using \<open>located Dst\<close> apply simp
@@ -3281,7 +3313,7 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
         
       then show ?thesis
         using \<open>located Src\<close> assms EFlowDstCongr locator_progress type_preserving_add
-        apply (intro exI)
+        apply (intro exI disjI2)
         apply (rule EFlowDstCongr[where \<Sigma>' = "(\<mu>', \<rho>')" and Dst' = Dst'])
         by simp
     qed
@@ -3296,6 +3328,9 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
       by (simp add: type_preserving_with_quant)
     then show ?thesis using Flow EFlowSrcCongr False by blast
   qed
+next
+  case (Revert \<Gamma>)
+  then show ?case by simp
 qed
 
 fun build_stmts_offset :: "Env \<Rightarrow> Stmt list \<Rightarrow> Offset" where
@@ -3307,7 +3342,7 @@ theorem stmts_progress:
       and "compat \<Gamma> (build_stmts_offset \<Gamma> Stmts) empty_offset (\<mu>, \<rho>)"
       and "Stmts stmts_wf"
       and "finite (dom \<rho>)"
-    shows "Stmts = [] \<or> (\<exists>\<mu>' \<rho>' Stmts'. \<langle> (\<mu>, \<rho>), Stmts \<rangle> \<rightarrow> \<langle> (\<mu>', \<rho>'), Stmts' \<rangle>)"
+    shows "Stmts = [] \<or> (\<exists>\<S>. Stmts = Revert # \<S>)  \<or> (\<exists>\<mu>' \<rho>' Stmts'. \<langle> (\<mu>, \<rho>), Stmts \<rangle> \<rightarrow> \<langle> (\<mu>', \<rho>'), Stmts' \<rangle>)"
   using assms
 proof(induction Stmts arbitrary: \<Gamma> \<Delta> \<mu> \<rho>)
 case Nil
@@ -3320,12 +3355,19 @@ next
     by (cases Stmts, auto)
   obtain \<Delta>' where "\<Gamma> \<turnstile> S1 ok \<stileturn> \<Delta>'" and "\<Delta>' \<turnstile> Stmts oks \<stileturn> \<Delta>"
     using Cons by auto
-  then obtain \<mu>' \<rho>' \<S>\<^sub>1' where "\<langle>(\<mu>, \<rho>), [S1]\<rangle> \<rightarrow> \<langle>(\<mu>', \<rho>'), \<S>\<^sub>1'\<rangle>"
-    using Cons.prems(2) Cons.prems(4) \<open>S1 stmt_wf\<close> stmt_progress by force
   then show ?case
-    apply (intro disjI2 exI)
-    apply (rule EStmtsCongr)
-    by assumption
+  proof(cases S1)
+    case (Flow Src Dst)
+    then obtain \<mu>' \<rho>' \<S>\<^sub>1' where "\<langle>(\<mu>, \<rho>), [S1]\<rangle> \<rightarrow> \<langle>(\<mu>', \<rho>'), \<S>\<^sub>1'\<rangle>"
+      by (smt Cons.prems(2) Cons.prems(4) Stmt.distinct(1) \<open>S1 stmt_wf\<close> \<open>\<Gamma> \<turnstile> S1 ok \<stileturn> \<Delta>'\<close> build_stmts_offset.simps(2) stmt_progress)
+    then show ?thesis
+      apply (intro disjI2 exI)
+      apply (rule EStmtsCongr)
+      by assumption
+  next
+    case Revert
+    then show ?thesis by simp
+  qed
 qed
 
 lemma located_var_env_same:
@@ -3418,6 +3460,9 @@ proof(cases Stmt)
     apply (cases "typecheck \<Gamma> s (\<lambda>(_, y). (TyQuant.empty, y)) Src")
     apply auto
     by (simp add: no_locations_build_offset_empty)
+next
+  case Revert
+  then show ?thesis by simp
 qed
 
 lemma no_locations_build_stmts_offset_is_empty:
@@ -3485,6 +3530,9 @@ proof(induction arbitrary: \<Gamma>')
     by auto
 
   then show ?case using src_ty_new loc_ty_new by (metis stmt_ok.intros)
+next
+  case (Revert \<Gamma>)
+  then show ?case using stmt_ok.Revert by auto
 qed
 
 lemma prf_compat_not_located_stmts:
@@ -3529,6 +3577,24 @@ next
 
   then show ?case using \<open>\<Gamma>' \<turnstile> Stmt ok \<stileturn> \<Delta>''\<close> \<open>loc_ty_env \<Delta>'' = loc_ty_env \<Gamma>'\<close> by auto
 qed
+
+lemma resourceSub_self_emptyVal:
+  assumes "baseTypeMatches t v"
+  shows "Res (t,v) -\<^sub>r Res (t,v) = Res (t, emptyVal t)"
+  using assms
+  apply (induction t)
+  apply (cases v, auto)
+  apply (cases v, auto)
+  apply (cases v, auto)
+  apply (cases v, auto)
+  by (metis (full_types) Resource.inject prod.inject)
+
+lemma resourceSub_empty_quant:
+  shows "exactType (Res (t,v) -\<^sub>r Res (t,v)) = Some (empty,t)"
+  by (cases v, auto)
+
+lemma empty_offset_lookup_empty: "0\<^sub>\<O> l = []"
+  by (auto simp: empty_offset_def)
 
 theorem stmts_preservation:
   assumes "\<langle>\<Sigma>, \<S>\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>'\<rangle>"
@@ -3751,8 +3817,68 @@ next
 
       show "inj \<mu>" using EFlowLoc compat_elim by auto
 
-      show "env_select_var_compat ?\<Gamma>' (build_stmts_offset ?\<Gamma>' []) 0\<^sub>\<O> (\<mu>, \<rho>(parent l \<mapsto> r1 -\<^sub>r r2, parent k \<mapsto> dr +\<^sub>r r2))"
-        sorry
+      show "env_select_var_compat ?\<Gamma>' (build_stmts_offset ?\<Gamma>' []) 0\<^sub>\<O> 
+                                  (\<mu>, \<rho>(parent l \<mapsto> r1 -\<^sub>r r2, parent k \<mapsto> dr +\<^sub>r r2))"
+        using loc_in_env EFlowLoc
+      proof(unfold env_select_var_compat_def, auto)
+        fix x q' t' j
+        assume compat_simp: "compat \<Gamma>
+         ((\<lambda>ka. if k = ka then [\<lambda>(r, y). (r \<oplus> q, y)] else []) \<circ>\<^sub>o
+          (\<lambda>k. if l = k then [\<lambda>(_, y). (empty, y)] else []))
+         0\<^sub>\<O> (\<mu>, \<rho>)"
+          and "\<Gamma> (Loc l) = Some (q, t)" 
+          and "\<rho> (parent l) = Some r1" 
+          and k_res: "(if parent k = parent l then Some (r1 -\<^sub>r selectLoc \<rho> l) else \<rho> (parent k)) = Some dr" 
+          and "r2 = selectLoc \<rho> l"
+          and "\<Gamma> (V x) = Some (q', t')"
+          and "\<mu> x = Some j"
+
+        thm env_select_var_compat_def
+
+        then have "(\<exists>\<sigma>. exactType (selectLoc \<rho> j) = Some \<sigma> \<and> (((\<lambda>ka. if k = ka then [\<lambda>(r, y). (r \<oplus> q, y)] else []) \<circ>\<^sub>o
+          (\<lambda>k. if l = k then [\<lambda>(_, y). (empty, y)] else [])))\<^sup>j[\<sigma>] \<sqsubseteq>\<^sub>\<tau> (q', t'))"
+          apply (simp add: apply_offset_def)
+          apply (drule compat_elim(6))
+          apply (unfold env_select_var_compat_def)
+          apply auto
+          using apply_offset_def compat_elim(6) compat_simp env_select_var_compat_use by fastforce
+        then obtain jq jt
+          where select_j_ty: "exactType (selectLoc \<rho> j) = Some (jq,jt)"
+            and select_j_bound: "(((\<lambda>ka. if k = ka then [\<lambda>(r, y). (r \<oplus> q, y)] else []) \<circ>\<^sub>o
+          (\<lambda>k. if l = k then [\<lambda>(_, y). (empty, y)] else [])))\<^sup>j[(jq,jt)] \<sqsubseteq>\<^sub>\<tau> (q', t')"
+          by auto
+
+(*
+        then obtain real_q real_t 
+          where "exactType (selectLoc \<rho> l) = Some (real_q, real_t)" and "(real_q, real_t) \<sqsubseteq>\<^sub>\<tau> (q,t)"
+          apply (simp add: apply_offset_def)
+          apply (drule compat_elim(8))
+          apply (unfold env_select_loc_compat_def)
+          apply (auto simp: empty_offset_lookup_empty)
+          by blast *)
+
+        then show "\<exists>aa ba.
+              exactType (selectLoc (\<rho>(parent l \<mapsto> r1 -\<^sub>r selectLoc \<rho> l, parent k \<mapsto> dr +\<^sub>r selectLoc \<rho> l)) j) =
+              Some (aa, ba) \<and>
+              aa \<sqsubseteq> q' \<and> ba \<approx> t'"
+        proof (cases "j = l")
+          case True
+          then show ?thesis using select_j_ty select_j_bound k_res
+            apply (auto simp: apply_offset_def)
+            apply (cases "k = l", auto)
+            using res_cancel sorry
+
+            value "foldl (\<circ>) id
+      (((\<lambda>ka. if l = ka then [\<lambda>(r, y). (r \<oplus> q, y)] else []) \<circ>\<^sub>o
+        (\<lambda>k. if l = k then [\<lambda>(_, y). (TyQuant.empty, y)] else []))
+        l)
+      (jq, jt)
+"
+        next
+          case False
+          then show ?thesis sorry
+        qed
+      qed
 
       show "finite (dom (\<rho>(parent l \<mapsto> r1 -\<^sub>r r2, parent k \<mapsto> dr +\<^sub>r r2)))" 
         using EFlowLoc compat_elim by auto
@@ -3790,6 +3916,10 @@ next
     show "[] stmts_wf" by simp
   qed
 next
+  case (EFlowLocFail \<rho> l r1 r2 dr k \<mu>)
+  (* TODO: For this case, we either need to undo the changes to the environment, or relax the Revert rule *)
+  then show ?case sorry
+next
   case (EFlowEmptyList Dst \<mu> \<rho> \<tau>)
   then obtain q r t \<Delta>' 
     where src_ty: "\<Gamma> \<turnstile>{s} (\<lambda>(_,t). (empty, t)) ; [ \<tau>; ] : (q,t) \<stileturn> \<Delta>'"
@@ -3822,7 +3952,8 @@ next
       and dst_ty: "\<Gamma> \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r, t) \<stileturn> \<Delta>"
     using stmt_ok.simps
     apply auto
-    using located.simps(4) located_env_compat type_preserving_with_quant by fastforce
+    using located.simps(4) located_env_compat type_preserving_with_quant
+    sorry
 
   obtain \<sigma> where copied_ty: "\<Gamma> \<turnstile>{s} id ; L : \<sigma> \<stileturn> \<Gamma>" and "(q,t) = demote \<sigma>"
     apply (rule loc_type.cases)
