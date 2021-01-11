@@ -544,6 +544,7 @@ demoteBaseType (Named t) = do
     decl <- lookupTypeDecl t
     case decl of
         TypeDecl _ _ baseT -> demoteBaseType baseT
+demoteBaseType Bot = pure Bot
 
 typeOfLoc :: Locator -> State Env BaseType
 typeOfLoc (IntConst _) = pure Nat
