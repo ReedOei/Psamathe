@@ -23,7 +23,7 @@ datatype Stmt = Flow Locator Locator (infix "\<longlonglongrightarrow>" 40)
   | Revert
 datatype Prog = Prog "Stmt list"
 
-type_synonym Env = "(Stored, Type) map"
+type_synonym Env = "Stored \<rightharpoonup> Type"
 type_synonym Store = "(string \<rightharpoonup> nat) \<times> (nat \<rightharpoonup> Resource)"
 
 fun sub_store :: "Store \<Rightarrow> Store \<Rightarrow> bool" (infix "\<subseteq>\<^sub>s" 50) where
@@ -55,8 +55,6 @@ inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> (Type \<Rightarrow> 
 | Bool: "\<Gamma> \<turnstile>{s} f ; (B b) : (any, boolean) \<stileturn> \<Gamma>"
 | Var: "\<lbrakk> \<Gamma> (V x) = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; (S (V x)) : \<tau> \<stileturn> (\<Gamma>(V x \<mapsto> f \<tau>))"
 | Loc: "\<lbrakk> \<Gamma> (Loc l) = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; (S (Loc l)) : \<tau> \<stileturn> (\<Gamma>(Loc l \<mapsto> f \<tau>))"
-(* | Loc: "\<lbrakk> \<Gamma> (Loc l) = Some \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; (S (Loc l)) : \<tau> \<stileturn> \<Gamma>" *)
-(* | Loc: "\<lbrakk> \<Gamma> (Loc l) = Some (f(\<tau>)) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; (S (Loc l)) : \<tau> \<stileturn> (\<Gamma>(Loc l \<mapsto> f(\<tau>)))" *)
 | VarDef: "\<lbrakk> V x \<notin> dom \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>{d} f ; (var x : t) : (empty, t) \<stileturn> (\<Gamma>(V x \<mapsto> f(empty, t)))"
 | EmptyList: "\<Gamma> \<turnstile>{s} f ; [ \<tau> ; ] : (empty, table [] \<tau>) \<stileturn> \<Gamma>"
 | ConsList: "\<lbrakk> \<Gamma> \<turnstile>{s} f ; \<L> : \<tau> \<stileturn> \<Delta> ;
@@ -588,13 +586,14 @@ lemma env_select_var_compat_use:
   apply (auto simp: env_select_var_compat_def)
   by (metis old.prod.exhaust)
 
-lemma env_select_compat_use:
-  assumes "env_select_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
+lemma env_select_var_compat_use_exist:
+  assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
     and "\<Gamma> (V x) = Some \<tau>" 
     and "\<mu> x = Some l"
-  obtains \<sigma> where "exactType (lookupResource \<rho> l) = Some \<sigma>" and "(\<O> \<circ>\<^sub>o \<P>)\<^sup>l[\<sigma>] \<sqsubseteq>\<^sub>\<tau> \<tau>"
+  shows "\<exists>\<sigma>. exactType (lookupResource \<rho> l) = Some \<sigma> \<and> ((\<O> \<circ>\<^sub>o \<P>)\<^sup>l[\<sigma>]) \<sqsubseteq>\<^sub>\<tau> \<tau>"
   using assms
-  using env_select_compatD(1) env_select_var_compat_use by blast
+  apply (auto simp: env_select_var_compat_def)
+  by (metis old.prod.exhaust)
 
 definition loc_dom_refs_compat :: "Env \<Rightarrow> (nat \<rightharpoonup> Resource) \<Rightarrow> bool" where
   "loc_dom_refs_compat \<Gamma> \<rho> \<equiv> loc_dom \<Gamma> \<subseteq> dom \<rho>"
@@ -3529,9 +3528,16 @@ lemma resourceSub_self_emptyVal:
   apply (cases v, auto)
   by (metis (full_types) Resource.inject prod.inject)
 
-lemma resourceSub_empty_quant:
+lemma resourceSub_empty_quant_res:
   shows "exactType (Res (t,v) -\<^sub>r Res (t,v)) = Some (empty,t)"
   by (cases v, auto)
+
+lemma resourceSub_empty_quant:
+  assumes "exactType r = Some (q,t)"
+  shows "exactType (r -\<^sub>r r) = Some (empty,t)"
+  using assms
+  apply (cases r, auto)
+  using exactType_has_same_base_type resourceSub_empty_quant_res by auto
 
 lemma empty_offset_lookup_empty: "0\<^sub>\<O> l = []"
   by (auto simp: empty_offset_def)
@@ -3725,6 +3731,9 @@ next
       and dst_ty: "\<Delta>' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; S (Loc k) : (r,t) \<stileturn> \<Delta>"
     using stmt_ok.simps by auto
   then have loc_in_env: "\<Gamma> (Loc l) = Some (q,t)" using loc_type.cases by blast
+  have typecheck_src: "typecheck \<Gamma> s (\<lambda>(_,t). (empty, t)) (S (Loc l)) = Some ((q,t), \<Delta>')"
+    using src_ty
+    using typecheck_matches_loc_type by blast
   have src_loc_compat: "compat \<Delta>' (build_offset (\<lambda>(r,s). (r \<oplus> q, s)) (S (Loc k))) 
                   (build_offset (\<lambda>(_,t). (empty, t)) (S (Loc l)) \<circ>\<^sub>o 0\<^sub>\<O>) (\<mu>, \<rho>) 
         \<and> \<Delta>' = update_locations \<Gamma> (build_offset (\<lambda>(_,t). (empty, t)) (S (Loc l)))"
@@ -3760,11 +3769,19 @@ next
       proof(unfold env_select_var_compat_def)
         fix x q' t' j
         assume compat_simp: "compat \<Gamma> (build_stmts_offset \<Gamma> [S (Loc l) \<longlonglongrightarrow> S (Loc k)]) 0\<^sub>\<O> (\<mu>, \<rho>)"
-          and "\<Gamma> (Loc l) = Some (q, t)" 
+          and "\<Gamma> (Loc l) = Some (q, t)"
           and l_res: "\<rho> l = Some r1" 
           and k_res: "(\<rho>(l \<mapsto> r1 -\<^sub>r r1)) k = Some r2" 
           and sub_no_err: "r1 -\<^sub>r r1 \<noteq> error"
           and add_no_err: "r2 +\<^sub>r r1 \<noteq> error"
+
+        have r1_ty: "\<exists>a b. exactType r1 = Some (a,b) \<and> a \<sqsubseteq> q \<and> b \<approx> t" 
+          using compat_simp l_res loc_in_env
+          apply (auto simp: compat_def env_select_loc_compat_def)
+          by force
+        then obtain r1q r1t 
+          where r1_exact_ty: "exactType r1 = Some (r1q, r1t)" and "r1q \<sqsubseteq> q" and "r1t \<approx> t"
+          by auto
         
         show "case (\<mu>, \<rho>(l \<mapsto> r1 -\<^sub>r r1, k \<mapsto> r2 +\<^sub>r r1)) of
         (\<mu>, \<rho>) \<Rightarrow>
@@ -3778,15 +3795,36 @@ next
         proof(intro allI impI, auto)
           fix y q' t'
           assume "l = k" and "\<Gamma> (V y) = Some (q', t')" and "\<mu> y = Some k"
+          then have "\<exists>q'' t''. exactType r1 = Some (q'', t'') \<and> (empty \<oplus> q, t'') \<sqsubseteq>\<^sub>\<tau> (q', t')"
+            using offset_comp_def l_res k_res loc_in_env compat_simp
+            apply (auto simp: offset_comp_def compat_def)
+            apply (drule env_select_var_compat_use_exist[where x = y and l = k and \<tau> = "(q', t')"])
+            apply assumption
+            apply assumption
+            by (simp add: offset_comp_def empty_offset_lookup_empty apply_offset_def)
+          then have "q \<sqsubseteq> q'" and "t \<approx> t'"
+             apply (metis addQuant.simps(1) less_general_type.simps quant_add_comm)
+            using r1_ty apply auto
+            by (metis \<open>\<exists>q'' t''. exactType r1 = Some (q'', t'') \<and> (empty \<oplus> q, t'') \<sqsubseteq>\<^sub>\<tau> (q', t')\<close> base_type_compat_sym base_type_compat_trans less_general_type.simps option.sel)
           then show "\<exists>aa ba. exactType (r2 +\<^sub>r r1) = Some (aa, ba) \<and> aa \<sqsubseteq> q' \<and> ba \<approx> t'"
-            using l_res k_res
-            apply auto
-            sorry
+            by (metis \<open>l = k\<close> base_type_compat_trans fun_upd_same k_res less_general_quant_trans option.inject r1_ty res_cancel sub_no_err)
         next
           fix y q' t'
+          have ty_empty: "exactType (r1 -\<^sub>r r1) = Some (empty, r1t)"
+            using loc_in_env compat_simp resourceSub_empty_quant r1_exact_ty
+            by (auto simp: compat_def env_select_loc_compat_def)
           assume "l \<noteq> k" and "\<Gamma> (V y) = Some (q', t')" and "\<mu> y = Some l"
+          then have "\<exists>q'' t''. exactType r1 = Some (q'', t'') \<and> (empty, t'') \<sqsubseteq>\<^sub>\<tau> (q', t')"
+            using offset_comp_def l_res loc_in_env compat_simp
+            apply (auto simp: offset_comp_def compat_def)
+            apply (drule env_select_var_compat_use_exist[where x = y and l = l and \<tau> = "(q', t')"])
+            apply assumption
+            apply assumption
+            by (simp add: offset_comp_def empty_offset_lookup_empty apply_offset_def)
           then show "\<exists>aa ba. exactType (r1 -\<^sub>r r1) = Some (aa, ba) \<and> aa \<sqsubseteq> q' \<and> ba \<approx> t'"
-            sorry
+            using ty_empty
+            apply auto
+            by (simp add: resourceSub_empty_quant)
         next
           fix y q' t'
           assume "k \<noteq> l" and "\<Gamma> (V y) = Some (q', t')" and "\<mu> y = Some k"
@@ -3794,7 +3832,7 @@ next
             sorry
         next
           fix y q' t' j
-          assume "j \<noteq> l" and "j \<noteq> k" 
+          assume "j \<noteq> l" and "j \<noteq> k"
             and "\<Gamma> (V y) = Some (q', t')" and "\<mu> y = Some j"
           then show "\<exists>aa ba. exactType (case \<rho> j of None \<Rightarrow> error | Some r \<Rightarrow> r) = Some (aa, ba) \<and> aa \<sqsubseteq> q' \<and> ba \<approx> t'"
             sorry
