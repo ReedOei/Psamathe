@@ -10,10 +10,10 @@ data Error = SyntaxError String
 
 -- dummy values that are returned as proxies when errors are encountered
 dummyBaseType :: BaseType
-dummyBaseType = (Named "unknownType__")
+dummyBaseType = Bot
 
 dummyDecl :: Decl
-dummyDecl = (TypeDecl "unknownDecl__" [] dummyBaseType)
+dummyDecl = TypeDecl "unknownDecl__" [] dummyBaseType
 
 dummySolExpr :: SolExpr
 dummySolExpr = SolVar "unknownExpr__"

@@ -16,6 +16,7 @@ data BaseType = Nat | PsaBool | PsaString | Address
               | Record [String] [VarDef]
               | Table [String] Type
               | Named String
+              | Bot
     deriving (Show, Eq)
 
 type VarDef = (String, Type)
