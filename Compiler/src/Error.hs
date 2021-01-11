@@ -7,3 +7,13 @@ data Error = SyntaxError String
            | LookupError String
            | FlowError String
     deriving (Show, Eq)
+
+-- dummy values that are returned as proxies when errors are encountered
+dummyBaseType :: BaseType
+dummyBaseType = (Named "unknownType__")
+
+dummyDecl :: Decl
+dummyDecl = (TypeDecl "unknownDecl__" [] dummyBaseType)
+
+dummySolExpr :: SolExpr
+dummySolExpr = SolVar "unknownExpr__"
