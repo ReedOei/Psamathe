@@ -426,33 +426,6 @@ fun type_less_general :: "Type option \<Rightarrow> Type option \<Rightarrow> bo
 | "type_less_general None None = True"
 | "type_less_general _ _ = False"
 
-inductive stmt_eval :: "Store \<Rightarrow> Stmt list \<Rightarrow> Store \<Rightarrow> Stmt list \<Rightarrow> bool"
-  ("\<langle> _ , _ \<rangle> \<rightarrow> \<langle> _ , _ \<rangle>") where
-  EFlowSrcCongr: "\<lbrakk> < \<Sigma>, Src > \<rightarrow> < \<Sigma>', Src' > \<rbrakk> \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src' \<longlonglongrightarrow> Dst ] \<rangle>"
-| EFlowDstCongr: "\<lbrakk> located Src ; < \<Sigma>, Dst > \<rightarrow> < \<Sigma>', Dst' > \<rbrakk> 
-                  \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src \<longlonglongrightarrow> Dst' ] \<rangle>"
-| EFlowLoc: "\<lbrakk> \<rho> l = Some r1; r1 -\<^sub>r r1 \<noteq> error;
-               (\<rho>(l \<mapsto> r1 -\<^sub>r r1)) k = Some r2; r2 +\<^sub>r r1 \<noteq> error \<rbrakk>
-             \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc k) ]\<rangle> \<rightarrow>
-                 \<langle>(\<mu>, \<rho>(l \<mapsto> r1 -\<^sub>r r1, k \<mapsto> r2 +\<^sub>r r1)), []\<rangle>"
-| EFlowLocFail: "\<lbrakk> \<rho> l = Some r1; r1 -\<^sub>r r1 = error \<or> r2 +\<^sub>r r1 = error;
-                   (\<rho>(l \<mapsto> r1 -\<^sub>r r1)) k = Some r2 \<rbrakk>
-             \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc k) ]\<rangle> \<rightarrow> \<langle>(\<mu>, \<rho>), [ Revert ]\<rangle>"
-| EFlowEmptyList: "\<lbrakk> located Dst \<rbrakk> \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ [ \<tau>; ] \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> \<langle>(\<mu>, \<rho>), []\<rangle>"
-(* TODO: For this, we may ned to distinguish between located things and copy; this will also help 
-         us fix copy. Located is what we need to use when something is an actual location, and 
-         `evaluated` is when we stop using locator_eval (or something like that). *)
-| EFlowConsList: "\<lbrakk> located Head; located Tail; located Dst \<rbrakk>
-                  \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ [ \<tau>; Head, Tail ] \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> 
-                      \<langle>(\<mu>, \<rho>), [ Head \<longlonglongrightarrow> Dst, Tail \<longlonglongrightarrow> Dst]\<rangle>"
-| EFlowCopy: "\<lbrakk> located L; located Dst; l \<notin> dom \<rho> \<rbrakk>
-              \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ copy(L) \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> 
-                  \<langle>(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), [ S (Loc l) \<longlonglongrightarrow> Dst ]\<rangle>" 
-| EStmtsCongr: "\<lbrakk> \<langle>\<Sigma>, [S1]\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>\<^sub>1'\<rangle> \<rbrakk> \<Longrightarrow> \<langle>\<Sigma>, S1 # \<S>\<^sub>2\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>\<^sub>1' @ \<S>\<^sub>2\<rangle>"
-
-fun finite_store :: "Store \<Rightarrow> bool" where
-  "finite_store (\<mu>, \<rho>) = (finite (dom \<mu>) \<and> finite (dom \<rho>))"
-
 fun locations :: "Locator \<Rightarrow> nat multiset" where
   "locations (N n) = {#}"
 | "locations (B b) = {#}"
@@ -470,12 +443,42 @@ fun wf_locator :: "Locator \<Rightarrow> bool" ("_ wf" 10) where
 | "(_ wf) = True"
 
 fun wf_stmt :: "Stmt \<Rightarrow> bool" ("_ stmt'_wf" 10) where
-  "(Src \<longlonglongrightarrow> Dst stmt_wf) = ((Src wf) \<and> (Dst wf) \<and> (\<not>(located Src) \<longrightarrow> locations Dst = {#}))"
+  "(Src \<longlonglongrightarrow> Dst stmt_wf) = ((Src wf) \<and> (Dst wf) \<and> 
+    (case Src of
+        copy(L) \<Rightarrow> locations Dst = {#}
+      | _ \<Rightarrow> \<not>(located Src) \<longrightarrow> locations Dst = {#}))"
 | "(Revert stmt_wf) = True"
 
 fun stmt_locations :: "Stmt \<Rightarrow> nat multiset" where
   "stmt_locations (Src \<longlonglongrightarrow> Dst) = (locations Src + locations Dst)"
 | "stmt_locations Revert = {#}"
+
+inductive stmt_eval :: "Store \<Rightarrow> Stmt list \<Rightarrow> Store \<Rightarrow> Stmt list \<Rightarrow> bool"
+  ("\<langle> _ , _ \<rangle> \<rightarrow> \<langle> _ , _ \<rangle>") where
+  EFlowSrcCongr: "\<lbrakk> < \<Sigma>, Src > \<rightarrow> < \<Sigma>', Src' > \<rbrakk> \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src' \<longlonglongrightarrow> Dst ] \<rangle>"
+| EFlowDstCongr: "\<lbrakk> located Src ; \<not>(\<exists>L. Src = copy(L)); < \<Sigma>, Dst > \<rightarrow> < \<Sigma>', Dst' > \<rbrakk> 
+                  \<Longrightarrow> \<langle> \<Sigma>, [ Src \<longlonglongrightarrow> Dst ] \<rangle> \<rightarrow> \<langle> \<Sigma>', [ Src \<longlonglongrightarrow> Dst' ] \<rangle>"
+| EFlowLoc: "\<lbrakk> \<rho> l = Some r1; r1 -\<^sub>r r1 \<noteq> error;
+               (\<rho>(l \<mapsto> r1 -\<^sub>r r1)) k = Some r2; r2 +\<^sub>r r1 \<noteq> error \<rbrakk>
+             \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc k) ]\<rangle> \<rightarrow>
+                 \<langle>(\<mu>, \<rho>(l \<mapsto> r1 -\<^sub>r r1, k \<mapsto> r2 +\<^sub>r r1)), []\<rangle>"
+| EFlowLocFail: "\<lbrakk> \<rho> l = Some r1; r1 -\<^sub>r r1 = error \<or> r2 +\<^sub>r r1 = error;
+                   (\<rho>(l \<mapsto> r1 -\<^sub>r r1)) k = Some r2 \<rbrakk>
+             \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ S (Loc l) \<longlonglongrightarrow> S (Loc k) ]\<rangle> \<rightarrow> \<langle>(\<mu>, \<rho>), [ Revert ]\<rangle>"
+| EFlowEmptyList: "\<lbrakk> located Dst \<rbrakk> \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ [ \<tau>; ] \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> \<langle>(\<mu>, \<rho>), []\<rangle>"
+(* TODO: For this, we may ned to distinguish between located things and copy; this will also help 
+         us fix copy. Located is what we need to use when something is an actual location, and 
+         `evaluated` is when we stop using locator_eval (or something like that). *)
+| EFlowConsList: "\<lbrakk> located Head; located Tail; located Dst \<rbrakk>
+                  \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ [ \<tau>; Head, Tail ] \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> 
+                      \<langle>(\<mu>, \<rho>), [ Head \<longlonglongrightarrow> Dst, Tail \<longlonglongrightarrow> Dst]\<rangle>"
+| EFlowCopy: "\<lbrakk> located L; locations Dst = {#}; l \<notin> dom \<rho> \<rbrakk>
+              \<Longrightarrow> \<langle>(\<mu>, \<rho>), [ copy(L) \<longlonglongrightarrow> Dst ]\<rangle> \<rightarrow> 
+                  \<langle>(\<mu>, \<rho>(l \<mapsto> deepCopy \<rho> L)), [ S (Loc l) \<longlonglongrightarrow> Dst ]\<rangle>" 
+| EStmtsCongr: "\<lbrakk> \<langle>\<Sigma>, [S1]\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>\<^sub>1'\<rangle> \<rbrakk> \<Longrightarrow> \<langle>\<Sigma>, S1 # \<S>\<^sub>2\<rangle> \<rightarrow> \<langle>\<Sigma>', \<S>\<^sub>1' @ \<S>\<^sub>2\<rangle>"
+
+fun finite_store :: "Store \<Rightarrow> bool" where
+  "finite_store (\<mu>, \<rho>) = (finite (dom \<mu>) \<and> finite (dom \<rho>))"
 
 fun wf_stmts :: "Stmt list \<Rightarrow> bool" ("_ stmts'_wf" 10) where
   "wf_stmts [] = True"
@@ -1723,7 +1726,7 @@ next
   case (Loc \<Gamma> l \<tau> m f)
   then show ?case
     apply auto
-    by (smt option.distinct(1) type_less_general.elims(1))
+    by (metis demote.cases)
 next
   case (VarDef x \<Gamma> f t)
   then show ?case by simp
@@ -2876,6 +2879,12 @@ lemma loc_typed_dst:
   using assms
   by (induction, auto)
 
+lemma stmt_wf_src_wf:
+  assumes "Src \<longlonglongrightarrow> Dst stmt_wf"
+  shows "Src wf"
+  using assms
+  by (cases Src, auto)
+
 lemma stmt_progress:
   (* TODO: This isn't ideal, but I need to get the quantity in somehow... *)
   assumes "\<Gamma> \<turnstile> Stmt ok \<stileturn> \<Delta>"
@@ -2999,7 +3008,7 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
           apply (intro exI disjI2)
           apply (rule EFlowCopy)
           using \<open>located Src\<close> apply simp
-          using \<open>located Dst\<close> apply simp
+          using Flow.prems(2) apply auto[1]
           using fresh by simp
       qed
     next
@@ -3028,17 +3037,35 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
         show "compat \<Delta> (\<O> \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst) (build_offset (\<lambda>(_,t). (empty,t)) Src) (\<mu>, \<rho>)"
           using dst_compat by simp
   
-        show "Dst wf" using Flow by simp
+        show "Dst wf" using Flow
+          using loc_typed_dst wf_locator.simps(5) wf_locator.simps(6) by blast
         show "finite (dom \<rho>)" using Flow by simp
         show "type_preserving (\<lambda>(r, s). (r \<oplus> q, s))" using type_preserving_add by simp
       qed
-      then obtain \<mu>' \<rho>' Dst' where "<(\<mu>, \<rho>), Dst> \<rightarrow> <(\<mu>', \<rho>'), Dst'>" using False by auto
+      then obtain \<mu>' \<rho>' Dst' where step: "<(\<mu>, \<rho>), Dst> \<rightarrow> <(\<mu>', \<rho>'), Dst'>" using False by auto
+
+      obtain l where fresh: "l \<notin> dom \<rho>" using Flow gen_loc by auto
         
-      then show ?thesis
-        using \<open>located Src\<close> assms EFlowDstCongr locator_progress type_preserving_add
-        apply (intro exI disjI2)
-        apply (rule EFlowDstCongr[where \<Sigma>' = "(\<mu>', \<rho>')" and Dst' = Dst'])
-        by simp
+      show ?thesis
+      proof(cases "\<exists>L. Src = copy(L)")
+        case True
+        then obtain L where "Src = copy(L)" by auto        
+
+        then show ?thesis 
+          apply (intro exI disjI2, simp)
+          apply (rule EFlowCopy)
+          using \<open>located Src\<close> apply simp
+          using Flow apply simp
+          using fresh by assumption
+      next
+        case False
+        then show ?thesis
+          using \<open>located Src\<close> locator_progress type_preserving_add step
+          apply (intro exI disjI2)
+          apply (rule EFlowDstCongr[where \<Sigma>' = "(\<mu>', \<rho>')" and Dst' = Dst'])
+          apply simp
+          by simp 
+      qed
     qed
   next
     case False
@@ -3046,8 +3073,8 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
       apply (rule locator_progress)
       using Flow.hyps(1) apply assumption
       using Flow typecheck_match apply auto
-      using False apply auto
-      apply (simp add: offset_comp_assoc[symmetric])
+      using False apply (cases "\<exists>L. Src = copy(L)", auto)
+      apply (simp add: offset_comp_assoc)
       by (simp add: type_preserving_with_quant)
     then show ?thesis using Flow EFlowSrcCongr False by blast
   qed
@@ -3231,6 +3258,8 @@ proof(induction arbitrary: \<Gamma>')
                 \<and> var_ty_env \<Delta> = var_ty_env \<Delta>' \<and> loc_ty_env \<Delta>' = loc_ty_env \<Gamma>'"
     apply (rule prf_compat_not_located)
     using Flow(1) apply assumption
+    using Flow.prems(1) apply auto[1]
+    using Flow.prems(2) stmt_wf_src_wf apply blast
     using Flow by auto
 
   then obtain \<Delta>' 
@@ -3252,7 +3281,7 @@ proof(induction arbitrary: \<Gamma>')
       and "loc_ty_env \<Xi>' = loc_ty_env \<Delta>'"
     by auto
 
-  then show ?case using src_ty_new loc_ty_new by (metis stmt_ok.intros)
+  then show ?case using src_ty_new loc_ty_new stmt_ok.Flow by fastforce
 next
   case (Revert \<Gamma>)
   then show ?case using stmt_ok.Revert by auto
@@ -3348,7 +3377,8 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
   have "\<not>(located Src)"
     using EFlowSrcCongr.hyps step_not_located by auto
   then have "locations Dst = {#}"
-    using EFlowSrcCongr by auto
+    using EFlowSrcCongr
+    by (cases Src, auto)
   then have empty_dst_offset: "build_offset (\<lambda>(r,s). (r \<oplus> q, s)) Dst = 0\<^sub>\<O>"
     by (simp add: no_locations_build_offset_empty)
   have "\<exists>\<Gamma>' \<Delta>''. compat \<Gamma>' (build_offset (\<lambda>(_,t). (empty, t)) Src') empty_offset \<Sigma>'
@@ -3363,7 +3393,8 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
     show "offset_dom empty_offset \<subseteq> loc_dom \<Gamma>" by simp
     show "type_preserving_offset empty_offset" by (simp add: empty_offset_type_preserving)
     show "type_preserving (\<lambda>(_, t). (TyQuant.empty, t))" by (simp add: type_preserving_with_quant)
-    show "Src wf" using EFlowSrcCongr.prems(3) wf_stmt.cases wf_stmts.cases by auto
+    show "Src wf"
+      using EFlowSrcCongr.prems(3) stmt_wf_src_wf wf_stmts.simps(2) by blast
   qed
   then obtain \<Gamma>' \<Delta>''
     where compat: "compat \<Gamma>' (build_offset (\<lambda>(_,t). (empty, t)) Src') empty_offset \<Sigma>'"
@@ -3380,7 +3411,11 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
              \<and> var_ty_env \<Delta> = var_ty_env \<Delta>' \<and> loc_ty_env \<Delta>' = loc_ty_env \<Delta>''"
     apply (rule prf_compat_not_located)
     using dst_ty apply assumption
-    using \<open>var_ty_env \<Delta>' = var_ty_env \<Delta>''\<close> EFlowSrcCongr \<open>locations Dst = {#}\<close> by auto
+    using \<open>var_ty_env \<Delta>' = var_ty_env \<Delta>''\<close> EFlowSrcCongr \<open>locations Dst = {#}\<close>
+    apply simp
+    using EFlowSrcCongr.prems(3) apply auto[1]
+    by (simp add: \<open>locations Dst = {#}\<close>)
+    
   then obtain \<Xi>' 
     where new_dst_ty: "\<Delta>'' \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>'"
        (* TODO: This part should work out because the var_ty_env of \<Delta>' is the same as \<Delta>'' *)
@@ -3402,10 +3437,9 @@ proof(induction arbitrary: \<Gamma> \<Delta>)
     show "var_ty_env \<Delta> = var_ty_env \<Xi>'" using \<open>var_ty_env \<Delta> = var_ty_env \<Xi>'\<close> by auto
 
     show "[Src' \<longlonglongrightarrow> Dst] stmts_wf"
-      apply (simp add: \<open>Src' wf\<close>)
-      apply auto
-      using loc_typed_dst new_dst_ty wf_locator.simps(5) wf_locator.simps(6) apply blast
-      by (simp add: \<open>locations Dst = {#}\<close>)
+      apply (auto simp: \<open>Src' wf\<close> \<open>\<not> located Src\<close>)
+      using EFlowSrcCongr.prems(3) apply auto[1]
+      using \<open>locations Dst = {#}\<close> by (cases Src', auto)
   qed
 next
   case (EFlowDstCongr Src \<Sigma> Dst \<Sigma>' Dst')
@@ -3505,7 +3539,8 @@ next
     qed
     show "var_ty_env \<Delta> = var_ty_env \<Xi>'" using var_env_same by simp
     show "[Src \<longlonglongrightarrow> Dst'] stmts_wf"
-      using EFlowDstCongr \<open>Dst' wf\<close> by auto
+      using EFlowDstCongr \<open>Dst' wf\<close> 
+      by (cases Src, auto)
   qed
 next
   case (EFlowLoc \<rho> l r1 k r2 \<mu>)
@@ -3749,12 +3784,9 @@ next
     qed
 
     have "(\<Gamma>(Loc l \<mapsto> (empty, t))) \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r, t) \<stileturn> (\<Delta>(Loc l \<mapsto> (empty, t)))"
-      apply (rule located_env_insert)
-      using dst_ty \<open>l \<notin> dom \<rho>\<close>
-      apply simp
-      apply (simp add: EFlowCopy.hyps(2))
-      apply (rule fresh_loc_not_in_env)
-      using EFlowCopy by auto
+      using \<open>locations Dst = {#}\<close>
+      (* TODO: This will work because Dst has no locations in it at all *)
+      sorry
     then show "\<Gamma>(Loc l \<mapsto> (q,t)) \<turnstile> [S (Loc l) \<longlonglongrightarrow> Dst] oks \<stileturn> ?\<Delta>'"
       apply auto
       apply (rule Flow)
