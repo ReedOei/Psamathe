@@ -187,7 +187,7 @@ makeConstructor t = do
         TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) $ [ SolBool True ] ++ args
         _ -> do
             addError $ TypeError ("Cannot make constructor for: " ++ show decl)
-            pure $ \[arg] -> arg
+            pure $ \_ -> dummySolExpr
 
 makeClosureArgs :: [String] -> State Env [SolVarDecl]
 makeClosureArgs vars = concat <$> mapM go vars
