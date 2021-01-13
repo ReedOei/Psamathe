@@ -35,9 +35,9 @@ compileFile config fileName = do
                 putStrLn "========================================================"
             else pure ()
 
-            if not $ null $ env^.errorMessages then do
+            if not $ null $ env^.errors then do
                 putStrLn "Compilation failed! Errors:"
-                mapM_ print $ env^.errorMessages
+                mapM_ print $ env^.errors
 
             else do
                 if config^.debug > 0 then do

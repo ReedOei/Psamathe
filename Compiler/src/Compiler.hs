@@ -50,7 +50,7 @@ typeOf x = do
     maybeT <- gets (Map.lookup x . view typeEnv)
     case maybeT of
         Nothing -> do
-            addError $ LookupErrorVar x
+            addError $ LookupError (LookupErrorVar x)
             pure dummyBaseType
         Just t -> pure t
 
@@ -59,10 +59,10 @@ lookupTypeDecl typeName = do
     decl <- gets (Map.lookup typeName . view declarations)
     case decl of
         Nothing -> do
-            addError $ LookupErrorType typeName
+            addError $ LookupError (LookupErrorType typeName)
             pure dummyDecl
         Just tx@TransformerDecl{} -> do
-            addError $ LookupErrorTypeDecl tx
+            addError $ LookupError (LookupErrorTypeDecl tx)
             pure dummyDecl
         Just tdec@TypeDecl{} -> pure tdec
 
