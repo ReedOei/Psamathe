@@ -60,6 +60,10 @@
 
 \addtobeamertemplate{frametitle}{\vspace*{-0.65\baselineskip}}{}
 
+\expandafter\def\expandafter\insertshorttitle\expandafter{%
+  \insertshorttitle\hfill%
+  \insertframenumber\,/\,\inserttotalframenumber}
+
 \newcommand{\Int}{\textbf{Int}\xspace}
 \newcommand{\overbar}[1]{\mkern1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern1.5mu}
 \newcommand{\highlight}[1]{
@@ -108,34 +112,33 @@
 \begin{frame}[fragile]{The Psamathe Language}
     \begin{itemize}
         \item \textcolor{softRed}{\textbf{\langName}} (\langNamePronounce) is a new programming language we are designing for writing smart contracts
-        \item It uses a new \emph{flow} abstraction, representing an atomic transfer operation
-        \item It also has features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows and \emph{type quantities} to make some classes of bugs impossible
-    \end{itemize}
-
-\begin{lstlisting}[language=flow, xleftmargin=0.4em, basicstyle=\scriptsize\ttfamily]
-type Token is fungible asset uint256
-transformer transfer(balances : any map one address => any Token,
-                     dst : one address, amount : any uint256) {
-    balances[msg.sender] --[ amount ]-> balances[dst] |\label{line:erc20-flow-ex}|
-}
-\end{lstlisting}
-
-\end{frame}
-
-\begin{frame}[fragile]{Simple Flows}
-    \begin{itemize}
+        \item It uses a new \emph{flow} abstraction, representing an atomic transfer operation common in smart contracts
         \item The simplest flow \emph{selects} values from a \emph{source}, and \emph{sends} them to a \emph{destination}
-    \end{itemize}
-\begin{lstlisting}[language=flow, basicstyle=\normalsize\ttfamily]
+\begin{lstlisting}[language=flow, basicstyle=\footnotesize\ttfamily]
 Source --> Destination
 \end{lstlisting}
-    \begin{itemize}
-        \item The flow from earlier may also be written as below:
+        \item It also has features to mark types with \emph{modifiers}, such as \flowinline{asset}, which combine with flows and \emph{type quantities} to make some classes of bugs impossible
+\begin{lstlisting}[language=flow, basicstyle=\footnotesize\ttfamily]
+type Token is fungible asset uint256
+\end{lstlisting}
     \end{itemize}
-\begin{lstlisting}[language=flow, basicstyle=\normalsize\ttfamily]
+\end{frame}
+
+\begin{frame}[fragile]{Transformers}
+    \begin{itemize}
+        \item \emph{Transformers} play the role of functions/methods/etc. in \langName
+        \item A transformer uses \emph{parameters} to \emph{transform} a value
+\begin{lstlisting}[language=flow, xleftmargin=-0.4em, basicstyle=\scriptsize\ttfamily]
+transformer transfer(balances : any map one address => any Token,
+                     dst : one address,
+                     amount : any uint256) {
+    balances[msg.sender] --[ amount ]-> balances[dst]|\label{line:erc20-flow-ex}|
+}
+\end{lstlisting}
+        \item The flow on line~\ref{line:erc20-flow-ex} may also be written as:
+\begin{lstlisting}[language=flow, xleftmargin=-0.4em, basicstyle=\scriptsize\ttfamily]
 balances[msg.sender][amount] --> balances[dst]
 \end{lstlisting}
-    \begin{itemize}
         \item The source is \flowinline{balances[msg.sender][amount]}, and the destination is \flowinline{balances[dst]}.
     \end{itemize}
 \end{frame}
@@ -143,32 +146,53 @@ balances[msg.sender][amount] --> balances[dst]
 \begin{frame}[fragile]{Transformer Flows}
     \begin{itemize}
         \item The more complicated flow, with a \emph{transformer call}, selects values from the source, runs the transformer, then sends the transformed values to the destination
-    \end{itemize}
-\begin{lstlisting}[language=flow, basicstyle=\normalsize\ttfamily]
+\begin{lstlisting}[language=flow, xleftmargin=-0.4em, basicstyle=\footnotesize\ttfamily]
 Source --> Transform(_)--> Destination
 \end{lstlisting}
-    \begin{itemize}
         \item The transformer can either be a user-defined function or a \emph{constructor}, which can create new values of named types
-    \end{itemize}
-\begin{lstlisting}[language=flow, basicstyle=\normalsize\ttfamily]
+\begin{lstlisting}[language=flow, xleftmargin=-0.4em, basicstyle=\footnotesize\ttfamily]
 type Token is fungible asset uint256
-10 --> new Token(_)--> var myTokens : Token
+10 --> new Token(_)--> var myToken : Token
 \end{lstlisting}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Error Handling}
+    \begin{itemize}
+        \item Flows \emph{fail} if they are not \emph{valid}; i.e., the selected values are not in the source or cannot be sent to the destination
+        \item Failures are exceptions that can be caught; if not caught, the transaction \emph{reverts}
+\begin{lstlisting}[language=flow, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]
+type Bid is consumable asset {
+  value : any Token,
+  sender : one address
+}
+try {
+  // bid.value --[ highestBid.value ]-> bid.value
+  only when bid.value > highestBid.value
+  highestBid.value --> highestBid.sender.balance
+  highestBid --> consume
+  bid --> highestBid
+} catch {
+  bid.value --> bid.sender.balance
+}
+\end{lstlisting}
+    \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]{Type quantities}
     \begin{itemize}
         \item Type quantities: used to approximate the number of values in a variable to track \flowinline{asset} variables that can be dropped (i.e., when \flowinline{empty})
         \item They are: \flowinline{empty}, \flowinline{any}, \flowinline{one}, and \flowinline{nonempty}
-        \item Type quantities are a more precise form of linear types; linear typing essentially corresponds to only having \flowinline{empty} and \flowinline{any}
+        \item Type quantities are an adaptation of linear types for containers that allows for more precise analyses
         \item Can often be inferred; all type quantities in the first example can be omitted:
     \end{itemize}
 
 \begin{lstlisting}[language=flow, xleftmargin=-0.5em, basicstyle=\footnotesize\ttfamily]
 type Token is fungible asset uint256
 transformer transfer(balances : map address => Token,
-                     dst : address, amount : uint256) {
-  balances[msg.sender] --[ amount ]-> balances[dst] |\label{line:erc20-flow-ex}|
+                     dst : address,
+                     amount : uint256) {
+  balances[msg.sender] --[ amount ]-> balances[dst]
 }
 \end{lstlisting}
 \end{frame}
@@ -186,9 +210,9 @@ transformer transfer(balances : map address => Token,
             \item \flowinline{fungible}: can be \textbf{merged}, and it is \textbf{not} \flowinline{unique} (e.g., currencies).
             \item \flowinline{immutable}: cannot be \textbf{changed} (e.g., the following is not legal):
 \begin{lstlisting}[language=flow, xleftmargin=0.4em, basicstyle=\footnotesize\ttfamily]
-type T is immutable { x : nat, y : nat }
-new T(0,0) --> var t : T
-57 --> t.y // Error: `T` is immutable!
+type T is immutable uint256
+0 --> new T(_) --> var t : T
+57 --> t // Error: `T` is immutable!
 \end{lstlisting}
         \end{itemize}
     \end{itemize}
@@ -217,8 +241,8 @@ x --[ one st P(_) ]--> y
         \begin{itemize}
             \item A flow of money would fail if there is not enough money in the source, or if there is too much in the destination (e.g., due to overflow).
             \item A flow of values from a multiset could fail if there the specified values are not found in the source
-            \item A flow of a value might also fail if it would overwrite an asset in the destination, e.g. \flowinline{bid --> winningBid}
-            \item If \flowinline{winningBid : any Bid}, this must be checked dynamically, but in some cases, we can detect it statically using type quantities (e.g., if \flowinline{winningBid : one Bid})
+            \item A flow of a value might also fail if it would overwrite an asset in the destination, e.g. \flowinline{bid --> highestBid}
+            \item If \flowinline{highestBid : any Bid}, this must be checked dynamically, but in some cases, we can detect it statically using type quantities (e.g., if \flowinline{highestBid : one Bid})
         \end{itemize}
         \item The \flowinline{unique} modifier, is also checked dynamically.
     \end{itemize}
@@ -247,12 +271,17 @@ type Ticket is consumable asset {
     owner : TicketOwner,
     guess : uint256
 }
-// ...
-var winners : multiset Ticket <--
-    tickets[nonempty such that isWinner(winNum, _)] |\label{line:lottery-filter}|
-winners --> pay(jackpot / length(winners), _)
-balance --> lotteryOwner.balance |\label{line:empty-lottery-balance}|
-tickets --> consume
+transformer endLottery(tickets : multiset Ticket,
+                       balance : ether,
+                       jackpot : uint256,
+                       lotteryOwner : address,
+                       winNum : uint256) {
+    var winners : multiset Ticket <--
+        tickets[nonempty such that isWinner(winNum, _)] |\label{line:lottery-filter}|
+    winners --> pay(jackpot / length(winners), _)
+    balance --> lotteryOwner.balance |\label{line:empty-lottery-balance}|
+    tickets --> consume
+}
 \end{lstlisting}
 \end{frame}
 
@@ -265,8 +294,9 @@ tickets --> consume
 \begin{lstlisting}[language=flow, xleftmargin=-0.5em, basicstyle=\footnotesize\ttfamily]
 type Token is fungible asset uint256
 transformer transfer(balances : map address => Token,
-                     dst : address, amount : uint256) {
-  balances[msg.sender] --[ amount ]-> balances[dst] |\label{line:erc20-flow-ex}|
+                     dst : address,
+                     amount : uint256) {
+  balances[msg.sender] --[ amount ]-> balances[dst]
 }
 \end{lstlisting}
 \begin{lstlisting}[language=Solidity, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]
@@ -281,7 +311,7 @@ contract ERC20 {
 \end{lstlisting}
 \end{frame}
 
-\begin{frame}[fragile]{Example: Voting (\langName)}
+\begin{frame}[fragile]{Example: Voting (Types)}
     \begin{itemize}
         \item A simple voting contract that allows voters to vote on proposals; only one vote per address is allowed
     \end{itemize}
@@ -293,39 +323,51 @@ type Election is asset {
   eligibleVoters : multiset Voter,
   proposals : map ProposalName => multiset Voter
 }
-transformer giveRightToVote(this : Election, voter : address) {
-  // msg.sender --[ this.chairperson ]-> msg.sender
-  only when msg.sender = this.chairperson
-  new Voter(voter) --> this.eligibleVoters
-}
-transformer vote(this : Election, proposal : string) {
-  this.eligibleVoters --[ msg.sender ]-> this.proposals[proposal]
-}
 \end{lstlisting}
-\end{frame}
-
-\begin{frame}[fragile]{Example: Voting (Solidity)}
-\begin{lstlisting}[language=Solidity, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]
+\begin{lstlisting}[language=Solidity, xleftmargin=-0.2em, basicstyle=\scriptsize\ttfamily]
 contract Ballot {
   struct Voter { uint weight; bool voted; uint vote; }
   struct Proposal { bytes32 name; uint voteCount; }
   address public chairperson;
   mapping(address => Voter) public voters;
   Proposal[] public proposals;
-  function giveRightToVote(address voter) public {
-    require(msg.sender == chairperson,
-      "Only chairperson can give right to vote.");
-    require(!voters[voter].voted, "The voter already voted.");
-    voters[voter].weight = 1;
-  }
-  function vote(uint proposal) public {
-    Voter storage sender = voters[msg.sender];
-    require(sender.weight != 0, "No right to vote");
-    require(!sender.voted, "Already voted.");
-    sender.voted = true;
-    sender.vote = proposal;
-    proposals[proposal].voteCount += sender.weight;
-  }
+  // ...
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Example: Voting (\flowinline{giveRightToVote})}
+\begin{lstlisting}[language=flow, xleftmargin=-0.2em, basicstyle=\scriptsize\ttfamily]
+transformer giveRightToVote(this : Election, voter : address) {
+  only when msg.sender = this.chairperson
+  new Voter(voter) --> this.eligibleVoters
+}
+\end{lstlisting}
+\begin{lstlisting}[language=Solidity, xleftmargin=-0.2em, basicstyle=\scriptsize\ttfamily]
+function giveRightToVote(address voter) public {
+  require(msg.sender == chairperson,
+    "Only chairperson can give right to vote.");
+  require(!voters[voter].voted, "The voter already voted.");
+  require(voters[voter].weight == 0);
+  voters[voter].weight = 1;
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Example: Voting (\flowinline{vote})}
+\begin{lstlisting}[language=flow, xleftmargin=-0.2em, basicstyle=\scriptsize\ttfamily]
+transformer vote(this : Election, proposal : string) {
+  this.eligibleVoters --[ msg.sender ]-> this.proposals[proposal]
+}
+\end{lstlisting}
+\begin{lstlisting}[language=Solidity, xleftmargin=-0.5em, basicstyle=\scriptsize\ttfamily]
+function vote(uint proposal) public {
+  Voter storage sender = voters[msg.sender];
+  require(sender.weight != 0, "No right to vote");
+  require(!sender.voted, "Already voted.");
+  sender.voted = true;
+  sender.vote = proposal;
+  proposals[proposal].voteCount += sender.weight;
 }
 \end{lstlisting}
 \end{frame}
@@ -350,7 +392,11 @@ contract Ballot {
     \begin{itemize}
         \item We have presented the \langName language for writing safer smart contracts
         \item \langName uses the new flow abstraction, \assetTxt{}s, and modifiers to provide safety guarantees for smart contracts
-        \item We showed two examples of smart contracts in both Solidity and \langName, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties.
+            \begin{itemize}
+                \item Static: \flowinline{asset}, \flowinline{immutable}, \flowinline{consumable}
+                \item Dynamic: flows are valid (can select, can send), \flowinline{unique}
+            \end{itemize}
+        \item We showed two examples of smart contracts in both Solidity and \langName, showing that \langName is capable of expressing common smart contract functionality in a concise manner, while retaining key safety properties
     \end{itemize}
 \end{frame}
 
