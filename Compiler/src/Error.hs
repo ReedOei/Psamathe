@@ -6,6 +6,7 @@ data Error = SyntaxError String
            | TypeError String
            | LookupError String
            | FlowError String
+           | UnimplementedError String 
     deriving (Show, Eq)
 
 -- dummy values that are returned as proxies when errors are encountered

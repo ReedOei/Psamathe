@@ -293,7 +293,7 @@ lookupValue (Select l k) f = do
                         pure [ If (SolEq valL valK) body ]
 
                     _ -> do
-                        addError $ LookupError ("lookupValue Select is not implemented for: " ++ show kTy)
+                        addError $ UnimplementedError ("lookupValue Select is not implemented for: " ++ show kTy)
                         pure []
 
 lookupValue (Filter l q predName args) f = do
@@ -317,7 +317,7 @@ lookupValue (Filter l q predName args) f = do
         checkCounter Nonempty counter = SolLte (SolInt 1) counter
 
 lookupValue l _ = do
-    addError $ LookupError ("lookupValue is not implemented for: " ++ show l)
+    addError $ UnimplementedError ("lookupValue is not implemented for: " ++ show l)
     pure []
 
 lookupValues :: [Locator] -> ([SolExpr] -> State Env [SolStmt]) -> State Env [SolStmt]
@@ -364,7 +364,7 @@ sendExpr (Named t) e f = f (Named t) e e
 sendExpr (Record keys fields) e f = f (Record keys fields) e e
 
 sendExpr t e f = do
-    addError $ LookupError ("lookupValue Var is not implemented for: " ++ show t)
+    addError $ UnimplementedError ("lookupValue Var is not implemented for: " ++ show t)
     pure []
 
 
@@ -422,7 +422,7 @@ receiveExpr t orig src dst = do
                       [ Delete orig ])
 
             _ -> do
-                addError $ TypeError ("receiveExpr not implemented for: " ++ show demotedT)
+                addError $ FlowError ("receiveExpr not implemented for: " ++ show demotedT)
                 pure ([], [])
 
     if isPrimitiveExpr orig then
