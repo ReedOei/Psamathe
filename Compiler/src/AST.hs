@@ -1,4 +1,3 @@
-
 {-# LANGUAGE FlexibleInstances #-}
 
 module AST where
@@ -169,6 +168,7 @@ instance PrettyPrint BaseType where
     prettyPrint (Named t) = [t]
     prettyPrint (Table keys (q,t)) = [ "table(" ++ intercalate ", " keys ++ ") " ++ prettyStr q ++ " " ++ prettyStr t ]
     prettyPrint (Record keys fields) = [ "record(" ++ intercalate ", " keys ++ ") {" ++ intercalate ", " (map prettyStr fields) ++ "}" ]
+    prettyPrint Bot = ["⊥"]
 
 instance PrettyPrint Decl where
     prettyPrint (TypeDecl name ms baseT) =
