@@ -33,5 +33,4 @@ freshName = do
     pure $ "v" ++ show i
 
 addError :: Error -> State Env ()
-addError e = do
-    modify $ over errors (e:)
+addError e = modify $ over errors (e:)

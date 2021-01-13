@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+
 {-# LANGUAGE FlexibleInstances #-}
 
 module AST where
@@ -172,7 +172,7 @@ instance PrettyPrint BaseType where
 
 instance PrettyPrint Decl where
     prettyPrint (TypeDecl name ms baseT) =
-        [ "type " ++ name ++ " is " ++ intercalate " " (map prettyStr ms) ++ " " ++ prettyStr baseT ]
+        [ "type " ++ name ++ " is " ++ unwords (map prettyStr ms) ++ " " ++ prettyStr baseT ]
     prettyPrint (TransformerDecl name args ret body) =
         [ "transformer " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") -> " ++ prettyStr ret ++ "{"]
         ++ concatMap (map indent . prettyPrint) body
