@@ -22,6 +22,7 @@ import Control.Monad.State
 
 import Data.List (intercalate)
 import Data.Map (Map)
+import Data.Traversable
 import qualified Data.Map as Map
 
 import Debug.Trace
@@ -35,7 +36,7 @@ freshVar = Var <$> freshName
 
 allocateNew :: SolType -> State Env (SolExpr, [SolStmt])
 allocateNew t = do
-    curState <- gets (Map.lookup t . view allocators)
+    curState <- Map.lookup t . view allocators <$> get
     allocator <- case curState of
         Nothing -> do
             allocator <- freshName
@@ -47,7 +48,7 @@ allocateNew t = do
 
 typeOf :: String -> State Env BaseType
 typeOf x = do
-    maybeT <- gets (Map.lookup x . view typeEnv)
+    maybeT <- Map.lookup x . view typeEnv <$> get
     case maybeT of
         Nothing -> do
             addError $ LookupError (LookupErrorVar x)
@@ -56,7 +57,7 @@ typeOf x = do
 
 lookupTypeDecl :: String -> State Env Decl
 lookupTypeDecl typeName = do
-    decl <- gets (Map.lookup typeName . view declarations)
+    decl <- Map.lookup typeName . view declarations <$> get
     case decl of
         Nothing -> do
             addError $ LookupError (LookupErrorType typeName)
@@ -82,8 +83,8 @@ compileProg :: Program -> State Env Contract
 compileProg (Program decls mainBody) = do
     mapM_ compileDecl decls
     stmts <- concat <$> mapM compileStmt mainBody
-    compiledDecls <- gets (Map.elems . view solDecls)
-    allocators <- gets (Map.toList . view allocators)
+    compiledDecls <- Map.elems . view solDecls <$> get
+    allocators <- Map.toList . view allocators <$> get
     let allocatorDecls = [ FieldDef (SolVarDecl (SolArray t) x) | (t,x) <- allocators ]
     pure $ Contract "0.7.5" "C" $ allocatorDecls ++ compiledDecls ++ [Constructor [] stmts]
 
@@ -150,7 +151,7 @@ compileStmt (FlowTransform src (Call name args) dst) = do
     pure $ concat initArgs ++ srcComp ++ dstComp ++ transfer
 
 compileStmt (Try tryBlock catchBlock) = do
-    origEnv <- gets (view typeEnv)
+    origEnv <- view typeEnv <$> get
     let origVars = Map.keys origEnv
 
     tryCompiled <- concat <$> mapM compileStmt tryBlock
@@ -186,10 +187,10 @@ makeConstructor t = do
         TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) $ SolBool True : args
         TypeDecl _ _ t -> do
             addError $ TypeError "Cannot make constructor for" t
-            pure $ const dummySolExpr
-        tx@TransformerDecl{} -> do 
+            pure $ \_ -> dummySolExpr
+        tx@TransformerDecl{} -> do
             addError $ SyntaxError ("Cannot make constructor for transformer" ++ show tx)
-            pure $ const dummySolExpr
+            pure $ \_ -> dummySolExpr
 
 makeClosureArgs :: [String] -> State Env [SolVarDecl]
 makeClosureArgs vars = concat <$> mapM go vars
@@ -457,9 +458,9 @@ defineVar x t = do
     case loc of
         Just Storage -> do
             decls <- declareVar x t
-            concat <$> mapM (\decl -> do
+            concat <$> forM decls (\decl -> do
                 (init, setup) <- allocateNew $ varDeclType decl
-                pure $ setup ++ [ SolVarDefInit decl init ]) decls
+                pure $ setup ++ [ SolVarDefInit decl init ])
 
         _ -> map SolVarDef <$> declareVar x t
 
