@@ -2,7 +2,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
 
 module Parser where
 
@@ -14,7 +13,10 @@ import AST
 type Parser a = forall s st m. Stream s m Char => ParsecT s st m a
 
 parseProgram :: Parser Program
-parseProgram = Program <$> many parseDecl <*> many parseStmt
+parseProgram = do
+    prog <- Program <$> many parseDecl <*> many parseStmt
+    eof
+    pure prog
 
 parseDecl :: Parser Decl
 parseDecl = try parseTypeDecl <|>
@@ -173,7 +175,13 @@ parseLocatorSingle = try parseAddr <|>
                      try parseNewVar <|>
                      try parseMultiset <|>
                      try parseRecordLit <|>
+                     try parseConsume <|>
                      try parseVar
+
+parseConsume :: Parser Locator
+parseConsume = do
+    symbol $ string "consume"
+    pure Consume
 
 parseRecordLit :: Parser Locator
 parseRecordLit = do
@@ -231,10 +239,10 @@ parseQuant = parseConst "empty" Empty <|>
              parseConst "nonempty" Nonempty
 
 parseBaseType :: Parser BaseType
-parseBaseType = parseConst "nat" Nat <|>
-                parseConst "bool" PsaBool <|>
-                parseConst "string" PsaString <|>
-                parseConst "address" Address <|>
+parseBaseType = try (parseConst "nat" Nat) <|>
+                try (parseConst "bool" PsaBool) <|>
+                try (parseConst "string" PsaString) <|>
+                try (parseConst "address" Address) <|>
                 parseMultisetType <|>
                 parseRecordType <|>
                 parseMapType <|>

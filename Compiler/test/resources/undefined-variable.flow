@@ -1,0 +1,4 @@
+1 --> var x : nat 
+// y not defined, should result in LookupError
+2 --> y
+
