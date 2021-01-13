@@ -50,7 +50,7 @@ typeOf x = do
     maybeT <- gets (Map.lookup x . view typeEnv)
     case maybeT of
         Nothing -> do
-            addError $ LookupError ("Tried to lookup variable " ++ x ++ " in the type environment; not found!")
+            addError $ LookupErrorVar x
             pure dummyBaseType
         Just t -> pure t
 
@@ -59,10 +59,10 @@ lookupTypeDecl typeName = do
     decl <- gets (Map.lookup typeName . view declarations)
     case decl of
         Nothing -> do
-            addError $ LookupError ("Tried to lookup type declaration " ++ typeName ++ "; not found!")
+            addError $ LookupErrorType typeName
             pure dummyDecl
         Just tx@TransformerDecl{} -> do
-            addError $ LookupError ("Tried to lookup type declaration " ++ typeName ++ "; but got: " ++ show tx)
+            addError $ LookupErrorTypeDecl tx
             pure dummyDecl
         Just tdec@TypeDecl{} -> pure tdec
 
@@ -122,7 +122,7 @@ defineStruct name ty@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), (
                     ]
     modify $ over solDecls $ Map.insert name newStruct
 defineStruct name t = do
-    addError $ TypeError ("I don't know how to create a struct for: " ++ show t)
+    addError $ TypeError "Cannot create struct for" t
 
 compileStmt :: Stmt -> State Env [SolStmt]
 compileStmt (Flow src dst) = do
@@ -184,8 +184,11 @@ makeConstructor t = do
         TypeDecl _ _ Address -> pure $ \[arg] -> arg
         -- First argument is the "initialized" field
         TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) $ SolBool True : args
-        _ -> do
-            addError $ TypeError ("Cannot make constructor for: " ++ show decl)
+        TypeDecl _ _ t -> do
+            addError $ TypeError "Cannot make constructor for" t
+            pure $ const dummySolExpr
+        tx@TransformerDecl{} -> do 
+            addError $ SyntaxError ("Cannot make constructor for transformer" ++ show tx)
             pure $ const dummySolExpr
 
 makeClosureArgs :: [String] -> State Env [SolVarDecl]
@@ -293,7 +296,7 @@ lookupValue (Select l k) f = do
                         pure [ If (SolEq valL valK) body ]
 
                     _ -> do
-                        addError $ UnimplementedError ("lookupValue Select is not implemented for: " ++ show kTy)
+                        addError $ UnimplementedError "lookupValue Select" (show kTy)
                         pure []
 
 lookupValue (Filter l q predName args) f = do
@@ -317,7 +320,7 @@ lookupValue (Filter l q predName args) f = do
         checkCounter Nonempty counter = SolLte (SolInt 1) counter
 
 lookupValue l _ = do
-    addError $ UnimplementedError ("lookupValue is not implemented for: " ++ show l)
+    addError $ UnimplementedError "lookupValue" (show l)
     pure []
 
 lookupValues :: [Locator] -> ([SolExpr] -> State Env [SolStmt]) -> State Env [SolStmt]
@@ -364,7 +367,7 @@ sendExpr (Named t) e f = f (Named t) e e
 sendExpr (Record keys fields) e f = f (Record keys fields) e e
 
 sendExpr t e f = do
-    addError $ UnimplementedError ("lookupValue Var is not implemented for: " ++ show t)
+    addError $ UnimplementedError "lookupValue Var" (show t)
     pure []
 
 
