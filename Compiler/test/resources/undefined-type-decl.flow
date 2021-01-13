@@ -1,0 +1,2 @@
+// bogus is not a defined type, should throw LookupError
+1 --> var x : bogus

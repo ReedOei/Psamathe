@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
 module Compiler where
@@ -23,12 +22,14 @@ import Control.Monad.State
 
 import Data.List (intercalate)
 import Data.Map (Map)
+import Data.Traversable
 import qualified Data.Map as Map
 
 import Debug.Trace
 
 import AST
 import Env
+import Error
 
 freshVar :: State Env Locator
 freshVar = Var <$> freshName
@@ -49,15 +50,21 @@ typeOf :: String -> State Env BaseType
 typeOf x = do
     maybeT <- Map.lookup x . view typeEnv <$> get
     case maybeT of
-        Nothing -> error $ "Tried to lookup variable " ++ x ++ " in the type environment; not found!"
+        Nothing -> do
+            addError $ LookupError (LookupErrorVar x)
+            pure dummyBaseType
         Just t -> pure t
 
 lookupTypeDecl :: String -> State Env Decl
 lookupTypeDecl typeName = do
     decl <- Map.lookup typeName . view declarations <$> get
     case decl of
-        Nothing -> error $ "Tried to lookup type declaration " ++ typeName ++ "; not found!"
-        Just tx@TransformerDecl{} -> error $ "Tried to lookup type declaration " ++ typeName ++ "; but got: " ++ show tx
+        Nothing -> do
+            addError $ LookupError (LookupErrorType typeName)
+            pure dummyDecl
+        Just tx@TransformerDecl{} -> do
+            addError $ LookupError (LookupErrorTypeDecl tx)
+            pure dummyDecl
         Just tdec@TypeDecl{} -> pure tdec
 
 modifiers :: String -> State Env [Modifier]
@@ -68,7 +75,9 @@ modifiers typeName = do
 
 buildExpr :: Locator -> State Env SolExpr
 buildExpr (Var s) = pure $ SolVar s
-buildExpr l = error $ "Unsupported locator: " ++ show l
+buildExpr l = do
+    addError $ SyntaxError ("Unsupported locator: " ++ show l)
+    pure dummySolExpr
 
 compileProg :: Program -> State Env Contract
 compileProg (Program decls mainBody) = do
@@ -113,7 +122,8 @@ defineStruct name ty@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), (
                         SolVarDecl (SolArray solKeyTy) "keys"
                     ]
     modify $ over solDecls $ Map.insert name newStruct
-defineStruct name t = error $ "I don't know how to create a struct for: " ++ show t
+defineStruct name t = do
+    addError $ TypeError "Cannot create struct for" t
 
 compileStmt :: Stmt -> State Env [SolStmt]
 compileStmt (Flow src dst) = do
@@ -160,7 +170,7 @@ compileStmt (Try tryBlock catchBlock) = do
     modify $ over solDecls $ Map.insert closureName
            $ Function closureName closureArgs Public closureRets $ tryCompiled ++ packClosureBlock
 
-    pure $ [ SolTry (SolCall (FieldAccess (SolVar "this") closureName) (map SolVar origVars))
+    pure [ SolTry (SolCall (FieldAccess (SolVar "this") closureName) (map SolVar origVars))
                     closureRets
                     unpackClosureBlock
                     catchCompiled ]
@@ -174,8 +184,13 @@ makeConstructor t = do
         TypeDecl _ _ PsaString -> pure $ \[arg] -> arg
         TypeDecl _ _ Address -> pure $ \[arg] -> arg
         -- First argument is the "initialized" field
-        TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) $ [ SolBool True ] ++ args
-        _ -> error $ "Cannot make constructor for: " ++ show decl
+        TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) $ SolBool True : args
+        TypeDecl _ _ t -> do
+            addError $ TypeError "Cannot make constructor for" t
+            pure $ \_ -> dummySolExpr
+        tx@TransformerDecl{} -> do
+            addError $ SyntaxError ("Cannot make constructor for transformer" ++ show tx)
+            pure $ \_ -> dummySolExpr
 
 makeClosureArgs :: [String] -> State Env [SolVarDecl]
 makeClosureArgs vars = concat <$> mapM go vars
@@ -256,33 +271,34 @@ lookupValue (Select l k) f = do
             Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])
                 | kTy == keyTy -> lookupValue k $ \_ origK valK -> do
                 body <- f valueTy (SolIdx (FieldAccess origL "underlying_map") valK) (SolIdx (FieldAccess valL "underlying_map") valK)
-                pure $ [ Require (SolIdx (FieldAccess origL "keyset") valK) (SolStr "KEY_NOT_FOUND") ]
-                       ++ body
+                pure $ Require (SolIdx (FieldAccess origL "keyset") valK) (SolStr "KEY_NOT_FOUND") : body
 
             _ ->
                 case demotedKTy of
                     Nat | kTyIsFungible -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valK
-                        pure $ [ Require (SolLte valK valL) (SolStr "UNDERFLOW") ] ++ body
+                        pure $ Require (SolLte valK valL) (SolStr "UNDERFLOW") : body
 
                     PsaBool -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valK
-                        pure $ [ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") ] ++ body
+                        pure $ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") : body
 
                     PsaString -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valL
-                        pure $ [ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") ] ++ body
+                        pure $ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") : body
 
                     Address -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valL
-                        pure $ [ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") ] ++ body
+                        pure $ Require (SolEq valL valK) (SolStr "FAILED TO SELECT") : body
 
                     -- TODO: This needs to make sure that every element gets found
                     Table [] _ -> lookupValue k $ \_ origK valK -> do
                         body <- f lTy origL valL
                         pure [ If (SolEq valL valK) body ]
 
-                    _ -> error $ "lookupValue Select is not implemented for: " ++ show kTy
+                    _ -> do
+                        addError $ UnimplementedError "lookupValue Select" (show kTy)
+                        pure []
 
 lookupValue (Filter l q predName args) f = do
     argsRes <- mapM locate args
@@ -296,7 +312,7 @@ lookupValue (Filter l q predName args) f = do
                ++ concat initArgs
                ++ initL
                ++ [ If (SolCall (SolVar predName) (vals ++ [src]))
-                        ([ ExprStmt (SolPostInc (SolVar counterName)) ] ++ body) ]
+                        (ExprStmt (SolPostInc (SolVar counterName)) : body) ]
                ++ [ Require (checkCounter q (SolVar counterName)) (SolStr "FAILED_TO_SELECT_RIGHT_NUM") ]
     where
         checkCounter Empty counter = SolEq counter (SolInt 0)
@@ -304,7 +320,9 @@ lookupValue (Filter l q predName args) f = do
         checkCounter One counter = SolEq counter (SolInt 1)
         checkCounter Nonempty counter = SolLte (SolInt 1) counter
 
-lookupValue l _ = error $ "lookupValue is not implemented for: " ++ show l
+lookupValue l _ = do
+    addError $ UnimplementedError "lookupValue" (show l)
+    pure []
 
 lookupValues :: [Locator] -> ([SolExpr] -> State Env [SolStmt]) -> State Env [SolStmt]
 lookupValues [] f = f []
@@ -349,7 +367,10 @@ sendExpr (Named t) e f = f (Named t) e e
 
 sendExpr (Record keys fields) e f = f (Record keys fields) e e
 
-sendExpr t e f = error $ "lookupValue Var is not implemented for: " ++ show t
+sendExpr t e f = do
+    addError $ UnimplementedError "lookupValue Var" (show t)
+    pure []
+
 
 receiveValue :: SolExpr -> SolExpr -> Locator -> State Env [SolStmt]
 receiveValue orig src (Var x) = do
@@ -365,7 +386,9 @@ receiveValue orig src (Field l x) = do
         fieldTy <- lookupField ty x
         receiveExpr fieldTy orig src $ FieldAccess dstExpr x
 
-receiveValue orig src dst = error $ "Cannot receive values in destination: " ++ show dst
+receiveValue orig src dst = do
+    addError $ FlowError ("Cannot recieve values in destination" ++ show dst)
+    pure []
 
 receiveExpr :: BaseType -> SolExpr -> SolExpr -> SolExpr -> State Env [SolStmt]
 receiveExpr t orig src dst = do
@@ -402,7 +425,9 @@ receiveExpr t orig src dst = do
                         ExprStmt (SolCall (FieldAccess (FieldAccess dst "keys") "push") [FieldAccess src "key"]) ],
                       [ Delete orig ])
 
-            _ -> error $ "receiveExpr not implemented for: " ++ show demotedT
+            _ -> do
+                addError $ FlowError ("receiveExpr not implemented for: " ++ show demotedT)
+                pure ([], [])
 
     if isPrimitiveExpr orig then
         pure main
@@ -433,7 +458,7 @@ defineVar x t = do
     case loc of
         Just Storage -> do
             decls <- declareVar x t
-            concat <$> (flip mapM decls $ \decl -> do
+            concat <$> forM decls (\decl -> do
                 (init, setup) <- allocateNew $ varDeclType decl
                 pure $ setup ++ [ SolVarDefInit decl init ])
 
@@ -521,6 +546,7 @@ demoteBaseType (Named t) = do
     decl <- lookupTypeDecl t
     case decl of
         TypeDecl _ _ baseT -> demoteBaseType baseT
+demoteBaseType Bot = pure Bot
 
 typeOfLoc :: Locator -> State Env BaseType
 typeOfLoc (IntConst _) = pure Nat
@@ -549,7 +575,7 @@ keyTypes (Named t) = do
     pure [Named t, demotedT]
 keyTypes t@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])) = pure [t, keyTy]
 keyTypes (Table keys t) = pure [Table keys t]
-keyTypes (Record keys fields) = pure $ [ Record keys fields ] ++ [ t | (x,(_,t)) <- fields, x `elem` keys ]
+keyTypes (Record keys fields) = pure $ Record keys fields : [ t | (x,(_,t)) <- fields, x `elem` keys ]
 
 valueType :: BaseType -> BaseType
 valueType Nat = Nat
