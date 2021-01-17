@@ -2,7 +2,7 @@
 
 module Env where
 
-import Control.Lens (makeLenses, (<<+=))
+import Control.Lens (makeLenses, over, (<<+=))
 import Control.Monad.State
 
 import Data.Map (Map)
@@ -11,11 +11,11 @@ import qualified Data.Map as Map
 import AST
 import Error
 
-data Env = Env { _freshCounter :: Integer,
-                 _typeEnv :: Map String BaseType,
-                 _declarations :: Map String Decl,
-                 _solDecls :: Map String SolDecl,
-                 _allocators :: Map SolType String,
+data Env = Env { _freshCounter  :: Integer,
+                 _typeEnv       :: Map String BaseType,
+                 _declarations  :: Map String Decl,
+                 _solDecls      :: Map String SolDecl,
+                 _allocators    :: Map SolType String,
                  _errors :: [Error] }
     deriving (Show, Eq)
 makeLenses ''Env
@@ -32,3 +32,5 @@ freshName = do
     i <- freshCounter <<+= 1
     pure $ "v" ++ show i
 
+addError :: Error -> State Env ()
+addError e = modify $ over errors (e:)

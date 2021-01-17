@@ -2,7 +2,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
 
 module Parser where
 
@@ -14,7 +13,10 @@ import AST
 type Parser a = forall s st m. Stream s m Char => ParsecT s st m a
 
 parseProgram :: Parser Program
-parseProgram = Program <$> many parseDecl <*> many parseStmt
+parseProgram = do
+    prog <- Program <$> many parseDecl <*> many parseStmt
+    eof
+    pure prog
 
 parseDecl :: Parser Decl
 parseDecl = try parseTypeDecl <|>
@@ -69,10 +71,10 @@ parseVarDef = do
     (name,) <$> parseType
 
 parseStmt :: Parser Stmt
-parseStmt = try parseFlowTransform <|>
-            try parseFlowSel <|>
-            try parseFlowFilter <|>
-            try parseFlow <|>
+parseStmt = try parseFlowTransform <|> try parseFlowTransformBackwards <|>
+            try parseFlowSel <|> try parseFlowSelBackwards <|>
+            try parseFlowFilter <|> try parseFlowFilterBackwards <|>
+            try parseFlow <|> try parseFlowBackwards <|>
             try parseTry
 
 parseFlow :: Parser Stmt
@@ -82,6 +84,13 @@ parseFlow = do
     dst <- parseLocator
     pure $ Flow src dst
 
+parseFlowBackwards :: Parser Stmt
+parseFlowBackwards = do
+    dst <- parseLocator
+    symbol $ string "<--"
+    src <- parseLocator
+    pure $ Flow src dst
+
 parseFlowSel :: Parser Stmt
 parseFlowSel = do
     src <- parseLocator
@@ -89,6 +98,15 @@ parseFlowSel = do
     sel <- parseLocator
     symbol $ string "]->"
     dst <- parseLocator
+    pure $ Flow (Select src sel) dst
+
+parseFlowSelBackwards :: Parser Stmt
+parseFlowSelBackwards = do
+    dst <- parseLocator
+    symbol $ string "<-["
+    sel <- parseLocator
+    symbol $ string "]--"
+    src <- parseLocator
     pure $ Flow (Select src sel) dst
 
 parseFlowFilter :: Parser Stmt
@@ -106,12 +124,36 @@ parseFlowFilter = do
     dst <- parseLocator
     pure $ Flow (Filter src q f args) dst
 
+parseFlowFilterBackwards :: Parser Stmt
+parseFlowFilterBackwards = do
+    dst <- parseLocator
+    symbol $ string "<-["
+    q <- parseQuant
+    symbol $ string "such"
+    symbol $ string "that"
+    f <- parseVarName
+    symbol $ string "("
+    args <- parseLocators
+    symbol $ string ")"
+    symbol $ string "]--"
+    src <- parseLocator
+    pure $ Flow (Filter src q f args) dst
+
 parseFlowTransform :: Parser Stmt
 parseFlowTransform = do
     src <- parseLocator
     symbol $ string "-->"
     transformer <- parseTransformer
     symbol $ string "-->"
+    dst <- parseLocator
+    pure $ FlowTransform src transformer dst
+
+parseFlowTransformBackwards :: Parser Stmt
+parseFlowTransformBackwards = do
+    src <- parseLocator
+    symbol $ string "<--"
+    transformer <- parseTransformer
+    symbol $ string "<--"
     dst <- parseLocator
     pure $ FlowTransform src transformer dst
 
@@ -173,7 +215,13 @@ parseLocatorSingle = try parseAddr <|>
                      try parseNewVar <|>
                      try parseMultiset <|>
                      try parseRecordLit <|>
+                     try parseConsume <|>
                      try parseVar
+
+parseConsume :: Parser Locator
+parseConsume = do
+    symbol $ string "consume"
+    pure Consume
 
 parseRecordLit :: Parser Locator
 parseRecordLit = do
@@ -231,10 +279,10 @@ parseQuant = parseConst "empty" Empty <|>
              parseConst "nonempty" Nonempty
 
 parseBaseType :: Parser BaseType
-parseBaseType = parseConst "nat" Nat <|>
-                parseConst "bool" PsaBool <|>
-                parseConst "string" PsaString <|>
-                parseConst "address" Address <|>
+parseBaseType = try (parseConst "nat" Nat) <|>
+                try (parseConst "bool" PsaBool) <|>
+                try (parseConst "string" PsaString) <|>
+                try (parseConst "address" Address) <|>
                 parseMultisetType <|>
                 parseRecordType <|>
                 parseMapType <|>
@@ -261,7 +309,7 @@ parseNamedType = Named <$> parseVarName
 
 parseMultisetType :: Parser BaseType
 parseMultisetType = do
-    symbol $ string "list" -- TODO: Change this
+    symbol $ choice [string "list", string "multiset"] -- TODO: Change this
     Table [] <$> parseType
 
 parseInt :: Parser Locator

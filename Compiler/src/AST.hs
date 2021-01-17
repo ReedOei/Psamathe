@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module AST where
@@ -16,6 +15,7 @@ data BaseType = Nat | PsaBool | PsaString | Address
               | Record [String] [VarDef]
               | Table [String] Type
               | Named String
+              | Bot
     deriving (Show, Eq)
 
 type VarDef = (String, Type)
@@ -168,10 +168,11 @@ instance PrettyPrint BaseType where
     prettyPrint (Named t) = [t]
     prettyPrint (Table keys (q,t)) = [ "table(" ++ intercalate ", " keys ++ ") " ++ prettyStr q ++ " " ++ prettyStr t ]
     prettyPrint (Record keys fields) = [ "record(" ++ intercalate ", " keys ++ ") {" ++ intercalate ", " (map prettyStr fields) ++ "}" ]
+    prettyPrint Bot = ["⊥"]
 
 instance PrettyPrint Decl where
     prettyPrint (TypeDecl name ms baseT) =
-        [ "type " ++ name ++ " is " ++ intercalate " " (map prettyStr ms) ++ " " ++ prettyStr baseT ]
+        [ "type " ++ name ++ " is " ++ unwords (map prettyStr ms) ++ " " ++ prettyStr baseT ]
     prettyPrint (TransformerDecl name args ret body) =
         [ "transformer " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") -> " ++ prettyStr ret ++ "{"]
         ++ concatMap (map indent . prettyPrint) body
