@@ -1,39 +1,23 @@
 \definecolor{verylightgray}{rgb}{.97,.97,.97}
 \definecolor{darkLavender}{RGB}{160,120,200}
+\definecolor{softRed}{RGB}{180,70,99}
 
 \lstdefinelanguage{flow}{
     keywords=[1]{var,interface,where,contract,transaction,view,transformer,type,is,returns},
     keywordstyle=[1]\color{Rhodamine}\bfseries,
     keywords=[2]{false,true,sometimes,fungible,asset,unique,immutable,consumable},
     keywordstyle=[2]\color{DarkOrchid}\bfseries,
-    keywords=[3]{map,linking,set,list,address,uint256,uint,record,table,string,bytes,nat,bool},
+    keywords=[3]{map,linking,set,list,multiset,address,uint256,uint,ether,record,table,string,bytes,nat,bool},
     keywordstyle=[3]\color{Emerald}\itshape,
-    keywords=[4]{nonempty,any,every,empty,exactly,one,msg,this,in,new,or,and,not,total,consume},
+    keywords=[4]{nonempty,any,every,empty,exactly,one,msg,this,in,new,or,and,not,total,consume,zip},
     keywordstyle=[4]\color{darkLavender}\bfseries\itshape,
     keywords=[5]{if,else,only,when,try,catch,such,st,that},
     keywordstyle=[5]\color{Cerulean}\bfseries,
     keepspaces=true,
-	% backgroundcolor=\color{verylightgray},
-    % columns=fullflexible,
     % literate=*
-    %     {(}{{{\color{red}(}}}1
-    %     {)}{{{\color{red})}}}1
-    %     {+}{{{\color{red}+~}}}1
-    %     {-}{{{\color{red}-~}}}1
-    %     {:=}{{{\color{red}:=~}}}1
-    %     {\{}{{{\color{red}\{}}}1
-    %     {\}}{{{\color{red}\}}}}1
-    %     {[}{{{\color{red}[}}}1
-    %     {]}{{{\color{red}]}}}1
-    %     {*}{{{\color{red}*~}}}1
-    %     {:}{{{\color{red}:~}}}1
-    %     {>}{{{\color{red}>~}}}1
-    %     {<}{{{\color{red}<~}}}1
-    %     {<=>}{{{$\color{red}\Leftrightarrow~$}}}1
-    %     {.}{{{\color{red}.~}}}1
-    %     {=}{{{$\color{red}=~$}}}1
-    %     {exists }{{{$\color{red}\exists$}}}1
-    %     {forall }{{{$\color{red}\forall$}}}1,
+    %     {--[}{{{$\color{softRed}\textbf{\texttt{--[}}$}}}1
+    %     {]->}{{{$\color{softRed}\textbf{\texttt{]->}}$}}}1
+    %     {-->}{{{$\color{softRed}\textbf{\texttt{-->}}$}}}1,
     sensitive=false, % keywords are not case-sensitive
     morecomment=[l]{//}, % l is for line comment
     morecomment=[s]{/*}{*/}, % s is for start and end delimiter
