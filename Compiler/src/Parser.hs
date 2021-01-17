@@ -309,7 +309,7 @@ parseNamedType = Named <$> parseVarName
 
 parseMultisetType :: Parser BaseType
 parseMultisetType = do
-    symbol $ string "list" -- TODO: Change this
+    symbol $ choice [string "list", string "multiset"] -- TODO: Change this
     Table [] <$> parseType
 
 parseInt :: Parser Locator
