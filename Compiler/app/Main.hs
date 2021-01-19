@@ -6,8 +6,6 @@ import Control.Lens
 import Control.Monad.State
 import Control.Monad
 
-import System.Environment
-
 import Text.Parsec
 
 import AST
@@ -19,9 +17,12 @@ import Typechecker
 
 import Config
 
-compileFile :: Config -> FilePath -> IO ()
-compileFile config fileName = do
-    content <- readFile fileName
+main :: IO ()
+main = compileFile =<< getArgs
+
+compileFile :: Config -> IO ()
+compileFile config = do
+    content <- readFile $ config^.srcName
     case parse parseProgram "" content of
         Left err -> error $ show err
         Right prog -> do
@@ -30,7 +31,6 @@ compileFile config fileName = do
             if config^.debug > 0 then do
                 putStrLn "Processed program:"
                 putStrLn $ prettyStr prog
-                putStrLn "========================================================"
                 putStrLn "========================================================"
                 putStrLn "========================================================"
             else pure ()
@@ -48,12 +48,4 @@ compileFile config fileName = do
 
             if config^.debug > 1 then print env
             else pure ()
-
-main :: IO ()
-main = do
-    args <- getArgs
-
-    case args of
-        [fname] -> compileFile defaultConfig fname
-        _ -> pure ()
 
