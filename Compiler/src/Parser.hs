@@ -87,7 +87,7 @@ parseOnlyWhen = do
 
 parsePrecondition :: Parser Precondition
 parsePrecondition = do
-    ops <- binOpCond `sepBy1` (symbol (string "and"))
+    ops <- binOpCond `sepEndBy1` try (symbol (string "and"))
     case ops of
         [] -> error "Impossible!" -- b/c we use sepBy1
         [x] -> pure x

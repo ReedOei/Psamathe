@@ -13,6 +13,9 @@ preprocess (Program decls stmts) =
             <*> (concat <$> mapM preprocessStmt stmts)
 
 preprocessDecl :: Decl -> State Env [Decl]
+preprocessDecl (TransformerDecl name args ret body) = do
+    newBody <- concat <$> mapM preprocessStmt body
+    pure [TransformerDecl name args ret newBody]
 preprocessDecl d = pure [d]
 
 -- TODO: Might need to make this more flexible, in case we need to generate declarations or something

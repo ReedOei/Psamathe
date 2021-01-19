@@ -396,6 +396,7 @@ receiveExpr :: BaseType -> SolExpr -> SolExpr -> SolExpr -> State Env [SolStmt]
 receiveExpr t orig src dst = do
     demotedT <- demoteBaseType t
     tIsFungible <- isFungible t
+    tIsAsset <- isAsset t
 
     (main, cleanup) <-
         case demotedT of
@@ -404,21 +405,55 @@ receiveExpr t orig src dst = do
                         SolAssign dst (SolAdd dst src) ],
                       [ SolAssign orig (SolSub orig src) ])
 
-            Nat -> pure ([ SolAssign dst src ], [ Delete orig ])
+            Nat ->
+                -- TODO: Remove this hack once we have a better implementation (see https://github.com/ReedOei/Psamathe/issues/16)
+                if src /= dst then
+                    if tIsAsset then
+                        pure ([ Require (SolEq dst (SolInt 0)) (SolStr "ALREADY_INITIALIZED"),
+                                SolAssign dst src ],
+                              [ Delete orig ])
+                    else
+                        pure ([ SolAssign dst src ],
+                              [ Delete orig ])
+                else
+                    if tIsAsset then
+                        pure ([ Require (SolEq dst (SolInt 0)) (SolStr "ALREADY_INITIALIZED") ], [])
+                    else
+                        pure ([], [])
 
             PsaBool | t == PsaBool -> pure ([ SolAssign dst (SolOr dst src) ], [ Delete orig ])
 
+            Address ->
+                if src /= dst then
+                    if tIsAsset then
+                        pure ([ Require (SolEq dst (SolAddr "0x0")) (SolStr "ALREADY_INITIALIZED"),
+                                SolAssign dst src ],
+                              [ Delete orig ])
+                    else
+                        pure ([ SolAssign dst src ],
+                              [ Delete orig ])
+                else
+                    if tIsAsset then
+                        pure ([ Require (SolEq dst (SolAddr "0x0")) (SolStr "ALREADY_INITIALIZED") ], [])
+                    else
+                        pure ([], [])
+
             Table [] _ -> pure ([ ExprStmt (SolCall (FieldAccess dst "push") [ src ] ) ], [ Delete orig ])
 
-            Record keys fields -> do
-                tIsAsset <- isAsset t
-                if tIsAsset then
-                    pure ([ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED"),
-                            SolAssign dst src ],
-                          [ Delete orig ])
+            Record keys fields ->
+                if src /= dst then
+                    if tIsAsset then
+                        pure ([ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED"),
+                                SolAssign dst src ],
+                              [ Delete orig ])
+                    else
+                        pure ([ SolAssign dst src ],
+                              [ Delete orig ])
                 else
-                    pure ([ SolAssign dst src ],
-                          [ Delete orig ])
+                    if tIsAsset then
+                        pure ([ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED") ], [])
+                    else
+                        pure ([], [])
 
             Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ]) ->
                 pure ([ SolAssign (SolIdx (FieldAccess dst "underlying_map") (FieldAccess src "key"))
@@ -566,6 +601,9 @@ typeOfLoc (Select l k) = do
         pure $ valueType lTy
     else
         pure lTy
+typeOfLoc (Field l x) = do
+    lTy <- typeOfLoc l
+    lookupField lTy x
 
 keyTypes :: BaseType -> State Env [BaseType]
 keyTypes Nat = pure [Nat]
@@ -593,7 +631,12 @@ valueType (Record keys fields) =
         fields -> Record [] fields
 
 lookupField :: BaseType -> String -> State Env BaseType
-lookupField (Record key fields) x = pure $ head [ t | (y,(_,t)) <- fields, x == y ]
+lookupField t@(Record key fields) x =
+    case [ t | (y,(_,t)) <- fields, x == y ] of
+        [] -> do
+            addError $ FieldNotFoundError x t
+            pure Bot
+        (fieldTy:_) -> pure fieldTy
 lookupField (Named t) x = do
     decl <- lookupTypeDecl t
     case decl of

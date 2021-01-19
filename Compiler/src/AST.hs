@@ -79,6 +79,7 @@ data SolExpr = SolBool Bool
              | SolVar String
              | FieldAccess SolExpr String
              | SolPostInc SolExpr
+             | SolNot SolExpr
              | SolCall SolExpr [SolExpr]
              | SolIdx SolExpr SolExpr
              | SolAdd SolExpr SolExpr
@@ -198,7 +199,7 @@ instance PrettyPrint Decl where
     prettyPrint (TypeDecl name ms baseT) =
         [ "type " ++ name ++ " is " ++ unwords (map prettyStr ms) ++ " " ++ prettyStr baseT ]
     prettyPrint (TransformerDecl name args ret body) =
-        [ "transformer " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") -> " ++ prettyStr ret ++ "{"]
+        [ "transformer " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ") -> " ++ prettyStr ret ++ " {"]
         ++ concatMap (map indent . prettyPrint) body
         ++ [ "}" ]
 
@@ -214,6 +215,7 @@ instance PrettyPrint SolExpr where
     prettyPrint (SolVar x) = [ x ]
     prettyPrint (FieldAccess e x) = [ prettyStr e ++ "." ++ x ]
     prettyPrint (SolPostInc e) = [ prettyStr e ++ "++" ]
+    prettyPrint (SolNot e) = [ "!" ++ "(" ++ prettyStr e ++ ")" ]
     prettyPrint (SolCall recv args) = [ prettyStr recv ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
     prettyPrint (SolIdx e idxE) = [ prettyStr e ++ "[" ++ prettyStr idxE ++ "]" ]
     prettyPrint (SolAdd e1 e2) = [ "(" ++ prettyStr e1 ++ ") + (" ++ prettyStr e2 ++ ")" ]
