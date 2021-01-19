@@ -38,8 +38,17 @@ data Transformer = Call String [Locator]
                  | Construct String [Locator]
     deriving (Show, Eq)
 
+data Op = OpLt | OpGt | OpLe | OpGe | OpEq | OpNe | OpIn
+    deriving (Show, Eq)
+
+data Precondition = Conj [Precondition]
+                  | BinOp Op Locator Locator
+    deriving (Show, Eq)
+
 data Stmt = Flow Locator Locator
           | FlowTransform Locator Transformer Locator
+          | OnlyWhen Precondition
+          | Revert
           | Try [Stmt] [Stmt]
     deriving (Show, Eq)
 
@@ -89,7 +98,7 @@ data SolStmt = ExprStmt SolExpr
              | SolTry SolExpr [SolVarDecl] [SolStmt] [SolStmt]
              | If SolExpr [SolStmt]
              | IfElse SolExpr [SolStmt] [SolStmt]
-             | Revert SolExpr
+             | SolRevert SolExpr
              | Require SolExpr SolExpr
     deriving (Show, Eq)
 
@@ -131,6 +140,19 @@ instance PrettyPrint Transformer where
     prettyPrint (Call name args) = [ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
     prettyPrint (Construct name args) = [ "new " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
 
+instance PrettyPrint Op where
+    prettyPrint OpLt = ["<"]
+    prettyPrint OpGt = [">"]
+    prettyPrint OpLe = ["<="]
+    prettyPrint OpGe = [">="]
+    prettyPrint OpEq = ["="]
+    prettyPrint OpNe = ["!="]
+    prettyPrint OpIn = ["in"]
+
+instance PrettyPrint Precondition where
+    prettyPrint (Conj conds) = [ intercalate " and " (map prettyStr conds) ]
+    prettyPrint (BinOp op a b) = [ prettyStr a ++ " " ++ prettyStr op ++ " " ++ prettyStr b ]
+
 instance PrettyPrint Stmt where
     prettyPrint (Flow src dst) = [ prettyStr src ++ " --> " ++ prettyStr dst ]
     prettyPrint (FlowTransform src transformer dst) = [ prettyStr src ++ " --> " ++ prettyStr transformer ++ " --> " ++ prettyStr dst ]
@@ -140,6 +162,8 @@ instance PrettyPrint Stmt where
         ++ [ "} catch { " ]
         ++ concatMap (map indent . prettyPrint) catchBlock
         ++ [ "}" ]
+    prettyPrint (OnlyWhen cond) = [ "only when " ++ prettyStr cond ]
+    prettyPrint Revert = [ "revert" ]
 
 instance PrettyPrint Modifier where
     prettyPrint Fungible = ["fungible"]
@@ -205,7 +229,7 @@ instance PrettyPrint SolStmt where
     prettyPrint (SolVarDef decl) = [ prettyStr decl ++ ";" ]
     prettyPrint (SolAssign e1 e2) = [ prettyStr e1 ++ " = " ++ prettyStr e2 ++ ";" ]
     prettyPrint (Delete e) = ["delete " ++ prettyStr e ++ ";"]
-    prettyPrint (Revert e) = ["revert(" ++ prettyStr e ++ ");"]
+    prettyPrint (SolRevert e) = ["revert(" ++ prettyStr e ++ ");"]
     prettyPrint (Require e err) = ["require(" ++ prettyStr e ++ ", " ++ prettyStr err ++ ");"]
     prettyPrint (For init cond step body) =
         ["for (" ++ prettyStr init ++ " " ++ prettyStr cond ++ "; " ++ prettyStr step ++ ") {"]

@@ -75,7 +75,33 @@ parseStmt = try parseFlowTransform <|> try parseFlowTransformBackwards <|>
             try parseFlowSel <|> try parseFlowSelBackwards <|>
             try parseFlowFilter <|> try parseFlowFilterBackwards <|>
             try parseFlow <|> try parseFlowBackwards <|>
-            try parseTry
+            try parseTry <|>
+            try parseOnlyWhen <|>
+            try (parseConst "revert" Revert)
+
+parseOnlyWhen :: Parser Stmt
+parseOnlyWhen = do
+    symbol $ string "only"
+    symbol $ string "when"
+    OnlyWhen <$> parsePrecondition
+
+parsePrecondition :: Parser Precondition
+parsePrecondition = do
+    ops <- binOpCond `sepBy1` (symbol (string "and"))
+    case ops of
+        [] -> error "Impossible!" -- b/c we use sepBy1
+        [x] -> pure x
+        xs -> pure $ Conj xs
+
+binOpCond :: Parser Precondition
+binOpCond = do
+    a <- parseLocator
+    op <- symbol $ choice $ map try [ parseConst "<" OpLt, parseConst "<=" OpLe,
+                                      parseConst ">" OpGt, parseConst ">=" OpGe,
+                                      parseConst "=" OpEq, parseConst "!=" OpNe,
+                                      parseConst "in" OpIn ]
+    b <- parseLocator
+    pure $ BinOp op a b
 
 parseFlow :: Parser Stmt
 parseFlow = do
@@ -188,10 +214,10 @@ parseTransformer = try parseConstruct <|> try parseCall
             pure $ Call name args
 
 parseLocator :: Parser Locator
-parseLocator = buildExpressionParser opTable $ symbol parseLocatorSingle
+parseLocator = buildExpressionParser locOpTable $ symbol parseLocatorSingle
 
-opTable :: Stream s m Char => OperatorTable s st m Locator
-opTable =
+locOpTable :: Stream s m Char => OperatorTable s st m Locator
+locOpTable =
     [
         [Postfix $ try $ do
             symbol $ string "."

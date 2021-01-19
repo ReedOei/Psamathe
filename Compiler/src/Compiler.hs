@@ -175,6 +175,8 @@ compileStmt (Try tryBlock catchBlock) = do
                     unpackClosureBlock
                     catchCompiled ]
 
+compileStmt Revert = pure [ SolRevert (SolStr "REVERT") ]
+
 makeConstructor :: String -> State Env ([SolExpr] -> SolExpr)
 makeConstructor t = do
     decl <- lookupTypeDecl t
