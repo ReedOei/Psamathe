@@ -396,6 +396,7 @@ fun less_general_quant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" (in
 | "less_general_quant empty r = (r = empty)"
 | "less_general_quant any r = (r = any)"
 
+(* TODO: Rename to subtype, probably *)
 fun less_general_type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>\<tau>" 50) where
   "less_general_type (q,t) (r,u) = (q \<sqsubseteq> r \<and> t \<approx> u)"
 
@@ -627,6 +628,12 @@ lemma compat_same_store_upd:
     and "env_select_var_compat \<Gamma>' \<O>' \<P>' (\<mu>, \<rho>)"
     and "env_select_loc_compat \<Gamma>' \<P>' \<rho>"
   shows "compat \<Gamma>' \<O>' \<P>' (\<mu>, \<rho>)"
+  using assms
+  by (auto simp: compat_def)
+
+lemma store_ok_use:
+  assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" and "\<rho> l = Some (t,v)"
+  shows "baseTypeMatches t v"
   using assms
   by (auto simp: compat_def)
 
@@ -3380,6 +3387,36 @@ lemma res_add_ty_first_res:
   apply (cases v2, auto)
   by (metis exactType.simps(3) option.distinct(1))
 
+lemma baseTypeMatches_add:
+  assumes "baseTypeMatches t1 v1" 
+      and "baseTypeMatches t2 v2"
+      and "t1 \<approx> t2"
+      and "Some (t1,v1) +\<^sub>r Some (t2,v2) = Some (t1,v)"
+    shows "baseTypeMatches t1 v"
+  using assms
+  apply (cases v1)
+  apply (cases v2, auto)
+  using baseTypeMatches_nums apply blast
+  apply (cases v2, auto)
+  using baseTypeMatches_bools apply blast
+  apply (cases v2, auto)
+  sorry
+
+lemma baseTypeMatches_store_add:
+  assumes store_ok: "\<forall>l t v. \<rho> l = Some (t, v) \<longrightarrow> baseTypeMatches t v"
+      and "\<rho> l +\<^sub>r \<rho> k = Some (t,v)"
+    shows "baseTypeMatches t v"
+proof -
+  obtain tl vl tk vk
+    where "\<rho> l = Some (tl, vl)" and "baseTypeMatches tl vl"
+      and "\<rho> k = Some (tk, vk)" and "baseTypeMatches tk vk"
+    using assms
+    by (metis option.exhaust resourceSum.simps(11) resourceSum.simps(4) surj_pair)
+
+  then show ?thesis
+    by (smt assms(2) baseTypeMatches_add eq_snd_iff exactType_preserves_tyquant option.distinct(1) option.inject res_add_compat res_add_ty_first_res)
+qed
+
 lemma res_add_ty_first:
   assumes "exactType r1 = Some (q,t1)" 
     and "exactType r2 = Some (r,t2)" 
@@ -3842,7 +3879,14 @@ next
         apply auto
         using EFlowLoc l_in_env apply (auto simp: apply_offset_def)
         using compat_elim(9) res_cancel apply fastforce
-        sorry
+          apply (cases "\<rho> l", auto)
+        using store_ok_use resourceSub_self_emptyVal
+        using baseTypeMatches_emptyVal_works apply auto[1]
+         apply (rule baseTypeMatches_store_add)
+          apply (drule compat_elim(9))
+          apply assumption
+        apply assumption
+        by (simp add: store_ok_use)
     qed
     
     show "?\<Gamma>' \<turnstile> [] oks \<stileturn> ?\<Gamma>'" by simp
