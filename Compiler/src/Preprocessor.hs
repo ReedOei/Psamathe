@@ -30,8 +30,19 @@ preprocessStmt s = pure [s]
 -- which is invalid (2 is not a valid destination)
 preprocessCond :: Precondition -> State Env [Stmt]
 preprocessCond (Conj conds) = concat <$> mapM preprocessCond conds
-preprocessCond (BinOp OpLt a b) = pure [ Flow (Select b a) b ]
-preprocessCond (BinOp OpGt a b) = preprocessCond (BinOp OpLt b a)
+-- TODO: We need to be able to write things like "x + 1" in locators for this to work out nicely (alternatively, we could compile things like:
+-- only when a <= b
+-- into
+-- b --[ a ]-> var temp : t
+-- b --[ 1 ]-> temp
+-- temp --> b
+-- But that's kind of annoying, and requires type information)
+preprocessCond cond@(BinOp OpLt a b) = do
+    addError $ UnimplementedError "only when" $ show cond
+    pure []
+preprocessCond cond@(BinOp OpGt a b) = do
+    addError $ UnimplementedError "only when" $ show cond
+    pure []
 preprocessCond (BinOp OpEq a b) = pure [ Flow (Select a b) a, Flow (Select b a) b ]
 -- NOTE: This is implemented the same as OpLt, but exists
 --       basically in case people aren't comfortable considering
@@ -41,17 +52,6 @@ preprocessCond (BinOp OpNe a b) = do
     v <- Var <$> freshName
     failure <- preprocessCond (BinOp OpEq a b)
     pure [Try (failure ++ [ Revert ]) []]
--- TODO: We need to be able to write things like "x + 1" in locators for this to work out nicely (alternatively, we could compile things like:
--- only when a <= b
--- into
--- b --[ a ]-> var temp : t
--- b --[ 1 ]-> temp
--- temp --> b
--- But that's kind of annoying
-preprocessCond cond@(BinOp OpLe a b) = do
-    addError $ UnimplementedError "only when" $ show cond
-    pure []
-preprocessCond cond@(BinOp OpGe a b) = do
-    addError $ UnimplementedError "only when" $ show cond
-    pure []
+preprocessCond cond@(BinOp OpLe a b) = pure [ Flow (Select b a) b ]
+preprocessCond cond@(BinOp OpGe a b) = preprocessCond (BinOp OpLt b a)
 

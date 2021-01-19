@@ -17,7 +17,7 @@ main = hspec $ do
 preprocessorTests = do
     describe "preprocessCond" $ do
         it "expands simple preconditions" $ do
-            evalState (preprocessCond (BinOp OpLt (Var "x") (Var "y"))) newEnv
+            evalState (preprocessCond (BinOp OpLte (Var "x") (Var "y"))) newEnv
                 `shouldBe` [Flow (Select (Var "y") (Var "x")) (Var "y")]
 
             evalState (preprocessCond (BinOp OpEq (Select (Var "x") (Var "vs")) (Var "y"))) newEnv

@@ -14,5 +14,5 @@ transformer giveRightToVote(this : one Election, sender : one address, voter : o
 [ any nat ; 1,2 ] --> var y : multiset any nat
 10 --> var z : nat
 
-only when x in y and x < z
+only when x in y and x <= z
 

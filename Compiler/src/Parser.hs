@@ -96,8 +96,8 @@ parsePrecondition = do
 binOpCond :: Parser Precondition
 binOpCond = do
     a <- parseLocator
-    op <- symbol $ choice $ map try [ parseConst "<" OpLt, parseConst "<=" OpLe,
-                                      parseConst ">" OpGt, parseConst ">=" OpGe,
+    op <- symbol $ choice $ map try [ parseConst "<=" OpLe, parseConst "<" OpLt,
+                                      parseConst ">=" OpGt, parseConst ">" OpGt,
                                       parseConst "=" OpEq, parseConst "!=" OpNe,
                                       parseConst "in" OpIn ]
     b <- parseLocator
