@@ -11,8 +11,9 @@ main = hspec $ do
 
 parserTests = do
     describe "parseStmt" $ do
-        it "parses simple flows" $
+        it "parses simple flows" $ do
             parse parseStmt "" "x --> y" `shouldBe` Right (Flow (Var "x") (Var "y"))
+            parse parseStmt "" "[ any nat ; ] --> var m : map any nat => any nat" `shouldBe` Right (Flow (Multiset (Any,Nat) []) (NewVar "m" (Table ["key"] (One,Record ["key"] [("key",(Any,Nat)),("value",(Any,Nat))]))))
         it "parses simple backwards flows" $
             parse parseStmt "" "y <-- 1" `shouldBe` Right (Flow (IntConst 1) (Var "y"))
 
@@ -30,7 +31,7 @@ parserTests = do
             parse parseStmt "" "var t : bool <-[ z ]-- [ any bool; true, false] " `shouldBe` Right (Flow (Select (Multiset (Any,PsaBool) [BoolConst True,BoolConst False]) (Var "z")) (NewVar "t" PsaBool))
 
         it "parses flows with filters" $ do
-            parse parseStmt "" "A --[ nonempty such that isWinner(winNum) ]-> var winners : mutliset one Ticket" `shouldBe` Right (Flow (Filter (Var "A") Nonempty "isWinner" [Var "winNum"]) (Var "var"))
+            parse parseStmt "" "A --[ nonempty such that isWinner(winNum) ]-> var winners : mutliset one Ticket" `shouldBe` Right (Flow (Filter (Var "A") Nonempty "isWinner" [Var "winNum"]) (NewVar "winners" (Named "mutliset")))
         it "parses backwards flows with filters" $ do
             parse parseStmt "" "vals <-[ any such that nonzero() ]-- src" `shouldBe` Right (Flow (Filter (Var "src") Any "nonzero" []) (Var "vals"))
 

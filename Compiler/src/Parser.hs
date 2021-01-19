@@ -273,20 +273,20 @@ parseType :: Parser Type
 parseType = (,) <$> symbol parseQuant <*> symbol parseBaseType
 
 parseQuant :: Parser TyQuant
-parseQuant = parseConst "empty" Empty <|>
-             parseConst "any" Any <|>
-             parseConst "one" One <|>
-             parseConst "nonempty" Nonempty
+parseQuant = try (parseConst "empty" Empty) <|>
+             try (parseConst "any" Any) <|>
+             try (parseConst "one" One) <|>
+             try (parseConst "nonempty" Nonempty)
 
 parseBaseType :: Parser BaseType
 parseBaseType = try (parseConst "nat" Nat) <|>
                 try (parseConst "bool" PsaBool) <|>
                 try (parseConst "string" PsaString) <|>
                 try (parseConst "address" Address) <|>
-                parseMultisetType <|>
-                parseRecordType <|>
-                parseMapType <|>
-                parseNamedType
+                try parseMultisetType <|>
+                try parseRecordType <|>
+                try parseMapType <|>
+                try parseNamedType
 
 parseMapType :: Parser BaseType
 parseMapType = do
