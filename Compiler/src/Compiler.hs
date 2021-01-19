@@ -129,7 +129,7 @@ compileStmt :: Stmt -> State Env [SolStmt]
 compileStmt (Flow src dst) = do
     (srcLoc, srcComp) <- locate src
     (dstLoc, dstComp) <- locate dst
-    transfer <- lookupValue srcLoc $ \_ orig val -> receiveValue orig val dstLoc
+    transfer <- lookupValue srcLoc $ \t orig val -> receiveValue t orig val dstLoc
 
     pure $ srcComp ++ dstComp ++ transfer
 
@@ -139,7 +139,7 @@ compileStmt (FlowTransform src (Construct name args) dst) = do
     (srcLoc, srcComp) <- locate src
     (dstLoc, dstComp) <- locate dst
     constructFun <- makeConstructor name
-    transfer <- lookupValues newArgs $ \vals -> lookupValue srcLoc $ \_ orig val -> receiveValue orig (constructFun (vals ++ [val])) dstLoc
+    transfer <- lookupValues newArgs $ \vals -> lookupValue srcLoc $ \t orig val -> receiveValue t orig (constructFun (vals ++ [val])) dstLoc
     pure $ concat initArgs ++ srcComp ++ dstComp ++ transfer
 
 compileStmt (FlowTransform src (Call name args) dst) = do
@@ -147,7 +147,7 @@ compileStmt (FlowTransform src (Call name args) dst) = do
     let (newArgs, initArgs) = unzip argsRes
     (srcLoc, srcComp) <- locate src
     (dstLoc, dstComp) <- locate dst
-    transfer <- lookupValues newArgs $ \vals -> lookupValue srcLoc $ \_ orig val -> receiveValue orig (SolCall (SolVar name) (vals ++ [val])) dstLoc
+    transfer <- lookupValues newArgs $ \vals -> lookupValue srcLoc $ \t orig val -> receiveValue t orig (SolCall (SolVar name) (vals ++ [val])) dstLoc
     pure $ concat initArgs ++ srcComp ++ dstComp ++ transfer
 
 compileStmt (Try tryBlock catchBlock) = do
@@ -372,21 +372,27 @@ sendExpr t e f = do
     pure []
 
 
-receiveValue :: SolExpr -> SolExpr -> Locator -> State Env [SolStmt]
-receiveValue orig src (Var x) = do
+receiveValue :: BaseType -> SolExpr -> SolExpr -> Locator -> State Env [SolStmt]
+receiveValue _ orig src (Var x) = do
     t <- typeOf x
     receiveExpr t orig src (SolVar x)
 
-receiveValue orig src (Select l k) = do
+receiveValue _ orig src (Select l k) = do
     lookupValue (Select l k) $ \ty _ dstExpr ->
         receiveExpr ty orig src dstExpr
 
-receiveValue orig src (Field l x) = do
+receiveValue _ orig src (Field l x) = do
     lookupValue l $ \ty _ dstExpr -> do
         fieldTy <- lookupField ty x
         receiveExpr fieldTy orig src $ FieldAccess dstExpr x
 
-receiveValue orig src dst = do
+receiveValue t orig src Consume = do
+    demotedT <- demoteBaseType t
+    case demotedT of
+        Nat -> pure [ SolAssign orig (SolSub orig src) ]
+        _ -> pure [Delete orig]
+
+receiveValue _ orig src dst = do
     addError $ FlowError ("Cannot recieve values in destination" ++ show dst)
     pure []
 
