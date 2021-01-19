@@ -2,17 +2,13 @@
 
 module Compiler where
 
--- TODO: Error message improvements (i.e., make them more readable), make sure all error messages added (e.g., when selecting by table, need to make sure everything get selected)
 -- TODO: Also, need to clean up **all** non-return vars when exiting the function, probably. BUT BE CAREFUL WITH storage VARIABLES!!!
 -- TODO: Remove the keyset check for destination (e.g., a --> b[k]) should allocate k in `b` if `b` is a map, to match one of Solidity's few useful behaviors
--- TODO: Add preprocessor!!
--- TODO: Locators to implement: consume, copy(_)
 -- TODO: Check that assigning maps/arrays/records works fine
 -- TODO: Try to flow entire maps between each other
 -- TODO: Ensure that the `keys` and `keyset` and everything gets udpated properly
 -- TODO: Check that deletes are right too
 -- TODO: Remove delete from things that cause compilation to fail
--- TODO: Add typechecker!!!
 -- TODO: Make parser to use Parsec's symbol thing properly
 -- TODO: Reorganize tests into actual Haskell tests
 -- TODO: Add .travis.yml configuration for actually testing the Haskell compiler, and make the Travis build work in general
@@ -30,6 +26,7 @@ import Debug.Trace
 import AST
 import Env
 import Error
+import Typechecker
 
 freshVar :: State Env Locator
 freshVar = Var <$> freshName
@@ -54,24 +51,6 @@ typeOf x = do
             addError $ LookupError (LookupErrorVar x)
             pure dummyBaseType
         Just t -> pure t
-
-lookupTypeDecl :: String -> State Env Decl
-lookupTypeDecl typeName = do
-    decl <- Map.lookup typeName . view declarations <$> get
-    case decl of
-        Nothing -> do
-            addError $ LookupError (LookupErrorType typeName)
-            pure dummyDecl
-        Just tx@TransformerDecl{} -> do
-            addError $ LookupError (LookupErrorTypeDecl tx)
-            pure dummyDecl
-        Just tdec@TypeDecl{} -> pure tdec
-
-modifiers :: String -> State Env [Modifier]
-modifiers typeName = do
-    decl <- lookupTypeDecl typeName
-    case decl of
-        TypeDecl _ mods _ -> pure mods
 
 buildExpr :: Locator -> State Env SolExpr
 buildExpr (Var s) = pure $ SolVar s
@@ -478,30 +457,6 @@ isPrimitiveExpr (SolBool _) = True
 isPrimitiveExpr (SolStr _) = True
 isPrimitiveExpr (SolAddr _) = True
 isPrimitiveExpr _ = False
-
-isPrimitive :: BaseType -> Bool
-isPrimitive Nat = True
-isPrimitive PsaBool = True
-isPrimitive PsaString = True
-isPrimitive Address = True
-isPrimitive _ = False
-
-isFungible :: BaseType -> State Env Bool
-isFungible Nat = pure True
-isFungible (Named t) = (Fungible `elem`) <$> modifiers t
--- TODO: Update this for later, because tables should be fungible too?
-isFungible _ = pure False
-
-isAsset :: BaseType -> State Env Bool
-isAsset (Named t) = do
-    decl <- lookupTypeDecl t
-    case decl of
-        TypeDecl _ ms baseT -> do
-            baseAsset <- isAsset baseT
-            pure $ Asset `elem` ms || baseAsset
-isAsset (Record _ fields) = or <$> mapM (\(_,(_,t)) -> isAsset t) fields
-isAsset (Table _ (_,t)) = isAsset t
-isAsset _ = pure False
 
 toSolType :: BaseType -> State Env SolType
 toSolType Nat = pure $ SolTypeName "uint"

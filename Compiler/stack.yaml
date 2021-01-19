@@ -3,3 +3,6 @@ resolver: lts-16.26
 packages:
 - .
 
+extra-deps:
+- semilattices-0.0.0.4@sha256:333707e460923711d1edbdd02ebe1c3957d4e0808eab9886747b52ee3e443639,1909
+

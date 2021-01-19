@@ -9,7 +9,7 @@ data Modifier = Fungible | Immutable | Consumable | Asset | Unique
     deriving (Show, Eq)
 
 data TyQuant = Empty | Any | One | Nonempty
-    deriving (Show, Eq)
+    deriving (Show, Eq, Enum)
 type Type = (TyQuant, BaseType)
 data BaseType = Nat | PsaBool | PsaString | Address
               | Record [String] [VarDef]

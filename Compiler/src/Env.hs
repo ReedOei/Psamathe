@@ -2,7 +2,7 @@
 
 module Env where
 
-import Control.Lens (makeLenses, over, (<<+=))
+import Control.Lens (makeLenses, over, (<<+=), view)
 import Control.Monad.State
 
 import Data.Map (Map)
@@ -34,3 +34,22 @@ freshName = do
 
 addError :: Error -> State Env ()
 addError e = modify $ over errors (e:)
+
+lookupTypeDecl :: String -> State Env Decl
+lookupTypeDecl typeName = do
+    decl <- Map.lookup typeName . view declarations <$> get
+    case decl of
+        Nothing -> do
+            addError $ LookupError (LookupErrorType typeName)
+            pure dummyDecl
+        Just tx@TransformerDecl{} -> do
+            addError $ LookupError (LookupErrorTypeDecl tx)
+            pure dummyDecl
+        Just tdec@TypeDecl{} -> pure tdec
+
+modifiers :: String -> State Env [Modifier]
+modifiers typeName = do
+    decl <- lookupTypeDecl typeName
+    case decl of
+        TypeDecl _ mods _ -> pure mods
+

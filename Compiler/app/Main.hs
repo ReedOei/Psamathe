@@ -4,7 +4,6 @@ module Main where
 
 import Control.Lens
 import Control.Monad.State
-import Control.Monad
 
 import Text.Parsec
 
