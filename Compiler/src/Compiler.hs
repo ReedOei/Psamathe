@@ -405,55 +405,24 @@ receiveExpr t orig src dst = do
                         SolAssign dst (SolAdd dst src) ],
                       [ SolAssign orig (SolSub orig src) ])
 
-            Nat ->
-                -- TODO: Remove this hack once we have a better implementation (see https://github.com/ReedOei/Psamathe/issues/16)
-                if src /= dst then
-                    if tIsAsset then
-                        pure ([ Require (SolEq dst (SolInt 0)) (SolStr "ALREADY_INITIALIZED"),
-                                SolAssign dst src ],
-                              [ Delete orig ])
-                    else
-                        pure ([ SolAssign dst src ],
-                              [ Delete orig ])
-                else
-                    if tIsAsset then
-                        pure ([ Require (SolEq dst (SolInt 0)) (SolStr "ALREADY_INITIALIZED") ], [])
-                    else
-                        pure ([], [])
+            Nat -> pure $ handleSelfAssign tIsAsset
+                                [ Require (SolEq dst (SolInt 0)) (SolStr "ALREADY_INITIALIZED") ]
+                                [ SolAssign dst src ]
+                                [ Delete orig ]
 
             PsaBool | t == PsaBool -> pure ([ SolAssign dst (SolOr dst src) ], [ Delete orig ])
 
-            Address ->
-                if src /= dst then
-                    if tIsAsset then
-                        pure ([ Require (SolEq dst (SolAddr "0x0")) (SolStr "ALREADY_INITIALIZED"),
-                                SolAssign dst src ],
-                              [ Delete orig ])
-                    else
-                        pure ([ SolAssign dst src ],
-                              [ Delete orig ])
-                else
-                    if tIsAsset then
-                        pure ([ Require (SolEq dst (SolAddr "0x0")) (SolStr "ALREADY_INITIALIZED") ], [])
-                    else
-                        pure ([], [])
+            Address -> pure $ handleSelfAssign tIsAsset
+                                    [ Require (SolEq dst (SolAddr "0x0")) (SolStr "ALREADY_INITIALIZED") ]
+                                    [ SolAssign dst src ]
+                                    [ Delete orig ]
 
             Table [] _ -> pure ([ ExprStmt (SolCall (FieldAccess dst "push") [ src ] ) ], [ Delete orig ])
 
-            Record keys fields ->
-                if src /= dst then
-                    if tIsAsset then
-                        pure ([ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED"),
-                                SolAssign dst src ],
-                              [ Delete orig ])
-                    else
-                        pure ([ SolAssign dst src ],
-                              [ Delete orig ])
-                else
-                    if tIsAsset then
-                        pure ([ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED") ], [])
-                    else
-                        pure ([], [])
+            Record keys fields -> pure $ handleSelfAssign tIsAsset
+                                            [ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED") ]
+                                            [ SolAssign dst src ]
+                                            [ Delete orig ]
 
             Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ]) ->
                 pure ([ SolAssign (SolIdx (FieldAccess dst "underlying_map") (FieldAccess src "key"))
@@ -466,10 +435,16 @@ receiveExpr t orig src dst = do
                 addError $ FlowError ("receiveExpr not implemented for: " ++ show demotedT)
                 pure ([], [])
 
-    if isPrimitiveExpr orig then
-        pure main
-    else
-        pure $ main ++ cleanup
+    pure $ if isPrimitiveExpr orig then main else main ++ cleanup
+
+    where
+        -- TODO: Remove this hack once we have a better implementation (see https://github.com/ReedOei/Psamathe/issues/16)
+        handleSelfAssign True precondition assign cleanup
+            | src /= dst = (precondition ++ assign, cleanup)
+            | otherwise = (precondition, [])
+        handleSelfAssign False precondition assign cleanup
+            | src /= dst = (assign, cleanup)
+            | otherwise = ([], [])
 
 dataLocFor :: BaseType -> State Env (Maybe DataLoc)
 dataLocFor t = do
