@@ -1,4 +1,9 @@
+{-# LANGUAGE FlexibleContexts #-}
+
+import Control.Lens ((^.))
 import Control.Monad.State
+
+import Data.Either (isRight)
 
 import Test.Hspec
 
@@ -14,22 +19,41 @@ main = hspec $ do
     preprocessorTests
     parserTests
 
+parseAndCheck parser str =
+    case parse parser "" str of
+        res@Left{} -> do
+            res `shouldSatisfy` isRight -- We want to fail
+            undefined
+        Right term -> pure term
+
+x `shouldBeStmts` stmtsStr = do
+    res <- parseAndCheck (do { x <- many parseStmt; eof; pure x }) stmtsStr
+    x `shouldReturn` res
+
+-- | A version of evalState that asserts that there were no errors before returning the result
+evalEnv env toEval = do
+    let (res, finalEnv) = runState toEval env
+    finalEnv^.errors `shouldBe` []
+    pure res
+
 preprocessorTests = do
     describe "preprocessCond" $ do
         it "expands simple preconditions" $ do
-            evalState (preprocessCond (BinOp OpLe (Var "x") (Var "y"))) newEnv
-                `shouldBe` [Flow (Select (Var "y") (Var "x")) (Var "y")]
+            evalEnv newEnv (preprocessCond (BinOp OpLe (Var "x") (Var "y")))
+                `shouldBeStmts` "y --[ x ]-> y"
 
-            evalState (preprocessCond (BinOp OpEq (Select (Var "x") (Var "vs")) (Var "y"))) newEnv
-                `shouldBe` [Flow (Select (Select (Var "x") (Var "vs")) (Var "y")) (Select (Var "x") (Var "vs")),
-                            Flow (Select (Var "y") (Select (Var "x") (Var "vs"))) (Var "y")]
+            evalEnv newEnv (preprocessCond (BinOp OpEq (Select (Var "x") (Var "vs")) (Var "y")))
+                `shouldBeStmts` unlines ["x[vs] --[ y ]-> x[vs]",
+                                         "y --[ x[vs] ]-> y"]
 
         it "expands conjunctions of preconditions" $ do
-            evalState (preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (Var "x") (Multiset (Any,Nat) [ IntConst 0, IntConst 1 ])])) newEnv
-                `shouldBe` [Try [Flow (Select (Var "x") (Var "y")) (Var "x"),
-                                 Flow (Select (Var "y") (Var "x")) (Var "y"),
-                                 Revert] [],
-                            Flow (Select (Multiset (Any,Nat) [IntConst 0,IntConst 1]) (Var "x")) (Multiset (Any,Nat) [IntConst 0,IntConst 1])]
+            evalEnv newEnv (preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (Var "x") (Multiset (Any,Nat) [ IntConst 0, IntConst 1 ])]))
+                `shouldBeStmts` unlines ["try {",
+                                         "    x --[ y ]-> x",
+                                         "    y --[ x ]-> y",
+                                         "    revert",
+                                         "} catch {}",
+                                         "[ any nat; 0,1 ] --[ x ]-> [ any nat; 0,1 ]"]
 
 parserTests = do
     describe "parseStmt" $ do
