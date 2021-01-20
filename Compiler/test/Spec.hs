@@ -46,6 +46,11 @@ preprocessorTests = do
                 `shouldBeStmts` unlines ["x[vs] --[ y ]-> x[vs]",
                                          "y --[ x[vs] ]-> y"]
 
+            evalEnv newEnv (preprocessCond (BinOp OpLe (IntConst 1) (IntConst 3)))
+                `shouldBeStmts` unlines ["1 --> var v0 : nat",
+                                         "3 --> var v1 : nat",
+                                         "v1 --[ v0 ]-> v1"]
+
         it "expands conjunctions of preconditions" $ do
             evalEnv newEnv (preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (Var "x") (Multiset (Any,Nat) [ IntConst 0, IntConst 1 ])]))
                 `shouldBeStmts` unlines ["try {",
@@ -53,7 +58,8 @@ preprocessorTests = do
                                          "    y --[ x ]-> y",
                                          "    revert",
                                          "} catch {}",
-                                         "[ any nat; 0,1 ] --[ x ]-> [ any nat; 0,1 ]"]
+                                         "[ any nat; 0,1 ] --> var v1 : multiset any nat",
+                                         "v1 --[ x ]-> v1"]
 
 parserTests = do
     describe "parseStmt" $ do

@@ -23,13 +23,28 @@ preprocessStmt :: Stmt -> State Env [Stmt]
 preprocessStmt (OnlyWhen cond) = preprocessCond cond
 preprocessStmt s = pure [s]
 
--- TODO: We need to ensure that these conditions are all valid. E.g., something like
--- only when 1 < 2
--- technically makes sense, but gets compiled to
--- 2 --[ 1 ]-> 2
--- which is invalid (2 is not a valid destination)
 preprocessCond :: Precondition -> State Env [Stmt]
 preprocessCond (Conj conds) = concat <$> mapM preprocessCond conds
+preprocessCond (BinOp op a b) = do
+    (allocA, newA) <- allocateVar a
+    (allocB, newB) <- allocateVar b
+    res <- expandCond $ BinOp op newA newB
+    pure $ allocA ++ allocB ++ res
+
+allocateVar :: Locator -> State Env ([Stmt], Locator)
+allocateVar (IntConst n) = do
+    x <- freshName
+    pure ([ Flow (IntConst n) (NewVar x Nat) ], Var x)
+allocateVar (BoolConst b) = do
+    x <- freshName
+    pure ([ Flow (BoolConst b) (NewVar x PsaBool) ], Var x)
+allocateVar l@(Multiset elemT elems) = do
+    x <- freshName
+    pure ([ Flow l (NewVar x (Table [] elemT))], Var x)
+allocateVar l = pure ([], l)
+
+expandCond :: Precondition -> State Env [Stmt]
+expandCond (Conj conds) = concat <$> mapM expandCond conds
 -- TODO: We need to be able to write things like "x + 1" in locators for this to work out nicely (alternatively, we could compile things like:
 -- only when a <= b
 -- into
@@ -37,21 +52,21 @@ preprocessCond (Conj conds) = concat <$> mapM preprocessCond conds
 -- b --[ 1 ]-> temp
 -- temp --> b
 -- But that's kind of annoying, and requires type information)
-preprocessCond cond@(BinOp OpLt a b) = do
+expandCond cond@(BinOp OpLt a b) = do
     addError $ UnimplementedError "only when" $ show cond
     pure []
-preprocessCond cond@(BinOp OpGt a b) = do
+expandCond cond@(BinOp OpGt a b) = do
     addError $ UnimplementedError "only when" $ show cond
     pure []
-preprocessCond (BinOp OpEq a b) = pure [ Flow (Select a b) a, Flow (Select b a) b ]
+expandCond (BinOp OpEq a b) = pure [ Flow (Select a b) a, Flow (Select b a) b ]
 -- NOTE: This is implemented the same as OpLt, but exists
 --       basically in case people aren't comfortable considering
 --       multiset ordering as a kind of less-than...which I guess is likely
-preprocessCond (BinOp OpIn a b) = pure [ Flow (Select b a) b ]
-preprocessCond (BinOp OpNe a b) = do
+expandCond (BinOp OpIn a b) = pure [ Flow (Select b a) b ]
+expandCond (BinOp OpNe a b) = do
     v <- Var <$> freshName
-    failure <- preprocessCond (BinOp OpEq a b)
+    failure <- expandCond (BinOp OpEq a b)
     pure [Try (failure ++ [ Revert ]) []]
-preprocessCond cond@(BinOp OpLe a b) = pure [ Flow (Select b a) b ]
-preprocessCond cond@(BinOp OpGe a b) = preprocessCond (BinOp OpLt b a)
+expandCond cond@(BinOp OpLe a b) = pure [ Flow (Select b a) b ]
+expandCond cond@(BinOp OpGe a b) = expandCond (BinOp OpLt b a)
 
