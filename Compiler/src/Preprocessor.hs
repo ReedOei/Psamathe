@@ -1,6 +1,9 @@
 module Preprocessor where
 
-import Control.Monad.State
+import Control.Lens (over, set)
+import Control.Monad.State (State, modify)
+
+import qualified Data.Map as Map
 
 import AST
 import Env
@@ -8,28 +11,43 @@ import Error
 
 -- TODO: Probably want to have multiple AST types for better type safety
 preprocess :: Program -> State Env Program
-preprocess (Program decls stmts) =
-    Program <$> (concat <$> mapM preprocessDecl decls)
-            <*> (concat <$> mapM preprocessStmt stmts)
+preprocess (Program decls stmts) = do
+    newProg <- Program <$> (concat <$> mapM preprocessDecl decls)
+                       <*> (concat <$> mapM preprocessStmt stmts)
+    modify $ set typeEnv Map.empty
+    pure newProg
 
 preprocessDecl :: Decl -> State Env [Decl]
 preprocessDecl (TransformerDecl name args ret body) = do
     newBody <- concat <$> mapM preprocessStmt body
+    modify $ set typeEnv Map.empty
     pure [TransformerDecl name args ret newBody]
 preprocessDecl d = pure [d]
 
 -- TODO: Might need to make this more flexible, in case we need to generate declarations or something
 preprocessStmt :: Stmt -> State Env [Stmt]
 preprocessStmt (OnlyWhen cond) = preprocessCond cond
+preprocessStmt s@(Flow _ dst) = do
+    declareVars dst
+    pure [s]
+preprocessStmt s@(FlowTransform _ _ dst) = do
+    declareVars dst
+    pure [s]
 preprocessStmt s = pure [s]
+
+declareVars :: Locator -> State Env ()
+declareVars (NewVar x t) = modify $ over typeEnv $ Map.insert x t
+declareVars _ = pure ()
 
 preprocessCond :: Precondition -> State Env [Stmt]
 preprocessCond (Conj conds) = concat <$> mapM preprocessCond conds
 preprocessCond (BinOp op a b) = do
     (allocA, newA) <- allocateVar a
+    newAllocA <- concat <$> mapM preprocessStmt allocA
     (allocB, newB) <- allocateVar b
+    newAllocB <- concat <$> mapM preprocessStmt allocB
     res <- expandCond $ BinOp op newA newB
-    pure $ allocA ++ allocB ++ res
+    pure $ newAllocA ++ newAllocB ++ res
 
 allocateVar :: Locator -> State Env ([Stmt], Locator)
 allocateVar (IntConst n) = do
@@ -59,10 +77,10 @@ expandCond cond@(BinOp OpGt a b) = do
     addError $ UnimplementedError "only when" $ show cond
     pure []
 expandCond (BinOp OpEq a b) = pure [ Flow (Select a b) a, Flow (Select b a) b ]
--- NOTE: This is implemented the same as OpLt, but exists
---       basically in case people aren't comfortable considering
---       multiset ordering as a kind of less-than...which I guess is likely
-expandCond (BinOp OpIn a b) = pure [ Flow (Select b a) b ]
+expandCond (BinOp OpIn a b) = do
+    tyA <- typeOfLoc a
+    --- TODO: Once we have type quantity inference, we can replace Any here with something more specific. Regardless, this should always be safe.
+    pure [ Flow (Select b (Multiset (Any, tyA) [a])) b ]
 expandCond (BinOp OpNe a b) = do
     v <- Var <$> freshName
     failure <- expandCond (BinOp OpEq a b)

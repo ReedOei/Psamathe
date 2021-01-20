@@ -52,14 +52,14 @@ preprocessorTests = do
                                          "v1 --[ v0 ]-> v1"]
 
         it "expands conjunctions of preconditions" $ do
-            evalEnv newEnv (preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (Var "x") (Multiset (Any,Nat) [ IntConst 0, IntConst 1 ])]))
+            evalEnv newEnv (preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (IntConst 0) (Var "x")]))
                 `shouldBeStmts` unlines ["try {",
                                          "    x --[ y ]-> x",
                                          "    y --[ x ]-> y",
                                          "    revert",
                                          "} catch {}",
-                                         "[ any nat; 0,1 ] --> var v1 : multiset any nat",
-                                         "v1 --[ x ]-> v1"]
+                                         "0 --> var v1 : nat",
+                                         "x --[ [ any nat; v1 ] ]-> x"]
 
 parserTests = do
     describe "parseStmt" $ do
@@ -102,6 +102,8 @@ parserTests = do
                 `shouldBe` Right (OnlyWhen (BinOp OpLt (IntConst 1) (IntConst 2)))
             parse parseStmt "" "only when x = y and z in w"
                 `shouldBe` Right (OnlyWhen (Conj [BinOp OpEq (Var "x") (Var "y"), BinOp OpIn (Var "z") (Var "w")]))
+            parse parseStmt "" "only when x > y or !(x in z and u != k)"
+                `shouldBe` Right (OnlyWhen (Disj [BinOp OpGt (Var "x") (Var "y"), NegateCond (Conj [BinOp OpIn (Var "x") (Var "z"), BinOp OpNe (Var "u") (Var "k")])]))
 
         it "parses revert" $ do
             parse parseStmt "" "revert"

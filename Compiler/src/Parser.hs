@@ -86,12 +86,28 @@ parseOnlyWhen = do
     OnlyWhen <$> parsePrecondition
 
 parsePrecondition :: Parser Precondition
-parsePrecondition = do
-    ops <- binOpCond `sepEndBy1` try (symbol (string "and"))
-    case ops of
-        [] -> error "Impossible!" -- b/c we use sepBy1
-        [x] -> pure x
-        xs -> pure $ Conj xs
+parsePrecondition = buildExpressionParser precondTable $ symbol parseCondAtom
+
+precondTable :: Stream s m Char => OperatorTable s st m Precondition
+precondTable =
+    [
+        [ prefix "!" NegateCond ],
+        [ binary "and" (\a b -> Conj [a,b]) AssocLeft,
+          binary "or" (\a b -> Disj [a,b]) AssocLeft ]
+    ]
+
+binary name f = Infix $ do
+    symbol $ string name
+    pure f
+prefix name f = Prefix $ do
+    symbol $ string name
+    pure f
+
+parseCondAtom :: Parser Precondition
+parseCondAtom = try binOpCond <|> try parseBracketedCond
+
+parseBracketedCond :: Parser Precondition
+parseBracketedCond = between (symbol (string "(")) (symbol (string ")")) parsePrecondition
 
 binOpCond :: Parser Precondition
 binOpCond = do

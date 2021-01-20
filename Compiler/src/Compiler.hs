@@ -46,33 +46,6 @@ allocateNew t = do
 
     pure (SolCall (FieldAccess (SolVar allocator) "push") [], [])
 
-typeOf :: String -> State Env BaseType
-typeOf x = do
-    maybeT <- Map.lookup x . view typeEnv <$> get
-    case maybeT of
-        Nothing -> do
-            addError $ LookupError (LookupErrorVar x)
-            pure dummyBaseType
-        Just t -> pure t
-
-lookupTypeDecl :: String -> State Env Decl
-lookupTypeDecl typeName = do
-    decl <- Map.lookup typeName . view declarations <$> get
-    case decl of
-        Nothing -> do
-            addError $ LookupError (LookupErrorType typeName)
-            pure dummyDecl
-        Just tx@TransformerDecl{} -> do
-            addError $ LookupError (LookupErrorTypeDecl tx)
-            pure dummyDecl
-        Just tdec@TypeDecl{} -> pure tdec
-
-modifiers :: String -> State Env [Modifier]
-modifiers typeName = do
-    decl <- lookupTypeDecl typeName
-    case decl of
-        TypeDecl _ mods _ -> pure mods
-
 buildExpr :: Locator -> State Env SolExpr
 buildExpr (Var s) = pure $ SolVar s
 buildExpr l = do
@@ -546,76 +519,6 @@ encodeBaseType (Record keys fields) =
     where
         go (x,(q,t)) = x ++ "_" ++ show q ++ "_" ++ encodeBaseType t
 encodeBaseType (Named t) = t
-
-demoteBaseType :: BaseType -> State Env BaseType
-demoteBaseType Nat = pure Nat
-demoteBaseType PsaBool = pure PsaBool
-demoteBaseType PsaString = pure PsaString
-demoteBaseType Address = pure Address
-demoteBaseType (Table keys (q, t)) = Table keys . (q,) <$> demoteBaseType t
-demoteBaseType (Record keys fields) = Record keys <$> mapM (\(x, (q,t)) -> (x,) . (q,) <$> demoteBaseType t) fields
-demoteBaseType (Named t) = do
-    decl <- lookupTypeDecl t
-    case decl of
-        TypeDecl _ _ baseT -> demoteBaseType baseT
-demoteBaseType Bot = pure Bot
-
-typeOfLoc :: Locator -> State Env BaseType
-typeOfLoc (IntConst _) = pure Nat
-typeOfLoc (BoolConst _) = pure PsaBool
-typeOfLoc (StrConst _) = pure PsaString
-typeOfLoc (AddrConst _) = pure Address
-typeOfLoc (Var x) = typeOf x
-typeOfLoc (Multiset t _) = pure $ Table [] t
-typeOfLoc (Select l k) = do
-    lTy <- typeOfLoc l
-    kTy <- typeOfLoc k
-    keyTypesL <- keyTypes lTy
-
-    if kTy `elem` keyTypesL then
-        pure $ valueType lTy
-    else
-        pure lTy
-typeOfLoc (Field l x) = do
-    lTy <- typeOfLoc l
-    lookupField lTy x
-
-keyTypes :: BaseType -> State Env [BaseType]
-keyTypes Nat = pure [Nat]
-keyTypes PsaBool = pure [PsaBool]
-keyTypes PsaString = pure [PsaString]
-keyTypes Address = pure [Address]
-keyTypes (Named t) = do
-    demotedT <- demoteBaseType (Named t)
-    pure [Named t, demotedT]
-keyTypes t@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])) = pure [t, keyTy]
-keyTypes (Table keys t) = pure [Table keys t]
-keyTypes (Record keys fields) = pure $ Record keys fields : [ t | (x,(_,t)) <- fields, x `elem` keys ]
-
-valueType :: BaseType -> BaseType
-valueType Nat = Nat
-valueType PsaBool = PsaBool
-valueType PsaString = PsaString
-valueType Address = Address
-valueType (Named t) = Named t
-valueType (Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])) = valueTy
-valueType (Table keys t) = Table keys t
-valueType (Record keys fields) =
-    case [ (x,t) | (x,t) <- fields, x `notElem` keys ] of
-        [ (_,(_,t)) ] -> t
-        fields -> Record [] fields
-
-lookupField :: BaseType -> String -> State Env BaseType
-lookupField t@(Record key fields) x =
-    case [ t | (y,(_,t)) <- fields, x == y ] of
-        [] -> do
-            addError $ FieldNotFoundError x t
-            pure Bot
-        (fieldTy:_) -> pure fieldTy
-lookupField (Named t) x = do
-    decl <- lookupTypeDecl t
-    case decl of
-        TypeDecl _ _ baseT -> lookupField baseT x
 
 inStorage :: BaseType -> State Env Bool
 inStorage (Table _ _) = pure True

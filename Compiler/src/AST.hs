@@ -42,7 +42,9 @@ data Op = OpLt | OpGt | OpLe | OpGe | OpEq | OpNe | OpIn
     deriving (Show, Eq)
 
 data Precondition = Conj [Precondition]
+                  | Disj [Precondition]
                   | BinOp Op Locator Locator
+                  | NegateCond Precondition
     deriving (Show, Eq)
 
 data Stmt = Flow Locator Locator
@@ -151,8 +153,10 @@ instance PrettyPrint Op where
     prettyPrint OpIn = ["in"]
 
 instance PrettyPrint Precondition where
-    prettyPrint (Conj conds) = [ intercalate " and " (map prettyStr conds) ]
+    prettyPrint (Conj conds) = [ intercalate " and " (map (\cond -> "(" ++ prettyStr cond ++ ")") conds) ]
+    prettyPrint (Disj conds) = [ intercalate " or " (map (\cond -> "(" ++ prettyStr cond ++ ")") conds) ]
     prettyPrint (BinOp op a b) = [ prettyStr a ++ " " ++ prettyStr op ++ " " ++ prettyStr b ]
+    prettyPrint (NegateCond cond) = [ "!(" ++ prettyStr cond ++ ")" ]
 
 instance PrettyPrint Stmt where
     prettyPrint (Flow src dst) = [ prettyStr src ++ " --> " ++ prettyStr dst ]

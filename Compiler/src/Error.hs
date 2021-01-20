@@ -27,6 +27,9 @@ instance PrettyPrint Error where
 dummyBaseType :: BaseType
 dummyBaseType = Bot
 
+dummyType :: Type
+dummyType = (Any, Bot)
+
 dummyDecl :: Decl
 dummyDecl = TypeDecl "unknownDecl__" [] dummyBaseType
 
