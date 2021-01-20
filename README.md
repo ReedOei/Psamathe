@@ -9,13 +9,12 @@ For an introduction to Psamathe, see [this short paper](http://reedoei.com/files
 ## Installation
 
 To install and use Psamathe, clone the repository and navigate to it.
+You will need [Stack](https://docs.haskellstack.org/en/stable/README/).
 Then run:
-
 ```
 cd Compiler/
 stack install
 ```
-
 Then you can compile Psamathe programs by:
 ```
 psamathe file.flow
