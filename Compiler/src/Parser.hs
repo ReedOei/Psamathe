@@ -75,7 +75,51 @@ parseStmt = try parseFlowTransform <|> try parseFlowTransformBackwards <|>
             try parseFlowSel <|> try parseFlowSelBackwards <|>
             try parseFlowFilter <|> try parseFlowFilterBackwards <|>
             try parseFlow <|> try parseFlowBackwards <|>
-            try parseTry
+            try parseTry <|>
+            try parseOnlyWhen <|>
+            try (parseConst "revert" Revert)
+
+parseOnlyWhen :: Parser Stmt
+parseOnlyWhen = do
+    symbol $ string "only"
+    symbol $ string "when"
+    OnlyWhen <$> parsePrecondition
+
+parsePrecondition :: Parser Precondition
+parsePrecondition = buildExpressionParser precondTable $ symbol parseCondAtom
+
+precondTable :: Stream s m Char => OperatorTable s st m Precondition
+precondTable =
+    [
+        [ prefix "!" NegateCond ],
+        [ binary "and" (\a b -> Conj [a,b]) AssocLeft,
+          binary "or" (\a b -> Disj [a,b]) AssocLeft ]
+    ]
+
+binary name f = Infix $ do
+    symbol $ string name
+    pure f
+prefix name f = Prefix $ do
+    symbol $ string name
+    pure f
+
+parseCondAtom :: Parser Precondition
+parseCondAtom = try binOpCond <|> try parseBracketedCond
+
+parseBracketedCond :: Parser Precondition
+parseBracketedCond = between (symbol (string "(")) (symbol (string ")")) parsePrecondition
+
+binOpCond :: Parser Precondition
+binOpCond = do
+    a <- parseLocator
+    op <- symbol $ choice $ map try [ parseConst "<=" OpLe, parseConst "<" OpLt,
+                                      parseConst ">=" OpGe, parseConst ">" OpGt,
+                                      parseConst "=" OpEq, parseConst "!=" OpNe,
+                                      parseConst "in" OpIn, parseNotIn ]
+    b <- parseLocator
+    pure $ BinOp op a b
+    where
+        parseNotIn = symbol (string "not") >> symbol (string "in") >> pure OpNotIn
 
 parseFlow :: Parser Stmt
 parseFlow = do
@@ -188,10 +232,10 @@ parseTransformer = try parseConstruct <|> try parseCall
             pure $ Call name args
 
 parseLocator :: Parser Locator
-parseLocator = buildExpressionParser opTable $ symbol parseLocatorSingle
+parseLocator = buildExpressionParser locOpTable $ symbol parseLocatorSingle
 
-opTable :: Stream s m Char => OperatorTable s st m Locator
-opTable =
+locOpTable :: Stream s m Char => OperatorTable s st m Locator
+locOpTable =
     [
         [Postfix $ try $ do
             symbol $ string "."
