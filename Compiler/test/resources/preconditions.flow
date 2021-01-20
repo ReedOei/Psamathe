@@ -1,0 +1,18 @@
+type Voter is unique immutable asset address
+
+type Election is asset {
+    chairperson : one address,
+    eligibleVoters : any list one Voter
+}
+
+transformer giveRightToVote(this : one Election, sender : one address, voter : one address) {
+    only when sender = this.chairperson
+    voter --> new Voter() --> this.eligibleVoters
+}
+
+1 --> var x : nat
+[ any nat ; 1,2 ] --> var y : multiset any nat
+10 --> var z : nat
+
+only when x in y and x <= z
+

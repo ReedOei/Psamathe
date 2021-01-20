@@ -46,33 +46,6 @@ allocateNew t = do
 
     pure (SolCall (FieldAccess (SolVar allocator) "push") [], [])
 
-typeOf :: String -> State Env BaseType
-typeOf x = do
-    maybeT <- Map.lookup x . view typeEnv <$> get
-    case maybeT of
-        Nothing -> do
-            addError $ LookupError (LookupErrorVar x)
-            pure dummyBaseType
-        Just t -> pure t
-
-lookupTypeDecl :: String -> State Env Decl
-lookupTypeDecl typeName = do
-    decl <- Map.lookup typeName . view declarations <$> get
-    case decl of
-        Nothing -> do
-            addError $ LookupError (LookupErrorType typeName)
-            pure dummyDecl
-        Just tx@TransformerDecl{} -> do
-            addError $ LookupError (LookupErrorTypeDecl tx)
-            pure dummyDecl
-        Just tdec@TypeDecl{} -> pure tdec
-
-modifiers :: String -> State Env [Modifier]
-modifiers typeName = do
-    decl <- lookupTypeDecl typeName
-    case decl of
-        TypeDecl _ mods _ -> pure mods
-
 buildExpr :: Locator -> State Env SolExpr
 buildExpr (Var s) = pure $ SolVar s
 buildExpr l = do
@@ -174,6 +147,8 @@ compileStmt (Try tryBlock catchBlock) = do
                     closureRets
                     unpackClosureBlock
                     catchCompiled ]
+
+compileStmt Revert = pure [ SolRevert (SolStr "REVERT") ]
 
 makeConstructor :: String -> State Env ([SolExpr] -> SolExpr)
 makeConstructor t = do
@@ -394,6 +369,7 @@ receiveExpr :: BaseType -> SolExpr -> SolExpr -> SolExpr -> State Env [SolStmt]
 receiveExpr t orig src dst = do
     demotedT <- demoteBaseType t
     tIsFungible <- isFungible t
+    tIsAsset <- isAsset t
 
     (main, cleanup) <-
         case demotedT of
@@ -402,21 +378,24 @@ receiveExpr t orig src dst = do
                         SolAssign dst (SolAdd dst src) ],
                       [ SolAssign orig (SolSub orig src) ])
 
-            Nat -> pure ([ SolAssign dst src ], [ Delete orig ])
+            Nat -> pure $ handleSelfAssign tIsAsset
+                                [ Require (SolEq dst (SolInt 0)) (SolStr "ALREADY_INITIALIZED") ]
+                                [ SolAssign dst src ]
+                                [ Delete orig ]
 
             PsaBool | t == PsaBool -> pure ([ SolAssign dst (SolOr dst src) ], [ Delete orig ])
 
+            Address -> pure $ handleSelfAssign tIsAsset
+                                    [ Require (SolEq dst (SolAddr "0x0")) (SolStr "ALREADY_INITIALIZED") ]
+                                    [ SolAssign dst src ]
+                                    [ Delete orig ]
+
             Table [] _ -> pure ([ ExprStmt (SolCall (FieldAccess dst "push") [ src ] ) ], [ Delete orig ])
 
-            Record keys fields -> do
-                tIsAsset <- isAsset t
-                if tIsAsset then
-                    pure ([ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED"),
-                            SolAssign dst src ],
-                          [ Delete orig ])
-                else
-                    pure ([ SolAssign dst src ],
-                          [ Delete orig ])
+            Record keys fields -> pure $ handleSelfAssign tIsAsset
+                                            [ Require (SolEq (FieldAccess dst "initialized") (SolBool False)) (SolStr "ALREADY_INITIALIZED") ]
+                                            [ SolAssign dst src ]
+                                            [ Delete orig ]
 
             Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ]) ->
                 pure ([ SolAssign (SolIdx (FieldAccess dst "underlying_map") (FieldAccess src "key"))
@@ -429,10 +408,16 @@ receiveExpr t orig src dst = do
                 addError $ FlowError ("receiveExpr not implemented for: " ++ show demotedT)
                 pure ([], [])
 
-    if isPrimitiveExpr orig then
-        pure main
-    else
-        pure $ main ++ cleanup
+    pure $ if isPrimitiveExpr orig then main else main ++ cleanup
+
+    where
+        -- TODO: Remove this hack once we have a better implementation (see https://github.com/ReedOei/Psamathe/issues/16)
+        handleSelfAssign True precondition assign cleanup
+            | src /= dst = (precondition ++ assign, cleanup)
+            | otherwise = (precondition, [])
+        handleSelfAssign False precondition assign cleanup
+            | src /= dst = (assign, cleanup)
+            | otherwise = ([], [])
 
 dataLocFor :: BaseType -> State Env (Maybe DataLoc)
 dataLocFor t = do
@@ -534,68 +519,6 @@ encodeBaseType (Record keys fields) =
     where
         go (x,(q,t)) = x ++ "_" ++ show q ++ "_" ++ encodeBaseType t
 encodeBaseType (Named t) = t
-
-demoteBaseType :: BaseType -> State Env BaseType
-demoteBaseType Nat = pure Nat
-demoteBaseType PsaBool = pure PsaBool
-demoteBaseType PsaString = pure PsaString
-demoteBaseType Address = pure Address
-demoteBaseType (Table keys (q, t)) = Table keys . (q,) <$> demoteBaseType t
-demoteBaseType (Record keys fields) = Record keys <$> mapM (\(x, (q,t)) -> (x,) . (q,) <$> demoteBaseType t) fields
-demoteBaseType (Named t) = do
-    decl <- lookupTypeDecl t
-    case decl of
-        TypeDecl _ _ baseT -> demoteBaseType baseT
-demoteBaseType Bot = pure Bot
-
-typeOfLoc :: Locator -> State Env BaseType
-typeOfLoc (IntConst _) = pure Nat
-typeOfLoc (BoolConst _) = pure PsaBool
-typeOfLoc (StrConst _) = pure PsaString
-typeOfLoc (AddrConst _) = pure Address
-typeOfLoc (Var x) = typeOf x
-typeOfLoc (Multiset t _) = pure $ Table [] t
-typeOfLoc (Select l k) = do
-    lTy <- typeOfLoc l
-    kTy <- typeOfLoc k
-    keyTypesL <- keyTypes lTy
-
-    if kTy `elem` keyTypesL then
-        pure $ valueType lTy
-    else
-        pure lTy
-
-keyTypes :: BaseType -> State Env [BaseType]
-keyTypes Nat = pure [Nat]
-keyTypes PsaBool = pure [PsaBool]
-keyTypes PsaString = pure [PsaString]
-keyTypes Address = pure [Address]
-keyTypes (Named t) = do
-    demotedT <- demoteBaseType (Named t)
-    pure [Named t, demotedT]
-keyTypes t@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])) = pure [t, keyTy]
-keyTypes (Table keys t) = pure [Table keys t]
-keyTypes (Record keys fields) = pure $ Record keys fields : [ t | (x,(_,t)) <- fields, x `elem` keys ]
-
-valueType :: BaseType -> BaseType
-valueType Nat = Nat
-valueType PsaBool = PsaBool
-valueType PsaString = PsaString
-valueType Address = Address
-valueType (Named t) = Named t
-valueType (Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])) = valueTy
-valueType (Table keys t) = Table keys t
-valueType (Record keys fields) =
-    case [ (x,t) | (x,t) <- fields, x `notElem` keys ] of
-        [ (_,(_,t)) ] -> t
-        fields -> Record [] fields
-
-lookupField :: BaseType -> String -> State Env BaseType
-lookupField (Record key fields) x = pure $ head [ t | (y,(_,t)) <- fields, x == y ]
-lookupField (Named t) x = do
-    decl <- lookupTypeDecl t
-    case decl of
-        TypeDecl _ _ baseT -> lookupField baseT x
 
 inStorage :: BaseType -> State Env Bool
 inStorage (Table _ _) = pure True
