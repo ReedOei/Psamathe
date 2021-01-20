@@ -41,6 +41,13 @@ declareVars _ = pure ()
 
 preprocessCond :: Precondition -> State Env [Stmt]
 preprocessCond (Conj conds) = concat <$> mapM preprocessCond conds
+preprocessCond (Disj []) = pure []
+preprocessCond (Disj [cond]) = preprocessCond cond
+preprocessCond (Disj (c1:cs)) = do
+    checkC1 <- preprocessCond c1
+    checkCs <- preprocessCond $ Disj cs
+    pure [ Try checkC1 checkCs ]
+preprocessCond (NegateCond cond) = preprocessCond $ expandNegate cond
 preprocessCond (BinOp op a b) = do
     (allocA, newA) <- allocateVar a
     newAllocA <- concat <$> mapM preprocessStmt allocA
@@ -48,6 +55,19 @@ preprocessCond (BinOp op a b) = do
     newAllocB <- concat <$> mapM preprocessStmt allocB
     res <- expandCond $ BinOp op newA newB
     pure $ newAllocA ++ newAllocB ++ res
+
+expandNegate :: Precondition -> Precondition
+expandNegate (BinOp OpEq a b) = BinOp OpNe a b
+expandNegate (BinOp OpNe a b) = BinOp OpEq a b
+expandNegate (BinOp OpLt a b) = BinOp OpGe a b
+expandNegate (BinOp OpGt a b) = BinOp OpLe a b
+expandNegate (BinOp OpLe a b) = BinOp OpGt a b
+expandNegate (BinOp OpGe a b) = BinOp OpLt a b
+expandNegate (BinOp OpIn a b) = BinOp OpNotIn a b
+expandNegate (BinOp OpNotIn a b) = BinOp OpIn a b
+expandNegate (Conj conds) = Disj $ map expandNegate conds
+expandNegate (Disj conds) = Conj $ map expandNegate conds
+expandNegate (NegateCond cond) = cond
 
 allocateVar :: Locator -> State Env ([Stmt], Locator)
 allocateVar (IntConst n) = do
@@ -62,7 +82,6 @@ allocateVar l@(Multiset elemT elems) = do
 allocateVar l = pure ([], l)
 
 expandCond :: Precondition -> State Env [Stmt]
-expandCond (Conj conds) = concat <$> mapM expandCond conds
 -- TODO: We need to be able to write things like "x + 1" in locators for this to work out nicely (alternatively, we could compile things like:
 -- only when a <= b
 -- into
@@ -82,9 +101,18 @@ expandCond (BinOp OpIn a b) = do
     --- TODO: Once we have type quantity inference, we can replace Any here with something more specific. Regardless, this should always be safe.
     pure [ Flow (Select b (Multiset (Any, tyA) [a])) b ]
 expandCond (BinOp OpNe a b) = do
-    v <- Var <$> freshName
     failure <- expandCond (BinOp OpEq a b)
     pure [Try (failure ++ [ Revert ]) []]
-expandCond cond@(BinOp OpLe a b) = pure [ Flow (Select b a) b ]
-expandCond cond@(BinOp OpGe a b) = expandCond (BinOp OpLt b a)
+expandCond (BinOp OpLe a b) = pure [ Flow (Select b a) b ]
+expandCond (BinOp OpGe a b) = expandCond (BinOp OpLt b a)
+expandCond (BinOp OpNotIn a b) = do
+    failure <- expandCond (BinOp OpIn a b)
+    pure [Try (failure ++ [ Revert ]) []]
+
+-- NOTE: These two should never actually be called
+expandCond (Conj conds) = concat <$> mapM expandCond conds
+expandCond (Disj (c1:cs)) = do
+    checkC1 <- expandCond c1
+    checkCs <- expandCond $ Disj cs
+    pure [ Try checkC1 checkCs ]
 

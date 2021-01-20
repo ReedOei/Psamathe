@@ -38,7 +38,7 @@ data Transformer = Call String [Locator]
                  | Construct String [Locator]
     deriving (Show, Eq)
 
-data Op = OpLt | OpGt | OpLe | OpGe | OpEq | OpNe | OpIn
+data Op = OpLt | OpGt | OpLe | OpGe | OpEq | OpNe | OpIn | OpNotIn
     deriving (Show, Eq)
 
 data Precondition = Conj [Precondition]
@@ -151,6 +151,7 @@ instance PrettyPrint Op where
     prettyPrint OpEq = ["="]
     prettyPrint OpNe = ["!="]
     prettyPrint OpIn = ["in"]
+    prettyPrint OpNotIn = ["not in"]
 
 instance PrettyPrint Precondition where
     prettyPrint (Conj conds) = [ intercalate " and " (map (\cond -> "(" ++ prettyStr cond ++ ")") conds) ]

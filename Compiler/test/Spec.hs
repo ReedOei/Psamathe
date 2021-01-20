@@ -58,8 +58,27 @@ preprocessorTests = do
                                          "    y --[ x ]-> y",
                                          "    revert",
                                          "} catch {}",
-                                         "0 --> var v1 : nat",
-                                         "x --[ [ any nat; v1 ] ]-> x"]
+                                         "0 --> var v0 : nat",
+                                         "x --[ [ any nat; v0 ] ]-> x"]
+
+        it "expands disjunctions of preconditions" $ do
+            evalEnv newEnv (preprocessCond (Disj [NegateCond (BinOp OpIn (IntConst 0) (Var "z")), BinOp OpEq (Var "x") (Var "z")]))
+                `shouldBeStmts` unlines ["try {",
+                                         "    0 --> var v0 : nat",
+                                         "    try {",
+                                         "        z --[ [ any nat; v0] ]-> z",
+                                         "        revert",
+                                         "    } catch {}",
+                                         "} catch {",
+                                         "    x --[ z ]-> x",
+                                         "    z --[ x ]-> z",
+                                         "}"]
+
+    describe "expandNegate" $ do
+        it "pushes negations down to the atomic conditions" $ do
+            cond <- parseAndCheck parsePrecondition "(0 = 1) and (x = y or 0 < 10)"
+            expected <- parseAndCheck parsePrecondition "(0 != 1) or (x != y and 0 >= 10)"
+            expandNegate cond `shouldBe` expected
 
 parserTests = do
     describe "parseStmt" $ do

@@ -113,11 +113,13 @@ binOpCond :: Parser Precondition
 binOpCond = do
     a <- parseLocator
     op <- symbol $ choice $ map try [ parseConst "<=" OpLe, parseConst "<" OpLt,
-                                      parseConst ">=" OpGt, parseConst ">" OpGt,
+                                      parseConst ">=" OpGe, parseConst ">" OpGt,
                                       parseConst "=" OpEq, parseConst "!=" OpNe,
-                                      parseConst "in" OpIn ]
+                                      parseConst "in" OpIn, parseNotIn ]
     b <- parseLocator
     pure $ BinOp op a b
+    where
+        parseNotIn = symbol (string "not") >> symbol (string "in") >> pure OpNotIn
 
 parseFlow :: Parser Stmt
 parseFlow = do
