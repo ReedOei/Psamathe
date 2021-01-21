@@ -1,18 +1,10 @@
 theory Psamathe
-  imports Main "HOL-Library.Multiset"
+  imports Main "HOL-Library.Multiset" Types Resources Util
 begin
 
-datatype TyQuant = empty | any | one | nonempty
-datatype BaseTy = natural | boolean 
-  | table "string list" "TyQuant \<times> BaseTy"
-  | named string BaseTy (* TODO: Need to add modifiers *)
-type_synonym Type = "TyQuant \<times> BaseTy"
 datatype Mode = s | d
 
-datatype Val = Num nat | Bool bool | Table "Val multiset"
-type_synonym Resource = "BaseTy \<times> Val"
 datatype Stored = V string | Loc nat
-
 datatype Locator = N nat | B bool | S Stored
   | VDef string BaseTy ("var _ : _")
   | EmptyList Type ("[ _ ; ]")
@@ -27,26 +19,6 @@ type_synonym Store = "(string \<rightharpoonup> nat) \<times> (nat \<rightharpoo
 
 fun sub_store :: "Store \<Rightarrow> Store \<Rightarrow> bool" (infix "\<subseteq>\<^sub>s" 50) where
   "sub_store (\<mu>, \<rho>) (\<mu>', \<rho>') = (\<mu> \<subseteq>\<^sub>m \<mu>' \<and> \<rho> \<subseteq>\<^sub>m \<rho>')"
-
-definition toQuant :: "nat \<Rightarrow> TyQuant" where
-  "toQuant n \<equiv> (if n = 0 then empty else if n = 1 then one else nonempty)"
-
-fun addQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> TyQuant" (infix "\<oplus>" 60) where
-  "(q \<oplus> empty) = q"
-| "(empty \<oplus> q) = q"
-| "(nonempty \<oplus> r) = nonempty"
-| "(r \<oplus> nonempty) = nonempty"
-| "(one \<oplus> r) = nonempty"
-| "(r \<oplus> one) = nonempty"
-| "(any \<oplus> any) = any"
-
-fun demoteBase :: "BaseTy \<Rightarrow> BaseTy" ("demote\<^sub>*") 
-  and demote :: "Type \<Rightarrow> Type"  where
-  "demote\<^sub>* natural = natural"
-| "demote\<^sub>* boolean = boolean"
-| "demote\<^sub>* (table keys \<tau>) = table keys (demote \<tau>)"
-| "demote\<^sub>* (named name baseTy) = demote\<^sub>* baseTy"
-| "demote (q, t) = (q, demote\<^sub>* t)"
 
 inductive loc_type :: "Env \<Rightarrow> Mode \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> Locator \<Rightarrow> Type \<Rightarrow> Env \<Rightarrow> bool"
   ("_ \<turnstile>{_} _ ; _ : _ \<stileturn> _") where
@@ -93,85 +65,6 @@ lemma typecheck_matches_loc_type:
     apply induction
     apply auto
     by (smt case_prod_conv demote.simps eq_id_iff option.simps(5))
-(*
-next
-  assume "typecheck \<Gamma> m f L = Some (\<tau>, \<Delta>)"
-  then show "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
-    apply (induction L arbitrary: \<Gamma> m f \<tau> \<Delta>)
-    apply auto
-  proof -
-    fix n \<Gamma> m f \<tau> \<Delta>
-    assume "typecheck \<Gamma> m f (N n) = Some (\<tau>, \<Delta>)"
-    then show "\<Gamma> \<turnstile>{m} f ; N n : \<tau> \<stileturn> \<Delta>"
-      apply (cases m)
-      using Nat by auto
-  next
-    fix b \<Gamma> m f \<tau> \<Delta>
-    assume "typecheck \<Gamma> m f (B b) = Some (\<tau>, \<Delta>)"
-    then show "\<Gamma> \<turnstile>{m} f ; B b : \<tau> \<stileturn> \<Delta>"
-      apply (cases m)
-      using Bool by auto
-  next
-    fix x \<Gamma> m f \<tau> \<Delta>
-    show "\<And>\<Gamma> m f a b \<Delta>.
-       (if \<exists>a b. \<Gamma> x = Some (a, b) then let \<tau> = SOME \<tau>. \<Gamma> x = Some \<tau> in Some (\<tau>, \<Gamma>(x \<mapsto> f \<tau>)) else None) =
-       Some ((a, b), \<Delta>) \<Longrightarrow>
-       \<Gamma> \<turnstile>{m} f ; S x : (a, b) \<stileturn> \<Delta>"
-      apply (cases x)
-       apply (cases "\<exists>\<tau>. \<Gamma> x = Some \<tau>")
-      apply auto
-sorry
-  next
-    fix x t \<Gamma> m f \<tau> \<Delta>
-    assume "typecheck \<Gamma> m f (var x : t) = Some (\<tau>, \<Delta>)" 
-    then show "\<Gamma> \<turnstile>{m} f ; (var x : t) : \<tau> \<stileturn> \<Delta>"
-      apply (cases m)
-      apply (cases "V x \<notin> dom \<Gamma>", auto)
-      by (metis Pair_inject VarDef option.discI option.inject)
-  next
-    fix \<tau>' \<Gamma> m f \<tau> \<Delta>
-    assume "typecheck \<Gamma> m f [ \<tau>' ; ] = Some (\<tau>, \<Delta>)"
-    then show "\<Gamma> \<turnstile>{m} f ; [ \<tau>' ; ] : \<tau> \<stileturn> \<Delta>"
-      apply (cases m, auto)
-      by (simp add: EmptyList)
-  next
-    fix \<tau>' L Tail \<Gamma> m f \<tau> \<Delta>
-    assume "\<And>\<Gamma> m f a b \<Delta>. typecheck \<Gamma> m f L = Some ((a, b), \<Delta>) \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; L : (a, b) \<stileturn> \<Delta>"
-      and "\<And>\<Gamma> m f a b \<Delta>. typecheck \<Gamma> m f Tail = Some ((a, b), \<Delta>) \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; Tail : (a, b) \<stileturn> \<Delta>"
-      and "typecheck \<Gamma> m f [ \<tau>' ; L , Tail ] = Some (\<tau>, \<Delta>)"
-    then show "\<Gamma> \<turnstile>{m} f ; [ \<tau>' ; L , Tail ] : \<tau> \<stileturn> \<Delta>"
-      apply (cases m, auto)
-      apply (cases "typecheck \<Gamma> s f L", auto)
-    proof -
-      fix \<Delta>' \<sigma>
-      assume "(case typecheck \<Delta>' s f Tail of None \<Rightarrow> None
-         | Some ((q, table [] \<tau>''), \<Xi>) \<Rightarrow> if \<tau>' = \<sigma> \<and> \<tau>' = \<tau>'' then Some ((one \<oplus> q, table [] \<tau>'), \<Xi>) else None
-         | Some ((q, table (aa # x) \<tau>''), \<Xi>) \<Rightarrow> Map.empty x | Some ((q, named list xa), \<Xi>) \<Rightarrow> Map.empty xa
-         | Some ((q, _), \<Xi>) \<Rightarrow> None) =
-        Some (\<tau>, \<Delta>)"
-        and "m = s" and "\<And>\<Gamma> m f a b \<Delta>. typecheck \<Gamma> m f Tail = Some ((a, b), \<Delta>) \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; Tail : (a, b) \<stileturn> \<Delta>"
-        and "typecheck \<Gamma> s f L = Some (\<sigma>, \<Delta>')"
-      then show "\<Gamma> \<turnstile>{s} f ; [ \<tau>' ; L , Tail ] : \<tau> \<stileturn> \<Delta>"
-        apply (cases "typecheck \<Delta>' s f Tail")
-        apply auto
-        sorry
-    qed
-  next
-    fix L \<Gamma> m f a b \<Delta>
-    assume "\<And>\<Gamma> m f a b \<Delta>. typecheck \<Gamma> m f L = Some ((a, b), \<Delta>) \<Longrightarrow> \<Gamma> \<turnstile>{m} f ; L : (a, b) \<stileturn> \<Delta>"
-      and "typecheck \<Gamma> m f copy(L) = Some ((a, b), \<Delta>)"
-    then show "\<Gamma> \<turnstile>{m} f ; copy(L) : (a, b) \<stileturn> \<Delta>"
-      apply (cases m, auto)
-      apply (cases "typecheck \<Gamma> s id L", auto)
-      by (metis Copy fst_conv option.distinct(1) option.inject snd_conv)
-  qed
-qed *)
-
-fun emptyVal :: "BaseTy \<Rightarrow> Val" where
-  "emptyVal natural = Num 0"
-| "emptyVal boolean = Bool False"
-| "emptyVal (table keys t) = Table {#}"
-| "emptyVal (named name baseT) = emptyVal baseT"
 
 fun located :: "Locator \<Rightarrow> bool" where
   "located (S (Loc _)) = True"
@@ -179,87 +72,6 @@ fun located :: "Locator \<Rightarrow> bool" where
 | "located [ \<tau> ; Head, Tail ] = (located Head \<and> located Tail)"
 | "located copy(L) = located L"
 | "located _ = False"
-
-fun freshLoc :: "(nat \<rightharpoonup> Resource) \<Rightarrow> nat" where
-  "freshLoc \<rho> = Max (dom \<rho>) + 1"
-
-fun base_type_compat :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> bool" (infix "\<approx>" 50) where
-  "base_type_compat natural natural = True"
-| "base_type_compat boolean boolean = True"
-| "base_type_compat (table ks1 (q1,t1)) (table ks2 (q2,t2)) = base_type_compat t1 t2"
-| "base_type_compat (named name1 baseT1) (named name2 baseT2) = (name1 = name2 \<and> baseT1 = baseT2)"
-| "base_type_compat _ _ = False"
-
-fun resourceSum :: "Resource option \<Rightarrow> Resource option \<Rightarrow> Resource option" (infix "+\<^sub>r" 65) where
-  "(Some (t1, Num n1))    +\<^sub>r (Some (t2, Num n2))    = (if t1 \<approx> t2 then Some (t1, Num (n1 + n2)) else None)"
-| "(Some (t1, Bool b1))   +\<^sub>r (Some (t2, Bool b2))   = (if t1 \<approx> t2 then Some (t1, Bool (b1 \<or> b2)) else None)"
-| "(Some (t1, Table vs1)) +\<^sub>r (Some (t2, Table vs2)) = (if t1 \<approx> t2 then Some (t1, Table (vs1 + vs2)) else None)"
-| "_ +\<^sub>r _ = None"
-
-fun resourceSub :: "Resource option \<Rightarrow> Resource option \<Rightarrow> Resource option" (infix "-\<^sub>r" 65) where
-  "(Some (t1, Num n1))    -\<^sub>r (Some (t2, Num n2))    = 
-    (if t1 \<approx> t2 \<and> n1 \<ge> n2 then Some (t1, Num (n1 - n2)) else None)"
-| "(Some (t1, Bool b1))   -\<^sub>r (Some (t2, Bool b2))   = 
-    (if t1 \<approx> t2 \<and> (b2 \<longrightarrow> b1) then 
-        if b2 then Some (t1, Bool False) 
-     else Some (t1, Bool b1) else None)"
-| "(Some (t1, Table vs1)) -\<^sub>r (Some (t2, Table vs2)) = 
-    (if t1 \<approx> t2 \<and> vs2 \<subseteq># vs1 then
-      Some (t1, Table (vs1 - vs2))
-     else None)"
-| "_ -\<^sub>r _ = None"
-
-lemma res_add_compat:
-  assumes "(Some (t1,v1) +\<^sub>r Some (t2,v2)) \<noteq> None"
-  shows "t1 \<approx> t2"
-  using assms
-  apply (cases v1, auto)
-  apply (cases v2, auto)
-  apply (cases "t1 \<approx> t2", auto)
-  apply (cases v2, auto)
-  apply (cases "t1 \<approx> t2", auto)
-  apply (cases v2, auto)
-  by (cases "t1 \<approx> t2", auto)
-
-lemma res_sub_compat:
-  assumes "(Some (t1,v1) -\<^sub>r Some (t2,v2)) \<noteq> None"
-  shows "t1 \<approx> t2"
-  using assms
-  apply (cases v1, auto)
-  apply (cases v2, auto)
-  apply (cases "t1 \<approx> t2", auto)
-  apply (cases v2, auto)
-  apply (cases "t1 \<approx> t2", auto)
-  apply (cases v2, auto)
-  by (cases "t1 \<approx> t2", auto)
-
-lemma res_cancel:
-  assumes "(r1 -\<^sub>r r2) \<noteq> None"
-  shows "(r1 -\<^sub>r r2) +\<^sub>r r2 = r1"
-  using assms
-proof(cases r1)
-  case None
-  then show ?thesis by simp
-next
-  case (Some x1)
-  then obtain t1 v1 where a1: "x1 = (t1,v1)" by (cases x1)
-  then obtain t2 v2 where a2: "r2 = Some (t2,v2)"
-    by (metis assms old.prod.exhaust option.collapse resourceSub.simps(11))
-  then show ?thesis using a1 Some assms
-    apply (cases v1, auto) 
-    apply (cases v2, auto)
-    apply (metis le_add_diff_inverse2 option.distinct(1) resourceSum.simps(1))
-    apply (cases v2, auto)
-    apply (smt assms resourceSub.simps(2) resourceSum.simps(2))
-    apply (cases v2, auto)
-    by (metis option.discI resourceSum.simps(3) subset_mset.diff_add)
-qed
-
-fun demoteResource :: "Resource option \<Rightarrow> Resource option" where
-  "demoteResource (Some (t, Num n)) = Some (demote\<^sub>* t, Num n)"
-| "demoteResource (Some (t, Bool b)) = Some (demote\<^sub>* t, Bool b)"
-| "demoteResource (Some (t, Table vs)) = Some (demote\<^sub>* t, Table vs)"
-| "demoteResource None = None"
 
 fun deepCopy :: "(nat \<rightharpoonup> Resource) \<Rightarrow> Locator \<Rightarrow> Resource option" where
   "deepCopy \<rho> (S (Loc k)) = demoteResource (\<rho> k)"
@@ -323,129 +135,11 @@ fun stmts_ok :: "Env \<Rightarrow> Stmt list \<Rightarrow> Env \<Rightarrow> boo
   "(\<Gamma> \<turnstile> [] oks \<stileturn> \<Delta>) = (\<Gamma> = \<Delta>)"
 | "(\<Gamma> \<turnstile> (S1 # \<S>) oks \<stileturn> \<Xi>) = (\<exists>\<Delta>. (\<Gamma> \<turnstile> S1 ok \<stileturn> \<Delta>) \<and> (\<Delta> \<turnstile> \<S> oks \<stileturn> \<Xi>))"
 
-lemma base_type_compat_refl[simp]:
-  fixes t
-  shows "t \<approx> t"
-  by (induction t, auto)
-
-lemma base_type_compat_sym:
-  fixes t1 and t2
-  assumes "t1 \<approx> t2"
-  shows "t2 \<approx> t1"
-  using assms
-proof(induction t1 arbitrary: t2)
-  case natural
-  then show ?case by (cases t2, auto)
-next
-  case boolean
-  then show ?case by (cases t2, auto)
-next
-  case (table k1 e1)
-  then obtain q1 and t1e where "e1 = (q1,t1e)" by (cases e1)
-  then show ?case using table by (cases t2, auto)
-next
-  case (named x1 t1)
-  then show ?case using base_type_compat.elims(2) by auto
-qed
-
-lemma base_type_compat_trans: 
-  fixes t1 and t2 and t3
-  assumes "t1 \<approx> t2" and "t2 \<approx> t3"
-  shows "t1 \<approx> t3"
-  using assms
-proof(induction t1 arbitrary: t2 t3)
-  case natural
-  then show ?case by (cases t2, cases t3, auto)
-next
-  case boolean
-  then show ?case by (cases t2, cases t3, auto)
-next
-  case (table k1 e1)
-  (* TODO: Pretty gross, can we improve? *)
-  then obtain q1 t1e and k2 q2 t2e and k3 q3 t3e 
-    where "e1 = (q1,t1e)" and "t2 = table k2 (q2,t2e)" and "t3 = table k3 (q3,t3e)"
-    by (metis BaseTy.exhaust base_type_compat.simps(10) base_type_compat.simps(17) base_type_compat.simps(6) base_type_compat_sym demote.cases table.prems(1) table.prems(2))
-  then show ?case using table by fastforce
-next
-  case (named x1 t1)
-  then show ?case using base_type_compat.elims(2) by blast
-qed
-
-fun exactType :: "Resource option \<Rightarrow> Type option" where
-  "exactType (Some (t, Num n)) = Some (toQuant n, t)"
-| "exactType (Some (t, Bool b)) = Some (if b then (one, t) else (empty, t))"
-| "exactType (Some (t, Table vs)) = Some (toQuant (size vs), t)"
-| "exactType None = None"
-
-(* TODO: Update when adding more types *)
-fun baseTypeMatches :: "BaseTy \<Rightarrow> Val \<Rightarrow> bool" where
-  "baseTypeMatches natural (Num _) = True"
-| "baseTypeMatches boolean (Bool _) = True"
-(* TODO: The table case might need to be more specific, and say that all the values also match the specified type... *)
-| "baseTypeMatches (table _ _) (Table _) = True"
-| "baseTypeMatches (named name baseT) v = baseTypeMatches baseT v"
-| "baseTypeMatches _ _ = False"
-
-lemma baseTypeMatches_emptyVal_works: "baseTypeMatches t (emptyVal t)"
-  by (induction t, auto)
-
-fun less_general_quant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" (infix "\<sqsubseteq>" 50) where
-  "less_general_quant q any = True"
-| "less_general_quant one r = (r \<in> {one, nonempty})"
-| "less_general_quant nonempty r = (r = nonempty)"
-| "less_general_quant empty r = (r = empty)"
-| "less_general_quant any r = (r = any)"
-
-(* TODO: Rename to subtype, probably *)
-fun less_general_type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>\<tau>" 50) where
-  "less_general_type (q,t) (r,u) = (q \<sqsubseteq> r \<and> t \<approx> u)"
-
-lemma less_general_quant_refl: "q \<sqsubseteq> q"
-  by (cases q, auto)
-
-lemma less_general_quant_antisym: 
-  assumes "q \<sqsubseteq> r" and "r \<sqsubseteq> q"
-  shows "q = r"
-  using assms
-  apply (cases q, auto)
-  by (cases r, auto)+
-
-lemma less_general_quant_trans:
-  assumes "q1 \<sqsubseteq> q2" and "q2 \<sqsubseteq> q3"
-  shows "q1 \<sqsubseteq> q3"
-  using assms
-  apply (cases q1, auto)
-  apply (cases q2, auto, cases q3, auto)+
-  by (cases q2, auto)
-
-lemma less_general_type_refl: "\<tau> \<sqsubseteq>\<^sub>\<tau> \<tau>"
-  apply (cases \<tau>)
-  by (simp add: less_general_quant_refl)
-
-(* NOTE: Not quite antisymmetry, but close *)
-lemma less_general_type_antisym: 
-  assumes "(q1,t1) \<sqsubseteq>\<^sub>\<tau> (q2,t2)" and "(q2,t2) \<sqsubseteq>\<^sub>\<tau> (q1,t1)"
-  shows "q1 = q2" and "t1 \<approx> t2"
-  using assms
-  by (auto simp: less_general_quant_antisym)
-
-lemma less_general_type_trans:
-  assumes "\<tau> \<sqsubseteq>\<^sub>\<tau> \<sigma>" and "\<sigma> \<sqsubseteq>\<^sub>\<tau> \<pi>"
-  shows "\<tau> \<sqsubseteq>\<^sub>\<tau> \<pi>"
-  using assms
-  apply (cases \<tau>, cases \<sigma>, cases \<pi>)
-  by (auto simp: less_general_quant_trans base_type_compat_trans)
-
 fun var_dom :: "Env \<Rightarrow> string set" where
   "var_dom \<Gamma> = { x . V x \<in> dom \<Gamma> }"
 
 fun loc_dom :: "Env \<Rightarrow> nat set" where
   "loc_dom \<Gamma> = { l . Loc l \<in> dom \<Gamma> }"
-
-fun type_less_general :: "Type option \<Rightarrow> Type option \<Rightarrow> bool" (infix "\<preceq>\<^sub>\<tau>" 50) where
-  "type_less_general (Some (q,t)) (Some (r,u)) = (q \<sqsubseteq> r \<and> t = u)"
-| "type_less_general None None = True"
-| "type_less_general _ _ = False"
 
 fun locations :: "Locator \<Rightarrow> nat multiset" where
   "locations (N n) = {#}"
@@ -542,9 +236,6 @@ definition offset_comp :: "'a Offset \<Rightarrow> 'a Offset \<Rightarrow> 'a Of
 
 lemma offset_comp_assoc: "(\<O> \<circ>\<^sub>o \<P>) \<circ>\<^sub>o \<Q> = \<O> \<circ>\<^sub>o (\<P> \<circ>\<^sub>o \<Q>)"
   by (auto simp: offset_comp_def)
-
-lemma comp_id_nop: "foldl (\<circ>) f (replicate n id) = f"
-  by (induction n, auto)
 
 (* TODO: I feel like there should be some way to combine:
     - var_store_sync
@@ -655,10 +346,6 @@ lemma loc_dom_refs_compat_use:
   using assms
   by (auto simp: loc_dom_refs_compat_def)
 
-lemma exactType_preserves_tyquant:
-  shows "\<exists>q. exactType (Some (t, v)) = Some (q, t)"
-  by (cases v, auto)
-
 lemma in_type_env_compat:
   fixes \<Gamma> \<mu> \<rho> x \<tau>
   assumes "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" 
@@ -672,9 +359,6 @@ proof(auto)
   then obtain l where "\<mu> x = Some l" using assms
     by (auto simp: env_select_var_compat_def)
 qed
-
-definition resource_le :: "(nat \<rightharpoonup> Resource) \<Rightarrow> (nat \<rightharpoonup> Resource) \<Rightarrow> bool" (infix "\<subseteq>\<^sub>r" 50) where
-  "\<rho> \<subseteq>\<^sub>r \<rho>' \<equiv> \<rho> \<subseteq>\<^sub>m \<rho>' \<and> (\<forall>n \<in> dom \<rho>' - dom \<rho>. \<exists>r. \<rho>' n = Some r)"
 
 definition type_preserving :: "(Type \<Rightarrow> Type) \<Rightarrow> bool" where
   "type_preserving f \<equiv> (\<forall>\<tau>. (snd \<tau>) \<approx> (snd (f \<tau>))) \<and> 
@@ -695,12 +379,6 @@ lemma compat_loc_in_env:
   using assms
   by (metis domD env_select_loc_compat_def exactType.elims not_Some_eq)
 
-lemma toQuant_empty[simp]: "toQuant 0 = empty"
-  by (auto simp: toQuant_def)
-
-lemma toQuant_one[simp]: "toQuant (Suc 0) = one"
-  by (auto simp: toQuant_def)
-
 lemma env_select_loc_compat_refs_compat:
   assumes "env_select_loc_compat \<Gamma> \<P> \<rho>"
   shows "loc_dom_refs_compat \<Gamma> \<rho>"
@@ -710,7 +388,7 @@ proof -
   fix x \<tau>
   assume "\<Gamma> (Loc x) = Some \<tau>"
   then have "(\<exists>aa ba. exactType (\<rho> x) = Some (aa, ba) \<and> \<P>\<^sup>x[(aa, ba)] \<sqsubseteq>\<^sub>\<tau> \<tau>)"
-    by (metis (no_types, lifting) assms env_select_loc_compat_def option.distinct(1) option.inject type_less_general.elims(2) type_less_general.elims(3))
+    by (metis assms demote.cases env_select_loc_compat_def)
   then show "\<exists>a b. \<rho> x = Some (a,b)"
     by (cases "\<rho> x", auto)
 qed
@@ -753,40 +431,6 @@ lemma gen_loc:
   obtains "l" where "l \<notin> dom m"
   using ex_new_if_finite is_fin by auto
 
-instantiation TyQuant :: linorder
-begin
-fun less_eq_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
-  "less_eq_TyQuant empty r = True"
-| "less_eq_TyQuant any r = (r \<notin> {empty})"
-| "less_eq_TyQuant one r = (r \<notin> {empty,any})"
- (* Kind of redundant for now, but if we put every back (or otherwise extend the system), it will not be *)
-| "less_eq_TyQuant nonempty r = (r \<notin> {empty,any,one})"
-
-fun less_TyQuant :: "TyQuant \<Rightarrow> TyQuant \<Rightarrow> bool" where
-  "less_TyQuant q r = ((q \<le> r) \<and> (q \<noteq> r))"
-
-instance
-proof
-  fix x y :: TyQuant
-  show "(x < y) = (x \<le> y \<and> \<not> y \<le> x)" 
-    by (cases x, (cases y, auto)+)
-next
-  fix x :: TyQuant
-  show "x \<le> x" by (cases x, auto)
-next
-  fix x y z :: TyQuant
-  assume "x \<le> y" and "y \<le> z"
-  then show "x \<le> z" by (cases x, (cases y, cases z, auto)+)
-next
-  fix x y :: TyQuant
-  assume "x \<le> y" and "y \<le> x"
-  then show "x = y" by (cases x, (cases y, auto)+)
-next
-  fix x y :: TyQuant
-  show "x \<le> y \<or> y \<le> x" by (cases x, (cases y, auto)+)
-qed
-end
-
 lemma compat_transfer_var_sync:
   assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)" 
       and "var_store_sync \<Gamma> \<O>' \<mu>"
@@ -800,12 +444,6 @@ lemma diff_in_loc_var_ty_env_same:
   shows "var_ty_env \<Gamma> = var_ty_env \<Gamma>'"
   using assms
   by auto
-
-fun less_eq_Type :: "Type \<Rightarrow> Type \<Rightarrow> bool" (infix "\<le>\<^sub>\<tau>" 50) where
-  "less_eq_Type (q1,t1) (q2, t2) = (q1 \<le> q2)"
-
-definition mode_compat :: "Mode \<Rightarrow> (Type \<Rightarrow> Type) \<Rightarrow> bool" where
-  "mode_compat m f \<equiv> case m of s \<Rightarrow> \<forall>\<tau>. f \<tau> \<le>\<^sub>\<tau> \<tau> | d \<Rightarrow> \<forall>\<tau>. \<tau> \<le>\<^sub>\<tau> f \<tau>"
 
 lemma var_store_sync_use:
   assumes "var_store_sync \<Gamma> \<O> \<mu>"
@@ -857,11 +495,6 @@ proof(rule ext)
     apply (cases x)
     by (auto simp: option.map_id apply_offset_def)
 qed
-
-lemma foldl_comp: "foldl (\<circ>) (foldl (\<circ>) id xs) ys a = foldl (\<circ>) id xs (foldl (\<circ>) id ys a)"
-  apply (induction ys arbitrary: xs)
-  apply simp
-  by (metis comp_apply foldl_Cons foldl_Nil fun.map_id0 id_apply)
 
 lemma apply_offset_distrib[simp]: "(\<O> \<circ>\<^sub>o \<P>)\<^sup>l[\<tau>] = (\<O>\<^sup>l[\<P>\<^sup>l[\<tau>]])"
   apply (auto simp: offset_comp_def apply_offset_def)
@@ -1263,18 +896,6 @@ lemma not_in_offset_dom_is_id:
   shows "apply_offset \<O> l = id"
   using assms
   by (auto simp: offset_dom_def apply_offset_def)
-
-lemma multiset_elem_length:
-  assumes "x \<in># xs"
-  shows "size xs \<ge> 1"
-  using assms
-  by (induction xs, auto)
-
-lemma multiset_elem_tyquant:
-  assumes "x \<in># xs"
-  shows "one \<sqsubseteq> toQuant (size xs)"
-  using assms
-  by (auto simp: toQuant_def)
 
 lemma add_fresh_loc:
   assumes "compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
@@ -1926,48 +1547,6 @@ proof -
     by (cases x, auto)
 qed
 
-lemma demoteBaseType_base_type_compat:
-  assumes "t1 \<approx> t2"
-  shows "demote\<^sub>* t1 \<approx> demote\<^sub>* t2"
-  using assms
-proof(induction t1 arbitrary: t2)
-  case natural
-  then show ?case by (cases t2, auto)
-next
-  case boolean
-  then show ?case by (cases t2, auto)
-next
-  case (table x1 x2)
-  then show ?case
-    apply (cases x2, auto)
-  proof -
-    fix a :: TyQuant and b :: BaseTy
-    assume a1: "x2 = (a, b)"
-    assume a2: "table x1 (a, b) \<approx> t2"
-    obtain ccss :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> char list list" and tt :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> TyQuant" and bb :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> BaseTy" and ccssa :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> char list list" and tta :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> TyQuant" and bba :: "BaseTy \<Rightarrow> BaseTy \<Rightarrow> BaseTy" where
-      f3: "\<forall>x0 x1a. (\<exists>v2 v3 v4 v5 v6 v7. x1a = table v2 (v3, v4) \<and> x0 = table v5 (v6, v7) \<and> v4 \<approx> v7) = (x1a = table (ccss x0 x1a) (tt x0 x1a, bb x0 x1a) \<and> x0 = table (ccssa x0 x1a) (tta x0 x1a, bba x0 x1a) \<and> bb x0 x1a \<approx> bba x0 x1a)"
-      by moura
-    { assume "table x1 (a, b) \<noteq> natural \<or> t2 \<noteq> natural"
-      have "t2 = table (ccssa t2 (table x1 (a, b))) (tta t2 (table x1 (a, b)), bba t2 (table x1 (a, b))) \<or> table x1 (a, b) = boolean \<and> t2 = boolean"
-        using f3 a2 base_type_compat.elims(2) by fastforce
-      then have "table x1 (a, demote\<^sub>* b) \<approx> demote\<^sub>* t2"
-        using a2 a1 by (metis base_type_compat.simps(3) demote.simps demoteBase.simps(3) snd_conv snds.intros table.IH) }
-    then show "table x1 (a, demote\<^sub>* b) \<approx> demote\<^sub>* t2"
-      by simp
-  qed
-next
-  case (named x1 t1)
-  then show ?case
-    by (cases t2, auto)
-qed
-
-lemma demote_lt:
-  assumes "\<tau> \<sqsubseteq>\<^sub>\<tau> \<sigma>"
-  shows "demote \<tau> \<sqsubseteq>\<^sub>\<tau> demote \<sigma>"
-  using assms
-  apply (cases \<tau>, cases \<sigma>, auto)
-  by (simp add: demoteBaseType_base_type_compat)
-
 lemma demoteResource_works: "exactType (demoteResource r) = map_option demote (exactType r)"
 proof(cases r)
   case (Some x1)
@@ -1977,54 +1556,6 @@ next
   case None
   then show ?thesis by simp
 qed
-
-lemma demoteBaseType_idem[simp]: "demote\<^sub>* (demote\<^sub>* t) = demote\<^sub>* t"
-  by (induction t, auto)
-
-lemma demote_idem[simp]: "demote (demote \<tau>) = demote \<tau>"
-  by (cases \<tau>, auto)
-
-lemma exactType_has_same_base_type:
-  assumes "exactType r = Some (q, t)"
-  obtains v where "r = Some (t, v)"
-  using assms
-  apply (cases r, auto)
-  by (metis exactType_preserves_tyquant option.inject prod.inject)
-
-lemma baseTypeMatches_nums:
-  assumes "baseTypeMatches t (Num n)"
-  shows "baseTypeMatches t (Num m)"
-  using assms
-  by (induction t, auto)
-
-lemma baseTypeMatches_bools:
-  assumes "baseTypeMatches t (Bool n)"
-  shows "baseTypeMatches t (Bool m)"
-  using assms
-  by (induction t, auto)
-
-lemma baseTypeMatches_tables:
-  assumes "baseTypeMatches t (Table vs)" and "ws \<subseteq># vs"
-  shows "baseTypeMatches t (Table ws)"
-  using assms
-  by (induction t, auto)
-
-lemma demoteResource_matches:
-  assumes "baseTypeMatches t v"
-  obtains t' v' where "demoteResource (Some (t, v)) = Some (t', v')" and "baseTypeMatches t' v'"
-  using assms
-  apply (induction t)
-  by (cases v, auto)+
-
-(* TODO: This will have to change if/when we update baseTypeMatches to actually care about 
-         the types of things in the table *)
-lemma baseTypeMatches_table_prepend:
-  assumes "baseTypeMatches t2 (Table vs)"
-      and "baseTypeMatches t1 v1"
-      (* and t2 = table _ (q,t1); also handle the named type case *)      
-    shows "baseTypeMatches t2 (Table ({#v1#} + vs))"
-  using assms
-  by (induction t2, auto)
 
 lemma store_matches_deepCopy_matches:
   assumes store_ok: "\<forall>l t v. \<rho> l = Some (t, v) \<longrightarrow> baseTypeMatches t v"
@@ -2087,33 +1618,6 @@ next
     apply (rule baseTypeMatches_table_prepend)
     by auto
 qed
-
-lemma exactType_table_len:
-  assumes "exactType (Some (t, Table vs)) = Some (q, t)"
-  shows "toQuant (size vs) \<sqsubseteq> q"
-  using assms
-  by (simp add: less_general_quant_refl)
-
-lemma quant_add[simp]: "toQuant (n + m) = toQuant n \<oplus> toQuant m"
-  by (auto simp: toQuant_def)
-
-lemma quant_add_comm: "q \<oplus> r = r \<oplus> q"
-  by (smt TyQuant.exhaust addQuant.simps(1) addQuant.simps(10) addQuant.simps(12) addQuant.simps(2) addQuant.simps(3) addQuant.simps(4) addQuant.simps(5) addQuant.simps(6) addQuant.simps(8) addQuant.simps(9))
-
-lemma quant_add_lt_left:
-  assumes "r \<sqsubseteq> r'"
-  shows "q \<oplus> r \<sqsubseteq> q \<oplus> r'"
-  using assms
-  apply (cases q, auto)
-  apply (smt TyQuant.exhaust addQuant.simps(1) addQuant.simps(2) addQuant.simps(3) addQuant.simps(4))
-  apply (metis TyQuant.distinct(11) TyQuant.distinct(3) TyQuant.distinct(5) TyQuant.distinct(7) TyQuant.distinct(9) TyQuant.exhaust addQuant.simps(1) addQuant.simps(12) addQuant.simps(13) addQuant.simps(8) assms less_general_quant.simps(1) less_general_quant.simps(10) less_general_quant.simps(12) less_general_quant.simps(13) less_general_quant.simps(6) less_general_quant.simps(9) less_general_quant_refl less_general_quant_trans)
-  apply (smt TyQuant.exhaust addQuant.simps(1) addQuant.simps(10) addQuant.simps(11) addQuant.simps(9) insert_iff less_general_quant.simps(11) less_general_quant.simps(2) less_general_quant.simps(4) less_general_quant.simps(5) less_general_quant_refl singletonD)
-  by (smt TyQuant.exhaust addQuant.simps(1) addQuant.simps(5) addQuant.simps(6) addQuant.simps(7) less_general_quant.simps(7))
-
-lemma approx_quant_add_lt:
-  assumes "toQuant n \<sqsubseteq> q" and "toQuant m \<sqsubseteq> r"
-  shows "toQuant (n + m) \<sqsubseteq> q \<oplus> r"
-  by (metis assms(1) assms(2) less_general_quant_trans quant_add quant_add_comm quant_add_lt_left)
 
 lemma deepCopy_makes_demoted:
   assumes "\<Gamma> \<turnstile>{s} f ; L : \<tau> \<stileturn> \<Delta>"
@@ -2269,22 +1773,6 @@ lemma not_in_dom_compat:
   shows "Loc l \<notin> dom \<Gamma>"
   using assms
   by (auto simp: fresh_loc_not_in_env)
-
-lemma exactType_of_empty[simp]:
-  shows "exactType (Some (t, emptyVal t)) = Some (empty, t)"
-proof(induction t)
-  case natural
-  then show ?case by auto
-next
-  case boolean
-  then show ?case by auto
-next
-  case (table x1 x2)
-  then show ?case by auto
-next
-  case (named x1 t)
-  then show ?case by (cases "emptyVal t", auto)
-qed
 
 lemma env_select_var_compat_insert_loc:
   assumes compat: "env_select_var_compat \<Gamma> \<O> \<P> (\<mu>, \<rho>)"
@@ -2822,8 +2310,6 @@ next
 
   then show ?case
   proof(intro exI conjI)
-    (* TODO: Cleanup *)
-
     obtain \<mu>' \<rho>' where "\<Sigma>' = (\<mu>', \<rho>')" by (cases \<Sigma>')
     have "env_select_loc_compat \<Gamma> \<P> \<rho>" using EConsListTailCongr.prems(2) \<open>\<Sigma> = (\<mu>, \<rho>)\<close> by auto
     then show "compat ?\<Gamma>' (build_offset f [ \<tau>' ; \<L> , Tail' ]) \<P> \<Sigma>'" using \<open>\<Sigma>' = (\<mu>', \<rho>')\<close>
@@ -3331,34 +2817,6 @@ lemma offset_uncomp_prop:
   apply (metis offset_comp_empty_r)
   by (metis assms offset_comp_empty_r)
 
-(* TODO: This is kind of annoying, but I'm not sure if there's any other way to write this... *)
-lemma baseTypeMatches_unique_val_Num:
-  assumes "baseTypeMatches t (Num n)"
-  shows "\<not>(baseTypeMatches t (Bool b))" and "\<not>(baseTypeMatches t (Table vs))"
-  using assms
-  by (induction t, auto)
-
-lemma baseTypeMatches_unique_val_Bool:
-  assumes "baseTypeMatches t (Bool b)"
-  shows "\<not>(baseTypeMatches t (Num n))" and "\<not>(baseTypeMatches t (Table vs))"
-  using assms
-  by (induction t, auto)
-
-lemma baseTypeMatches_unique_val_Table:
-  assumes "baseTypeMatches t (Table vs)"
-  shows "\<not>(baseTypeMatches t (Bool b))" and "\<not>(baseTypeMatches t (Num n))"
-  using assms
-  by (induction t, auto)
-
-lemma resource_add_same_base_type:
-  assumes "baseTypeMatches t v1" and "baseTypeMatches t v2"
-  shows "\<exists>q'. exactType (Some (t,v1) +\<^sub>r Some (t,v2)) = Some (q',t)"
-  using assms
-  apply (cases v1)
-  apply (cases v2, auto simp: baseTypeMatches_unique_val_Num)
-  apply (cases v2, auto simp: baseTypeMatches_unique_val_Bool)
-  by (cases v2, auto simp: baseTypeMatches_unique_val_Table)
-
 lemma located_dom_same:
   assumes "\<Gamma> \<turnstile>{m} f ; L : \<tau> \<stileturn> \<Delta>"
     and "located L"
@@ -3523,124 +2981,8 @@ next
   then show ?case using \<open>\<Gamma>' \<turnstile> Stmt ok \<stileturn> \<Delta>''\<close> \<open>loc_ty_env \<Delta>'' = loc_ty_env \<Gamma>'\<close> by auto
 qed
 
-lemma resourceSub_self_emptyVal:
-  assumes "baseTypeMatches t v"
-  shows "Some (t,v) -\<^sub>r Some (t,v) = Some (t, emptyVal t)"
-  using assms
-  apply (induction t)
-  apply (cases v, auto)
-  apply (cases v, auto)
-   apply (cases v, auto)
-  apply (cases v, auto)
-  by (metis (full_types) option.inject prod.inject)
-
-lemma resourceSub_empty_quant_res:
-  shows "exactType (Some (t,v) -\<^sub>r Some (t,v)) = Some (empty,t)"
-  by (cases v, auto)
-
-lemma resourceSub_empty_quant:
-  assumes "exactType r = Some (q,t)"
-  shows "exactType (r -\<^sub>r r) = Some (empty,t)"
-  using assms
-  apply (cases r, auto)
-  using exactType_has_same_base_type resourceSub_empty_quant_res by auto
-
 lemma empty_offset_lookup_empty: "0\<^sub>\<O> l = []"
   by (auto simp: empty_offset_def)
-
-lemma res_add_ty_first_res:
-  assumes "exactType (Some (t1,v1)) = Some (q,t1)" 
-    and "exactType (Some (t2,v2)) = Some (r,t2)" 
-    and "(Some (t1,v1) +\<^sub>r Some (t2,v2)) \<noteq> None"
-  shows "\<exists>q'. exactType (Some (t1,v1) +\<^sub>r Some (t2,v2)) = Some (q', t1)"
-  using assms
-  apply (cases v1, auto)
-  apply (cases v2, auto)
-  apply (metis exactType.simps(1) option.distinct(1))
-  apply (cases v2, auto)
-  apply (metis exactType_preserves_tyquant option.distinct(1))
-  apply (cases v2, auto)
-  by (metis exactType.simps(3) option.distinct(1))
-
-lemma baseTypeMatches_add:
-  assumes "baseTypeMatches t1 v1" 
-      and "baseTypeMatches t2 v2"
-      and "t1 \<approx> t2"
-      and "Some (t1,v1) +\<^sub>r Some (t2,v2) = Some (t1,v)"
-    shows "baseTypeMatches t1 v"
-  using assms
-  apply (cases v1)
-  apply (cases v2, auto)
-  using baseTypeMatches_nums apply blast
-  apply (cases v2, auto)
-  using baseTypeMatches_bools apply blast
-  apply (cases v2, auto)
-  sorry
-
-lemma baseTypeMatches_store_add:
-  assumes store_ok: "\<forall>l t v. \<rho> l = Some (t, v) \<longrightarrow> baseTypeMatches t v"
-      and "\<rho> l +\<^sub>r \<rho> k = Some (t,v)"
-    shows "baseTypeMatches t v"
-proof -
-  obtain tl vl tk vk
-    where "\<rho> l = Some (tl, vl)" and "baseTypeMatches tl vl"
-      and "\<rho> k = Some (tk, vk)" and "baseTypeMatches tk vk"
-    using assms
-    by (metis option.exhaust resourceSum.simps(11) resourceSum.simps(4) surj_pair)
-
-  then show ?thesis
-    by (smt assms(2) baseTypeMatches_add eq_snd_iff exactType_preserves_tyquant option.distinct(1) option.inject res_add_compat res_add_ty_first_res)
-qed
-
-lemma res_add_ty_first:
-  assumes "exactType r1 = Some (q,t1)" 
-    and "exactType r2 = Some (r,t2)" 
-    and "r1 +\<^sub>r r2 \<noteq> None"
-  shows "\<exists>q'. exactType (r1 +\<^sub>r r2) = Some (q', t1)"
-  using assms
-  apply (cases r1, auto)
-  apply (cases r2, auto)
-  by (metis (no_types, lifting) assms(3) exactType_has_same_base_type res_add_ty_first_res)
-
-lemma exactType_add_res:
-  assumes "exactType (Some (t1,v1)) = Some (q,t1)" 
-    and "exactType (Some (t2,v2)) = Some (r,t2)"
-    and "t1 \<approx> t2"
-    and "exactType (Some (t1,v1) +\<^sub>r Some (t2,v2)) = Some (q', t1)"
-  shows "q' \<sqsubseteq> q \<oplus> r"
-proof (cases v1)
-  case (Num x1)
-  then show ?thesis using assms
-    apply (cases v2, auto)
-    by (simp add: less_general_quant_refl)
-next
-  case (Bool x2)
-  then show ?thesis using assms
-    apply (cases v2, auto)
-    apply (cases x2, auto)
-     apply (cases r, auto)
-    by (metis Pair_inject addQuant.simps(1) addQuant.simps(3) less_general_quant_refl)
-next
-  case (Table x3)
-  then show ?thesis using assms
-    apply (cases v2, auto)
-    by (simp add: less_general_quant_refl)
-qed
-
-lemma exactType_add:
-  assumes "exactType r1 = Some (q,t1)" 
-    and "exactType r2 = Some (r,t2)"
-    and "t1 \<approx> t2"
-    and "exactType (r1 +\<^sub>r r2) = Some (q', t1)"
-  shows "q' \<sqsubseteq> q \<oplus> r"
-  using assms
-  by (metis exactType_add_res exactType_has_same_base_type)
-
-lemma addQuant_less_general:
-  assumes "q \<sqsubseteq> q'" and "r \<sqsubseteq> r'"
-  shows "q \<oplus> r \<sqsubseteq> q' \<oplus> r'"
-  using assms
-  by (metis less_general_quant_trans quant_add_comm quant_add_lt_left)
 
 lemma selectLocated_dom:
   assumes "selectLocated \<rho> L = (Some r, \<rho>')"
