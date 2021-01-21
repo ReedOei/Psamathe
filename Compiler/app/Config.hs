@@ -10,14 +10,14 @@ import Options.Applicative as Opt
 
 data Config = Config {
         _debug :: Integer,
-        _srcName :: FilePath
+        _srcName :: Maybe FilePath
     }
 makeLenses ''Config
 
 configParser :: Opt.Parser Config
 configParser = Config
     <$> flag 0 1 (long "debug" <> short 'd' <> help "Debug level to use; higher is more verbose.")
-    <*> argument str (metavar "FILE")
+    <*> optional (argument str (metavar "FILE" <> help "The main file to compile. Pass `-` to force reading input from stdin."))
 
 getArgs = execParser opts
     where

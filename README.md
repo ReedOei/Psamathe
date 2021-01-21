@@ -34,3 +34,9 @@ transformer transfer(balances : map address => Token,
 }
 ```
 
+Additional examples can be found in the `examples/` folder in this directory, or in the `Compiler/test/resources/` directory.
+
+## IDE Support
+
+Currently, the only "IDE Support" for Psamathe is via a Vim syntax highlighting file, `flow.vim` in this repository's root.
+
