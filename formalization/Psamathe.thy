@@ -3059,7 +3059,7 @@ lemma stmt_progress:
   using assms
 proof(induction arbitrary: \<O> \<mu> \<rho>)
   case (Flow \<Gamma> Src q t \<Delta> Dst r \<Xi>)
-  then have typecheck_match: "typecheck \<Gamma> s (\<lambda>(_, t). (empty, t)) Src = Some ((q,t), \<Delta>)"
+  then have typecheck_src: "typecheck \<Gamma> s (\<lambda>(_, t). (empty, t)) Src = Some ((q,t), \<Delta>)"
     by (simp add: typecheck_matches_loc_type)
   then show ?case
   proof(cases "located Src")
@@ -3097,8 +3097,7 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
             apply (erule loc_type.cases)
             by auto
           then obtain parent_res where parent: "\<rho> x2 = parent_res"
-            using Flow src True typecheck_match
-            by auto
+            using Flow src True typecheck_src by auto
           show ?thesis
           proof(rule loc_typed_dst)
             show "\<Delta> \<turnstile>{d} (\<lambda>(r,s). (r \<oplus> q, s)) ; Dst : (r,t) \<stileturn> \<Xi>" using Flow by simp
@@ -3127,7 +3126,7 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
                                    (\<mu>, \<rho>)"
                 apply (rule located_env_compat2(1))
                 using Flow.hyps(1) apply assumption
-                using Flow typecheck_match \<open>located Src\<close> apply auto
+                using Flow typecheck_src \<open>located Src\<close> apply auto
                 apply (simp add: offset_comp_assoc)
                 by (simp add: type_preserving_with_quant)
               then obtain dest_res where dest_eq: "(\<rho>(x2 := parent_res -\<^sub>r parent_res)) y2 = dest_res"
@@ -3158,13 +3157,27 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
           by simp
       next
         fix q' k \<sigma> Head Tail
-        obtain r \<rho>' 
-          where head_sel: "selectLocated \<rho> Head = (Some r, \<rho>')"
+        assume "(q, t) = (q', table k \<sigma>)" and "Src = [ \<sigma> ; Head , Tail ]"
+        then obtain \<Delta>' tailq
+          where "\<Gamma> \<turnstile>{s} (\<lambda>(_, t). (TyQuant.empty, t)) ; Head : \<sigma> \<stileturn> \<Delta>'"
+            and "\<Delta>' \<turnstile>{s} (\<lambda>(_, t). (TyQuant.empty, t)) ; Tail : (tailq, table [] \<sigma>) \<stileturn> \<Delta>"
+          using Flow.hyps(1)
+          apply auto
+          apply (erule loc_type.cases)
+          by auto
+        then obtain t' v' \<rho>' 
+          where head_sel: "selectLocated \<rho> Head = (Some (t', v'), \<rho>')"
+          using \<open>located Src\<close> Flow.prems(1) typecheck_src \<open>Src = [ \<sigma> ; Head , Tail ]\<close>
+          apply auto
+          by (smt build_offset.simps(7) located.simps(3) offset_comp_assoc selectLocated_located_ty)
+        then obtain ts' vs' \<rho>'' q''
+          where tail_sel: "selectLocated \<rho>' Tail = (Some (ts', vs'), \<rho>'')"
+            and tail_compat: "baseTypeMatches ts' vs'"
+            and "exactType (Some (ts', vs')) = Some (q'', ts')"
+            and "(q'', ts') \<sqsubseteq>\<^sub>\<tau> (q, table k \<sigma>)"
           using selectLocated_located_ty \<open>located Src\<close>
           sorry
-        then obtain tailr \<rho>''
-          where tail_sel: "selectLocated \<rho>' Tail = (Some tailr, \<rho>'')"
-          using selectLocated_located_ty \<open>located Src\<close>
+        then obtain elems where elems: "vs' = Table elems"
           sorry
         assume "(q, t) = (q', table k \<sigma>)" and "Src = [ \<sigma> ; Head , Tail ]"
         then show "(Src \<longlonglongrightarrow> Dst) = Revert \<or> (\<exists>\<mu>'' \<rho>'' a. \<langle> (\<mu>, \<rho>) , [Src \<longlonglongrightarrow> Dst] \<rangle> \<rightarrow> \<langle> (\<mu>'', \<rho>'') , a \<rangle>)"
@@ -3175,9 +3188,8 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
             apply simp
           using fresh apply assumption
           apply simp
-          using head_sel tail_sel
-          apply auto
-          sorry
+          using head_sel tail_sel elems
+          by auto
       next
         fix L'
         assume "Src = copy(L')" 
@@ -3201,7 +3213,7 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
         
         show "compat \<Gamma> (\<O> \<circ>\<^sub>o build_offset (\<lambda>(r, s). (r \<oplus> q, s)) Dst \<circ>\<^sub>o build_offset (\<lambda>(_, t). (empty, t)) Src)
                      0\<^sub>\<O> (\<mu>, \<rho>)"
-          using Flow typecheck_match by (auto simp: offset_comp_assoc)
+          using Flow typecheck_src by (auto simp: offset_comp_assoc)
   
         show "located Src" using \<open>located Src\<close> by simp
         show "type_preserving (\<lambda>(_, t). (empty, t))" using type_preserving_with_quant by simp
@@ -3253,7 +3265,7 @@ proof(induction arbitrary: \<O> \<mu> \<rho>)
     have "located Src \<or> (\<exists>\<mu>' \<rho>' Src'. < (\<mu>, \<rho>) , Src > \<rightarrow> < (\<mu>', \<rho>') , Src' >)"
       apply (rule locator_progress)
       using Flow.hyps(1) apply assumption
-      using Flow typecheck_match apply auto
+      using Flow typecheck_src apply auto
       using False apply (cases "\<exists>L. Src = copy(L)", auto)
       apply (simp add: offset_comp_assoc)
       by (simp add: type_preserving_with_quant)
@@ -3630,12 +3642,11 @@ lemma addQuant_less_general:
   using assms
   by (metis less_general_quant_trans quant_add_comm quant_add_lt_left)
 
-lemma selectedLocated_fin:
-  assumes "finite (dom \<rho>)"
-      and "selectLocated \<rho> L = (r, \<rho>')"
-    shows "finite (dom \<rho>')"
+lemma selectLocated_dom:
+  assumes "selectLocated \<rho> L = (Some r, \<rho>')"
+    shows "dom \<rho> = dom \<rho>'"
   using assms
-  apply (induction L, auto)
+  apply (induction rule: selectLocated.induct, auto)
   (* TODO: Easy but tedious proof by exhaustively considering cases *)
   sorry
 
@@ -4115,8 +4126,15 @@ next
     using EFlowLocated.hyps(4) exactType_preserves_tyquant by fastforce
   then show ?case
   proof(intro disjI2 exI conjI)
+    have fresh: "Loc l \<notin> dom \<Delta>'"
+      using EFlowLocated.hyps(3) EFlowLocated.prems(2)
+      by (metis EFlowLocated.hyps(1) fresh_loc_not_in_env located_dom_same src_ty)
+    have fresh_gamma: "Loc l \<notin> dom \<Gamma>"
+      using EFlowLocated.hyps(3) EFlowLocated.prems(2)
+      by (metis EFlowLocated.hyps(1) fresh_loc_not_in_env located_dom_same src_ty)
+    then have "l \<notin> ran \<mu>"
+      using EFlowLocated.prems(1) EFlowLocated.hyps(3) EFlowLocated.prems(2) compat_elim(3) by auto
     let ?\<Gamma>' = "\<Delta>'(Loc l \<mapsto> (q, t))"
-    thm selectLocated_updates_empty
     have delta_prime_compat: "compat \<Delta>' (build_offset (\<lambda>(r, y). (r \<oplus> q, y)) Dst) 0\<^sub>\<O> (\<mu>, \<rho>')"
       apply (rule selectLocated_updates_empty)
       using src_ty apply assumption
@@ -4126,15 +4144,17 @@ next
       using EFlowLocated by simp
     show "compat ?\<Gamma>' (build_stmts_offset ?\<Gamma>' [S (Loc l) \<longlonglongrightarrow> Dst]) 0\<^sub>\<O> (\<mu>, \<rho>'(l \<mapsto> r))"
     proof(rule compatI)
-      show "var_dom ?\<Gamma>' = dom \<mu>" (* TODO: Easy *)
-        sorry
+      have "var_dom \<Gamma> = var_dom \<Delta>'"
+        using EFlowLocated.prems(2) compat_elim(1) delta_prime_compat by auto
+      then show "var_dom ?\<Gamma>' = dom \<mu>" using EFlowLocated compat_elim by auto
 
       show "\<forall>la. la \<notin> dom (\<rho>'(l \<mapsto> r)) \<longrightarrow> la \<notin> ran \<mu>" (* TODO: Easy *)
-        sorry
+        using selectLocated_dom compat_elim(3) delta_prime_compat by auto
 
       show "var_store_sync ?\<Gamma>' (build_stmts_offset ?\<Gamma>' [S (Loc l) \<longlonglongrightarrow> Dst]) \<mu>"
-        (* TODO: Easy, no variable points to Loc l *)
-        sorry
+        apply (auto simp: var_store_sync_def)
+        apply (meson \<open>l \<notin> ran \<mu>\<close> ranI)
+        using compat_elim(4) delta_prime_compat var_store_sync_use by blast
 
       show "inj \<mu>" using EFlowLocated compat_elim by auto
 
@@ -4150,15 +4170,14 @@ next
 
       show "finite (dom (\<rho>'(l \<mapsto> r)))" 
         apply auto
-        using EFlowLocated compat_elim selectedLocated_fin
-        by meson
+        using EFlowLocated compat_elim selectLocated_dom by metis
 
       show "\<forall>la t v. (\<rho>'(l \<mapsto> r)) la = Some (t, v) \<longrightarrow> baseTypeMatches t v"
         apply auto
         using EFlowLocated.hyps(4) \<open>baseTypeMatches t' v\<close> \<open>selectLocated \<rho> L = (Some (t', v), \<rho>')\<close> apply auto[1]
         using delta_prime_compat store_ok_use by auto
     qed
-
+ 
     let ?\<Delta>' = "\<Delta>(Loc l \<mapsto> (empty, t'))"
     show "\<Delta>'(Loc l \<mapsto> (q, t)) \<turnstile> [S (Loc l) \<longlonglongrightarrow> Dst] oks \<stileturn> ?\<Delta>'"
       apply auto
