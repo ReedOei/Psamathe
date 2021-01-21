@@ -25,6 +25,7 @@ dependencies:
 - lens
 - mtl
 - parsec
+- optparse-applicative
 
 library:
   source-dirs: src

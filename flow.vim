@@ -41,7 +41,7 @@ syntax keyword constWords true false
 syntax region string start='"' end='"' skip='\\"'
 syntax region string start='\'' end='\'' skip='\\\''
 
-syntax keyword type nat int bool bytes address string ether uint256 set linking map option list link mapitem
+syntax keyword type nat int bool bytes address string ether uint256 set linking map option list multiset link mapitem
 
 syntax keyword contract contract state storage source sink pool interface
 syntax keyword contractModifiers main
