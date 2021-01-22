@@ -13,11 +13,14 @@ import AST
 import Env
 import Preprocessor
 import Parser
+import Compiler
+import Typechecker
 
 main :: IO ()
 main = hspec $ do
     preprocessorTests
     parserTests
+    compilerTests
 
 parseAndCheck parser str =
     case parse parser "" str of
@@ -128,3 +131,12 @@ parserTests = do
             parse parseStmt "" "revert"
                 `shouldBe` Right Revert
 
+compilerTests = do
+    describe "receiveValue" $ do
+        it "subtracts from uint types flowed into consume " $ do
+            stmts <- evalEnv newEnv (receiveValue Nat (SolVar "x") (SolVar "x") Consume)
+            stmts `shouldBe` [SolAssign (SolVar "x") (SolSub (SolVar "x") (SolVar "x"))]
+
+        it "deletes non-uint types flowed into consume" $ do
+            stmts <- evalEnv newEnv (receiveValue PsaBool (SolVar "x") (SolVar "x") Consume)
+            stmts `shouldBe` [Delete (SolVar "x")]

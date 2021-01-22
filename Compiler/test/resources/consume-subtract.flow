@@ -1,4 +1,0 @@
-// uint base type so should be subtracted from when flowed into consume
-var x : nat <-- 5
-x --> consume
-

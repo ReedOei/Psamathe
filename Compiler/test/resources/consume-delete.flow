@@ -1,4 +1,0 @@
-// non uint8 base type so should be deleted when flowed into consume
-var x : bool <-- false
-x --> consume
-
