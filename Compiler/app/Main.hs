@@ -8,6 +8,8 @@ import Control.Monad
 
 import Text.Parsec
 
+import System.Exit
+
 import AST
 import Compiler
 import Env
@@ -22,7 +24,7 @@ main = compileFile =<< getArgs
 
 compileFile :: Config -> IO ()
 compileFile config = do
-    content <- readFile $ config^.srcName
+    content <- obtainContent config
     case parse parseProgram "" content of
         Left err -> error $ show err
         Right prog -> do
@@ -33,7 +35,7 @@ compileFile config = do
             if not $ null $ env^.errors then do
                 putStrLn "Compilation failed! Errors:"
                 mapM_ (putStrLn . prettyStr) $ env^.errors
-
+                exitFailure
             else do
                 if config^.debug > 0 then do
                     putStrLn "Compiled program:"
@@ -43,6 +45,15 @@ compileFile config = do
 
             if config^.debug > 1 then print env
             else pure ()
+
+    exitSuccess
+
+obtainContent :: Config -> IO String
+obtainContent config =
+    case config^.srcName of
+        Just "-" -> getContents
+        Nothing -> getContents
+        Just path -> readFile path
 
 debugPretty :: PrettyPrint a => Config -> String -> a -> IO a
 debugPretty config message x = do
