@@ -33,6 +33,13 @@ findKeyAndRemove k ((k',a):rest)
             Nothing -> Nothing
             Just (res, left) -> Just (res, (k',a) : left)
 
+groupSize :: [a] -> [b] -> ([a], [b], [a], [b])
+groupSize xs [] = ([], [], xs, [])
+groupSize [] ys = ([], [], [], ys)
+groupSize (x:xs) (y:ys) =
+    let (takenXs, takenYs, leftXs, leftYs) = groupSize xs ys
+    in (x : takenXs, y : takenYs, leftXs, leftYs)
+
 groupWith :: Eq k => (k -> [a] -> [b] -> (k, c)) -> [(k,a)] -> [(k,b)] -> [(k,c)]
 groupWith f [] [] = []
 groupWith f [] ((k,b):ys) =
@@ -41,21 +48,27 @@ groupWith f [] ((k,b):ys) =
 groupWith f ((k,a):xs) ys =
     let (takenXs, leftXs) = partition ((== k) . fst) xs
         (takenYs, leftYs) = partition ((== k) . fst) ys
-    in f k (a : map snd takenXs) (map snd takenYs) : groupWith f leftXs leftYs
+    in case takenYs of
+        [] -> f k (a : map snd takenXs) [] : groupWith f leftXs leftYs
+        _ ->
+            let (takenXs', takenYs', leftXs', leftYs') = groupSize ((k,a) : takenXs) takenYs
+            in f k (map snd takenXs') (map snd takenYs') : groupWith f (leftXs' ++ leftXs) (leftYs' ++ leftYs)
 
-splitWith :: (Monoid b, Monoid c) => (a -> (b,c)) -> [a] -> (b, c)
-splitWith f xs = mconcat $ map f xs
-
-ifEmpty :: [a] -> b -> ([a] -> b) -> b
-ifEmpty [] ys f = ys
-ifEmpty xs ys f = f xs
+-- TODO: Can remove this, replace by assertQuant(q), since we will already have try-catch
+ifEmpty :: [a] -> b -> b -> b
+ifEmpty [] e1 e2 = e1
+ifEmpty xs e1 e2 = e2
 
 fromNat :: Int -> [()]
 fromNat n = replicate n ()
 
 ---------------------------------------------------------
---- These exists so that we can reduce how many auxiliary functions we need in the language
+--- These exist so that we can reduce how many auxiliary functions we need in the language
+--- They're all based on map/ifEmpty
 ---------------------------------------------------------
+splitWith :: (Monoid b, Monoid c) => (a -> (b,c)) -> [a] -> (b, c)
+splitWith f xs = mconcat $ map f xs
+
 pairMap :: ((a,b) -> c) -> [(a,b)] -> [c]
 pairMap f = fst . splitWith (\x -> ([f x], []))
 
@@ -63,7 +76,7 @@ concatPairMap :: Monoid c => ((a,b) -> c) -> [(a,b)] -> c
 concatPairMap f = mconcat . pairMap f
 
 headOr :: a -> [a] -> a
-headOr x xs = ifEmpty xs x head
+headOr x xs = ifEmpty xs x (head xs)
 ---------------------------------------------------------
 --- End
 ---------------------------------------------------------
@@ -143,6 +156,8 @@ data Locator a b where
                 => (forall ka r. (Fresh ka, Monoid r) => [(ka,a)] -> (forall kb. Fresh kb => [(kb,b)] -> ([(kb,b)], r)) -> ([(ka,a)],r))
                 -> Locator a b
 
+-- runLocator [(fromNat 9, fromNat 0)] $ selectFst |> each (selectVals (fromNat 5)) |> summation selectUnit
+-- runLocator [(fromNat 9, fromNat 3), (fromNat 2, fromNat 6)] $ constructList |> each selectFst |> selectVals2 [fromNat 9] |> each (each (selectVals (fromNat 5)))
 runLocator :: [a] -> Locator a b -> ([a], [b])
 runLocator vals (Locator f) =
     let (taggedRet, sel) = f (zip ([0..] :: [Integer]) vals) $ \taggedVals -> ([], map snd taggedVals)
@@ -164,9 +179,21 @@ flow state src@Locator{} dst@Locator{} =
     in finalState
 
 -- test :: [Locator a b] -> Locator [a] [b]
+--
+selectVals :: (Show a, Monoid a, Eq a) => [a] -> Locator a a
+selectVals toTake = Locator $ \vals f ->
+    let temp = groupWith (\k xs ys -> (k, ifEmpty xs [] ys)) (map (,()) toTake) $ map (\(k,a) -> (a,k)) vals
+        taken = mconcat $ map (\(a, ks) -> map (,a) ks) temp
+        leftover = vals \\ taken
+        (ret, sel) = f taken
+        finalRet = groupWith (\k x y -> (k, mconcat $ x <> y)) leftover ret
+    in if length taken /= length toTake then
+        ([], mempty)
+       else
+        (finalRet, sel)
 
-selectVals :: (Show a, Monoid a, Eq a) => [a] -> Locator [a] [a]
-selectVals toTake = Locator $ \lists f ->
+selectVals2 :: (Show a, Monoid a, Eq a) => [a] -> Locator [a] [a]
+selectVals2 toTake = Locator $ \lists f ->
     let run [] lists = Just [(lists, mempty)]
         run leftToTake [] = Nothing
         run leftToTake ((k,vals):rest) =
@@ -207,10 +234,10 @@ eachK g transformed =
 each :: (Show a, Show b) => Locator a b -> Locator [a] [b]
 each (Locator f) = Locator $ \lists g ->
     let temp = concatPairMap (\(k,vals) -> zipWith (\i v -> ((i,k), v)) ([0..] :: [Integer]) vals) lists
-        temp2 = concatPairMap (\(k,vals) -> zipWith (\i v -> (k,(i,()))) ([0..] :: [Integer]) vals) lists
         (ret, sel) = f temp $ \transformed -> eachK g transformed
-        finalGrouped = groupWith (\k xs ys -> (k, groupWith (\i xs' ys' -> (i, mconcat ys')) xs ys)) temp2 $ pairMap (\((i,k),v) -> (k,(i,v))) ret
-    in (pairMap (\(k, vs) -> (k, pairMap snd vs)) finalGrouped, sel)
+        temp3 = groupWith (\k xs ys -> (k, groupWith (\i xs' ys' -> (i, mconcat ys')) xs ys)) [] $ pairMap (\((i,k),v) -> (k,(i,v))) ret
+        finalGrouped = groupWith (\k _ ys -> (k, mconcat ys)) [] $ pairMap (\(k,vs) -> (k, pairMap snd vs)) temp3
+    in (finalGrouped, sel)
 
 constructList :: (Show a, Eq a, Monoid a) => Locator a [a]
 constructList = preConstructList |> each selectSnd
@@ -223,11 +250,12 @@ preConstructList = Locator $ \vals f ->
         grouped = groupWith (\idx xs ys -> (idx, (head ys, mconcat xs))) (concatPairMap snd ret) keyIndexed
     in (pairMap snd grouped, sel)
 
-combine :: Monoid a => [a] -> Locator a a
+combine :: (Show a, Monoid a) => [a] -> Locator a a
 combine vals = Locator $ \rest k ->
     let (ret, sel) = k rest
-        -- (xs, ys, grouped) = groupWith (\k a b -> (k, mconcat $ a <> b)) ret vals
-    in (zipWith (\(k,a) b -> (k, a <> b)) ret vals, sel)
+    in case ret of
+        [(k,v)] -> ([(k, v <> mconcat vals)], sel)
+        _ -> ([], mempty) -- TODO: REPLACE THIS WITH A FAILURE!
 
 selectList :: Eq a => [a] -> [a] -> ([a], [a])
 selectList xs ys = (xs \\ ys, ys \\ xs)
