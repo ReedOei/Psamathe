@@ -1,0 +1,56 @@
+mod STREAMS is
+    protecting NAT .
+    protecting QID .
+
+    sorts TyQuant Mode Ty BaseTy Expr Val .
+    subsort Nat < TyQuant .
+    subsort Val < Expr .
+    subsort Qid < Expr .
+
+    ops * oo : -> TyQuant [ctor] .
+    ops asset nonasset : -> Mode [ctor] .
+
+    op ___ : TyQuant Mode BaseTy -> Ty [ctor] .
+
+    op unit : -> BaseTy [ctor] .
+    op multiset_ : Ty -> BaseTy [ctor] .
+    op _x_ : Ty Ty -> BaseTy [ctor] .
+    op _->_ : Ty Ty -> BaseTy [ctor] .
+
+    op () : -> Val [ctor] .
+
+    op mt : -> Val [ctor] .
+    op _,_ : Val Val -> Val [ctor comm assoc id: mt] .
+
+    op [_;_] : Val Val -> Val [ctor] .
+
+    op lambda_:_._ : Qid Ty Expr -> Val [ctor] .
+
+    op partition : TyQuant Expr Expr Expr -> Expr [ctor] .
+    op let[_;_]:=_in_ : Qid Qid Expr Expr -> Expr [ctor] .
+    op copy : Expr -> Expr [ctor] .
+    op group : Expr Expr -> Expr [ctor] .
+
+    vars Q R Q1 Q2 : TyQuant .
+    vars X Y Z : Qid .
+    vars T S T1 T2 : BaseTy .
+    vars Tau Sigma Pi : Ty .
+    vars M : Mode .
+
+    op demote : Ty -> Ty .
+    eq demote(Q M T) = Q nonasset demoteBase(T) .
+
+    op demoteBase : BaseTy -> BaseTy .
+    eq demoteBase(unit) = unit .
+    eq demoteBase(multiset Tau) = multiset demote(Tau) .
+    eq demoteBase(Tau x Sigma) = demote(Tau) x demote(Sigma) .
+    eq demoteBase(Tau -> Sigma) = demote(Tau) -> demote(Sigma) .
+
+endm
+
+red [ (), (); (), () ] .
+red partition(*, lambda 'x : * nonasset multiset (1 asset (1 nonasset unit x 1 nonasset unit)) . 'x, mt, ()) .
+red let [ 'x ; 'y ] := [ (); () ] in () .
+
+red demote(* asset multiset (1 asset multiset (oo asset (1 nonasset unit x 1 asset unit)))) .
+
