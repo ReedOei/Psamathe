@@ -1,65 +1,80 @@
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module AST where
 
+-- AST which implements the Trees That Grow idiom (see https://www.microsoft.com/en-us/research/uploads/prod/2016/11/trees-that-grow.pdf)
+
 import Data.Char (toLower)
 import Data.List (intercalate)
+
+-- Compiler phases
+data Parsed
+data Preprocessed
+data Typechecked
+data Compiled
 
 data Modifier = Fungible | Immutable | Consumable | Asset | Unique
     deriving (Show, Eq)
 
 data TyQuant = Empty | Any | One | Nonempty
     deriving (Show, Eq)
-type Type = (TyQuant, BaseType)
-data BaseType = Nat | PsaBool | PsaString | Address
-              | Record [String] [VarDef]
-              | Table [String] Type
+
+type family XType phase :: * where
+    XType Preprocessed = InferrableType Preprocessed
+    XType phase = QuantifiedType phase
+
+data BaseType phase = Nat | PsaBool | PsaString | Address
+              | Record [String] [VarDef phase]
+              | Table [String] (XType phase)
               | Named String
               | Bot
-    deriving (Show, Eq)
 
-type VarDef = (String, Type)
+type QuantifiedType phase = (TyQuant, BaseType phase)
 
-data Locator = IntConst Integer
+data InferrableType phase = Complete (QuantifiedType phase)
+                    | Infer (BaseType phase)
+
+data VarDef phase = VarDef String (XType phase)
+
+data Locator phase = IntConst Integer
              | BoolConst Bool
              | StrConst String
              | AddrConst String
              | Var String
-             | Field Locator String
-             | Multiset Type [Locator]
-             | NewVar String BaseType
+             | Field (Locator phase) String
+             | Multiset (XType phase) [Locator phase]
+             | NewVar String (BaseType phase)
              | Consume
-             | RecordLit [String] [(VarDef, Locator)]
-             | Filter Locator TyQuant String [Locator]
-             | Select Locator Locator
-    deriving (Show, Eq)
+             | RecordLit [String] [(VarDef phase, Locator phase)]
+             | Filter (Locator phase) TyQuant String [Locator phase]
+             | Select (Locator phase) (Locator phase)
 
-data Transformer = Call String [Locator]
-                 | Construct String [Locator]
-    deriving (Show, Eq)
+data Transformer phase = Call String [Locator phase]
+                 | Construct String [Locator phase]
 
 data Op = OpLt | OpGt | OpLe | OpGe | OpEq | OpNe | OpIn | OpNotIn
     deriving (Show, Eq)
 
-data Precondition = Conj [Precondition]
-                  | Disj [Precondition]
-                  | BinOp Op Locator Locator
-                  | NegateCond Precondition
-    deriving (Show, Eq)
+data Precondition phase = Conj [Precondition phase]
+                  | Disj [Precondition phase]
+                  | BinOp Op (Locator phase) (Locator phase)
+                  | NegateCond (Precondition phase)
 
-data Stmt = Flow Locator Locator
-          | FlowTransform Locator Transformer Locator
-          | OnlyWhen Precondition
+data Stmt phase = Flow (Locator phase) (Locator phase)
+          | FlowTransform (Locator phase) (Transformer phase) (Locator phase)
+          | OnlyWhen (Precondition phase)
           | Revert
-          | Try [Stmt] [Stmt]
-    deriving (Show, Eq)
+          | Try [Stmt phase] [Stmt phase]
 
-data Decl = TypeDecl String [Modifier] BaseType
-          | TransformerDecl String [VarDef] VarDef [Stmt]
-    deriving (Show, Eq)
+data Decl phase = TypeDecl String [Modifier] (BaseType phase)
+          | TransformerDecl String [VarDef phase] (VarDef phase) [Stmt phase]
 
-data Program = Program [Decl] [Stmt]
-    deriving (Show, Eq)
+data Program phase = Program [Decl phase] [Stmt phase]
 
 -- Solidity stuff
 data DataLoc = Memory | Calldata | Storage
@@ -117,6 +132,27 @@ data SolDecl = Struct String [SolVarDecl]
 data Contract = Contract String String [SolDecl]
     deriving (Show, Eq)
 
+
+deriving instance Eq (XType phase) => Eq (BaseType phase)
+deriving instance Eq (XType phase) => Eq (InferrableType phase)
+deriving instance Eq (XType phase) => Eq (VarDef phase)
+deriving instance Eq (XType phase) => Eq (Locator phase)
+deriving instance Eq (XType phase) => Eq (Transformer phase)
+deriving instance Eq (XType phase) => Eq (Precondition phase)
+deriving instance Eq (XType phase) => Eq (Stmt phase)
+deriving instance Eq (XType phase) => Eq (Decl phase)
+deriving instance Eq (XType phase) => Eq (Program phase)
+
+deriving instance Show (XType phase) => Show (BaseType phase)
+deriving instance Show (XType phase) => Show (InferrableType phase)
+deriving instance Show (XType phase) => Show (VarDef phase)
+deriving instance Show (XType phase) => Show (Locator phase)
+deriving instance Show (XType phase) => Show (Transformer phase)
+deriving instance Show (XType phase) => Show (Precondition phase)
+deriving instance Show (XType phase) => Show (Stmt phase)
+deriving instance Show (XType phase) => Show (Decl phase)
+deriving instance Show (XType phase) => Show (Program phase)
+
 class PrettyPrint a where
     prettyPrint :: a -> [String]
 
@@ -125,7 +161,7 @@ class PrettyPrint a where
 
 indent = ("    "++)
 
-instance PrettyPrint Locator where
+instance PrettyPrint (XType phase) => PrettyPrint (Locator phase) where
     prettyPrint (IntConst i) = [show i]
     prettyPrint (BoolConst b) = [ map toLower $ show b ]
     prettyPrint (StrConst s) = [ show s ]
@@ -139,7 +175,7 @@ instance PrettyPrint Locator where
     prettyPrint (Select l k) = [ prettyStr l ++ "[" ++ prettyStr k ++ "]" ]
     prettyPrint (RecordLit keys fields) = [ "record(" ++ intercalate ", " keys ++ ") {" ++ intercalate ", " (map (\(x, t) -> prettyStr x ++ " |-> " ++ prettyStr t) fields) ]
 
-instance PrettyPrint Transformer where
+instance PrettyPrint (XType phase) => PrettyPrint (Transformer phase) where
     prettyPrint (Call name args) = [ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
     prettyPrint (Construct name args) = [ "new " ++ name ++ "(" ++ intercalate ", " (map prettyStr args) ++ ")" ]
 
@@ -153,13 +189,13 @@ instance PrettyPrint Op where
     prettyPrint OpIn = ["in"]
     prettyPrint OpNotIn = ["not in"]
 
-instance PrettyPrint Precondition where
+instance PrettyPrint (XType phase) => PrettyPrint (Precondition phase) where
     prettyPrint (Conj conds) = [ intercalate " and " (map (\cond -> "(" ++ prettyStr cond ++ ")") conds) ]
     prettyPrint (Disj conds) = [ intercalate " or " (map (\cond -> "(" ++ prettyStr cond ++ ")") conds) ]
     prettyPrint (BinOp op a b) = [ prettyStr a ++ " " ++ prettyStr op ++ " " ++ prettyStr b ]
     prettyPrint (NegateCond cond) = [ "!(" ++ prettyStr cond ++ ")" ]
 
-instance PrettyPrint Stmt where
+instance PrettyPrint (XType phase) => PrettyPrint (Stmt phase) where
     prettyPrint (Flow src dst) = [ prettyStr src ++ " --> " ++ prettyStr dst ]
     prettyPrint (FlowTransform src transformer dst) = [ prettyStr src ++ " --> " ++ prettyStr transformer ++ " --> " ++ prettyStr dst ]
     prettyPrint (Try tryBlock catchBlock) =
@@ -184,23 +220,27 @@ instance PrettyPrint TyQuant where
     prettyPrint One = ["one"]
     prettyPrint Nonempty = ["nonempty"]
 
-instance PrettyPrint Type where
+instance PrettyPrint (XType phase) => PrettyPrint (QuantifiedType phase) where
     prettyPrint (q,t) = [ prettyStr q ++ " " ++ prettyStr t ]
 
-instance PrettyPrint VarDef where
-    prettyPrint (x,t) = [ x ++ " : " ++ prettyStr t ]
+instance PrettyPrint (XType phase) => PrettyPrint (InferrableType phase) where
+    prettyPrint (Complete qt) = prettyPrint qt
+    prettyPrint (Infer baseT) = ["infer " ++ prettyStr baseT]
 
-instance PrettyPrint BaseType where
+instance PrettyPrint (XType phase) => PrettyPrint (VarDef phase) where
+    prettyPrint (VarDef x t) = [ x ++ " : " ++ prettyStr t ]
+
+instance PrettyPrint (XType phase) => PrettyPrint (BaseType phase) where
     prettyPrint Nat = ["nat"]
     prettyPrint PsaBool = ["bool"]
     prettyPrint PsaString = ["string"]
     prettyPrint Address = ["address"]
     prettyPrint (Named t) = [t]
-    prettyPrint (Table keys (q,t)) = [ "table(" ++ intercalate ", " keys ++ ") " ++ prettyStr q ++ " " ++ prettyStr t ]
+    prettyPrint (Table keys t) = [ "table(" ++ intercalate ", " keys ++ ") " ++ prettyStr t ]
     prettyPrint (Record keys fields) = [ "record(" ++ intercalate ", " keys ++ ") {" ++ intercalate ", " (map prettyStr fields) ++ "}" ]
     prettyPrint Bot = ["⊥"]
 
-instance PrettyPrint Decl where
+instance PrettyPrint (XType phase) => PrettyPrint (Decl phase) where
     prettyPrint (TypeDecl name ms baseT) =
         [ "type " ++ name ++ " is " ++ unwords (map prettyStr ms) ++ " " ++ prettyStr baseT ]
     prettyPrint (TransformerDecl name args ret body) =
@@ -208,7 +248,7 @@ instance PrettyPrint Decl where
         ++ concatMap (map indent . prettyPrint) body
         ++ [ "}" ]
 
-instance PrettyPrint Program where
+instance PrettyPrint (XType phase) => PrettyPrint (Program phase) where
     prettyPrint (Program decls mainBody) =
         concatMap prettyPrint decls ++ concatMap prettyPrint mainBody
 
