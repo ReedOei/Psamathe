@@ -25,7 +25,7 @@ data TyQuant = Empty | Any | One | Nonempty
     deriving (Show, Eq)
 
 type family XType phase :: * where
-    XType Preprocessed = InferrableType Preprocessed
+    XType Parsed = InferrableType Parsed
     XType phase = QuantifiedType phase
 
 data BaseType phase = Nat | PsaBool | PsaString | Address

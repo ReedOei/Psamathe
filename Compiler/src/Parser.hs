@@ -12,18 +12,18 @@ import AST
 
 type Parser a = forall s st m. Stream s m Char => ParsecT s st m a
 
-parseProgram :: Parser Program
+parseProgram :: Parser (Program Parsed)
 parseProgram = do
     prog <- Program <$> many parseDecl <*> many parseStmt
     eof
     pure prog
 
-parseDecl :: Parser Decl
+parseDecl :: Parser (Decl Parsed)
 parseDecl = try parseTypeDecl <|>
             try parseTransformerDeclNoRet <|>
             try parseTransformerDecl
 
-parseTypeDecl :: Parser Decl
+parseTypeDecl :: Parser (Decl Parsed)
 parseTypeDecl = do
     symbol $ string "type"
     name <- parseVarName
@@ -38,7 +38,7 @@ parseModifier = try (parseConst "fungible" Fungible) <|>
                 try (parseConst "immutable" Immutable) <|>
                 try (parseConst "unique" Unique)
 
-parseTransformerDecl :: Parser Decl
+parseTransformerDecl :: Parser (Decl Parsed)
 parseTransformerDecl = do
     symbol $ string "transformer"
     name <- parseVarName
@@ -52,7 +52,7 @@ parseTransformerDecl = do
     symbol $ string "}"
     pure $ TransformerDecl name args ret body
 
-parseTransformerDeclNoRet :: Parser Decl
+parseTransformerDeclNoRet :: Parser (Decl Parsed)
 parseTransformerDeclNoRet = do
     symbol $ string "transformer"
     name <- parseVarName
@@ -62,15 +62,15 @@ parseTransformerDeclNoRet = do
     symbol $ string "{"
     body <- many parseStmt
     symbol $ string "}"
-    pure $ TransformerDecl name args ("__success", (Any,PsaBool)) $ body ++ [ Flow (BoolConst True) (Var "__success") ]
+    pure $ TransformerDecl name args (VarDef "__success" (Complete (Any, PsaBool))) $ body ++ [ Flow (BoolConst True) (Var "__success") ]
 
-parseVarDef :: Parser VarDef
+parseVarDef :: Parser (VarDef Parsed)
 parseVarDef = do
     name <- parseVarName
     symbol $ string ":"
-    (name,) <$> parseType
+    VarDef name . Complete <$> parseType
 
-parseStmt :: Parser Stmt
+parseStmt :: Parser (Stmt Parsed)
 parseStmt = try parseFlowTransform <|> try parseFlowTransformBackwards <|>
             try parseFlowSel <|> try parseFlowSelBackwards <|>
             try parseFlowFilter <|> try parseFlowFilterBackwards <|>
@@ -79,16 +79,16 @@ parseStmt = try parseFlowTransform <|> try parseFlowTransformBackwards <|>
             try parseOnlyWhen <|>
             try (parseConst "revert" Revert)
 
-parseOnlyWhen :: Parser Stmt
+parseOnlyWhen :: Parser (Stmt Parsed)
 parseOnlyWhen = do
     symbol $ string "only"
     symbol $ string "when"
     OnlyWhen <$> parsePrecondition
 
-parsePrecondition :: Parser Precondition
+parsePrecondition :: Parser (Precondition Parsed)
 parsePrecondition = buildExpressionParser precondTable $ symbol parseCondAtom
 
-precondTable :: Stream s m Char => OperatorTable s st m Precondition
+precondTable :: Stream s m Char => OperatorTable s st m (Precondition Parsed)
 precondTable =
     [
         [ prefix "!" NegateCond ],
@@ -103,13 +103,13 @@ prefix name f = Prefix $ do
     symbol $ string name
     pure f
 
-parseCondAtom :: Parser Precondition
+parseCondAtom :: Parser (Precondition Parsed)
 parseCondAtom = try binOpCond <|> try parseBracketedCond
 
-parseBracketedCond :: Parser Precondition
+parseBracketedCond :: Parser (Precondition Parsed)
 parseBracketedCond = between (symbol (string "(")) (symbol (string ")")) parsePrecondition
 
-binOpCond :: Parser Precondition
+binOpCond :: Parser (Precondition Parsed)
 binOpCond = do
     a <- parseLocator
     op <- symbol $ choice $ map try [ parseConst "<=" OpLe, parseConst "<" OpLt,
@@ -121,21 +121,21 @@ binOpCond = do
     where
         parseNotIn = symbol (string "not") >> symbol (string "in") >> pure OpNotIn
 
-parseFlow :: Parser Stmt
+parseFlow :: Parser (Stmt Parsed)
 parseFlow = do
     src <- parseLocator
     symbol $ string "-->"
     dst <- parseLocator
     pure $ Flow src dst
 
-parseFlowBackwards :: Parser Stmt
+parseFlowBackwards :: Parser (Stmt Parsed)
 parseFlowBackwards = do
     dst <- parseLocator
     symbol $ string "<--"
     src <- parseLocator
     pure $ Flow src dst
 
-parseFlowSel :: Parser Stmt
+parseFlowSel :: Parser (Stmt Parsed)
 parseFlowSel = do
     src <- parseLocator
     symbol $ string "--["
@@ -144,7 +144,7 @@ parseFlowSel = do
     dst <- parseLocator
     pure $ Flow (Select src sel) dst
 
-parseFlowSelBackwards :: Parser Stmt
+parseFlowSelBackwards :: Parser (Stmt Parsed)
 parseFlowSelBackwards = do
     dst <- parseLocator
     symbol $ string "<-["
@@ -153,7 +153,7 @@ parseFlowSelBackwards = do
     src <- parseLocator
     pure $ Flow (Select src sel) dst
 
-parseFlowFilter :: Parser Stmt
+parseFlowFilter :: Parser (Stmt Parsed)
 parseFlowFilter = do
     src <- parseLocator
     symbol $ string "--["
@@ -168,7 +168,7 @@ parseFlowFilter = do
     dst <- parseLocator
     pure $ Flow (Filter src q f args) dst
 
-parseFlowFilterBackwards :: Parser Stmt
+parseFlowFilterBackwards :: Parser (Stmt Parsed)
 parseFlowFilterBackwards = do
     dst <- parseLocator
     symbol $ string "<-["
@@ -183,7 +183,7 @@ parseFlowFilterBackwards = do
     src <- parseLocator
     pure $ Flow (Filter src q f args) dst
 
-parseFlowTransform :: Parser Stmt
+parseFlowTransform :: Parser (Stmt Parsed)
 parseFlowTransform = do
     src <- parseLocator
     symbol $ string "-->"
@@ -192,7 +192,7 @@ parseFlowTransform = do
     dst <- parseLocator
     pure $ FlowTransform src transformer dst
 
-parseFlowTransformBackwards :: Parser Stmt
+parseFlowTransformBackwards :: Parser (Stmt Parsed)
 parseFlowTransformBackwards = do
     src <- parseLocator
     symbol $ string "<--"
@@ -201,7 +201,7 @@ parseFlowTransformBackwards = do
     dst <- parseLocator
     pure $ FlowTransform src transformer dst
 
-parseTry :: Parser Stmt
+parseTry :: Parser (Stmt Parsed)
 parseTry = do
     symbol $ string "try"
     symbol $ string "{"
@@ -213,7 +213,7 @@ parseTry = do
     symbol $ string "}"
     pure $ Try tryBlock catchBlock
 
-parseTransformer :: Parser Transformer
+parseTransformer :: Parser (Transformer Parsed)
 parseTransformer = try parseConstruct <|> try parseCall
     where
         parseConstruct = do
@@ -231,10 +231,10 @@ parseTransformer = try parseConstruct <|> try parseCall
             symbol $ string ")"
             pure $ Call name args
 
-parseLocator :: Parser Locator
+parseLocator :: Parser (Locator Parsed)
 parseLocator = buildExpressionParser locOpTable $ symbol parseLocatorSingle
 
-locOpTable :: Stream s m Char => OperatorTable s st m Locator
+locOpTable :: Stream s m Char => OperatorTable s st m (Locator Parsed)
 locOpTable =
     [
         [Postfix $ try $ do
@@ -251,7 +251,7 @@ locOpTable =
         ]
     ]
 
-parseLocatorSingle :: Parser Locator
+parseLocatorSingle :: Parser (Locator Parsed)
 parseLocatorSingle = try parseAddr <|>
                      try parseInt <|>
                      try parseString <|>
@@ -262,12 +262,12 @@ parseLocatorSingle = try parseAddr <|>
                      try parseConsume <|>
                      try parseVar
 
-parseConsume :: Parser Locator
+parseConsume :: Parser (Locator Parsed)
 parseConsume = do
     symbol $ string "consume"
     pure Consume
 
-parseRecordLit :: Parser Locator
+parseRecordLit :: Parser (Locator Parsed)
 parseRecordLit = do
     symbol $ string "{"
     members <- parseDelimList "," parseRecordMember
@@ -275,25 +275,25 @@ parseRecordLit = do
 
     pure $ RecordLit [] members
 
-parseRecordMember :: Parser (VarDef, Locator)
+parseRecordMember :: Parser (VarDef Parsed, Locator Parsed)
 parseRecordMember = do
     vdef <- parseVarDef
     symbol $ string "|->"
     (vdef,) <$> parseLocator
 
-parseLocators :: Parser [Locator]
+parseLocators :: Parser [Locator Parsed]
 parseLocators = parseDelimList "," parseLocator
 
-parseMultiset :: Parser Locator
+parseMultiset :: Parser (Locator Parsed)
 parseMultiset = do
     symbol $ string "["
     t <- symbol parseType
     symbol $ string ";"
     elems <- parseLocators
     symbol $ string "]"
-    pure $ Multiset t elems
+    pure $ Multiset (Complete t) elems
 
-parseVar :: Parser Locator
+parseVar :: Parser (Locator Parsed)
 parseVar = Var <$> parseVarName
 
 parseVarName :: Parser String
@@ -305,7 +305,7 @@ parseVarName = do
         prefix = ['a'..'z'] ++ ['A'..'Z'] ++ ['_']
         cs = ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_']
 
-parseNewVar :: Parser Locator
+parseNewVar :: Parser (Locator Parsed)
 parseNewVar = do
     string "var"
     x <- symbol parseVarName
@@ -313,7 +313,7 @@ parseNewVar = do
     t <- symbol parseBaseType
     pure $ NewVar x t
 
-parseType :: Parser Type
+parseType :: Parser (QuantifiedType Parsed)
 parseType = (,) <$> symbol parseQuant <*> symbol parseBaseType
 
 parseQuant :: Parser TyQuant
@@ -322,7 +322,7 @@ parseQuant = try (parseConst "empty" Empty) <|>
              try (parseConst "one" One) <|>
              try (parseConst "nonempty" Nonempty)
 
-parseBaseType :: Parser BaseType
+parseBaseType :: Parser (BaseType Parsed)
 parseBaseType = try (parseConst "nat" Nat) <|>
                 try (parseConst "bool" PsaBool) <|>
                 try (parseConst "string" PsaString) <|>
@@ -332,15 +332,15 @@ parseBaseType = try (parseConst "nat" Nat) <|>
                 try parseMapType <|>
                 try parseNamedType
 
-parseMapType :: Parser BaseType
+parseMapType :: Parser (BaseType Parsed)
 parseMapType = do
     symbol $ string "map"
     keyTy <- parseType
     symbol $ string "=>"
     valTy <- parseType
-    pure $ Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valTy) ])
+    pure $ Table ["key"] (Complete (One, Record ["key"] [ VarDef "key" (Complete keyTy), VarDef "value" (Complete valTy) ]))
 
-parseRecordType :: Parser BaseType
+parseRecordType :: Parser (BaseType Parsed)
 parseRecordType = do
     symbol $ string "{"
     fields <- parseDelimList "," parseVarDef
@@ -348,26 +348,26 @@ parseRecordType = do
 
     pure $ Record [] fields
 
-parseNamedType :: Parser BaseType
+parseNamedType :: Parser (BaseType Parsed)
 parseNamedType = Named <$> parseVarName
 
-parseMultisetType :: Parser BaseType
+parseMultisetType :: Parser (BaseType Parsed)
 parseMultisetType = do
     symbol $ choice [string "list", string "multiset"] -- TODO: Change this
-    Table [] <$> parseType
+    Table [] . Complete <$> parseType
 
-parseInt :: Parser Locator
+parseInt :: Parser (Locator Parsed)
 parseInt = IntConst . read <$> symbol (many1 digit)
 
-parseBool :: Parser Locator
+parseBool :: Parser (Locator Parsed)
 parseBool = BoolConst <$> symbol (parseConst "true" True <|> parseConst "false" False)
 
-parseAddr :: Parser Locator
+parseAddr :: Parser (Locator Parsed)
 parseAddr = do
     symbol $ string "0x"
     AddrConst . ("0x"++) <$> many (oneOf "1234567890abcdef")
 
-parseString :: Parser Locator
+parseString :: Parser (Locator Parsed)
 parseString = StrConst <$> symbol (between (string "\"") (string "\"") $ many $ noneOf "\"")
 
 whitespace :: Parser ()
