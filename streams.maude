@@ -26,30 +26,28 @@ mod STREAMS is
     op mt : -> MultisetVal [ctor] .
     op _,_ : MultisetVal MultisetVal -> MultisetVal [ctor comm assoc id: mt] .
     op _,_ : Multiset Multiset -> Multiset [ctor comm assoc id: mt] .
-    op {_} : MultisetVal -> Val [ctor] .
-    op {_} : Multiset -> Expr [ctor] .
+    op {_} : MultisetVal -> Val [ctor frozen] .
+    op {_} : Multiset -> Expr [ctor frozen] .
 
     op id(_) : Nat -> Id [ctor] .
 
-    op [_;_] : Val Val -> Val [ctor] .
-    op [_;_] : Expr Expr -> Expr [ctor] .
+    op [_;_] : Val Val -> Val [ctor frozen] .
+    op [_;_] : Expr Expr -> Expr [ctor frozen] .
 
     op __ : Expr Expr -> Expr [ctor] .
 
     ops zero fail : -> Val [ctor] .
-    op sum : Expr -> Expr [ctor] .
-    op sub : Expr Expr -> Expr [ctor] .
+    op sum : Expr -> Expr [ctor frozen] .
+    op sub : Expr Expr -> Expr [ctor frozen] .
 
-    op let[_;_]:=_in_ : Qid Qid Expr Expr -> Expr [ctor] .
-    op let[_]:=_in_ : Qid Expr Expr -> Expr [ctor] .
+    op let[_;_]:=_in_ : Qid Qid Expr Expr -> Expr [ctor frozen] .
+    op let[_]:=_in_ : Qid Expr Expr -> Expr [ctor frozen] .
 
-    op try{_}catch{_} : Expr Expr -> Expr [ctor] .
+    op try{_}catch{_} : Expr Expr -> Expr [ctor frozen] .
 
-    op assert_is_in_ : Expr TyQuant Expr -> Expr [ctor] .
-    op groupWith : TyQuant Expr Expr Expr -> Expr [ctor] .
-    op label : Expr -> Expr [ctor] .
-
-    op copy : Expr -> Expr [ctor] .
+    op assert_is_in_ : Expr TyQuant Expr -> Expr [ctor frozen] .
+    op groupWith : TyQuant Expr Expr Expr -> Expr [ctor frozen] .
+    ops copy label : Expr -> Expr [ctor frozen] .
 
     vars Q R Q1 Q2 : TyQuant .
     vars X Y Z A B : Qid .
@@ -76,24 +74,23 @@ mod STREAMS is
     eq X elem Vs = false [owise] .
 
     op freshVar : Multiset -> Qid .
-    eq freshVar(Vs) = freshVar(0, Vs) .
-    op freshVar : Nat Multiset -> Qid .
-    eq freshVar(N, Vs) =
-        if qid(string(N, 10)) elem Vs then
-            freshVar(N + 1, Vs)
+    eq freshVar(Vs) = freshVar(0, '0, Vs) .
+    op freshVar : Nat Qid Multiset -> Qid .
+    eq freshVar(N, X, Vs) =
+        if X elem Vs then
+            freshVar(N + 1, qid(string(N + 1, 10)), Vs)
         else
-            qid(string(N, 10))
+            X
         fi .
 
     op varsOf : Expr -> Multiset .
-    op varsOf : Multiset -> Multiset .
     eq varsOf(X) = X .
     eq varsOf(lambda X : Tau . E1) = X, varsOf(E1) .
-    eq varsOf(mt) = mt .
     eq varsOf(E1 E2) = varsOf(E1), varsOf(E2) .
-    eq varsOf(E1, E2) = varsOf(E1), varsOf(E2) .
-    eq varsOf({ Vs }) = varsOf(Vs) .
     eq varsOf([E1 ; E2]) = varsOf(E1), varsOf(E2) .
+    eq varsOf({ mt }) = mt .
+    eq varsOf({ E1 }) = varsOf(E1) .
+    eq varsOf({ E1, E2, Vs }) = varsOf(E1), varsOf({E2, Vs}) .
     eq varsOf(zero) = mt .
     eq varsOf(fail) = mt .
     eq varsOf(id(N)) = mt .
@@ -108,21 +105,21 @@ mod STREAMS is
     eq varsOf(copy(E)) = varsOf(E) .
 
     op _[_/_] : Expr Expr Qid -> Expr .
-    op _[_/_] : Multiset Expr Qid -> Multiset .
-    eq X[E / Y] = if X == Y then E else X fi .
+    eq X[E / X] = E .
+    eq X[E / Y] = X [owise] .
     ceq (lambda X : Tau . E1)[E / Y] = lambda X : Tau . (E1[E / Y])
         if not (X elem Y, varsOf(E)) .
-    ceq (lambda X : Tau . E1)[E / Y] = (lambda Z : Tau . (E1[Z / X]))[E / Y]
+    ceq (lambda X : Tau . E1)[E / Y] = lambda Z : Tau . (E1[Z / X][E / Y])
         if (X elem Y, varsOf(E)) /\
             Z := freshVar(varsOf(E1), X, Y, varsOf(E)) .
     eq zero[E / Y] = zero .
     eq fail[E / Y] = fail .
-    eq mt[E / Y] = mt .
     eq id(N)[E / Y] = id(N) .
-    eq (E1, E2)[E / Y] = (E1[E / Y]), (E2[E / Y]) .
     eq [E1 ; E2][E / Y] = [E1[E / Y] ; E2[E / Y] ] .
     eq (E1 E2)[E / Y] = (E1[E / Y]) (E2[E / Y]) .
-    eq { Vs }[E / Y] = { Vs[E / Y] } .
+    eq { mt }[E / Y] = { mt } .
+    eq { E1 }[E / Y] = { E1[E / Y] } .
+    eq { E1, E2, Vs }[E / Y] = { (E1[E / Y]), (E2[E / Y]) } ++ ({ Vs }[E / Y]) .
     eq sum(E1)[E / Y] = sum(E1[E / Y]) .
     eq sub(E1, E2)[E / Y] = sub(E1[E / Y], E2[E / Y]) .
     ceq (let [ X ; Y ] := E1 in E2)[E / Z] = let [ X ; Y ] := E1[E / Z] in (E2[E / Z])
@@ -131,14 +128,14 @@ mod STREAMS is
     ceq (let [ X ; Y ] := E1 in E2)[E / Z] = (let [ A ; Y ] := E1 in (E2[A / X]))[E / Z]
         if X elem (Z, varsOf(E)) /\
            A := freshVar(Z, varsOf(E), X, Y, varsOf(E1), varsOf(E2)) .
-    ceq (let [ X ; Y ] := E1 in E2)[E / Z] = (let [ X ; A ] := E1 in (E2[A / Y]))[E / Z]
+    ceq (let [ X ; Y ] := E1 in E2)[E / Z] = let [ X ; A ] := E1[E / Z] in (E2[A / Y][E / Z])
         if not(X elem Z, varsOf(E)) /\
            Y elem Z, varsOf(E) /\
            A := freshVar(Z, varsOf(E), X, Y, varsOf(E1), varsOf(E2)) .
 
     ceq (let [ X ] := E1 in E2)[E / Y] = let [ X ] := E1[E / Y] in (E2[E / Y])
         if not(X elem Y, varsOf(E)) .
-    ceq (let [ X ] := E1 in E2)[E / Y] = (let [ Z ] := E1 in (E2[Z / X]))[E / Y]
+    ceq (let [ X ] := E1 in E2)[E / Y] = let [ Z ] := E1 in (E2[Z / X][E / Y])
         if X elem Y, varsOf(E) /\
            Z := freshVar(X, Y, varsOf(E1), varsOf(E2), varsOf(E)) .
 
@@ -212,6 +209,50 @@ mod STREAMS is
            [{Taken2} ; {Rest2}] := partitionByKey(V, Ws) /\
            [[{G1}; {G2}]; [{G3}; {G4}]] := groupSize(Taken1, Taken2) .
 
+    rl copy(E) => E .
+
+    crl [E1 ; E2] => [V1 ; E2]
+        if E1 => V1 /\ V1 =/= E1 .
+    crl [V1 ; E2] => [V1 ; V2]
+        if E2 => V2 /\ V2 =/= E2 .
+
+    crl let [ X ; Y ] := E in E2 => E2[Left / X][Right / Y]
+        if E => [ Left ; Right ] .
+    crl let [ X ] := E1 in E2 => unpackSingleton(X, V, E2)
+        if E1 => V .
+
+    crl E1 E2 => E[V / X]
+        if E1 => (lambda X : Tau . E) /\
+           E2 => V .
+
+    crl { E, Vs } => { V, Vs }
+        if E => V /\ E =/= V .
+
+    rl { fail, Vs } => fail .
+
+    crl label(E1) => { applyLabels(0, Vs) }
+        if E1 => { Vs } .
+
+    crl try { E1 } catch { E2 } => if E1 == fail then E2 else E fi
+        if E1 => E .
+
+    crl sum(E1) => calculateSum(Vs)
+        if E1 => { Vs } .
+
+    crl assert E1 is Q in E2 =>
+        if compatQuant(Q, E) then
+            E2
+        else
+            fail
+        fi
+
+        if E1 => E .
+
+    crl groupWith(Q, F, E1, E2) => { runGroupWith(Q, (lambda X : Tau . E), Vs, Ws) }
+        if F => (lambda X : Tau . E) /\
+           E1 => { Vs } /\
+           E2 => { Ws } .
+
     ops map splitWith unzip : -> Val .
     eq map = lambda 'params : * nonasset unit .
         (let ['f ; 'xs] := 'params in groupWith(*,
@@ -281,53 +322,65 @@ mod STREAMS is
                         let ['taggedRet ; 'sel] := 'loc [label('vals); takeAll] in
                         [map [snd ; 'taggedRet ]; 'sel]) .
 
-    rl copy(E) => E .
+    op wrapSingleton : -> Val .
+    eq wrapSingleton = lambda 'pair : * nonasset unit . let ['k ; 'b] := 'pair in ['k ; {'b}] .
 
-    crl [E1 ; E2] => [V1 ; E2]
-        if E1 => V1 /\ V1 =/= E1 .
-    crl [V1 ; E2] => [V1 ; V2]
-        if E2 => V2 /\ V2 =/= E2 .
+    op unwrapSingleton : -> Val .
+    eq unwrapSingleton = lambda 'pair : * nonasset unit .
+                            let ['k ; 'bs] := 'pair in
+                            try { let ['b] := 'bs in ['k ; 'b] } catch { ['k ; zero] } .
 
-    crl let [ X ; Y ] := E in E2 => E2[Left / X][Right / Y]
-        if E => [ Left ; Right ] .
-    crl let [ X ] := E1 in E2 => unpackSingleton(X, V, E2)
-        if E1 => V .
+    op eachK : -> Val .
+    eq eachK = lambda 'g : * nonasset unit . lambda 'transformed : * nonasset unit .
+                let ['ret ; 'sel] := 'g (map [wrapSingleton ; 'transformed]) in
+                [ map [unwrapSingleton ; 'ret]; 'sel ] .
 
-    crl E1 E2 => E[V / X]
-        if E1 => (lambda X : Tau . E) /\
-           E2 => V .
+    op indexKey : -> Val .
+    eq indexKey = lambda 'k : * nonasset unit . lambda 'idxVal : * nonasset unit .
+                    let ['idx ; 'val] := 'idxVal in
+                    [[ 'idx ; 'k ] ; 'val ] .
 
-    crl { Vs, E1, Ws } => { Vs, V, Ws }
-        if E1 => V /\ V =/= E1 .
+    op unindexKey : -> Val .
+    eq unindexKey = lambda 'params : * nonasset unit .
+                        let ['idxKey ; 'val] := 'params in
+                        let ['idx ; 'key] := 'idxKey in
+                        ['key ; ['idx ; 'val]] .
 
-    rl { Vs, fail, Ws } => fail .
+    op distributeKeys : -> Val .
+    eq distributeKeys = lambda 'params : * nonasset unit .
+                            let ['k ; 'vals] := 'params in
+                            (map [indexKey 'k ; label('vals)]) .
 
-    crl label(E1) => { applyLabels(0, Vs) }
-        if E1 => { Vs } .
+    op sumSnds : -> Val .
+    eq sumSnds = lambda 'params : * nonasset unit .
+                    let ['k ; 'pairs] := 'params in
+                    let ['xs ; 'ys] := 'pairs in
+                    ['k ; sum('ys)] .
 
-    crl try { E1 } catch { E2 } => if E1 == fail then E2 else E fi
-        if E1 => E .
+    op groupByIdx : -> Val .
+    eq groupByIdx = lambda 'params : * nonasset unit .
+                        let ['k ; 'pairs] := 'params in
+                        let ['xs ; 'ys] := 'pairs in
+                        ['k ; groupWith(*, sumSnds, 'xs, 'ys)] .
 
-    crl sum(E1) => calculateSum(Vs)
-        if E1 => { Vs } .
+    op dropIdx : -> Val .
+    eq dropIdx = lambda 'params : * nonasset unit .
+                    let ['k ; 'idxVal] := 'params in
+                    let ['idx ; 'val] := 'idxVal in
+                    'val .
 
-    crl assert E1 is Q in E2 =>
-        if compatQuant(Q, E) then
-            E2
-        else
-            fail
-        fi
-
-        if E1 => E .
-
-    crl groupWith(Q, F, E1, E2) => { runGroupWith(Q, (lambda X : Tau . E), Vs, Ws) }
-        if F => (lambda X : Tau . E) /\
-           E1 => { Vs } /\
-           E2 => { Ws } .
+    op each : -> Val .
+    eq each = lambda 'f : * nonasset unit .
+                lambda 'listsG : * nonasset unit .
+                    let ['lists ; 'g] := 'listsG in
+                    let ['ret ; 'sel] := 'f [sum(map [distributeKeys ; 'lists]) ; eachK 'g ] in
+                    [groupWith(*, sumSnds, {mt}, map [dropIdx ; groupWith(*, groupByIdx, {mt}, map [unindexKey ; 'ret])]); 'sel] .
 
     --- TODO: sub
 endm
 
+--- set profile on .
+--- set clear profile off .
 red [ { zero, zero } ; { zero, zero } ] .
 red let [ 'x ; 'y ] := [ zero ; zero ] in zero .
 
@@ -358,10 +411,13 @@ rew runLocator [{[{zero, zero} ; zero]}; selectSnd] .
 rew selectFst [label({[{zero,zero} ; zero]}) ; takeAll] .
 
 rew (flow [selectFst ; selectSnd]) [label({[{zero,zero} ; zero]}); takeAll] .
---- rew let ['src ; 'dst] := [selectFst ; selectSnd] in
----     let ['vals ; 'k] := [label({[{zero,zero} ; zero]}); takeAll] in
----     let ['ret ; 'sel] := 'src ['vals ; takeAll] in
----     let ['ret2 ; 'sel2] := 'dst ['ret ; (combine sum('sel)) ] in
----     [['ret ; combine sum('sel)] ; ['ret2 ; 'sel2]] .
---- rew runLocator [{[{zero,zero} ; zero]}; flow [selectFst ; selectSnd]] .
+
+rew runLocator [{[id(4) ; zero], [id(5) ; zero], [id(6) ; zero]}; selectFst] .
+
+--- show profile .
+
+--- rew selectFst [label({[id(4) ; zero], [id(5) ; zero], [id(6) ; zero]}); takeAll] .
+--- rew let ['vals ; 'loc] := [{[zero ; zero], [zero ; zero], [zero ; zero]}; selectFst] in
+---     takeAll .
+
 
