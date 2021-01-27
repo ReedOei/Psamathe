@@ -3,10 +3,12 @@ mod STREAMS is
     protecting QID .
     protecting CONVERSION .
 
-    sorts TyQuant Mode Ty BaseTy Expr Val Multiset .
+    sorts TyQuant Mode Ty BaseTy Expr Id Val MultisetVal Multiset .
     subsort Nat < TyQuant .
     subsort Val < Expr .
+    subsort Val < MultisetVal < Multiset .
     subsort Expr < Multiset .
+    subsort Id < Val .
 
     ops * oo : -> TyQuant [ctor] .
     ops asset nonasset : -> Mode [ctor] .
@@ -21,11 +23,13 @@ mod STREAMS is
     subsort Qid < Expr .
     op lambda_:_._ : Qid Ty Expr -> Val [ctor] .
 
-    op mt : -> Multiset [ctor] .
+    op mt : -> MultisetVal [ctor] .
+    op _,_ : MultisetVal MultisetVal -> MultisetVal [ctor comm assoc id: mt] .
     op _,_ : Multiset Multiset -> Multiset [ctor comm assoc id: mt] .
+    op {_} : MultisetVal -> Val [ctor] .
     op {_} : Multiset -> Expr [ctor] .
 
-    op id(_) : Nat -> Val [ctor] .
+    op id(_) : Nat -> Id [ctor] .
 
     op [_;_] : Val Val -> Val [ctor] .
     op [_;_] : Expr Expr -> Expr [ctor] .
@@ -52,10 +56,11 @@ mod STREAMS is
     vars T S T1 T2 : BaseTy .
     vars Tau Sigma Pi : Ty .
     vars M : Mode .
-    vars V W V1 V2 : Val .
-    vars E F E1 E2 E3 Left Right : Expr .
-    vars Vs Ws : Multiset .
-    vars N N1 I J K : Nat .
+    vars V W V1 V2 Left Right : Val .
+    vars E F E1 E2 E3 E4 : Expr .
+    vars Vs Ws Taken1 Taken2 Rest Rest1 Rest2 : Multiset .
+    vars N N1 N2 : Nat .
+    vars I J K L K1 K2 : Id .
 
     op demote : Ty -> Ty .
     eq demote(Q M T) = Q nonasset demoteBase(T) .
@@ -70,12 +75,12 @@ mod STREAMS is
     eq X in (X, Vs) = true .
     eq X in Vs = false [owise] .
 
-    op freshVar : Val -> Qid .
-    eq freshVar(V) = freshVar(0, V) .
+    op freshVar : Multiset -> Qid .
+    eq freshVar(Vs) = freshVar(0, Vs) .
     op freshVar : Nat Multiset -> Qid .
-    eq freshVar(N, V) =
-        if qid(string(N, 10)) in V then
-            freshVar(N + 1, V)
+    eq freshVar(N, Vs) =
+        if qid(string(N, 10)) in Vs then
+            freshVar(N + 1, Vs)
         else
             qid(string(N, 10))
         fi .
@@ -112,6 +117,7 @@ mod STREAMS is
     eq zero[E / Y] = zero .
     eq fail[E / Y] = fail .
     eq mt[E / Y] = mt .
+    eq id(N)[E / Y] = id(N) .
     eq (E1, E2)[E / Y] = (E1[E / Y]), (E2[E / Y]) .
     eq [E1 ; E2][E / Y] = [E1[E / Y] ; E2[E / Y] ] .
     eq (E1 E2)[E / Y] = (E1[E / Y]) (E2[E / Y]) .
@@ -146,22 +152,19 @@ mod STREAMS is
     eq unpackSingleton(X, { E }, E2) = E2[E / X] .
     eq unpackSingleton(X, E, E2) = fail [owise] .
 
-    op applyLabels : Expr -> Val .
-    eq applyLabels({ Vs }) = applyLabels(0, Vs) .
-    eq applyLabels(V) = fail [owise] .
     op applyLabels : Nat Multiset -> Multiset .
     eq applyLabels(N, mt) = mt .
     eq applyLabels(N, (V, Vs)) = [ id(N) ; V ], applyLabels(N + 1, Vs) .
 
-    op _++_ : Expr Expr -> Expr [ comm assoc ] .
+    op _++_ : Val Val -> Val [comm assoc] .
     eq { Vs } ++ { Ws } = { Vs, Ws } .
-    eq zero ++ E = E .
-    eq fail ++ E = fail .
+    eq [ V ; W ] ++ [ V1 ; V2 ] = [ V ++ V1 ; W ++ V2 ] .
+    eq zero ++ V = V .
+    eq fail ++ V = fail .
 
-    op calculateSum : Expr -> Expr .
-    eq calculateSum({ mt }) = zero .
-    eq calculateSum({ E, Vs }) = E ++ calculateSum({ Vs }) .
-    eq calculateSum(E) = fail [owise] .
+    op calculateSum : MultisetVal -> Val .
+    eq calculateSum(mt) = zero .
+    eq calculateSum(V, Vs) = V ++ calculateSum(Vs) .
 
     op |_| : Expr -> Nat .
     eq |{ mt }| = 0 .
@@ -175,43 +178,81 @@ mod STREAMS is
     eq compatQuant(oo, lambda X : Tau . E) = true .
     eq compatQuant(Q, E) = false [owise] .
 
-    op map : -> Expr .
+    op groupSize : MultisetVal MultisetVal -> Val .
+    eq groupSize(Vs, mt) = [[{mt}; {mt}]; [{Vs}; {mt}]] .
+    eq groupSize(mt, Vs) = [[{mt}; {mt}]; [{mt}; {Vs}]] .
+    eq groupSize((V1, Vs), (V2, Ws)) = [[{V1}; {V2}]; [{mt}; {mt}]] ++ groupSize(Vs, Ws) .
+
+    op partitionByKey : Id MultisetVal -> Val .
+    eq partitionByKey(K, mt) = [ {mt} ; {mt} ] .
+    eq partitionByKey(K, ([K ; V], Rest)) = [{[K ; V]}; {mt}] ++ partitionByKey(K, Rest) .
+    eq partitionByKey(K, ([K2 ; V], Rest)) = [{mt}; {[K2 ; V]}] ++ partitionByKey(K, Rest) [owise] .
+
+    op fsts : Multiset -> Multiset .
+    eq fsts(mt) = mt .
+    eq fsts([E1 ; E2], Rest) = E1, fsts(Rest) .
+    op snds : Multiset -> Multiset .
+    eq snds(mt) = mt .
+    eq snds([E1 ; E2], Rest) = E2, snds(Rest) .
+
+    vars G1 G2 G3 G4 : Multiset .
+    op runGroupWith : TyQuant Val MultisetVal MultisetVal -> Multiset .
+    eq runGroupWith(Q, F, mt, mt) = mt .
+    ceq runGroupWith(Q, F, mt, ([K ; E], Rest)) = (F [K ; [{mt}; {snds(Vs)}]]), runGroupWith(Q, F, mt, Ws)
+        if [{Vs} ; {Ws}] := partitionByKey(K, ([K ; E], Rest)) .
+    ceq runGroupWith(Q, F, ([K ; E], Vs), Ws) =
+        if Taken2 == mt then
+            (F [K ; [{snds(Taken1)}; {mt}]]), runGroupWith(Q, F, Rest1, Rest2)
+        else
+            (F [K ; [{snds(G1)}; {snds(G2)}]]), runGroupWith(Q, F, (G3, Rest1), (G4, Rest2))
+        fi
+
+        if [{Taken1} ; {Rest1}] := partitionByKey(K, ([K ; E], Vs)) /\
+           [{Taken2} ; {Rest2}] := partitionByKey(K, Ws) /\
+           [[{G1}; {G2}]; [{G3}; {G4}]] := groupSize(Taken1, Taken2) .
+
+    op map : -> Val .
     eq map = lambda 'params : * nonasset unit .
-        (let [ 'f ; 'xs ] := 'params
-        in groupWith(*,
+        (let [ 'f ; 'xs ] := 'params in groupWith(*,
                      lambda 'input : * nonasset unit .
                         (let [ 'k ; 'rest ] := 'input in
                         let [ 'left ; 'right ] := 'rest in
                         let [ 'head ] := 'left in
-                        ('f 'head)),
-                     label('xs),
-                     { mt })) .
+                        ('f 'head)), label('xs), {mt})) .
+
+    op unzipPair : -> Val .
+    eq unzipPair = lambda 'pair : * nonasset unit . let [ 'x ; 'y ] := 'pair in [ { 'x } ; { 'y } ] .
+
+    op unzip : -> Val .
+    eq unzip = lambda 'xs : * nonasset unit . sum(map [ unzipPair ; 'xs ]) .
 
     --- op splitWith : -> Expr .
     --- eq splitWith = (lambda 'params : * nonasset unit . let [ 'f ; 'xs ] := 'params in sum(
 
     rl [Copy]: copy(E) => E .
 
-    crl let [ X ; Y ] := E1 in E2 => E2[Left / X][Right / Y]
-        if E1 => [ Left ; Right ] .
-    crl let [ X ] := E1 in E2 => unpackSingleton(X, E, E2)
-        if E1 => E .
+    crl let [ X ; Y ] := V in E2 => E2[Left / X][Right / Y]
+        if V => [ Left ; Right ] .
+    crl let [ X ] := E1 in E2 => unpackSingleton(X, V, E2)
+        if E1 => V .
 
-    rl (lambda X : Tau . E1) E2 => E1[E2 / X] .
+    crl E1 E2 => E[V / X]
+        if E1 => (lambda X : Tau . E) /\
+           E2 => V .
 
-    crl { Vs, E1, Ws } => { Vs, E2, Ws }
-        if E1 => E2 /\ E2 =/= E1 .
+    crl { Vs, E1, Ws } => { Vs, V, Ws }
+        if E1 => V /\ V =/= E1 .
 
     rl { Vs, fail, Ws } => fail .
 
-    crl label(E1) => applyLabels(E2)
-        if E1 => E2 .
+    crl label(E1) => { applyLabels(0, Vs) }
+        if E1 => { Vs } .
 
     crl try { E1 } catch { E2 } => if E1 == fail then E2 else E fi
         if E1 => E .
 
-    crl sum(E1) => calculateSum(E2)
-        if E1 => E2 .
+    crl sum(E1) => calculateSum(Vs)
+        if E1 => { Vs } .
 
     crl assert E1 is Q in E2 =>
         if compatQuant(Q, E) then
@@ -222,7 +263,12 @@ mod STREAMS is
 
         if E1 => E .
 
-    --- TODO: sub, groupWith
+    crl groupWith(Q, F, E1, E2) => { runGroupWith(Q, (lambda X : Tau . E), Vs, Ws) }
+        if F => (lambda X : Tau . E) /\
+           E1 => { Vs } /\
+           E2 => { Ws } .
+
+    --- TODO: sub
 endm
 
 red [ { zero, zero } ; { zero, zero } ] .
@@ -244,5 +290,7 @@ rew try { fail } catch { {zero, zero} } .
 
 rew sum({ { zero }, { zero, zero } }) .
 
-rew map [ zero ; zero ] .
+rew groupWith(*, (lambda 'pair : * nonasset unit . 'pair), label({zero}), label({zero})) .
+
+rew unzip label({ { zero }, { zero, zero }}) .
 
