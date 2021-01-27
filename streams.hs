@@ -152,30 +152,28 @@ runLocator vals (Locator f) =
     let (taggedRet, sel) = f (zip ([0..] :: [Integer]) vals) $ \taggedVals -> ([], map snd taggedVals)
     in (map snd taggedRet, sel)
 
-runDestination :: [a] -> Locator a b -> ([a], [b])
-runDestination vals (Locator f) =
-    let (taggedRet, sel) = f (zip ([0..] :: [Integer]) vals) $ \taggedVals -> (taggedVals, [])
-    in (map snd taggedRet, sel)
-
 (|>) :: Locator a b -> Locator b c -> Locator a c
 (Locator f) |> (Locator g) = Locator $ \vals k ->
     f vals $ \taggedVals -> g taggedVals $ \finalVals -> k finalVals
 
--- flow (fromNat 9, fromNat 0) (selectFst |> each (selectVals (fromNat 5))) selectSnd
--- flow :: a -> Locator a c -> Locator a c -> a
-flow state src@Locator{} dst@Locator{} =
-    let (newState, selected) = runLocator [state] src
-        ([finalState], []) = runDestination newState (dst |> combine selected)
-    in finalState
-
+-- runLocator [(fromNat 9, fromNat 0)] (flowLoc (selectFst |> each (selectVals (fromNat 4))) selectSnd)
+flowLoc :: Locator a b -> Locator a b -> Locator a a
+flowLoc (Locator f) (Locator g) = Locator $ \vals k ->
+    let (ret, sel) = f vals $ \taggedVals -> ([], map snd taggedVals)
+        (ret2, sel2) = g ret $ \takenVals ->
+            case takenVals of
+                [(k,v)] -> ([(k, v <> mconcat sel)], [])
+    in k ret2
 
 -- Some more "combinator-y" locators
-splitLoc :: Locator a b -> Locator a c -> Locator a (b,c)
-selectVals3 :: Locator (a,a) a
-filter :: Locator a a
+-- splitLoc :: Locator a b -> Locator a c -> Locator a b
+-- splitLoc (Locator f) (Locator g) = Locator $ \vals k ->
+--     let (ret, sel) = f vals $ \taggedVals -> _
+-- selectVals3 :: Locator (a,a) a
+-- filter :: Locator a a
 -- Others
-singleton :: Locator a [a]
-formList :: Locator (a,a) [a]
+-- singleton :: Locator a [a]
+-- formList :: Locator (a,a) [a]
 
 selectVals :: (Show a, Monoid a, Eq a) => [a] -> Locator a a
 selectVals toTake = Locator $ \vals f ->
@@ -245,13 +243,6 @@ preConstructList = Locator $ \vals f ->
         (ret, sel) = f $ label [indexed]
         grouped = groupWith (\idx xs ys -> (idx, (head ys, mconcat xs))) (mconcat $ map snd ret) keyIndexed
     in (map snd grouped, sel)
-
-combine :: (Show a, Monoid a) => [a] -> Locator a a
-combine vals = Locator $ \rest k ->
-    let (ret, sel) = k rest
-    in case ret of
-        [(k,v)] -> ([(k, v <> mconcat vals)], sel)
-        _ -> ([], mempty) -- TODO: REPLACE THIS WITH A FAILURE!
 
 selectList :: Eq a => [a] -> [a] -> ([a], [a])
 selectList xs ys = (xs \\ ys, ys \\ xs)
