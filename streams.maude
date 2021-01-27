@@ -1,11 +1,12 @@
 mod STREAMS is
     protecting NAT .
     protecting QID .
+    protecting CONVERSION .
 
-    sorts TyQuant Mode Ty BaseTy Expr Val .
+    sorts TyQuant Mode Ty BaseTy Expr Val Multiset .
     subsort Nat < TyQuant .
     subsort Val < Expr .
-    subsort Qid < Expr .
+    subsort Expr < Multiset .
 
     ops * oo : -> TyQuant [ctor] .
     ops asset nonasset : -> Mode [ctor] .
@@ -17,25 +18,44 @@ mod STREAMS is
     op _x_ : Ty Ty -> BaseTy [ctor] .
     op _->_ : Ty Ty -> BaseTy [ctor] .
 
-    op () : -> Val [ctor] .
-
-    op mt : -> Val [ctor] .
-    op _,_ : Val Val -> Val [ctor comm assoc id: mt] .
-
-    op [_;_] : Val Val -> Val [ctor] .
-
+    subsort Qid < Expr .
     op lambda_:_._ : Qid Ty Expr -> Val [ctor] .
 
-    op partition : TyQuant Expr Expr Expr -> Expr [ctor] .
+    op mt : -> Multiset [ctor] .
+    op _,_ : Multiset Multiset -> Multiset [ctor comm assoc id: mt] .
+    op {_} : Multiset -> Expr [ctor] .
+
+    op id(_) : Nat -> Val [ctor] .
+
+    op [_;_] : Val Val -> Val [ctor] .
+    op [_;_] : Expr Expr -> Expr [ctor] .
+
+    op __ : Expr Expr -> Expr [ctor] .
+
+    ops zero fail : -> Val [ctor] .
+    op sum : Expr -> Expr [ctor] .
+    op sub : Expr Expr -> Expr [ctor] .
+
     op let[_;_]:=_in_ : Qid Qid Expr Expr -> Expr [ctor] .
+    op let[_]:=_in_ : Qid Expr Expr -> Expr [ctor] .
+
+    op try{_}catch{_} : Expr Expr -> Expr [ctor] .
+
+    op assert_is_in_ : Expr TyQuant Expr -> Expr [ctor] .
+    op groupWith : TyQuant Expr Expr Expr -> Expr [ctor] .
+    op label : Expr -> Expr [ctor] .
+
     op copy : Expr -> Expr [ctor] .
-    op group : Expr Expr -> Expr [ctor] .
 
     vars Q R Q1 Q2 : TyQuant .
-    vars X Y Z : Qid .
+    vars X Y Z A B : Qid .
     vars T S T1 T2 : BaseTy .
     vars Tau Sigma Pi : Ty .
     vars M : Mode .
+    vars V W V1 V2 : Val .
+    vars E F E1 E2 E3 Left Right : Expr .
+    vars Vs Ws : Multiset .
+    vars N N1 I J K : Nat .
 
     op demote : Ty -> Ty .
     eq demote(Q M T) = Q nonasset demoteBase(T) .
@@ -46,11 +66,183 @@ mod STREAMS is
     eq demoteBase(Tau x Sigma) = demote(Tau) x demote(Sigma) .
     eq demoteBase(Tau -> Sigma) = demote(Tau) -> demote(Sigma) .
 
+    op _in_ : Qid Multiset -> Bool .
+    eq X in (X, Vs) = true .
+    eq X in Vs = false [owise] .
+
+    op freshVar : Val -> Qid .
+    eq freshVar(V) = freshVar(0, V) .
+    op freshVar : Nat Multiset -> Qid .
+    eq freshVar(N, V) =
+        if qid(string(N, 10)) in V then
+            freshVar(N + 1, V)
+        else
+            qid(string(N, 10))
+        fi .
+
+    op varsOf : Expr -> Multiset .
+    op varsOf : Multiset -> Multiset .
+    eq varsOf(X) = X .
+    eq varsOf(lambda X : Tau . E1) = X, varsOf(E1) .
+    eq varsOf(mt) = mt .
+    eq varsOf(E1 E2) = varsOf(E1), varsOf(E2) .
+    eq varsOf(E1, E2) = varsOf(E1), varsOf(E2) .
+    eq varsOf({ E }) = varsOf(E) .
+    eq varsOf([E1 ; E2]) = varsOf(E2), varsOf(E2) .
+    eq varsOf(zero) = mt .
+    eq varsOf(fail) = mt .
+    eq varsOf(sum(E)) = varsOf(E) .
+    eq varsOf(sub(E1, E2)) = varsOf(E1), varsOf(E2) .
+    eq varsOf(let [ X ; Y ] := E1 in E2) = X, Y, varsOf(E1), varsOf(E2) .
+    eq varsOf(let [ X ] := E1 in E2) = X, varsOf(E1), varsOf(E2) .
+    eq varsOf(try { E1 } catch { E2 }) = varsOf(E1), varsOf(E2) .
+    eq varsOf(assert E1 is Q in E2) = varsOf(E1), varsOf(E2) .
+    eq varsOf(groupWith(Q, F, E1, E2)) = varsOf(F), varsOf(E1), varsOf(E2) .
+    eq varsOf(label(E)) = varsOf(E) .
+    eq varsOf(copy(E)) = varsOf(E) .
+
+    op _[_/_] : Expr Expr Qid -> Expr .
+    op _[_/_] : Multiset Expr Qid -> Multiset .
+    eq X[E / Y] = if X == Y then E else X fi .
+    ceq (lambda X : Tau . E1)[E / Y] = lambda X : Tau . (E1[E / Y])
+        if not (X in Y, varsOf(E)) .
+    ceq (lambda X : Tau . E1)[E / Y] = (lambda Z : Tau . (E1[Z / X]))[E / Y]
+        if (X in Y, varsOf(E)) /\
+            Z := freshVar(varsOf(E1), X, Y, varsOf(E)) .
+    eq zero[E / Y] = zero .
+    eq fail[E / Y] = fail .
+    eq mt[E / Y] = mt .
+    eq (E1, E2)[E / Y] = (E1[E / Y]), (E2[E / Y]) .
+    eq [E1 ; E2][E / Y] = [E1[E / Y] ; E2[E / Y] ] .
+    eq (E1 E2)[E / Y] = (E1[E / Y]) (E2[E / Y]) .
+    eq { Vs }[E / Y] = { Vs[E / Y] } .
+    eq sum(E1)[E / Y] = sum(E1[E / Y]) .
+    eq sub(E1, E2)[E / Y] = sub(E1[E / Y], E2[E / Y]) .
+    ceq (let [ X ; Y ] := E1 in E2)[E / Z] = let [ X ; Y ] := E1[E / Z] in (E2[E / Z])
+        if not(X in (Z, varsOf(E))) /\
+           not(Y in (Z, varsOf(E))) .
+    ceq (let [ X ; Y ] := E1 in E2)[E / Z] = (let [ A ; Y ] := E1[A / X] in (E2[A / X]))[E / Z]
+        if X in (Z, varsOf(E)) /\
+           A := freshVar(Z, varsOf(E), X, Y, varsOf(E1), varsOf(E2)) .
+    ceq (let [ X ; Y ] := E1 in E2)[E / Z] = (let [ X ; A ] := E1[A / Y] in (E2[A / Y]))[E / Z]
+        if not(X in Z, varsOf(E)) /\
+           Y in Z, varsOf(E) /\
+           A := freshVar(Z, varsOf(E), X, Y, varsOf(E1), varsOf(E2)) .
+
+    ceq (let [ X ] := E1 in E2)[E / Y] = let [ X ] := E1[E / Y] in (E2[E / Y])
+        if not(X in Y, varsOf(E)) .
+    ceq (let [ X ] := E1 in E2)[E / Y] = (let [ Z ] := E1[Z / X] in (E2[Z / X]))[E / Y]
+        if X in Y, varsOf(E) /\
+           Z := freshVar(X, Y, varsOf(E1), varsOf(E2), varsOf(E)) .
+
+    eq (try { E1 } catch { E2 })[E / Y] = try { E1[E / Y] } catch { E2[E / Y] } .
+    eq (assert E1 is Q in E2)[E / Y] = assert (E1[E / Y]) is Q in (E2[E / Y]) .
+
+    eq groupWith(Q, F, E1, E2)[E / Y] = groupWith(Q, F[E / Y], E1[E / Y], E2[E / Y]) .
+    eq label(E1)[E / Y] = label(E1[E / Y]) .
+    eq copy(E1)[E / Y] = copy(E1[E / Y]) .
+
+    op unpackSingleton : Qid Expr Expr -> Expr .
+    eq unpackSingleton(X, { E }, E2) = E2[E / X] .
+    eq unpackSingleton(X, E, E2) = fail [owise] .
+
+    op applyLabels : Expr -> Val .
+    eq applyLabels({ Vs }) = applyLabels(0, Vs) .
+    eq applyLabels(V) = fail [owise] .
+    op applyLabels : Nat Multiset -> Multiset .
+    eq applyLabels(N, mt) = mt .
+    eq applyLabels(N, (V, Vs)) = [ id(N) ; V ], applyLabels(N + 1, Vs) .
+
+    op _++_ : Expr Expr -> Expr [ comm assoc ] .
+    eq { Vs } ++ { Ws } = { Vs, Ws } .
+    eq zero ++ E = E .
+    eq fail ++ E = fail .
+
+    op calculateSum : Expr -> Expr .
+    eq calculateSum({ mt }) = zero .
+    eq calculateSum({ E, Vs }) = E ++ calculateSum({ Vs }) .
+    eq calculateSum(E) = fail [owise] .
+
+    op |_| : Expr -> Nat .
+    eq |{ mt }| = 0 .
+    eq |{ E, Vs }| = 1 + | { Vs } | .
+    eq | [ E1 ; E2 ] | = 1 .
+    eq | zero | = 0 .
+
+    op compatQuant : TyQuant Expr -> Bool .
+    eq compatQuant(*, E) = true .
+    eq compatQuant(N, E) = N == | E | .
+    eq compatQuant(oo, lambda X : Tau . E) = true .
+    eq compatQuant(Q, E) = false [owise] .
+
+    op map : -> Expr .
+    eq map = lambda 'params : * nonasset unit .
+        (let [ 'f ; 'xs ] := 'params
+        in groupWith(*,
+                     lambda 'input : * nonasset unit .
+                        (let [ 'k ; 'rest ] := 'input in
+                        let [ 'left ; 'right ] := 'rest in
+                        let [ 'head ] := 'left in
+                        ('f 'head)),
+                     label('xs),
+                     { mt })) .
+
+    --- op splitWith : -> Expr .
+    --- eq splitWith = (lambda 'params : * nonasset unit . let [ 'f ; 'xs ] := 'params in sum(
+
+    rl [Copy]: copy(E) => E .
+
+    crl let [ X ; Y ] := E1 in E2 => E2[Left / X][Right / Y]
+        if E1 => [ Left ; Right ] .
+    crl let [ X ] := E1 in E2 => unpackSingleton(X, E, E2)
+        if E1 => E .
+
+    rl (lambda X : Tau . E1) E2 => E1[E2 / X] .
+
+    crl { Vs, E1, Ws } => { Vs, E2, Ws }
+        if E1 => E2 /\ E2 =/= E1 .
+
+    rl { Vs, fail, Ws } => fail .
+
+    crl label(E1) => applyLabels(E2)
+        if E1 => E2 .
+
+    crl try { E1 } catch { E2 } => if E1 == fail then E2 else E fi
+        if E1 => E .
+
+    crl sum(E1) => calculateSum(E2)
+        if E1 => E2 .
+
+    crl assert E1 is Q in E2 =>
+        if compatQuant(Q, E) then
+            E2
+        else
+            fail
+        fi
+
+        if E1 => E .
+
+    --- TODO: sub, groupWith
 endm
 
-red [ (), (); (), () ] .
-red partition(*, lambda 'x : * nonasset multiset (1 asset (1 nonasset unit x 1 nonasset unit)) . 'x, mt, ()) .
-red let [ 'x ; 'y ] := [ (); () ] in () .
+red [ { zero, zero } ; { zero, zero } ] .
+red let [ 'x ; 'y ] := [ zero ; zero ] in zero .
 
 red demote(* asset multiset (1 asset multiset (oo asset (1 nonasset unit x 1 asset unit)))) .
+
+rew let [ 'x ; 'y ] := [ zero ; zero ] in 'x .
+
+rew let [ 'x ] := { zero } in 'x .
+rew let [ 'x ] := { zero, zero } in 'x .
+
+rew { (let [ 'x ] := { zero, zero } in 'x) , zero } .
+rew { (let [ 'x ] := { zero } in 'x) , zero } .
+
+rew label({ zero, zero, zero }) .
+
+rew try { fail } catch { {zero, zero} } .
+
+rew sum({ { zero }, { zero, zero } }) .
+
+rew map [ zero ; zero ] .
 

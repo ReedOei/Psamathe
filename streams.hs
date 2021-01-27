@@ -15,15 +15,6 @@ import Data.Ord
 
 import Debug.Trace
 
--- groupWith :: Eq k => (k -> [a] -> [b] -> (k, c)) -> [(k,a)] -> [(k,b)] -> ([(k,a)], [(k,b)], [(k,c)])
--- groupWith f [] ys = ([], ys, [])
--- groupWith f xs [] = (xs, [], [])
--- groupWith f ((k,a):xs) ys =
---     let (takenXs, leftXs) = partition ((== k) . fst) xs
---         (takenYs, leftYs) = partition ((== k) . fst) ys
---         (leftFst, leftSnd, transformed) = groupWith f leftXs leftYs
---     in (leftFst, leftSnd, f k (a : map snd takenXs) (map snd takenYs) : transformed)
-
 findKeyAndRemove :: Eq k => k -> [(k,a)] -> Maybe ((k,a), [(k,a)])
 findKeyAndRemove k [] = Nothing
 findKeyAndRemove k ((k',a):rest)
@@ -40,7 +31,7 @@ groupSize (x:xs) (y:ys) =
     let (takenXs, takenYs, leftXs, leftYs) = groupSize xs ys
     in (x : takenXs, y : takenYs, leftXs, leftYs)
 
-groupWith :: Eq k => (k -> [a] -> [b] -> (k, c)) -> [(k,a)] -> [(k,b)] -> [(k,c)]
+groupWith :: Eq k => (k -> [a] -> [b] -> c) -> [(k,a)] -> [(k,b)] -> [c]
 groupWith f [] [] = []
 groupWith f [] ((k,b):ys) =
     let (takenYs, rest) = partition ((== k) . fst) ys
@@ -50,20 +41,11 @@ groupWith f ((k,a):xs) ys =
         (takenYs, leftYs) = partition ((== k) . fst) ys
     in case takenYs of
         [] -> f k (a : map snd takenXs) [] : groupWith f leftXs leftYs
-        _ ->
-            let (takenXs', takenYs', leftXs', leftYs') = groupSize ((k,a) : takenXs) takenYs
-            in f k (map snd takenXs') (map snd takenYs') : groupWith f (leftXs' ++ leftXs) (leftYs' ++ leftYs)
+        _ -> let (takenXs', takenYs', leftXs', leftYs') = groupSize ((k,a) : takenXs) takenYs
+             in f k (map snd takenXs') (map snd takenYs') : groupWith f (leftXs' ++ leftXs) (leftYs' ++ leftYs)
 
 label :: [a] -> [(Sum Integer, a)]
-label = zip [0.. ]
-
--- TODO: Can remove this, replace by assertQuant(q), since we will already have try-catch
-ifEmpty :: [a] -> b -> b -> b
-ifEmpty [] e1 e2 = e1
-ifEmpty xs e1 e2 = e2
-
-fromNat :: Int -> [()]
-fromNat n = replicate n ()
+label = zip [0..]
 
 ---------------------------------------------------------
 --- These exist so that we can reduce how many auxiliary functions we need in the language
@@ -72,10 +54,20 @@ fromNat n = replicate n ()
 splitWith :: (Monoid b, Monoid c) => (a -> (b,c)) -> [a] -> (b, c)
 splitWith f xs = mconcat $ map f xs
 
+myMap :: Eq a => (a -> b) -> [a] -> [b]
+myMap f xs = groupWith (\k a b -> f (head a)) (label xs) []
+
+ifEmpty :: [a] -> b -> b -> b
+ifEmpty [] e1 e2 = e1
+ifEmpty xs e1 e2 = e2
+
 headOr x xs = ifEmpty xs x (head xs)
 ---------------------------------------------------------
 --- End
 ---------------------------------------------------------
+
+fromNat :: Int -> [()]
+fromNat n = replicate n ()
 
 data Val = Nat Integer | Boolean Bool | Multiset [Val] | Empty | Pair (Val, Val)
     deriving (Show, Eq)
@@ -176,8 +168,15 @@ flow state src@Locator{} dst@Locator{} =
         ([finalState], []) = runDestination newState (dst |> combine selected)
     in finalState
 
--- test :: [Locator a b] -> Locator [a] [b]
---
+
+-- Some more "combinator-y" locators
+splitLoc :: Locator a b -> Locator a c -> Locator a (b,c)
+selectVals3 :: Locator (a,a) a
+filter :: Locator a a
+-- Others
+singleton :: Locator a [a]
+formList :: Locator (a,a) [a]
+
 selectVals :: (Show a, Monoid a, Eq a) => [a] -> Locator a a
 selectVals toTake = Locator $ \vals f ->
     let temp = groupWith (\k xs ys -> (k, ifEmpty xs [] ys)) (map (,()) toTake) $ map (\(k,a) -> (a,k)) vals
