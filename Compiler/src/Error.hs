@@ -32,13 +32,13 @@ instance Show (XType phase) => PrettyPrint (Error phase) where
     prettyPrint (LookupError (LookupErrorTypeDecl (TransformerDecl tx _ _ _))) = ["LookupError: expected type but got transformer" ++ show tx]
 
 -- dummy values that are returned as proxies when errors are encountered
-dummyBaseType :: BaseType Parsed
+dummyBaseType :: BaseType Typechecked
 dummyBaseType = Bot
 
-dummyType :: QuantifiedType Parsed
+dummyType :: QuantifiedType Typechecked
 dummyType = (Any, Bot)
 
-dummyDecl :: Decl Parsed
+dummyDecl :: Decl Typechecked
 dummyDecl = TypeDecl "unknownDecl__" [] dummyBaseType
 
 dummySolExpr :: SolExpr
