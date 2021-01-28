@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Compiler where
 
@@ -31,7 +31,7 @@ import AST
 import Env
 import Error
 
-freshVar :: State Env Locator
+freshVar :: State Env (Locator Typechecked)
 freshVar = Var <$> freshName
 
 allocateNew :: SolType -> State Env (SolExpr, [SolStmt])
@@ -46,13 +46,13 @@ allocateNew t = do
 
     pure (SolCall (FieldAccess (SolVar allocator) "push") [], [])
 
-buildExpr :: Locator -> State Env SolExpr
+buildExpr :: Locator Typechecked -> State Env SolExpr
 buildExpr (Var s) = pure $ SolVar s
 buildExpr l = do
-    addError $ SyntaxError ("Unsupported locator: " ++ show l)
+    addCompilerError $ SyntaxError ("Unsupported locator: " ++ show l)
     pure dummySolExpr
 
-compileProg :: Program -> State Env Contract
+compileProg :: Program Typechecked -> State Env Contract
 compileProg (Program decls mainBody) = do
     mapM_ compileDecl decls
     stmts <- concat <$> mapM compileStmt mainBody
@@ -61,7 +61,7 @@ compileProg (Program decls mainBody) = do
     let allocatorDecls = [ FieldDef (SolVarDecl (SolArray t) x) | (t,x) <- allocators ]
     pure $ Contract "0.7.5" "C" $ allocatorDecls ++ compiledDecls ++ [Constructor [] stmts]
 
-compileDecl :: Decl -> State Env ()
+compileDecl :: Decl Typechecked -> State Env ()
 compileDecl decl@(TypeDecl name _ baseT) = do
     modify $ over declarations $ Map.insert name decl
     defineStruct name baseT
@@ -72,21 +72,21 @@ compileDecl decl@(TransformerDecl name args ret body) = do
     solArgs <- concat <$> mapM toSolArg args
     rets <- toSolArg ret
 
-    modify $ over typeEnv $ Map.union $ Map.fromList [ (x, t) | (x,(_,t)) <- ret : args ]
+    modify $ over typeEnv $ Map.union $ Map.fromList [ (x, t) | VarDef x (_,t) <- ret : args ]
     bodyStmts <- concat <$> mapM compileStmt body
     modify $ set typeEnv Map.empty
 
     modify $ over solDecls $ Map.insert name (Function name solArgs Internal rets bodyStmts)
 
-defineStruct :: String -> BaseType -> State Env ()
+defineStruct :: String -> BaseType Typechecked -> State Env ()
 defineStruct name Nat = pure ()
 defineStruct name PsaBool = pure ()
 defineStruct name PsaString = pure ()
 defineStruct name Address = pure ()
 defineStruct name (Record _ fields) = do
-    newStruct <- Struct name . (SolVarDecl (SolTypeName "bool") "initialized":) <$> mapM (\(x,(_,t)) -> SolVarDecl <$> toSolType t <*> pure x) fields
+    newStruct <- Struct name . (SolVarDecl (SolTypeName "bool") "initialized":) <$> mapM (\(VarDef x (_,t)) -> SolVarDecl <$> toSolType t <*> pure x) fields
     modify $ over solDecls $ Map.insert name newStruct
-defineStruct name ty@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valTy)) ])) = do
+defineStruct name ty@(Table ["key"] (One, Record ["key"] [ VarDef "key" (_,keyTy), VarDef "value" (_,valTy) ])) = do
     solKeyTy <- toSolType keyTy
     solValTy <- toSolType valTy
     let newStruct = Struct name [
@@ -96,9 +96,9 @@ defineStruct name ty@(Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), (
                     ]
     modify $ over solDecls $ Map.insert name newStruct
 defineStruct name t = do
-    addError $ TypeError "Cannot create struct for" t
+    addCompilerError $ TypeError "Cannot create struct for" t
 
-compileStmt :: Stmt -> State Env [SolStmt]
+compileStmt :: Stmt Typechecked -> State Env [SolStmt]
 compileStmt (Flow src dst) = do
     (srcLoc, srcComp) <- locate src
     (dstLoc, dstComp) <- locate dst
@@ -161,10 +161,10 @@ makeConstructor t = do
         -- First argument is the "initialized" field
         TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) $ SolBool True : args
         TypeDecl _ _ t -> do
-            addError $ TypeError "Cannot make constructor for" t
+            addCompilerError $ TypeError "Cannot make constructor for" t
             pure $ \_ -> dummySolExpr
         tx@TransformerDecl{} -> do
-            addError $ SyntaxError ("Cannot make constructor for transformer" ++ show tx)
+            addCompilerError $ SyntaxError ("Cannot make constructor for transformer" ++ show tx)
             pure $ \_ -> dummySolExpr
 
 makeClosureArgs :: [String] -> State Env [SolVarDecl]
@@ -187,7 +187,7 @@ makePackClosureBlock vars = concat <$> mapM go vars
     where
         go x = pure [ SolAssign (SolVar (x ++ "_out")) (SolVar x) ]
 
-locate :: Locator -> State Env (Locator, [SolStmt])
+locate :: Locator Typechecked -> State Env (Locator Typechecked, [SolStmt])
 locate (NewVar x t) = do
     modify $ over typeEnv $ Map.insert x t
     defs <- defineVar x t
@@ -203,13 +203,13 @@ locate (RecordLit keys members) = do
           [ SolAssign (FieldAccess (SolVar newRecord) "initialized") (SolBool True) ]
           ++ defs ++ initStmts)
     where
-        locateMember newRecord ((x, (_, t)), l) =
+        locateMember newRecord (VarDef x (_, t), l) =
             lookupValue l $ \lTy orig src ->
                 receiveExpr t orig src (FieldAccess (SolVar newRecord) x)
 
 locate l = pure (l, [])
 
-lookupValue :: Locator -> (BaseType -> SolExpr -> SolExpr -> State Env [SolStmt]) -> State Env [SolStmt]
+lookupValue :: Locator Typechecked -> (BaseType Typechecked-> SolExpr -> SolExpr -> State Env [SolStmt]) -> State Env [SolStmt]
 lookupValue (IntConst i) f = f Nat (SolInt i) (SolInt i)
 lookupValue (BoolConst b) f = f PsaBool (SolBool b) (SolBool b)
 lookupValue (StrConst s) f = f PsaString (SolStr s) (SolStr s)
@@ -243,7 +243,7 @@ lookupValue (Select l k) f = do
         lTyIsFungible <- isFungible lTy
 
         case demotedLTy of
-            Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ])
+            Table ["key"] (One, Record ["key"] [ VarDef "key" (_,keyTy), VarDef "value" (_,valueTy) ])
                 | kTy == keyTy -> lookupValue k $ \_ origK valK -> do
                 body <- f valueTy (SolIdx (FieldAccess origL "underlying_map") valK) (SolIdx (FieldAccess valL "underlying_map") valK)
                 pure $ Require (SolIdx (FieldAccess origL "keyset") valK) (SolStr "KEY_NOT_FOUND") : body
@@ -272,7 +272,7 @@ lookupValue (Select l k) f = do
                         pure [ If (SolEq valL valK) body ]
 
                     _ -> do
-                        addError $ UnimplementedError "lookupValue Select" (show kTy)
+                        addCompilerError $ UnimplementedError "lookupValue Select" (show kTy)
                         pure []
 
 lookupValue (Filter l q predName args) f = do
@@ -296,14 +296,14 @@ lookupValue (Filter l q predName args) f = do
         checkCounter Nonempty counter = SolLte (SolInt 1) counter
 
 lookupValue l _ = do
-    addError $ UnimplementedError "lookupValue" (show l)
+    addCompilerError $ UnimplementedError "lookupValue" (show l)
     pure []
 
-lookupValues :: [Locator] -> ([SolExpr] -> State Env [SolStmt]) -> State Env [SolStmt]
+lookupValues :: [Locator Typechecked] -> ([SolExpr] -> State Env [SolStmt]) -> State Env [SolStmt]
 lookupValues [] f = f []
 lookupValues (l:ls) f = lookupValue l $ \lTy origL srcL -> lookupValues ls $ \rest -> f (srcL:rest)
 
-sendExpr :: BaseType -> SolExpr -> (BaseType -> SolExpr -> SolExpr -> State Env [SolStmt]) -> State Env [SolStmt]
+sendExpr :: BaseType Typechecked -> SolExpr -> (BaseType Typechecked -> SolExpr -> SolExpr -> State Env [SolStmt]) -> State Env [SolStmt]
 sendExpr Nat e f = f Nat e e
 sendExpr PsaBool e f  = f PsaBool e e
 sendExpr PsaString e f = f PsaString e e
@@ -321,8 +321,8 @@ sendExpr (Table [] (_,t)) e f = do
                body ]
 
 -- TODO: How to tell whether we are selecting by key or filtering the whole map?
-sendExpr (Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ])) e f =
-    f (Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ])) e e
+sendExpr (Table ["key"] (One, Record ["key"] [ VarDef "key" keyTy, VarDef "value" valueTy ])) e f =
+    f (Table ["key"] (One, Record ["key"] [ VarDef "key" keyTy, VarDef "value" valueTy ])) e e
     -- Table ["key"] (One, Record ["key"] [ ("key", keyTy), ("value", valueTy) ]) -> do
     --     idxVarName <- freshName
     --     let idxVar = SolVar idxVarName
@@ -343,11 +343,11 @@ sendExpr (Named t) e f = f (Named t) e e
 sendExpr (Record keys fields) e f = f (Record keys fields) e e
 
 sendExpr t e f = do
-    addError $ UnimplementedError "lookupValue Var" (show t)
+    addCompilerError $ UnimplementedError "lookupValue Var" (show t)
     pure []
 
 
-receiveValue :: BaseType -> SolExpr -> SolExpr -> Locator -> State Env [SolStmt]
+receiveValue :: BaseType Typechecked -> SolExpr -> SolExpr -> Locator Typechecked -> State Env [SolStmt]
 receiveValue _ orig src (Var x) = do
     t <- typeOf x
     receiveExpr t orig src (SolVar x)
@@ -368,10 +368,10 @@ receiveValue t orig src Consume = do
         _ -> pure [Delete orig]
 
 receiveValue _ orig src dst = do
-    addError $ FlowError ("Cannot recieve values in destination" ++ show dst)
+    addCompilerError $ FlowError ("Cannot recieve values in destination" ++ show dst)
     pure []
 
-receiveExpr :: BaseType -> SolExpr -> SolExpr -> SolExpr -> State Env [SolStmt]
+receiveExpr :: BaseType Typechecked -> SolExpr -> SolExpr -> SolExpr -> State Env [SolStmt]
 receiveExpr t orig src dst = do
     demotedT <- demoteBaseType t
     tIsFungible <- isFungible t
@@ -403,7 +403,7 @@ receiveExpr t orig src dst = do
                                             [ SolAssign dst src ]
                                             [ Delete orig ]
 
-            Table ["key"] (One, Record ["key"] [ ("key", (_,keyTy)), ("value", (_,valueTy)) ]) ->
+            Table ["key"] (One, Record ["key"] [ VarDef "key" (_,keyTy), VarDef "value" (_,valueTy) ]) ->
                 pure ([ SolAssign (SolIdx (FieldAccess dst "underlying_map") (FieldAccess src "key"))
                                   (FieldAccess src "value"),
                         SolAssign (SolIdx (FieldAccess dst "keyset") (FieldAccess src "key")) (SolBool True),
@@ -411,7 +411,7 @@ receiveExpr t orig src dst = do
                       [ Delete orig ])
 
             _ -> do
-                addError $ FlowError ("receiveExpr not implemented for: " ++ show demotedT)
+                addCompilerError $ FlowError ("receiveExpr not implemented for: " ++ show demotedT)
                 pure ([], [])
 
     pure $ if isPrimitiveExpr orig then main else main ++ cleanup
@@ -425,7 +425,7 @@ receiveExpr t orig src dst = do
             | src /= dst = (assign, cleanup)
             | otherwise = ([], [])
 
-dataLocFor :: BaseType -> State Env (Maybe DataLoc)
+dataLocFor :: BaseType Typechecked -> State Env (Maybe DataLoc)
 dataLocFor t = do
     demotedT <- demoteBaseType t
     useStorage <- inStorage t
@@ -436,14 +436,14 @@ dataLocFor t = do
     else
         pure $ Just Memory
 
-declareWithLoc :: String -> BaseType -> Maybe DataLoc -> State Env [SolVarDecl]
+declareWithLoc :: String -> BaseType Typechecked -> Maybe DataLoc -> State Env [SolVarDecl]
 declareWithLoc x t Nothing = pure <$> (SolVarDecl <$> toSolType t <*> pure x)
 declareWithLoc x t (Just loc) = pure <$> (SolVarLocDecl <$> toSolType t <*> pure loc <*> pure x)
 
-declareVar :: String -> BaseType -> State Env [SolVarDecl]
+declareVar :: String -> BaseType Typechecked -> State Env [SolVarDecl]
 declareVar x t = declareWithLoc x t =<< dataLocFor t
 
-defineVar :: String -> BaseType -> State Env [SolStmt]
+defineVar :: String -> BaseType Typechecked -> State Env [SolStmt]
 defineVar x t = do
     loc <- dataLocFor t
     case loc of
@@ -455,9 +455,9 @@ defineVar x t = do
 
         _ -> map SolVarDef <$> declareVar x t
 
-toSolArg :: VarDef -> State Env [SolVarDecl]
+toSolArg :: VarDef Typechecked -> State Env [SolVarDecl]
 -- TODO: May need to generate multiple var decls per vardef b/c of Solidity (numerous) shortcomings regarding structs
-toSolArg (x,(_,t)) = declareVar x t
+toSolArg (VarDef x (_,t)) = declareVar x t
 
 varDeclType :: SolVarDecl -> SolType
 varDeclType (SolVarDecl t _) = t
@@ -470,31 +470,31 @@ isPrimitiveExpr (SolStr _) = True
 isPrimitiveExpr (SolAddr _) = True
 isPrimitiveExpr _ = False
 
-isPrimitive :: BaseType -> Bool
+isPrimitive :: BaseType Typechecked -> Bool
 isPrimitive Nat = True
 isPrimitive PsaBool = True
 isPrimitive PsaString = True
 isPrimitive Address = True
 isPrimitive _ = False
 
-isFungible :: BaseType -> State Env Bool
+isFungible :: BaseType Typechecked -> State Env Bool
 isFungible Nat = pure True
 isFungible (Named t) = (Fungible `elem`) <$> modifiers t
 -- TODO: Update this for later, because tables should be fungible too?
 isFungible _ = pure False
 
-isAsset :: BaseType -> State Env Bool
+isAsset :: BaseType Typechecked -> State Env Bool
 isAsset (Named t) = do
     decl <- lookupTypeDecl t
     case decl of
         TypeDecl _ ms baseT -> do
             baseAsset <- isAsset baseT
             pure $ Asset `elem` ms || baseAsset
-isAsset (Record _ fields) = or <$> mapM (\(_,(_,t)) -> isAsset t) fields
+isAsset (Record _ fields) = or <$> mapM (\(VarDef _ (_,t)) -> isAsset t) fields
 isAsset (Table _ (_,t)) = isAsset t
 isAsset _ = pure False
 
-toSolType :: BaseType -> State Env SolType
+toSolType :: BaseType Typechecked -> State Env SolType
 toSolType Nat = pure $ SolTypeName "uint"
 toSolType PsaBool = pure $ SolTypeName "bool"
 toSolType PsaString = pure $ SolTypeName "string"
@@ -513,7 +513,7 @@ toSolType (Named t) = do
     else
         pure $ SolTypeName t
 
-encodeBaseType :: BaseType -> String
+encodeBaseType :: BaseType Typechecked -> String
 encodeBaseType Nat = "nat"
 encodeBaseType PsaBool = "bool"
 encodeBaseType PsaString = "string"
@@ -523,12 +523,12 @@ encodeBaseType (Table keys (q,t)) =
 encodeBaseType (Record keys fields) =
     "record__" ++ intercalate "_" keys ++ "__" ++ intercalate "_" (map go fields)
     where
-        go (x,(q,t)) = x ++ "_" ++ show q ++ "_" ++ encodeBaseType t
+        go (VarDef x (q,t)) = x ++ "_" ++ show q ++ "_" ++ encodeBaseType t
 encodeBaseType (Named t) = t
 
-inStorage :: BaseType -> State Env Bool
+inStorage :: BaseType Typechecked -> State Env Bool
 inStorage (Table _ _) = pure True
-inStorage (Record _ fields) = or <$> mapM (\(_,(_,t)) -> inStorage t) fields
+inStorage (Record _ fields) = or <$> mapM (\(VarDef _ (_,t)) -> inStorage t) fields
 inStorage (Named t) = do
     typeDecl <- lookupTypeDecl t
     case typeDecl of
