@@ -1,3 +1,6 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module Typechecker where
 
 import Control.Lens
@@ -6,17 +9,17 @@ import Control.Monad.State
 import AST
 import Env
 
--- TODO: Probably want to have multiple AST types for better type safety
-typecheck :: Program -> State Env Program
+instance ProgramTransform Preprocessed Typechecked where
+    transformXType = transformQuantifiedType
+
+typecheck :: Program Preprocessed -> State Env (Program Typechecked)
 typecheck prog@(Program decls stmts) = do
-    -- NOTE: May need to transform program
-    mapM_ checkDecl decls
-    mapM_ checkStmt stmts
-    pure prog
+    checkedDecls <- mapM checkDecl decls
+    checkedStmts <- mapM checkStmt stmts
+    pure $ Program checkedDecls checkedStmts
 
-checkDecl :: Decl -> State Env ()
-checkDecl d = pure ()
+checkDecl :: Decl Preprocessed -> State Env (Decl Typechecked)
+checkDecl decl = pure $ transformDecl decl
 
-checkStmt :: Stmt -> State Env ()
-checkStmt s = pure ()
-
+checkStmt :: Stmt Preprocessed -> State Env (Stmt Typechecked)
+checkStmt (Flow src dst) = pure $ Flow (transformLocator src) (transformLocator dst)
