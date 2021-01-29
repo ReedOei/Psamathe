@@ -1,5 +1,8 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Env where
 
@@ -20,6 +23,8 @@ data Env phase = Env { _freshCounter       :: Integer,
                        _preprocessorErrors :: [Error Parsed],
                        _typecheckerErrors  :: [Error Preprocessed],
                        _compilerErrors     :: [Error Typechecked] }
+deriving instance Eq (XType phase) => Eq (Env phase)
+deriving instance Show (XType phase) => Show (Env phase)
 makeLenses ''Env
 
 newEnv = Env { _freshCounter = 0,
@@ -78,7 +83,7 @@ typeOf x = do
             pure dummyBaseType
         Just t -> pure t
 
-typeOfLoc :: Locator Typechecked -> State (Env phase) (BaseType phase)
+typeOfLoc :: Locator phase -> State (Env phase) (BaseType phase)
 -- typeOfLoc (IntConst _) = pure Nat
 -- typeOfLoc (BoolConst _) = pure PsaBool
 -- typeOfLoc (StrConst _) = pure PsaString
@@ -98,7 +103,7 @@ typeOfLoc (Field l x) = do
     lTy <- typeOfLoc l
     lookupField lTy x
 
-lookupField :: BaseType Typechecked -> String -> State (Env phase) (BaseType phase)
+lookupField :: BaseType phase -> String -> State (Env phase) (BaseType phase)
 lookupField t@(Record key fields) x =
     case [ t | (VarDef y (_,t)) <- fields, x == y ] of
         [] -> do
@@ -110,7 +115,7 @@ lookupField (Named t) x = do
     case decl of
         TypeDecl _ _ baseT -> lookupField baseT x
 
-keyTypes :: BaseType Typechecked -> State (Env phase) [BaseType phase]
+keyTypes :: BaseType phase -> State (Env phase) [BaseType phase]
 keyTypes Nat = pure [Nat]
 keyTypes PsaBool = pure [PsaBool]
 keyTypes PsaString = pure [PsaString]

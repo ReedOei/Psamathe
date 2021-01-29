@@ -13,16 +13,16 @@ import Transform
 instance ProgramTransform Preprocessed Typechecked where
     transformXType = transformQuantifiedType
 
-typecheck :: Program Preprocessed -> State (Env Preprocessed) (Program Typechecked)
+typecheck :: Program Preprocessed -> State (Env Typechecked) (Program Typechecked)
 typecheck prog@(Program decls stmts) = do
     checkedDecls <- mapM checkDecl decls
     checkedStmts <- mapM checkStmt stmts
     pure $ Program checkedDecls checkedStmts
 
-checkDecl :: Decl Preprocessed -> State (Env Preprocessed) (Decl Typechecked)
+checkDecl :: Decl Preprocessed -> State (Env Typechecked) (Decl Typechecked)
 checkDecl = transformDecl
 
-checkStmt :: Stmt Preprocessed -> State (Env Preprocessed) (Stmt Typechecked)
+checkStmt :: Stmt Preprocessed -> State (Env Typechecked) (Stmt Typechecked)
 checkStmt (Flow src dst) = do
     transformedSource <- transformLocator src
     transformedDest <- transformLocator dst

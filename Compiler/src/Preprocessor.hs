@@ -148,7 +148,6 @@ expandCond (BinOp OpIn a b) = do
     qt <- transformXType (Infer tyA)
     transformedA <- transformLocator a
     transformedB <- transformLocator b
-    --- TODO: Once we have type quantity inference, we can replace Any here with something more specific. Regardless, this should always be safe.
     pure [ Flow (Select transformedB (Multiset qt [transformedA])) transformedB ]
 
 expandCond (BinOp OpNe a b) = do
