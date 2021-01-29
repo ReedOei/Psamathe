@@ -11,11 +11,17 @@ import qualified Data.Map as Map
 import AST
 import Env
 import Error
+import Transform
 
 instance ProgramTransform Parsed Preprocessed where
     transformXType (Complete qt) = transformQuantifiedType qt
- -- TODO: Proper type quantity inference (placeholder for now)
-    transformXType (Infer baseT) = (Any, transformBaseType baseT)
+    transformXType (Infer baseT) = do
+        transformedBaseT <- transformBaseType baseT
+        tIsFungible <- isFungible transformedBaseT
+        if tIsFungible then
+            pure (Any, transformedBaseT)
+        else
+            pure (One, transformedBaseT)
 
 preprocess :: Program Parsed -> State Env (Program Preprocessed)
 preprocess (Program decls stmts) = do

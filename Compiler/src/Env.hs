@@ -64,6 +64,12 @@ modifiers typeName = do
     case decl of
         TypeDecl _ mods _ -> pure mods
 
+isFungible :: BaseType phase -> State Env Bool
+isFungible Nat = pure True
+isFungible (Named t) = (Fungible `elem`) <$> modifiers t
+-- TODO: Update this for later, because tables should be fungible too?
+isFungible _ = pure False
+
 typeOf :: String -> State Env (BaseType Typechecked)
 typeOf x = do
     maybeT <- Map.lookup x . view typeEnv <$> get

@@ -477,12 +477,6 @@ isPrimitive PsaString = True
 isPrimitive Address = True
 isPrimitive _ = False
 
-isFungible :: BaseType Typechecked -> State Env Bool
-isFungible Nat = pure True
-isFungible (Named t) = (Fungible `elem`) <$> modifiers t
--- TODO: Update this for later, because tables should be fungible too?
-isFungible _ = pure False
-
 isAsset :: BaseType Typechecked -> State Env Bool
 isAsset (Named t) = do
     decl <- lookupTypeDecl t
