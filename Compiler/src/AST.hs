@@ -5,7 +5,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -158,58 +157,6 @@ deriving instance Show (XType phase) => Show (Precondition phase)
 deriving instance Show (XType phase) => Show (Stmt phase)
 deriving instance Show (XType phase) => Show (Decl phase)
 deriving instance Show (XType phase) => Show (Program phase)
-
--- AST transforms
-class ProgramTransform a b where
-    transformXType :: XType a -> XType b
-
-transformBaseType :: forall a b. ProgramTransform a b => BaseType a -> BaseType b
-transformBaseType Nat = Nat
-transformBaseType PsaBool = PsaBool
-transformBaseType PsaString = PsaString
-transformBaseType Address = Address
-transformBaseType (Record keys fields) = Record keys (map transformVarDef fields)
-transformBaseType (Table keys t) = Table keys (transformXType @a @b t)
-transformBaseType (Named name) = Named name
-transformBaseType Bot = Bot
-
-transformQuantifiedType :: forall a b. ProgramTransform a b => QuantifiedType a -> QuantifiedType b
-transformQuantifiedType (q, t) = (q, transformBaseType t)
-
-transformVarDef :: forall a b. ProgramTransform a b => VarDef a -> VarDef b
-transformVarDef (VarDef name t) = VarDef name (transformXType @a @b t)
-
-transformLocator :: forall a b. ProgramTransform a b => Locator a -> Locator b
-transformLocator (IntConst i) = IntConst i
-transformLocator (StrConst s) = StrConst s
-transformLocator (AddrConst addr) = AddrConst addr
-transformLocator (Var var) = Var var
-transformLocator (Field l name) = Field (transformLocator l) name
-transformLocator (Multiset t locators) = Multiset (transformXType @a @b t) (map transformLocator locators)
-transformLocator (NewVar name baseT) = NewVar name (transformBaseType baseT)
-transformLocator (Filter l q predName args) = Filter (transformLocator l) q predName (map transformLocator args)
-transformLocator (Select l k) = Select (transformLocator l) (transformLocator k)
-
-transformTransformer :: ProgramTransform a b => Transformer a -> Transformer b
-transformTransformer (Construct name args) = Construct name (map transformLocator args)
-transformTransformer (Call name args) = Call name (map transformLocator args)
-
-transformPrecondition :: ProgramTransform a b => Precondition a -> Precondition b
-transformPrecondition (Conj conds) = Conj (map transformPrecondition conds)
-transformPrecondition (Disj conds) = Disj (map transformPrecondition conds)
-transformPrecondition (BinOp op a b) = BinOp op (transformLocator a) (transformLocator b)
-transformPrecondition (NegateCond cond) = NegateCond (transformPrecondition cond)
-
-transformStmt :: ProgramTransform a b => Stmt a -> Stmt b
-transformStmt (Flow src dst) = Flow (transformLocator src) (transformLocator dst)
-transformStmt (FlowTransform src transformer dst) = FlowTransform (transformLocator src) (transformTransformer transformer) (transformLocator dst)
-transformStmt (OnlyWhen precondition) = OnlyWhen (transformPrecondition precondition)
-transformStmt Revert = Revert
-transformStmt (Try checkC1 checkCs) = Try (map transformStmt checkC1) (map transformStmt checkCs)
-
-transformDecl :: ProgramTransform a b => Decl a -> Decl b
-transformDecl (TypeDecl s modifiers baseT) = TypeDecl s modifiers (transformBaseType baseT)
-transformDecl (TransformerDecl name args ret body) = TransformerDecl name (map transformVarDef args) (transformVarDef ret) (map transformStmt body)
 
 -- PrettyPrint definitions for all the AST types
 class PrettyPrint a where
