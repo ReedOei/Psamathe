@@ -12,15 +12,14 @@ import qualified Data.Map as Map
 import AST
 import Error
 
-data Env = Env { _freshCounter       :: Integer,
-                 _typeEnv            :: Map String (BaseType Typechecked),
-                 _declarations       :: Map String (Decl Typechecked),
-                 _solDecls           :: Map String SolDecl,
-                 _allocators         :: Map SolType String,
-                 _preprocessorErrors :: [Error Parsed],
-                 _typecheckerErrors  :: [Error Preprocessed],
-                 _compilerErrors     :: [Error Typechecked] }
-    deriving (Show, Eq)
+data Env phase = Env { _freshCounter       :: Integer,
+                       _typeEnv            :: Map String (BaseType phase),
+                       _declarations       :: Map String (Decl phase),
+                       _solDecls           :: Map String SolDecl,
+                       _allocators         :: Map SolType String,
+                       _preprocessorErrors :: [Error Parsed],
+                       _typecheckerErrors  :: [Error Preprocessed],
+                       _compilerErrors     :: [Error Typechecked] }
 makeLenses ''Env
 
 newEnv = Env { _freshCounter = 0,
@@ -32,21 +31,21 @@ newEnv = Env { _freshCounter = 0,
                _typecheckerErrors = [],
                _compilerErrors = [] }
 
-freshName :: State Env String
+freshName :: State (Env phase) String
 freshName = do
     i <- freshCounter <<+= 1
     pure $ "v" ++ show i
 
-addPreprocessorError :: Error Parsed -> State Env ()
+addPreprocessorError :: Error Parsed -> State (Env Parsed) ()
 addPreprocessorError e = modify $ over preprocessorErrors (e:)
 
-addTypecheckerError :: Error Preprocessed -> State Env ()
+addTypecheckerError :: Error Preprocessed -> State (Env Preprocessed) ()
 addTypecheckerError e = modify $ over typecheckerErrors (e:)
 
-addCompilerError :: Error Typechecked -> State Env ()
+addCompilerError :: Error Typechecked -> State (Env Typechecked) ()
 addCompilerError e = modify $ over compilerErrors (e:)
 
-lookupTypeDecl :: String -> State Env (Decl Typechecked)
+lookupTypeDecl :: String -> State (Env phase) (Decl phase)
 lookupTypeDecl typeName = do
     decl <- Map.lookup typeName . view declarations <$> get
     case decl of
@@ -58,19 +57,19 @@ lookupTypeDecl typeName = do
             pure dummyDecl
         Just tdec@TypeDecl{} -> pure tdec
 
-modifiers :: String -> State Env [Modifier]
+modifiers :: String -> State (Env phase) [Modifier]
 modifiers typeName = do
     decl <- lookupTypeDecl typeName
     case decl of
         TypeDecl _ mods _ -> pure mods
 
-isFungible :: BaseType phase -> State Env Bool
+isFungible :: BaseType phase -> State (Env phase) Bool
 isFungible Nat = pure True
 isFungible (Named t) = (Fungible `elem`) <$> modifiers t
 -- TODO: Update this for later, because tables should be fungible too?
 isFungible _ = pure False
 
-typeOf :: String -> State Env (BaseType Typechecked)
+typeOf :: String -> State (Env phase) (BaseType phase)
 typeOf x = do
     maybeT <- Map.lookup x . view typeEnv <$> get
     case maybeT of
@@ -79,27 +78,27 @@ typeOf x = do
             pure dummyBaseType
         Just t -> pure t
 
-typeOfLoc :: Locator Typechecked -> State Env (BaseType Typechecked)
-typeOfLoc (IntConst _) = pure Nat
-typeOfLoc (BoolConst _) = pure PsaBool
-typeOfLoc (StrConst _) = pure PsaString
-typeOfLoc (AddrConst _) = pure Address
-typeOfLoc (Var x) = typeOf x
-typeOfLoc (Multiset t _) = pure $ Table [] t
-typeOfLoc (Select l k) = do
-    lTy <- typeOfLoc l
-    kTy <- typeOfLoc k
-    keyTypesL <- keyTypes lTy
+typeOfLoc :: Locator Typechecked -> State (Env phase) (BaseType phase)
+-- typeOfLoc (IntConst _) = pure Nat
+-- typeOfLoc (BoolConst _) = pure PsaBool
+-- typeOfLoc (StrConst _) = pure PsaString
+-- typeOfLoc (AddrConst _) = pure Address
+-- typeOfLoc (Var x) = typeOf x
+-- typeOfLoc (Multiset t _) = pure $ Table [] t
+-- typeOfLoc (Select l k) = do
+--     lTy <- typeOfLoc l
+--     kTy <- typeOfLoc k
+--     keyTypesL <- keyTypes lTy
+--     if kTy `elem` keyTypesL then
+--         pure $ valueType lTy
+--     else
+--         pure lTy
 
-    if kTy `elem` keyTypesL then
-        pure $ valueType lTy
-    else
-        pure lTy
 typeOfLoc (Field l x) = do
     lTy <- typeOfLoc l
     lookupField lTy x
 
-lookupField :: BaseType Typechecked -> String -> State Env (BaseType Typechecked)
+lookupField :: BaseType Typechecked -> String -> State (Env phase) (BaseType phase)
 lookupField t@(Record key fields) x =
     case [ t | (VarDef y (_,t)) <- fields, x == y ] of
         [] -> do
@@ -111,7 +110,7 @@ lookupField (Named t) x = do
     case decl of
         TypeDecl _ _ baseT -> lookupField baseT x
 
-keyTypes :: BaseType Typechecked -> State Env [BaseType Typechecked]
+keyTypes :: BaseType Typechecked -> State (Env phase) [BaseType phase]
 keyTypes Nat = pure [Nat]
 keyTypes PsaBool = pure [PsaBool]
 keyTypes PsaString = pure [PsaString]
@@ -136,7 +135,7 @@ valueType (Record keys fields) =
         [ VarDef _ (_,t) ] -> t
         fields -> Record [] fields
 
-demoteBaseType :: BaseType Typechecked -> State Env (BaseType Typechecked)
+demoteBaseType :: BaseType Typechecked -> State (Env Typechecked) (BaseType Typechecked)
 demoteBaseType Nat = pure Nat
 demoteBaseType PsaBool = pure PsaBool
 demoteBaseType PsaString = pure PsaString
@@ -149,6 +148,6 @@ demoteBaseType (Named t) = do
         TypeDecl _ _ baseT -> demoteBaseType baseT
 demoteBaseType Bot = pure Bot
 
-demoteType :: QuantifiedType Typechecked -> State Env (QuantifiedType Typechecked)
+demoteType :: QuantifiedType Typechecked -> State (Env Typechecked) (QuantifiedType Typechecked)
 demoteType (q, t) = (q,) <$> demoteBaseType t
 

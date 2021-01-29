@@ -23,14 +23,14 @@ instance ProgramTransform Parsed Preprocessed where
         else
             pure (One, transformedBaseT)
 
-preprocess :: Program Parsed -> State Env (Program Preprocessed)
+preprocess :: Program Parsed -> State (Env Preprocessed) (Program Preprocessed)
 preprocess (Program decls stmts) = do
     newProg <- Program <$> (concat <$> mapM preprocessDecl decls)
                        <*> (concat <$> mapM preprocessStmt stmts)
     modify $ set typeEnv Map.empty
     pure newProg
 
-preprocessDecl :: Decl Parsed-> State Env [Decl Preprocessed]
+preprocessDecl :: Decl Parsed -> State (Env Preprocessed) [Decl Preprocessed]
 preprocessDecl (TransformerDecl name args ret body) = do
     newBody <- concat <$> mapM preprocessStmt body
     modify $ set typeEnv Map.empty
@@ -43,7 +43,7 @@ preprocessDecl d = do
     pure [transformedDecl]
 
 -- TODO: Might need to make this more flexible, in case we need to generate declarations or something
-preprocessStmt :: Stmt Parsed -> State Env [Stmt Preprocessed]
+preprocessStmt :: Stmt Parsed -> State (Env Preprocessed) [Stmt Preprocessed]
 preprocessStmt (OnlyWhen cond) = preprocessCond cond
 preprocessStmt s@(Flow _ dst) = do
     declareVars dst
@@ -59,14 +59,14 @@ preprocessStmt s = do
     transformedStmt <- transformStmt s
     pure [transformedStmt]
 
-declareVars :: Locator Parsed -> State Env ()
+declareVars :: Locator Parsed -> State (Env Preprocessed) ()
 declareVars (NewVar x baseT) = do
     transformedBaseT <- transformBaseType baseT
     modify $ over typeEnv $ Map.insert x transformedBaseT
 
 declareVars _ = pure ()
 
-preprocessCond :: Precondition Parsed -> State Env [Stmt Preprocessed]
+preprocessCond :: Precondition Parsed -> State (Env Preprocessed) [Stmt Preprocessed]
 preprocessCond (Conj conds) = concat <$> mapM preprocessCond conds
 preprocessCond (Disj []) = pure []
 preprocessCond (Disj [cond]) = preprocessCond cond
@@ -87,7 +87,7 @@ preprocessCond (BinOp op a b) = do
     res <- expandCond $ BinOp op newA newB
     pure $ newAllocA ++ newAllocB ++ res
 
-expandNegate :: Precondition Parsed -> State Env (Precondition Parsed)
+expandNegate :: Precondition Parsed -> State (Env Preprocessed) (Precondition Parsed)
 expandNegate (BinOp OpEq a b) = pure (BinOp OpNe a b)
 expandNegate (BinOp OpNe a b) = pure (BinOp OpEq a b)
 expandNegate (BinOp OpLt a b) = pure (BinOp OpGe a b)
@@ -104,9 +104,9 @@ expandNegate (Disj conds) = do
     expandedConds <- mapM expandNegate conds
     pure $ Conj expandedConds
 
-expandNegate (NegateCond cond) = transformPrecondition cond
+expandNegate (NegateCond cond) = pure cond
 
-allocateVar :: Locator Parsed -> State Env ([Stmt Parsed], Locator Parsed)
+allocateVar :: Locator Parsed -> State (Env Preprocessed) ([Stmt Parsed], Locator Parsed)
 allocateVar (IntConst n) = do
     x <- freshName
     pure ([ Flow (IntConst n) (NewVar x Nat) ], Var x)
@@ -121,7 +121,7 @@ allocateVar l@(Multiset elemT elems) = do
 
 allocateVar l = pure ([], l)
 
-expandCond :: Precondition Parsed -> State Env [Stmt Preprocessed]
+expandCond :: Precondition Parsed -> State (Env Preprocessed) [Stmt Preprocessed]
 -- TODO: We need to be able to write things like "x + 1" in locators for this to work out nicely (alternatively, we could compile things like:
 -- only when a <= b
 -- into
@@ -159,7 +159,7 @@ expandCond (BinOp OpLe a b) = do
     transformedA <- transformLocator a
     transformedB <- transformLocator b
     pure [ Flow (Select transformedB transformedA) transformedB ]
-    
+
 expandCond (BinOp OpGe a b) = expandCond (BinOp OpLt b a)
 expandCond (BinOp OpNotIn a b) = do
     failure <- expandCond (BinOp OpIn a b)

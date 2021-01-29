@@ -16,9 +16,9 @@ import Env
 
 -- AST transforms
 class ProgramTransform a b where
-    transformXType :: XType a -> State Env (XType b)
+    transformXType :: XType a -> State (Env b) (XType b)
 
-transformBaseType :: forall a b. ProgramTransform a b => BaseType a -> State Env (BaseType b)
+transformBaseType :: forall a b. ProgramTransform a b => BaseType a -> State (Env b) (BaseType b)
 transformBaseType Nat = pure Nat
 transformBaseType PsaBool = pure PsaBool
 transformBaseType PsaString = pure PsaString
@@ -34,17 +34,17 @@ transformBaseType (Table keys t) = do
     transformedT <- transformXType @a @b t
     pure $ Table keys transformedT
 
-transformQuantifiedType :: forall a b. ProgramTransform a b => QuantifiedType a -> State Env (QuantifiedType b)
+transformQuantifiedType :: forall a b. ProgramTransform a b => QuantifiedType a -> State (Env b) (QuantifiedType b)
 transformQuantifiedType (q, t) = do
     transformedT <- transformBaseType t
     pure (q, transformedT)
 
-transformVarDef :: forall a b. ProgramTransform a b => VarDef a -> State Env (VarDef b)
+transformVarDef :: forall a b. ProgramTransform a b => VarDef a -> State (Env b) (VarDef b)
 transformVarDef (VarDef name t) = do
     transformedT <- transformXType @a @b t
     pure $ VarDef name transformedT
 
-transformLocator :: forall a b. ProgramTransform a b => Locator a -> State Env (Locator b)
+transformLocator :: forall a b. ProgramTransform a b => Locator a -> State (Env b) (Locator b)
 transformLocator (IntConst i) = pure $ IntConst i
 transformLocator (StrConst s) = pure $ StrConst s
 transformLocator (AddrConst addr) = pure $ AddrConst addr
@@ -72,7 +72,7 @@ transformLocator (Select l k) = do
     transformedK <- transformLocator k
     pure $ Select transformedL transformedK
 
-transformTransformer :: ProgramTransform a b => Transformer a -> State Env (Transformer b)
+transformTransformer :: ProgramTransform a b => Transformer a -> State (Env b) (Transformer b)
 transformTransformer (Construct name args) = do
     transformedArgs <- mapM transformLocator args
     pure $ Construct name transformedArgs
@@ -81,7 +81,7 @@ transformTransformer (Call name args) = do
     transformedArgs <- mapM transformLocator args
     pure $ Call name transformedArgs
 
-transformPrecondition :: ProgramTransform a b => Precondition a -> State Env (Precondition b)
+transformPrecondition :: ProgramTransform a b => Precondition a -> State (Env b) (Precondition b)
 transformPrecondition (Conj conds) = do
     transformedConds <- mapM transformPrecondition conds
     pure $ Conj transformedConds
@@ -99,7 +99,7 @@ transformPrecondition (NegateCond cond) = do
     transformedCond <- transformPrecondition cond
     pure $ NegateCond transformedCond
 
-transformStmt :: ProgramTransform a b => Stmt a -> State Env (Stmt b)
+transformStmt :: ProgramTransform a b => Stmt a -> State (Env b) (Stmt b)
 transformStmt (Flow src dst) = do
     transformedSrc <- transformLocator src
     transformedDst <- transformLocator dst
@@ -122,7 +122,7 @@ transformStmt (Try checkC1 checkCs) = do
 
 transformStmt Revert = pure Revert
 
-transformDecl :: ProgramTransform a b => Decl a -> State Env (Decl b)
+transformDecl :: ProgramTransform a b => Decl a -> State (Env b) (Decl b)
 transformDecl (TypeDecl s modifiers baseT) = do
     transformedBaseT <- transformBaseType baseT
     pure $ TypeDecl s modifiers transformedBaseT
