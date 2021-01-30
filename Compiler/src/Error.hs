@@ -1,5 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Error where
@@ -14,6 +17,23 @@ data Error phase = FlowError String
            | LookupError (LookupErrorCat phase)
 
 data LookupErrorCat phase = LookupErrorVar String | LookupErrorType String | LookupErrorTypeDecl (Decl phase)
+
+data ErrorCat = PreprocessorError (Error Parsed)
+              | TypecheckerError (Error Preprocessed)
+              | CompilerError (Error Typechecked)
+    deriving (Eq, Show)
+
+class Errorable e where
+    toErrorCat :: e -> ErrorCat
+
+instance Errorable (Error Parsed) where
+    toErrorCat e = PreprocessorError e
+
+instance Errorable (Error Preprocessed) where
+    toErrorCat e = TypecheckerError e
+
+instance Errorable (Error Typechecked) where
+    toErrorCat e = CompilerError e
 
 deriving instance Eq (XType phase) => Eq (Error phase)
 deriving instance Eq (XType phase) => Eq (LookupErrorCat phase)
@@ -32,14 +52,14 @@ instance Show (XType phase) => PrettyPrint (Error phase) where
     prettyPrint (LookupError (LookupErrorTypeDecl (TransformerDecl tx _ _ _))) = ["LookupError: expected type but got transformer" ++ show tx]
 
 -- dummy values that are returned as proxies when errors are encountered
-dummyBaseType :: BaseType Typechecked
-dummyBaseType = Bot
+dummyBaseType :: Phase p => BaseType p
+dummyBaseType  = Bot
 
 dummyType :: QuantifiedType Typechecked
 dummyType = (Any, Bot)
 
-dummyDecl :: Decl Typechecked
-dummyDecl = TypeDecl "unknownDecl__" [] dummyBaseType
+dummyDecl :: forall p. Phase p => Decl p
+dummyDecl = TypeDecl "unknownDecl__" [] (dummyBaseType @p)
 
 dummySolExpr :: SolExpr
 dummySolExpr = SolVar "unknownExpr__"

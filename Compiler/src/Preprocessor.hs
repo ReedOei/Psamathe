@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Preprocessor where
@@ -13,15 +14,20 @@ import Env
 import Error
 import Transform
 
+inferQuant :: BaseType Preprocessed -> State (Env Preprocessed) TyQuant
+inferQuant baseT = do
+    tIsFungible <- isFungible baseT
+    if tIsFungible then
+        pure Any
+    else
+        pure One
+
 instance ProgramTransform Parsed Preprocessed where
     transformXType (Complete qt) = transformQuantifiedType qt
     transformXType (Infer baseT) = do
         transformedBaseT <- transformBaseType baseT
-        tIsFungible <- isFungible transformedBaseT
-        if tIsFungible then
-            pure (Any, transformedBaseT)
-        else
-            pure (One, transformedBaseT)
+        tq <- inferQuant transformedBaseT
+        pure (tq, transformedBaseT)
 
 preprocess :: Program Parsed -> State (Env Preprocessed) (Program Preprocessed)
 preprocess (Program decls stmts) = do
@@ -130,11 +136,11 @@ expandCond :: Precondition Parsed -> State (Env Preprocessed) [Stmt Preprocessed
 -- temp --> b
 -- But that's kind of annoying, and requires type information)
 expandCond cond@(BinOp OpLt a b) = do
-    addPreprocessorError $ UnimplementedError "only when" $ show cond
+    addError $ UnimplementedError @Parsed "only when" $ show cond
     pure []
 
 expandCond cond@(BinOp OpGt a b) = do
-    addPreprocessorError $ UnimplementedError "only when" $ show cond
+    addError $ UnimplementedError @Parsed "only when" $ show cond
     pure []
 
 expandCond (BinOp OpEq a b) = do
@@ -144,11 +150,11 @@ expandCond (BinOp OpEq a b) = do
            Flow (Select transformedB transformedA) transformedB ]
 
 expandCond (BinOp OpIn a b) = do
-    tyA <- typeOfLoc a
-    qt <- transformXType (Infer tyA)
     transformedA <- transformLocator a
     transformedB <- transformLocator b
-    pure [ Flow (Select transformedB (Multiset qt [transformedA])) transformedB ]
+    tyA <- typeOfLoc transformedA
+    qt <- inferQuant tyA
+    pure [ Flow (Select transformedB (Multiset (qt, tyA) [transformedA])) transformedB ]
 
 expandCond (BinOp OpNe a b) = do
     failure <- expandCond (BinOp OpEq a b)

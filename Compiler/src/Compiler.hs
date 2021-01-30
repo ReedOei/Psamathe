@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Compiler where
@@ -49,7 +50,7 @@ allocateNew t = do
 buildExpr :: Locator Typechecked -> State (Env Typechecked) SolExpr
 buildExpr (Var s) = pure $ SolVar s
 buildExpr l = do
-    addCompilerError $ SyntaxError ("Unsupported locator: " ++ show l)
+    addError $ SyntaxError @Typechecked ("Unsupported locator: " ++ show l)
     pure dummySolExpr
 
 compileProg :: Program Typechecked -> State (Env Typechecked) Contract
@@ -96,7 +97,7 @@ defineStruct name ty@(Table ["key"] (One, Record ["key"] [ VarDef "key" (_,keyTy
                     ]
     modify $ over solDecls $ Map.insert name newStruct
 defineStruct name t = do
-    addCompilerError $ TypeError "Cannot create struct for" t
+    addError $ TypeError "Cannot create struct for" t
 
 compileStmt :: Stmt Typechecked -> State (Env Typechecked) [SolStmt]
 compileStmt (Flow src dst) = do
@@ -161,10 +162,10 @@ makeConstructor t = do
         -- First argument is the "initialized" field
         TypeDecl _ _ (Record _ _) -> pure $ \args -> SolCall (SolVar t) $ SolBool True : args
         TypeDecl _ _ t -> do
-            addCompilerError $ TypeError "Cannot make constructor for" t
+            addError $ TypeError "Cannot make constructor for" t
             pure $ \_ -> dummySolExpr
         tx@TransformerDecl{} -> do
-            addCompilerError $ SyntaxError ("Cannot make constructor for transformer" ++ show tx)
+            addError $ SyntaxError @Typechecked ("Cannot make constructor for transformer" ++ show tx)
             pure $ \_ -> dummySolExpr
 
 makeClosureArgs :: [String] -> State (Env Typechecked) [SolVarDecl]
@@ -272,7 +273,7 @@ lookupValue (Select l k) f = do
                         pure [ If (SolEq valL valK) body ]
 
                     _ -> do
-                        addCompilerError $ UnimplementedError "lookupValue Select" (show kTy)
+                        addError $ UnimplementedError @Typechecked "lookupValue Select" (show kTy)
                         pure []
 
 lookupValue (Filter l q predName args) f = do
@@ -296,7 +297,7 @@ lookupValue (Filter l q predName args) f = do
         checkCounter Nonempty counter = SolLte (SolInt 1) counter
 
 lookupValue l _ = do
-    addCompilerError $ UnimplementedError "lookupValue" (show l)
+    addError $ UnimplementedError @Typechecked "lookupValue" (show l)
     pure []
 
 lookupValues :: [Locator Typechecked] -> ([SolExpr] -> State (Env Typechecked) [SolStmt]) -> State (Env Typechecked) [SolStmt]
@@ -343,7 +344,7 @@ sendExpr (Named t) e f = f (Named t) e e
 sendExpr (Record keys fields) e f = f (Record keys fields) e e
 
 sendExpr t e f = do
-    addCompilerError $ UnimplementedError "lookupValue Var" (show t)
+    addError $ UnimplementedError @Typechecked "lookupValue Var" (show t)
     pure []
 
 
@@ -368,7 +369,7 @@ receiveValue t orig src Consume = do
         _ -> pure [Delete orig]
 
 receiveValue _ orig src dst = do
-    addCompilerError $ FlowError ("Cannot recieve values in destination" ++ show dst)
+    addError $ FlowError @Typechecked ("Cannot recieve values in destination" ++ show dst)
     pure []
 
 receiveExpr :: BaseType Typechecked -> SolExpr -> SolExpr -> SolExpr -> State (Env Typechecked) [SolStmt]
@@ -411,7 +412,7 @@ receiveExpr t orig src dst = do
                       [ Delete orig ])
 
             _ -> do
-                addCompilerError $ FlowError ("receiveExpr not implemented for: " ++ show demotedT)
+                addError $ FlowError @Typechecked ("receiveExpr not implemented for: " ++ show demotedT)
                 pure ([], [])
 
     pure $ if isPrimitiveExpr orig then main else main ++ cleanup

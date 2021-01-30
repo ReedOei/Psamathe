@@ -16,11 +16,32 @@ import Data.Char (toLower)
 import Data.List (intercalate)
 
 -- Compiler phases
+class Phase p where
+    extractBaseType :: XType p -> BaseType p
+    replaceBaseType :: XType p -> BaseType p -> XType p
+
 data Parsed
 data Preprocessed
 data Typechecked
 data Compiled
 
+instance Phase Parsed where
+    extractBaseType (Complete (q, t)) = t
+    extractBaseType (Infer t) = t
+    replaceBaseType (Complete (q, _)) t = Complete (q, t)
+    replaceBaseType (Infer _) t = Infer t
+
+instance Phase Preprocessed where
+    extractBaseType (q, t) = t
+    replaceBaseType (q, _) t = (q, t)
+
+instance Phase Typechecked where
+    extractBaseType (q, t) = t
+    replaceBaseType (q, _) t = (q, t)
+
+instance Phase Compiled where
+    extractBaseType (q, t) = t
+    replaceBaseType (q, _) t = (q, t)
 
 data Modifier = Fungible | Immutable | Consumable | Asset | Unique
     deriving (Show, Eq)

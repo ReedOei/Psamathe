@@ -1,7 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Env where
@@ -20,70 +24,60 @@ data Env phase = Env { _freshCounter       :: Integer,
                        _declarations       :: Map String (Decl phase),
                        _solDecls           :: Map String SolDecl,
                        _allocators         :: Map SolType String,
-                       _preprocessorErrors :: [Error Parsed],
-                       _typecheckerErrors  :: [Error Preprocessed],
-                       _compilerErrors     :: [Error Typechecked] }
+                       _errors :: [ErrorCat] }
 deriving instance Eq (XType phase) => Eq (Env phase)
 deriving instance Show (XType phase) => Show (Env phase)
 makeLenses ''Env
+
+addError :: (Errorable e, Phase p) => e -> State (Env p) ()
+addError e = modify $ over errors (toErrorCat e:)
 
 newEnv = Env { _freshCounter = 0,
                _typeEnv = Map.empty,
                _declarations = Map.empty,
                _solDecls = Map.empty,
                _allocators = Map.empty,
-               _preprocessorErrors = [],
-               _typecheckerErrors = [],
-               _compilerErrors = [] }
+               _errors = [] }
 
 freshName :: State (Env phase) String
 freshName = do
     i <- freshCounter <<+= 1
     pure $ "v" ++ show i
 
-addPreprocessorError :: Error Parsed -> State (Env Parsed) ()
-addPreprocessorError e = modify $ over preprocessorErrors (e:)
-
-addTypecheckerError :: Error Preprocessed -> State (Env Preprocessed) ()
-addTypecheckerError e = modify $ over typecheckerErrors (e:)
-
-addCompilerError :: Error Typechecked -> State (Env Typechecked) ()
-addCompilerError e = modify $ over compilerErrors (e:)
-
-lookupTypeDecl :: String -> State (Env phase) (Decl phase)
+lookupTypeDecl :: forall p. (Phase p, Errorable (Error p)) => String -> State (Env p) (Decl p)
 lookupTypeDecl typeName = do
     decl <- Map.lookup typeName . view declarations <$> get
     case decl of
         Nothing -> do
-            addCompilerError $ LookupError (LookupErrorType typeName)
+            addError $ LookupError (LookupErrorType @p typeName)
             pure dummyDecl
         Just tx@TransformerDecl{} -> do
-            addCompilerError $ LookupError (LookupErrorTypeDecl tx)
+            addError $ LookupError (LookupErrorTypeDecl tx)
             pure dummyDecl
         Just tdec@TypeDecl{} -> pure tdec
 
-modifiers :: String -> State (Env phase) [Modifier]
+modifiers :: (Phase p, Errorable (Error p)) => String -> State (Env p) [Modifier]
 modifiers typeName = do
     decl <- lookupTypeDecl typeName
     case decl of
         TypeDecl _ mods _ -> pure mods
 
-isFungible :: BaseType phase -> State (Env phase) Bool
+isFungible :: (Phase p, Errorable (Error p)) => BaseType p -> State (Env p) Bool
 isFungible Nat = pure True
-isFungible (Named t) = (Fungible `elem`) <$> modifiers t
+isFungible (Named t)  = (Fungible `elem`) <$> modifiers t
 -- TODO: Update this for later, because tables should be fungible too?
 isFungible _ = pure False
 
-typeOf :: String -> State (Env phase) (BaseType phase)
+typeOf :: forall p. (Phase p, Errorable (Error p)) => String -> State (Env p) (BaseType p)
 typeOf x = do
     maybeT <- Map.lookup x . view typeEnv <$> get
     case maybeT of
         Nothing -> do
-            addCompilerError $ LookupError (LookupErrorVar x)
+            addError $ LookupError @p (LookupErrorVar x)
             pure dummyBaseType
         Just t -> pure t
 
-typeOfLoc :: Locator phase -> State (Env phase) (BaseType phase)
+typeOfLoc :: (Phase p, Errorable (Error p)) => Locator p -> State (Env p) (BaseType p)
 -- typeOfLoc (IntConst _) = pure Nat
 -- typeOfLoc (BoolConst _) = pure PsaBool
 -- typeOfLoc (StrConst _) = pure PsaString
@@ -103,19 +97,20 @@ typeOfLoc (Field l x) = do
     lTy <- typeOfLoc l
     lookupField lTy x
 
-lookupField :: BaseType phase -> String -> State (Env phase) (BaseType phase)
+lookupField :: (Phase p, Errorable (Error p)) => BaseType p -> String -> State (Env p) (BaseType p)
 lookupField t@(Record key fields) x =
-    case [ t | (VarDef y (_,t)) <- fields, x == y ] of
+    case [ extractBaseType t | (VarDef y t) <- fields, x == y ] of
         [] -> do
-            addCompilerError $ FieldNotFoundError x t
+            addError $ FieldNotFoundError x t
             pure Bot
         (fieldTy:_) -> pure fieldTy
+
 lookupField (Named t) x = do
     decl <- lookupTypeDecl t
     case decl of
         TypeDecl _ _ baseT -> lookupField baseT x
 
-keyTypes :: BaseType phase -> State (Env phase) [BaseType phase]
+keyTypes :: forall p. (Phase p, Errorable (Error p)) => BaseType p -> State (Env p) [BaseType p]
 keyTypes Nat = pure [Nat]
 keyTypes PsaBool = pure [PsaBool]
 keyTypes PsaString = pure [PsaString]
@@ -123,9 +118,12 @@ keyTypes Address = pure [Address]
 keyTypes (Named t) = do
     demotedT <- demoteBaseType (Named t)
     pure [Named t, demotedT]
-keyTypes t@(Table ["key"] (One, Record ["key"] [ VarDef "key" (_,keyTy), VarDef "value" (_,valueTy) ])) = pure [t, keyTy]
+keyTypes table@(Table ["key"] t) = do
+    let (Record ["key"] [ VarDef "key" keyT, VarDef "value" _ ]) = extractBaseType @p t
+    pure [table, extractBaseType keyT]
+
 keyTypes (Table keys t) = pure [Table keys t]
-keyTypes (Record keys fields) = pure $ Record keys fields : [ t | (VarDef x (_,t)) <- fields, x `elem` keys ]
+keyTypes (Record keys fields) = pure $ Record keys fields : [ extractBaseType t | (VarDef x t) <- fields, x `elem` keys ]
 
 valueType :: BaseType Typechecked -> BaseType Typechecked
 valueType Nat = Nat
@@ -140,13 +138,21 @@ valueType (Record keys fields) =
         [ VarDef _ (_,t) ] -> t
         fields -> Record [] fields
 
-demoteBaseType :: BaseType Typechecked -> State (Env Typechecked) (BaseType Typechecked)
+demoteBaseType :: (Phase p, Errorable (Error p)) => BaseType p -> State (Env p) (BaseType p)
 demoteBaseType Nat = pure Nat
 demoteBaseType PsaBool = pure PsaBool
 demoteBaseType PsaString = pure PsaString
 demoteBaseType Address = pure Address
-demoteBaseType (Table keys (q, t)) = Table keys . (q,) <$> demoteBaseType t
-demoteBaseType (Record keys fields) = Record keys <$> mapM (\(VarDef x (q,t)) -> VarDef x . (q,) <$> demoteBaseType t) fields
+demoteBaseType (Table keys t) = do
+    demotedT <- demoteBaseType (extractBaseType t)
+    pure $ Table keys (replaceBaseType t demotedT)
+
+demoteBaseType (Record keys fields) = do
+    demotedFields <- mapM (\(VarDef x t) -> do
+        demotedT <- demoteBaseType (extractBaseType t)
+        pure $ VarDef x (replaceBaseType t demotedT)) fields
+    pure $ Record keys demotedFields
+
 demoteBaseType (Named t) = do
     decl <- lookupTypeDecl t
     case decl of
