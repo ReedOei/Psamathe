@@ -236,8 +236,8 @@ mod STREAMS is
     crl try { E1 } catch { E2 } => if E1 == fail then E2 else E fi
         if E1 => E .
 
-    crl sum(E1) => calculateSum(Vs)
-        if E1 => { Vs } .
+    crl sum(E1) => calculateSum(Vals:MultisetVal)
+        if E1 => { Vals:MultisetVal } .
 
     crl assert E1 is Q in E2 =>
         if compatQuant(Q, E) then
@@ -305,7 +305,7 @@ mod STREAMS is
                     let ['f ; 'g] := 'locs in
                     (lambda 'valsK : * nonasset unit .
                         let ['vals ; 'k] := 'valsK in
-                        ('f ['vals ; (lambda 'taggedVals : * nonasset unit . ('g ['taggedVals ; (lambda 'finalVals : * nonasset unit . ('k 'finalVals))]))])) .
+                        ('f ['vals ; (lambda 'taggedVals : * nonasset unit . ('g ['taggedVals ; 'k]))])) .
 
     op flow : -> Val .
     eq flow = lambda 'locs : * nonasset unit .
@@ -365,15 +365,15 @@ mod STREAMS is
 
     op dropIdx : -> Val .
     eq dropIdx = lambda 'params : * nonasset unit .
-                    let ['k ; 'idxVal] := 'params in
-                    let ['idx ; 'val] := 'idxVal in
-                    'val .
+                    let ['k ; 'idxVals] := 'params in
+                    ['k ; map [snd ; 'idxVals ]] .
 
     op each : -> Val .
     eq each = lambda 'f : * nonasset unit .
                 lambda 'listsG : * nonasset unit .
                     let ['lists ; 'g] := 'listsG in
                     let ['ret ; 'sel] := 'f [sum(map [distributeKeys ; 'lists]) ; eachK 'g ] in
+                    --- [map [dropIdx ; groupWith(*, groupByIdx, {mt}, map [unindexKey ; 'ret])] ; 'sel] .
                     [groupWith(*, sumSnds, {mt}, map [dropIdx ; groupWith(*, groupByIdx, {mt}, map [unindexKey ; 'ret])]); 'sel] .
 
     --- TODO: sub
@@ -413,11 +413,7 @@ rew selectFst [label({[{zero,zero} ; zero]}) ; takeAll] .
 rew (flow [selectFst ; selectSnd]) [label({[{zero,zero} ; zero]}); takeAll] .
 
 rew runLocator [{[id(4) ; zero], [id(5) ; zero], [id(6) ; zero]}; selectFst] .
+rew runLocator [{[[id(1) ; id(6)] ; id(2)]} ; compose [selectFst ; selectSnd]] .
 
---- show profile .
-
---- rew selectFst [label({[id(4) ; zero], [id(5) ; zero], [id(6) ; zero]}); takeAll] .
---- rew let ['vals ; 'loc] := [{[zero ; zero], [zero ; zero], [zero ; zero]}; selectFst] in
----     takeAll .
-
+rew runLocator [{{[id(4) ; zero], [id(5) ; zero]}, {[id(6) ; zero]}}; each selectFst] .
 
