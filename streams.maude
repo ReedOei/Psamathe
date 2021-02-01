@@ -16,6 +16,7 @@ mod STREAMS is
     op ___ : TyQuant Mode BaseTy -> Ty [ctor] .
 
     op unit : -> BaseTy [ctor] .
+    op iden : -> BaseTy [ctor] .
     op multiset_ : Ty -> BaseTy [ctor] .
     op _x_ : Ty Ty -> BaseTy [ctor] .
     op _->_ : Ty Ty -> BaseTy [ctor] .
@@ -40,8 +41,8 @@ mod STREAMS is
     op sum : Expr -> Expr [ctor frozen] .
     op sub : Expr Expr -> Expr [ctor frozen] .
 
-    op let[_;_]:=_in_ : Qid Qid Expr Expr -> Expr [ctor frozen] .
-    op let[_]:=_in_ : Qid Expr Expr -> Expr [ctor frozen] .
+    op let[_:_;_:_]:=_in_ : Qid Ty Qid Ty Expr Expr -> Expr [ctor frozen] .
+    op let[_:_]:=_in_ : Qid Ty Expr Expr -> Expr [ctor frozen] .
 
     op try{_}catch{_} : Expr Expr -> Expr [ctor frozen] .
 
@@ -49,11 +50,11 @@ mod STREAMS is
     op groupWith : TyQuant Expr Expr Expr -> Expr [ctor frozen] .
     ops copy label : Expr -> Expr [ctor frozen] .
 
-    vars Q R Q1 Q2 : TyQuant .
+    vars Q R Q1 Q2 Q3 Q4 : TyQuant .
     vars X Y Z A B : Qid .
     vars T S T1 T2 : BaseTy .
-    vars Tau Sigma Pi : Ty .
-    vars M : Mode .
+    vars Tau Sigma Pi Tau1 Tau2 Sigma1 Sigma2 : Ty .
+    vars M M1 M2 M3 M4 : Mode .
     vars V W V1 V2 Left Right : Val .
     vars E F E1 E2 E3 E4 : Expr .
     vars Vs Ws Taken1 Taken2 Rest Rest1 Rest2 : Multiset .
@@ -96,8 +97,8 @@ mod STREAMS is
     eq varsOf(id(N)) = mt .
     eq varsOf(sum(E)) = varsOf(E) .
     eq varsOf(sub(E1, E2)) = varsOf(E1), varsOf(E2) .
-    eq varsOf(let [ X ; Y ] := E1 in E2) = X, Y, varsOf(E1), varsOf(E2) .
-    eq varsOf(let [ X ] := E1 in E2) = X, varsOf(E1), varsOf(E2) .
+    eq varsOf(let [ X : Tau ; Y : Sigma ] := E1 in E2) = X, Y, varsOf(E1), varsOf(E2) .
+    eq varsOf(let [ X : Tau ] := E1 in E2) = X, varsOf(E1), varsOf(E2) .
     eq varsOf(try { E1 } catch { E2 }) = varsOf(E1), varsOf(E2) .
     eq varsOf(assert E1 is Q in E2) = varsOf(E1), varsOf(E2) .
     eq varsOf(groupWith(Q, F, E1, E2)) = varsOf(F), varsOf(E1), varsOf(E2) .
@@ -122,20 +123,20 @@ mod STREAMS is
     eq { E1, E2, Vs }[E / Y] = { (E1[E / Y]), (E2[E / Y]) } ++ ({ Vs }[E / Y]) .
     eq sum(E1)[E / Y] = sum(E1[E / Y]) .
     eq sub(E1, E2)[E / Y] = sub(E1[E / Y], E2[E / Y]) .
-    ceq (let [ X ; Y ] := E1 in E2)[E / Z] = let [ X ; Y ] := E1[E / Z] in (E2[E / Z])
+    ceq (let [ X : Tau ; Y : Sigma ] := E1 in E2)[E / Z] = let [ X : Tau ; Y : Sigma ] := E1[E / Z] in (E2[E / Z])
         if not(X elem (Z, varsOf(E))) /\
            not(Y elem (Z, varsOf(E))) .
-    ceq (let [ X ; Y ] := E1 in E2)[E / Z] = (let [ A ; Y ] := E1 in (E2[A / X]))[E / Z]
+    ceq (let [ X : Tau ; Y : Sigma ] := E1 in E2)[E / Z] = (let [ A : Tau ; Y : Sigma ] := E1 in (E2[A / X]))[E / Z]
         if X elem (Z, varsOf(E)) /\
            A := freshVar(Z, varsOf(E), X, Y, varsOf(E1), varsOf(E2)) .
-    ceq (let [ X ; Y ] := E1 in E2)[E / Z] = let [ X ; A ] := E1[E / Z] in (E2[A / Y][E / Z])
+    ceq (let [ X : Tau ; Y : Sigma ] := E1 in E2)[E / Z] = let [ X : Tau ; A : Sigma ] := E1[E / Z] in (E2[A / Y][E / Z])
         if not(X elem Z, varsOf(E)) /\
            Y elem Z, varsOf(E) /\
            A := freshVar(Z, varsOf(E), X, Y, varsOf(E1), varsOf(E2)) .
 
-    ceq (let [ X ] := E1 in E2)[E / Y] = let [ X ] := E1[E / Y] in (E2[E / Y])
+    ceq (let [ X : Tau ] := E1 in E2)[E / Y] = let [ X : Tau ] := E1[E / Y] in (E2[E / Y])
         if not(X elem Y, varsOf(E)) .
-    ceq (let [ X ] := E1 in E2)[E / Y] = let [ Z ] := E1 in (E2[Z / X][E / Y])
+    ceq (let [ X : Tau ] := E1 in E2)[E / Y] = let [ Z : Tau ] := E1 in (E2[Z / X][E / Y])
         if X elem Y, varsOf(E) /\
            Z := freshVar(X, Y, varsOf(E1), varsOf(E2), varsOf(E)) .
 
@@ -145,6 +146,171 @@ mod STREAMS is
     eq groupWith(Q, F, E1, E2)[E / Y] = groupWith(Q, F[E / Y], E1[E / Y], E2[E / Y]) .
     eq label(E1)[E / Y] = label(E1[E / Y]) .
     eq copy(E1)[E / Y] = copy(E1[E / Y]) .
+
+    sorts TyEnv TyRes TyCheck .
+    subsort TyEnv < TyCheck .
+    op nil : -> TyEnv [ctor] .
+    op _:_ : Qid Ty -> TyEnv [ctor] .
+    op _;_ : TyEnv TyEnv -> TyEnv [ctor comm assoc id: nil] .
+
+    op _|-_:_ : TyEnv Expr Ty -> TyCheck [frozen] .
+
+    vars Gamma Delta Xi Gamma1 Gamma2 : TyEnv .
+
+    rl Gamma |- id(N) : 1 nonasset iden => Gamma .
+    rl (Gamma ; X : Q M T) |- X : Q M T =>
+        if Q == oo then
+            (Gamma ; X : Q M T)
+        else
+            Gamma
+        fi .
+
+    crl Gamma |- copy(E) : Tau => Gamma
+        if Gamma |- E => Sigma -| Delta /\
+           Tau == demote(Sigma) .
+
+    op _@_ : TyQuant TyQuant -> TyQuant [comm assoc] .
+    eq 0 @ Q = Q .
+    eq * @ Q = * .
+    eq oo @ Q = oo .
+    eq N1 @ N2 = N1 + N2 .
+
+    rl Gamma |- {mt} : 0 M multiset Tau => Gamma .
+    crl Gamma |- {E, Rest} : Q M multiset Tau => Xi
+        if Gamma |- E : Tau => Delta /\
+           Delta |- {Rest} : | {Rest} | M multiset Tau => Xi /\
+            | {E, Rest} | <: Q .
+
+    op _<:_ : TyQuant TyQuant -> Bool .
+    eq Q <: * = true .
+    eq Q <: Q = true .
+
+    op _\/_ : Mode Mode -> Mode [comm assoc id: nonasset] .
+
+    crl Gamma |- [ E1 ; E2 ] : 1 M (Q1 M1 T1 x Q2 M2 T2) => Xi
+        if Gamma |- E1 : Q1 M1 T1 => Delta /\
+           Delta |- E2 : Q2 M2 T2 => Xi /\
+           M == M1 \/ M2 .
+
+    crl Gamma |- E1 E2 : Sigma => Xi
+        if Gamma |- E1 => Q M (Tau -> Sigma) -| Delta /\
+           Delta |- E2 : Tau => Xi .
+
+    --- TODO: Ensure T is a Resource type
+    rl Gamma |- zero : 0 M T => Gamma .
+
+    rl Gamma |- fail : Tau => Gamma .
+
+    --- TODO: We need to add a check for resources
+    crl Gamma |- sum(E) : Tau => Delta
+        if Gamma |- E : * asset multiset Tau => Delta .
+
+    crl Gamma |- sub(E1, E2) : Tau => Xi
+        if Gamma |- E1 : Tau => Delta /\
+           Delta |- E2 : Tau => Xi .
+
+    --- TODO: Need to make sure this is right...and that we can drop the resources.
+    crl Gamma |- (lambda X : Tau . E) : 1 asset (Tau -> Sigma) => Delta
+        if (Gamma ; X : Tau) |- E : Sigma => Delta .
+    crl Gamma |- (lambda X : Tau . E) : oo nonasset (Tau -> Sigma) => Gamma
+        if (X : Tau) |- E : Sigma => Delta .
+
+    op joinEnv : TyEnv TyEnv -> TyEnv [comm assoc id: nil] .
+    crl Gamma |- try { E1 } catch { E2 } : Tau => joinEnv(Delta, Xi)
+        if Gamma |- E1 : Tau => Delta /\
+           Gamma |- E2 : Tau => Xi .
+
+    crl Gamma |- label(E) : Q M multiset (1 M2 (1 nonasset iden x (Q2 M2 T))) => Delta
+        if Gamma |- E : Q M multiset (Q2 M2 T) => Delta .
+
+    crl (Gamma ; X : Q2 M T) |- assert X is Q in E : Tau => Delta
+        if (Gamma ; X : Q M T) |- E : Tau => Delta .
+
+    --- TODO: Need to drop the variables
+    crl Gamma |- let [ X : Tau ; Y : Sigma ] := E1 in E2 : Pi => Xi
+        if Gamma |- E1 : 1 asset (Tau x Sigma) => Delta /\
+           (Delta ; (X : Tau) ; (Y : Sigma)) |- E2 : Pi => Xi .
+
+    crl Gamma |- let [ X : Tau ] := E1 in E2 : Sigma => Xi
+        if Gamma |- E1 : * asset multiset Tau => Delta /\
+           (Delta ; X : Tau) |- E2 : Sigma => Xi .
+
+    crl Gamma |- groupWith(Q, F, E1, E2) : Q M (multiset (R M T)) => Gamma1
+        if Gamma |- groupWith(Q, F, E1, E2) => Q M (multiset (R M T)) -| Gamma1 .
+
+    --- ===================================
+    --- Algorithmic typing
+    --- ===================================
+    op _-|_ : Ty TyEnv -> TyRes [ctor frozen] .
+    op _|-_ : TyEnv Expr -> TyRes [frozen] .
+
+    rl Gamma |- id(N) => 1 nonasset iden -| Gamma .
+    rl (Gamma ; X : Q M T) |- X =>
+        if Q == oo then
+            (Q M T) -| (Gamma ; X : Q M T)
+        else
+            (Q M T) -| Gamma
+        fi .
+
+    crl Gamma |- copy(E) => demote(Tau) -| Gamma
+        if Gamma |- E => Tau -| Delta .
+
+    op checkEach : TyEnv Multiset -> TyRes .
+    op checkEach : TyEnv Multiset Ty -> TyRes .
+    rl checkEach(Gamma, mt, Tau) => Tau -| Gamma .
+    crl checkEach(Gamma, (E, Rest), Tau) => checkEach(Delta, Rest, Tau)
+        if Gamma |- E => Tau -| Delta .
+    crl checkEach(Gamma, (E, Rest)) => checkEach(Delta, Rest, Tau)
+        if Gamma |- E => Tau -| Delta .
+    crl Gamma |- { Vs } => | Vs | M multiset (Q M T) -| Delta
+        if checkEach(Gamma, Vs) => Q M T -| Delta .
+
+    crl Gamma |- [ E1 ; E2 ] => 1 (M1 \/ M2) (Q1 M1 T1 x Q2 M2 T2) -| Xi
+        if Gamma |- E1 => Q1 M1 T1 -| Delta /\
+           Delta |- E2 => Q2 M2 T2 -| Xi .
+
+    crl Gamma |- E1 E2 => Sigma -| Xi
+        if Gamma |- E1 => Q M (Tau -> Sigma) -| Delta /\
+           Delta |- E2 : Tau => Xi .
+
+    --- TODO: We need to add a check for resources
+    crl Gamma |- sum(E) => Tau -| Delta
+        if Gamma |- E => Q M multiset Tau -| Delta .
+
+    crl Gamma |- sub(E1, E2) => Tau -| Xi
+        if Gamma |- E1 => Tau -| Delta /\
+           Delta |- E2 : Tau => Xi .
+
+    --- TODO: Need to make sure this is right...and that we can drop the resources.
+    crl Gamma |- (lambda X : Tau . E) => 1 asset (Tau -> Sigma) -| Delta
+        if (Gamma ; X : Tau) |- E => Sigma -| Delta .
+    crl Gamma |- (lambda X : Tau . E) => oo nonasset (Tau -> Sigma) -| Gamma
+        if (X : Tau) |- E => Sigma -| Delta .
+
+    crl Gamma |- try { E1 } catch { E2 } => Tau -| joinEnv(Delta, Xi)
+        if Gamma |- E1 => Tau -| Delta /\
+           Gamma |- E2 : Tau => Xi .
+
+    crl Gamma |- label(E) => Q M multiset (1 M2 (1 nonasset iden x (Q2 M2 T))) -| Delta
+        if Gamma |- E => Q M multiset (Q2 M2 T) -| Delta .
+
+    crl (Gamma ; X : Q2 M T) |- assert X is Q in E => Tau -| Delta
+        if (Gamma ; X : Q M T) |- E => Tau -| Delta .
+
+    --- TODO: Need to drop the variables
+    crl Gamma |- let [ X : Tau ; Y : Sigma ] := E1 in E2 => Pi -| Xi
+        if Gamma |- E1 : 1 asset (Tau x Sigma) => Delta /\
+           (Delta ; (X : Tau) ; (Y : Sigma)) |- E2 => Pi -| Xi .
+
+    crl Gamma |- let [ X : Tau ] := E1 in E2 => Sigma -| Xi
+        if Gamma |- E1 : * asset multiset Tau => Delta /\
+           (Delta ; X : Tau) |- E2 => Sigma -| Xi .
+
+    crl Gamma |- groupWith(Q, F, E1, E2) => Q M (multiset (R M T)) -| Gamma1
+        --- TODO: Need to ensure that Tau has decidable equality
+        if Gamma |- F => oo nonasset (1 M2 (Tau x Q3 (M2 \/ M4) (Sigma x Pi)) -> R M T) -| Delta /\
+           Delta |- E1 => Q1 M1 (multiset (1 M2 (Tau x Sigma))) -| Xi /\
+           Xi |- E2 => Q2 M3 (multiset (1 M4 (Tau x Pi))) -| Gamma1 .
 
     op unpackSingleton : Qid Expr Expr -> Expr .
     eq unpackSingleton(X, { E }, E2) = E2[E / X] .
@@ -216,9 +382,9 @@ mod STREAMS is
     crl [V1 ; E2] => [V1 ; V2]
         if E2 => V2 /\ V2 =/= E2 .
 
-    crl let [ X ; Y ] := E in E2 => E2[Left / X][Right / Y]
+    crl let [ X : Tau ; Y : Sigma ] := E in E2 => E2[Left / X][Right / Y]
         if E => [ Left ; Right ] .
-    crl let [ X ] := E1 in E2 => unpackSingleton(X, V, E2)
+    crl let [ X : Tau ] := E1 in E2 => unpackSingleton(X, V, E2)
         if E1 => V .
 
     crl E1 E2 => E[V / X]
@@ -253,167 +419,181 @@ mod STREAMS is
            E1 => { Vs } /\
            E2 => { Ws } .
 
+    crl sub(E1, E2) => V1 -- V2
+        if E1 => V1 /\ E2 => V2 .
+
+    op _--_ : Val Val -> Val .
+    eq V -- zero = V .
+
     ops map splitWith unzip : -> Val .
     eq map = lambda 'params : * nonasset unit .
-        (let ['f ; 'xs] := 'params in groupWith(*,
+        (let ['f : * nonasset unit ; 'xs : * nonasset unit ] := 'params in groupWith(*,
                      lambda 'input : * nonasset unit .
-                        (let ['k ; 'rest] := 'input in
-                         let ['left ; 'right] := 'rest in
-                         let ['head ] := 'left in
+                        (let ['k : * nonasset unit ; 'rest : * nonasset unit ] := 'input in
+                         let ['left : * nonasset unit ; 'right : * nonasset unit ] := 'rest in
+                         let ['head : * nonasset unit ] := 'left in
                          ('f 'head)), label('xs), {mt})) .
-    eq splitWith = lambda 'params : * nonasset unit . let ['f ; 'xs] := 'params in sum(map ['f ; 'xs]) .
+    eq splitWith = lambda 'params : * nonasset unit .
+        let ['f : * nonasset unit ; 'xs : * nonasset unit ] := 'params in sum(map ['f ; 'xs]) .
     eq unzip = lambda 'xs : * nonasset unit . (splitWith [ unzipPair ; 'xs ]) .
 
     ops unzipPair snd fst : -> Val .
-    eq unzipPair = lambda 'pair : * nonasset unit . let ['x ; 'y] := 'pair in [{'x}; {'y}] .
-    eq fst = lambda 'pair : * nonasset unit . let ['left ; 'right] := 'pair in 'left .
-    eq snd = lambda 'pair : * nonasset unit . let ['left ; 'right] := 'pair in 'right .
+    eq unzipPair = lambda 'pair : * nonasset unit .
+        let ['x : * nonasset unit ; 'y : * nonasset unit ] := 'pair in [{'x}; {'y}] .
+    eq fst = lambda 'pair : * nonasset unit .
+        let ['left : * nonasset unit ; 'right : * nonasset unit ] := 'pair in 'left .
+    eq snd = lambda 'pair : * nonasset unit .
+        let ['left : * nonasset unit ; 'right : * nonasset unit ] := 'pair in 'right .
 
     op splitKey : -> Val .
     eq splitKey = lambda 'params : * nonasset unit .
-                    let ['k ; 'pair] := 'params in
-                    let ['left ; 'right] := 'pair in
+                    let ['k : * nonasset unit ; 'pair : * nonasset unit ] := 'params in
+                    let ['left : * nonasset unit ; 'right : * nonasset unit ] := 'pair in
                     [{['k ; 'left]} ; {['k ; 'right]}] .
 
     op groupComponents : -> Val .
     eq groupComponents = lambda 'params : * nonasset unit .
-                            let ['k ; 'pairs] := 'params in
-                            let ['xs ; 'ys] := 'pairs in
+                            let ['k : * nonasset unit ; 'pairs : * nonasset unit ] := 'params in
+                            let ['xs : * nonasset unit ; 'ys : * nonasset unit ] := 'pairs in
                             ['k ; [sum('xs) ; sum('ys)]] .
 
     ops selectFst selectSnd : -> Val .
     eq selectFst = lambda 'valsF : * nonasset unit .
-                    let ['vals ; 'f] := 'valsF in
-                    let ['fsts ; 'snds] := splitWith [splitKey ; 'vals] in
-                    let ['ret ; 'sel] := 'f 'fsts in
+                    let ['vals : * nonasset unit ; 'f : * nonasset unit ] := 'valsF in
+                    let ['fsts : * nonasset unit ; 'snds : * nonasset unit ] := splitWith [splitKey ; 'vals] in
+                    let ['ret : * nonasset unit ; 'sel : * nonasset unit ] := 'f 'fsts in
                     [groupWith(*, groupComponents, 'ret, 'snds); 'sel] .
     eq selectSnd = lambda 'valsF : * nonasset unit .
-                    let ['vals ; 'f] := 'valsF in
-                    let ['fsts ; 'snds] := splitWith [splitKey ; 'vals] in
-                    let ['ret ; 'sel] := 'f 'snds in
+                    let ['vals : * nonasset unit ; 'f : * nonasset unit] := 'valsF in
+                    let ['fsts : * nonasset unit ; 'snds : * nonasset unit] := splitWith [splitKey ; 'vals] in
+                    let ['ret : * nonasset unit ; 'sel : * nonasset unit] := 'f 'snds in
                     [groupWith(*, groupComponents, 'fsts, 'ret); 'sel] .
 
     ops takeAll combine : -> Val .
     eq takeAll = lambda 'taggedVals : * nonasset unit . [{mt} ; map [snd ; 'taggedVals]] .
     eq combine = lambda 'toAdd : * nonasset unit . lambda 'takenVals : * nonasset unit .
-                    let ['kv] := 'takenVals in
-                    let ['key ; 'val] := 'kv in
+                    let ['kv : * nonasset unit] := 'takenVals in
+                    let ['key : * nonasset unit ; 'val : * nonasset unit] := 'kv in
                     [{['key ; sum({'val, 'toAdd})]}; {mt}] .
 
     op compose : -> Val .
     eq compose = lambda 'locs : * nonasset unit .
-                    let ['f ; 'g] := 'locs in
+                    let ['f : * nonasset unit ; 'g : * nonasset unit] := 'locs in
                     (lambda 'valsK : * nonasset unit .
-                        let ['vals ; 'k] := 'valsK in
+                        let ['vals : * nonasset unit ; 'k : * nonasset unit] := 'valsK in
                         ('f ['vals ; (lambda 'taggedVals : * nonasset unit . ('g ['taggedVals ; 'k]))])) .
 
     op flow : -> Val .
     eq flow = lambda 'locs : * nonasset unit .
-                let ['src ; 'dst] := 'locs in
+                let ['src : * nonasset unit ; 'dst : * nonasset unit] := 'locs in
                 (lambda 'valsK : * nonasset unit .
-                    let ['vals ; 'k] := 'valsK in
-                    let ['ret ; 'sel] := 'src ['vals ; takeAll] in
-                    let ['ret2 ; 'sel2] := 'dst ['ret ; (combine sum('sel)) ] in
+                    let ['vals : * nonasset unit ; 'k : * nonasset unit] := 'valsK in
+                    let ['ret : * nonasset unit ; 'sel : * nonasset unit] := 'src ['vals ; takeAll] in
+                    let ['ret2 : * nonasset unit ; 'sel2 : * nonasset unit] := 'dst ['ret ; (combine sum('sel)) ] in
                     ('k 'ret2)) .
 
     ops runLocator runDestination : -> Val .
     eq runLocator = (lambda 'params : * nonasset unit .
-                        let ['vals ; 'loc] := 'params in
-                        let ['taggedRet ; 'sel] := 'loc [label('vals); takeAll] in
+                        let ['vals : * nonasset unit ; 'loc : * nonasset unit] := 'params in
+                        let ['taggedRet : * nonasset unit ; 'sel : * nonasset unit] := 'loc [label('vals); takeAll] in
                         [map [snd ; 'taggedRet ]; 'sel]) .
 
     op wrapSingleton : -> Val .
-    eq wrapSingleton = lambda 'pair : * nonasset unit . let ['k ; 'b] := 'pair in ['k ; {'b}] .
+    eq wrapSingleton = lambda 'pair : * nonasset unit .
+        let ['k : * nonasset unit ; 'b : * nonasset unit] := 'pair in ['k ; {'b}] .
 
     op unwrapSingleton : -> Val .
     eq unwrapSingleton = lambda 'pair : * nonasset unit .
-                            let ['k ; 'bs] := 'pair in
-                            try { let ['b] := 'bs in ['k ; 'b] } catch { ['k ; zero] } .
+                            let ['k : * nonasset unit ; 'bs : * nonasset unit] := 'pair in
+                            try { let ['b : * nonasset unit] := 'bs in ['k ; 'b] } catch { ['k ; zero] } .
 
     op eachK : -> Val .
     eq eachK = lambda 'g : * nonasset unit . lambda 'transformed : * nonasset unit .
-                let ['ret ; 'sel] := 'g (map [wrapSingleton ; 'transformed]) in
+                let ['ret : * nonasset unit ; 'sel : * nonasset unit] := 'g (map [wrapSingleton ; 'transformed]) in
                 [ map [unwrapSingleton ; 'ret]; 'sel ] .
 
     op indexKey : -> Val .
     eq indexKey = lambda 'k : * nonasset unit . lambda 'idxVal : * nonasset unit .
-                    let ['idx ; 'val] := 'idxVal in
+                    let ['idx : * nonasset unit ; 'val : * nonasset unit] := 'idxVal in
                     [[ 'idx ; 'k ] ; 'val ] .
 
     op unindexKey : -> Val .
     eq unindexKey = lambda 'params : * nonasset unit .
-                        let ['idxKey ; 'val] := 'params in
-                        let ['idx ; 'key] := 'idxKey in
+                        let ['idxKey : * nonasset unit ; 'val : * nonasset unit] := 'params in
+                        let ['idx : * nonasset unit ; 'key : * nonasset unit] := 'idxKey in
                         ['key ; ['idx ; 'val]] .
 
     op distributeKeys : -> Val .
     eq distributeKeys = lambda 'params : * nonasset unit .
-                            let ['k ; 'vals] := 'params in
+                            let ['k : * nonasset unit ; 'vals : * nonasset unit] := 'params in
                             (map [indexKey 'k ; label('vals)]) .
 
     op sumSnds : -> Val .
     eq sumSnds = lambda 'params : * nonasset unit .
-                    let ['k ; 'pairs] := 'params in
-                    let ['xs ; 'ys] := 'pairs in
+                    let ['k : * nonasset unit ; 'pairs : * nonasset unit] := 'params in
+                    let ['xs : * nonasset unit ; 'ys : * nonasset unit] := 'pairs in
                     ['k ; sum('ys)] .
 
     op groupByIdx : -> Val .
     eq groupByIdx = lambda 'params : * nonasset unit .
-                        let ['k ; 'pairs] := 'params in
-                        let ['xs ; 'ys] := 'pairs in
+                        let ['k : * nonasset unit ; 'pairs : * nonasset unit ] := 'params in
+                        let ['xs : * nonasset unit ; 'ys : * nonasset unit ] := 'pairs in
                         ['k ; groupWith(*, sumSnds, 'xs, 'ys)] .
 
     op dropIdx : -> Val .
     eq dropIdx = lambda 'params : * nonasset unit .
-                    let ['k ; 'idxVals] := 'params in
+                    let ['k : * nonasset unit ; 'idxVals : * nonasset unit ] := 'params in
                     ['k ; map [snd ; 'idxVals ]] .
 
     op each : -> Val .
     eq each = lambda 'f : * nonasset unit .
                 lambda 'listsG : * nonasset unit .
-                    let ['lists ; 'g] := 'listsG in
-                    let ['ret ; 'sel] := 'f [sum(map [distributeKeys ; 'lists]) ; eachK 'g ] in
+                    let ['lists : * nonasset unit ; 'g : * nonasset unit] := 'listsG in
+                    let ['ret : * nonasset unit ; 'sel : * nonasset unit] := 'f [sum(map [distributeKeys ; 'lists]) ; eachK 'g ] in
                     --- [map [dropIdx ; groupWith(*, groupByIdx, {mt}, map [unindexKey ; 'ret])] ; 'sel] .
                     [groupWith(*, sumSnds, {mt}, map [dropIdx ; groupWith(*, groupByIdx, {mt}, map [unindexKey ; 'ret])]); 'sel] .
-
-    --- TODO: sub
 endm
+
+--- set trace on .
+--- set trace eq off .
+--- rew nil |- groupWith(*, (lambda 'pair : * nonasset unit . 'pair), label({zero}), label({zero})) .
+--- rew nil |- (lambda 'pair : 0 nonasset unit . 'pair) zero .
+rew nil |- label({zero}) : * nonasset multiset (1 nonasset (1 nonasset iden x 0 nonasset unit)) .
+rew nil |- sum({ { zero }, { zero, zero } }) : * nonasset multiset (0 nonasset unit) .
 
 --- set profile on .
 --- set clear profile off .
-red [ { zero, zero } ; { zero, zero } ] .
-red let [ 'x ; 'y ] := [ zero ; zero ] in zero .
+--- red [ { zero, zero } ; { zero, zero } ] .
+--- red let [ 'x ; 'y ] := [ zero ; zero ] in zero .
 
-red demote(* asset multiset (1 asset multiset (oo asset (1 nonasset unit x 1 asset unit)))) .
+--- red demote(* asset multiset (1 asset multiset (oo asset (1 nonasset unit x 1 asset unit)))) .
 
-rew let [ 'x ; 'y ] := [ zero ; zero ] in 'x .
+--- rew let [ 'x ; 'y ] := [ zero ; zero ] in 'x .
 
-rew let [ 'x ] := { zero } in 'x .
-rew let [ 'x ] := { zero, zero } in 'x .
+--- rew let [ 'x ] := { zero } in 'x .
+--- rew let [ 'x ] := { zero, zero } in 'x .
 
-rew { (let [ 'x ] := { zero, zero } in 'x) , zero } .
-rew { (let [ 'x ] := { zero } in 'x) , zero } .
+--- rew { (let [ 'x ] := { zero, zero } in 'x) , zero } .
+--- rew { (let [ 'x ] := { zero } in 'x) , zero } .
 
-rew label({ zero, zero, zero }) .
+--- rew label({ zero, zero, zero }) .
 
-rew try { fail } catch { {zero, zero} } .
+--- rew try { fail } catch { {zero, zero} } .
 
-rew sum({ { zero }, { zero, zero } }) .
+--- rew sum({ { zero }, { zero, zero } }) .
 
-rew groupWith(*, (lambda 'pair : * nonasset unit . 'pair), label({zero}), label({zero})) .
+--- rew unzip label({ { zero }, { zero, zero }}) .
 
-rew unzip label({ { zero }, { zero, zero }}) .
+--- rew selectFst [label({[zero ; zero]}); takeAll] .
+--- rew runLocator [{[{zero, zero} ; zero]}; selectFst] .
+--- rew runLocator [{[{zero, zero} ; zero]}; selectSnd] .
 
-rew selectFst [label({[zero ; zero]}); takeAll] .
-rew runLocator [{[{zero, zero} ; zero]}; selectFst] .
-rew runLocator [{[{zero, zero} ; zero]}; selectSnd] .
+--- rew selectFst [label({[{zero,zero} ; zero]}) ; takeAll] .
 
-rew selectFst [label({[{zero,zero} ; zero]}) ; takeAll] .
+--- rew (flow [selectFst ; selectSnd]) [label({[{zero,zero} ; zero]}); takeAll] .
 
-rew (flow [selectFst ; selectSnd]) [label({[{zero,zero} ; zero]}); takeAll] .
+--- rew runLocator [{[id(4) ; zero], [id(5) ; zero], [id(6) ; zero]}; selectFst] .
+--- rew runLocator [{[[id(1) ; id(6)] ; id(2)]} ; compose [selectFst ; selectSnd]] .
 
-rew runLocator [{[id(4) ; zero], [id(5) ; zero], [id(6) ; zero]}; selectFst] .
-rew runLocator [{[[id(1) ; id(6)] ; id(2)]} ; compose [selectFst ; selectSnd]] .
-
-rew runLocator [{{[id(4) ; zero], [id(5) ; zero]}, {[id(6) ; zero]}}; each selectFst] .
+--- rew runLocator [{{[id(4) ; zero], [id(5) ; zero]}, {[id(6) ; zero]}}; each selectFst] .
 
