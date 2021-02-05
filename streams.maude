@@ -15,13 +15,23 @@ mod STREAMS is
 
     op ___ : TyQuant Mode BaseTy -> Ty [ctor] .
 
+    sorts TyVar TyQuantVar .
+    subsort TyVar < BaseTy .
+    subsort TyQuantVar < TyQuant .
+    op v : Qid -> TyVar [ctor] .
+    op q : Qid -> TyQuantVar [ctor] .
+
     op unit : -> BaseTy [ctor] .
     op iden : -> BaseTy [ctor] .
     op multiset_ : Ty -> BaseTy [ctor] .
     op _x_ : Ty Ty -> BaseTy [ctor] .
     op _->_ : Ty Ty -> BaseTy [ctor] .
+    op forall_._ : TyVar Ty -> BaseTy [ctor] .
+    op forall_._ : TyQuantVar Ty -> BaseTy [ctor] .
 
     subsort Qid < Expr .
+    op Lambda_._ : TyVar Expr -> Val [ctor frozen] .
+    op Lambda_._ : TyQuantVar Expr -> Val [ctor frozen] .
     op lambda_:_._ : Qid Ty Expr -> Val [ctor frozen] .
 
     op mt : -> MultisetVal [ctor] .
@@ -30,12 +40,14 @@ mod STREAMS is
     op {_} : MultisetVal -> Val [ctor frozen] .
     op {_} : Multiset -> Expr [ctor frozen] .
 
-    op id(_) : Nat -> Id [ctor] .
+    op id : Nat -> Id [ctor] .
 
     op [_;_] : Val Val -> Val [ctor frozen] .
     op [_;_] : Expr Expr -> Expr [ctor frozen] .
 
-    op __ : Expr Expr -> Expr [ctor] .
+    op __ : Expr Expr -> Expr [ctor frozen] .
+    op _@_ : Expr BaseTy -> Expr [ctor frozen] .
+    op _@_ : Expr TyQuant -> Expr [ctor frozen] .
 
     ops zero fail : -> Val [ctor] .
     op sum : Expr -> Expr [ctor frozen] .
@@ -74,6 +86,83 @@ mod STREAMS is
     eq X elem (X, Vs) = true .
     eq X elem Vs = false [owise] .
 
+    op tyVarsOf : Ty -> Multiset .
+    eq tyVarsOf(Q M T) = tyVarsOf(T) .
+    op tyVarsOf : BaseTy -> Multiset .
+    eq tyVarsOf(v(X)) = X .
+    eq tyVarsOf(unit) = mt .
+    eq tyVarsOf(iden) = mt .
+    eq tyVarsOf(multiset Tau) = tyVarsOf(Tau) .
+    eq tyVarsOf(Tau x Sigma) = tyVarsOf(Tau), tyVarsOf(Sigma) .
+    eq tyVarsOf(Tau -> Sigma) = tyVarsOf(Tau), tyVarsOf(Sigma) .
+    eq tyVarsOf(forall v(X) . Tau) = X, tyVarsOf(Tau) .
+    eq tyVarsOf(forall q(X) . Tau) = tyVarsOf(Tau) .
+    op tyVarsOf : Expr -> Multiset .
+    eq tyVarsOf(X) = mt .
+    eq tyVarsOf(lambda X : Tau . E1) = tyVarsOf(Tau), tyVarsOf(E1) .
+    eq tyVarsOf(E1 E2) = tyVarsOf(E1), tyVarsOf(E2) .
+    eq tyVarsOf([E1 ; E2]) = tyVarsOf(E1), tyVarsOf(E2) .
+    eq tyVarsOf({ mt }) = mt .
+    eq tyVarsOf({ E1 }) = tyVarsOf(E1) .
+    eq tyVarsOf({ E1, E2, Vs }) = tyVarsOf(E1), tyVarsOf({E2, Vs}) .
+    eq tyVarsOf(zero) = mt .
+    eq tyVarsOf(fail) = mt .
+    eq tyVarsOf(id(N)) = mt .
+    eq tyVarsOf(sum(E)) = tyVarsOf(E) .
+    eq tyVarsOf(sub(E1, E2)) = tyVarsOf(E1), tyVarsOf(E2) .
+    eq tyVarsOf(let [ X : Tau ; Y : Sigma ] := E1 in E2) = tyVarsOf(Tau), tyVarsOf(Sigma), tyVarsOf(E1), tyVarsOf(E2) .
+    eq tyVarsOf(let [ X : Tau ] := E1 in E2) = tyVarsOf(Tau), tyVarsOf(E1), tyVarsOf(E2) .
+    eq tyVarsOf(try { E1 } catch { E2 }) = tyVarsOf(E1), tyVarsOf(E2) .
+    eq tyVarsOf(assert E1 is Q in E2) = tyVarsOf(E1), tyVarsOf(E2) .
+    eq tyVarsOf(groupWith(Q, F, E1, E2)) = tyVarsOf(F), tyVarsOf(E1), tyVarsOf(E2) .
+    eq tyVarsOf(label(E)) = tyVarsOf(E) .
+    eq tyVarsOf(copy(E)) = tyVarsOf(E) .
+    eq tyVarsOf(E @ T) = tyVarsOf(E), tyVarsOf(T) .
+    eq tyVarsOf(Lambda v(X) . E) = X, tyVarsOf(E) .
+    eq tyVarsOf(E @ Q) = tyVarsOf(E) .
+    eq tyVarsOf(Lambda q(X) . E) = tyVarsOf(E) .
+
+    op tyQuantVarsOf : TyQuant -> Multiset .
+    --- eq tyQuantVarsOf(q(X)) = X .
+    eq tyQuantVarsOf(N) = mt .
+    eq tyQuantVarsOf(*) = mt .
+    eq tyQuantVarsOf(oo) = mt .
+    op tyQuantVarsOf : Ty -> Multiset .
+    eq tyQuantVarsOf(Q M T) = tyQuantVarsOf(Q), tyQuantVarsOf(T) .
+    op tyQuantVarsOf : BaseTy -> Multiset .
+    eq tyQuantVarsOf(v(X)) = mt .
+    eq tyQuantVarsOf(unit) = mt .
+    eq tyQuantVarsOf(iden) = mt .
+    eq tyQuantVarsOf(multiset Tau) = tyQuantVarsOf(Tau) .
+    eq tyQuantVarsOf(Tau x Sigma) = tyQuantVarsOf(Tau), tyQuantVarsOf(Sigma) .
+    eq tyQuantVarsOf(Tau -> Sigma) = tyQuantVarsOf(Tau), tyQuantVarsOf(Sigma) .
+    eq tyQuantVarsOf(forall v(X) . Tau) = tyQuantVarsOf(Tau) .
+    eq tyQuantVarsOf(forall q(X) . Tau) = X, tyQuantVarsOf(Tau) .
+    op tyQuantVarsOf : Expr -> Multiset .
+    eq tyQuantVarsOf(X) = mt .
+    eq tyQuantVarsOf(lambda X : Tau . E1) = tyQuantVarsOf(Tau), tyQuantVarsOf(E1) .
+    eq tyQuantVarsOf(E1 E2) = tyQuantVarsOf(E1), tyQuantVarsOf(E2) .
+    eq tyQuantVarsOf([E1 ; E2]) = tyQuantVarsOf(E1), tyQuantVarsOf(E2) .
+    eq tyQuantVarsOf({ mt }) = mt .
+    eq tyQuantVarsOf({ E1 }) = tyQuantVarsOf(E1) .
+    eq tyQuantVarsOf({ E1, E2, Vs }) = tyQuantVarsOf(E1), tyQuantVarsOf({E2, Vs}) .
+    eq tyQuantVarsOf(zero) = mt .
+    eq tyQuantVarsOf(fail) = mt .
+    eq tyQuantVarsOf(id(N)) = mt .
+    eq tyQuantVarsOf(sum(E)) = tyQuantVarsOf(E) .
+    eq tyQuantVarsOf(sub(E1, E2)) = tyQuantVarsOf(E1), tyQuantVarsOf(E2) .
+    eq tyQuantVarsOf(let [ X : Tau ; Y : Sigma ] := E1 in E2) = tyQuantVarsOf(Tau), tyQuantVarsOf(Sigma), tyQuantVarsOf(E1), tyQuantVarsOf(E2) .
+    eq tyQuantVarsOf(let [ X : Tau ] := E1 in E2) = tyQuantVarsOf(Tau), tyQuantVarsOf(E1), tyQuantVarsOf(E2) .
+    eq tyQuantVarsOf(try { E1 } catch { E2 }) = tyQuantVarsOf(E1), tyQuantVarsOf(E2) .
+    eq tyQuantVarsOf(assert E1 is Q in E2) = tyQuantVarsOf(Q), tyQuantVarsOf(E1), tyQuantVarsOf(E2) .
+    eq tyQuantVarsOf(groupWith(Q, F, E1, E2)) = tyQuantVarsOf(Q), tyQuantVarsOf(F), tyQuantVarsOf(E1), tyQuantVarsOf(E2) .
+    eq tyQuantVarsOf(label(E)) = tyQuantVarsOf(E) .
+    eq tyQuantVarsOf(copy(E)) = tyQuantVarsOf(E) .
+    eq tyQuantVarsOf(E @ T) = tyQuantVarsOf(E), tyQuantVarsOf(T) .
+    eq tyQuantVarsOf(Lambda v(X) . E) = tyQuantVarsOf(E) .
+    eq tyQuantVarsOf(E @ Q) = tyQuantVarsOf(E), tyQuantVarsOf(Q) .
+    eq tyQuantVarsOf(Lambda q(X) . E) = X, tyQuantVarsOf(E) .
+
     op freshVar : Multiset -> Qid .
     eq freshVar(Vs) = freshVar(0, '0, Vs) .
     op freshVar : Nat Qid Multiset -> Qid .
@@ -104,6 +193,10 @@ mod STREAMS is
     eq varsOf(groupWith(Q, F, E1, E2)) = varsOf(F), varsOf(E1), varsOf(E2) .
     eq varsOf(label(E)) = varsOf(E) .
     eq varsOf(copy(E)) = varsOf(E) .
+    eq varsOf(E @ T) = varsOf(E) .
+    eq varsOf(E @ Q) = varsOf(E) .
+    eq varsOf(Lambda q(Y) . E) = varsOf(E) .
+    eq varsOf(Lambda v(Y) . E) = varsOf(E) .
 
     op _[_/_] : Expr Expr Qid -> Expr .
     eq X[E / X] = E .
@@ -146,6 +239,104 @@ mod STREAMS is
     eq groupWith(Q, F, E1, E2)[E / Y] = groupWith(Q, F[E / Y], E1[E / Y], E2[E / Y]) .
     eq label(E1)[E / Y] = label(E1[E / Y]) .
     eq copy(E1)[E / Y] = copy(E1[E / Y]) .
+    eq (E1 @ T)[E / Y] = (E1[E / Y]) @ T .
+    eq (Lambda v(Y) . E1)[E / Y] = Lambda v(Y) . (E1[E / Y]) .
+    eq (E1 @ Q)[E / Y] = (E1[E / Y]) @ Q .
+    eq (Lambda q(Y) . E1)[E / Y] = Lambda q(Y) . (E1[E / Y]) .
+
+    op _[_/_] : Ty BaseTy TyVar -> Ty .
+    eq (Q M T1)[T2 / v(Y)] = Q M (T1[T2 / v(Y)]) .
+    op _[_/_] : BaseTy BaseTy TyVar -> BaseTy .
+    eq v(X)[T / v(X)] = T .
+    eq v(X)[T / v(Y)] = v(X) [owise] .
+    eq unit[T / v(X)] = unit .
+    eq iden[T / v(X)] = unit .
+    eq (multiset Tau)[T / v(X)] = multiset (Tau[T / v(X)]) .
+    eq (Tau x Sigma)[T / v(X)] = (Tau[T / v(X)]) x (Sigma[T / v(X)]) .
+    eq (Tau -> Sigma)[T / v(X)] = (Tau[T / v(X)]) -> (Sigma[T / v(X)]) .
+    ceq (forall v(X) . Tau)[T / v(Y)] = forall v(X) . (Tau[T / v(X)])
+        if not(X elem Y, tyVarsOf(T)) .
+    ceq (forall v(X) . Tau)[T / v(Y)] = forall v(Z) . (Tau[v(Z) / v(X)][T / v(X)])
+        if X elem Y, tyVarsOf(T) /\
+           Z := freshVar(tyVarsOf(Tau), X, Y, tyVarsOf(T)) .
+    op _[_/_] : Expr BaseTy TyVar -> Expr .
+    eq X[T / v(Y)] = X .
+    eq (lambda X : Tau . E1)[T / v(Y)] = lambda X : (Tau[T / v(Y)]) . (E1[T / v(Y)]) .
+    eq zero[T / v(Y)] = zero .
+    eq fail[T / v(Y)] = fail .
+    eq id(N)[T / v(Y)] = id(N) .
+    eq [E1 ; E2][T / v(Y)] = [E1[T / v(Y)] ; E2[T / v(Y)] ] .
+    eq (E1 E2)[T / v(Y)] = (E1[T / v(Y)]) (E2[T / v(Y)]) .
+    eq { mt }[T / v(Y)] = { mt } .
+    eq { E1 }[T / v(Y)] = { E1[T / v(Y)] } .
+    eq { E1, E2, Vs }[T / v(Y)] = { (E1[T / v(Y)]), (E2[T / v(Y)]) } ++ ({ Vs }[T / v(Y)]) .
+    eq sum(E1)[T / v(Y)] = sum(E1[T / v(Y)]) .
+    eq sub(E1, E2)[T / v(Y)] = sub(E1[T / v(Y)], E2[T / v(Y)]) .
+    eq (let [ X : Tau ; Y : Sigma ] := E1 in E2)[T / v(Z)] = let [ X : Tau ; Y : Sigma ] := E1[T / v(Z)] in (E2[T / v(Z)]) .
+    eq (let [ X : Tau ] := E1 in E2)[T / v(Y)] = let [ X : Tau ] := E1[T / v(Y)] in (E2[T / v(Y)]) .
+    eq (try { E1 } catch { E2 })[T / v(Y)] = try { E1[T / v(Y)] } catch { E2[T / v(Y)] } .
+    eq (assert E1 is Q in E2)[T / v(Y)] = assert (E1[T / v(Y)]) is Q in (E2[T / v(Y)]) .
+    eq groupWith(Q, F, E1, E2)[T / v(Y)] = groupWith(Q, F[T / v(Y)], E1[T / v(Y)], E2[T / v(Y)]) .
+    eq label(E1)[T / v(Y)] = label(E1[T / v(Y)]) .
+    eq copy(E1)[T / v(Y)] = copy(E1[T / v(Y)]) .
+    eq (E1 @ T)[T1 / v(Y)] = (E1[T1 / v(Y)]) @ (T[T1 / v(Y)]) .
+    ceq (Lambda v(X) . E1)[T / v(Y)] = Lambda v(X) . (E1[T / v(Y)])
+        if not(X elem Y, tyVarsOf(T)) .
+    ceq (Lambda v(X) . E1)[T / v(Y)] = Lambda v(Z) . (E1[v(Z) / v(X)][T / v(Y)])
+        if X elem Y, tyVarsOf(T) /\
+           Z := freshVar(X, Y, tyVarsOf(E1), tyVarsOf(T)) .
+    eq (E1 @ Q)[T1 / v(Y)] = (E1[T1 / v(Y)]) @ Q .
+    eq (Lambda q(X) . E1)[T / v(Y)] = Lambda q(X) . (E1[T / v(Y)]) .
+
+    op _[_/_] : TyQuant TyQuant TyQuantVar -> TyQuant .
+    eq q(X)[Q / q(X)] = Q .
+    eq q(X)[Q / q(Y)] = q(X) [owise] .
+    eq N[Q / q(Y)] = N .
+    eq oo[Q / q(Y)] = oo .
+    eq *[Q / q(Y)] = * .
+    op _[_/_] : Ty TyQuant TyQuantVar -> Ty .
+    eq (Q M T1)[R / q(Y)] = (Q[R / q(Y)]) M (T1[R / q(Y)]) .
+    op _[_/_] : BaseTy TyQuant TyQuantVar -> BaseTy .
+    eq v(X)[Q / q(X)] = v(X) .
+    eq unit[Q / q(X)] = unit .
+    eq iden[Q / q(X)] = unit .
+    eq (multiset Tau)[Q / q(X)] = multiset (Tau[Q / q(X)]) .
+    eq (Tau x Sigma)[Q / q(X)] = (Tau[Q / q(X)]) x (Sigma[Q / q(X)]) .
+    eq (Tau -> Sigma)[Q / q(X)] = (Tau[Q / q(X)]) -> (Sigma[Q / q(X)]) .
+    eq (forall v(X) . Tau)[Q / q(Y)] = forall v(X) . (Tau[Q / q(Y)]) .
+    ceq (forall q(X) . Tau)[R / q(Y)] = forall q(X) . (Tau[R / q(X)])
+        if not(X elem Y, tyQuantVarsOf(R)) .
+    ceq (forall q(X) . Tau)[R / q(Y)] = forall q(Z) . (Tau[q(Z) / q(X)][R / q(X)])
+        if X elem Y, tyQuantVarsOf(R) /\
+           Z := freshVar(tyQuantVarsOf(Tau), X, Y, tyQuantVarsOf(R)) .
+    op _[_/_] : Expr TyQuant TyQuantVar -> Expr .
+    eq X[Q / q(Y)] = X .
+    eq (lambda X : Tau . E1)[Q / q(Y)] = lambda X : (Tau[Q / q(Y)]) . (E1[Q / q(Y)]) .
+    eq zero[Q / q(Y)] = zero .
+    eq fail[Q / q(Y)] = fail .
+    eq id(N)[Q / q(Y)] = id(N) .
+    eq [E1 ; E2][Q / q(Y)] = [E1[Q / q(Y)] ; E2[Q / q(Y)] ] .
+    eq (E1 E2)[Q / q(Y)] = (E1[Q / q(Y)]) (E2[Q / q(Y)]) .
+    eq { mt }[Q / q(Y)] = { mt } .
+    eq { E1 }[Q / q(Y)] = { E1[Q / q(Y)] } .
+    eq { E1, E2, Vs }[Q / q(Y)] = { (E1[Q / q(Y)]), (E2[Q / q(Y)]) } ++ ({ Vs }[Q / q(Y)]) .
+    eq sum(E1)[Q / q(Y)] = sum(E1[Q / q(Y)]) .
+    eq sub(E1, E2)[Q / q(Y)] = sub(E1[Q / q(Y)], E2[Q / q(Y)]) .
+    eq (let [ X : Tau ; Y : Sigma ] := E1 in E2)[Q / q(Z)] = let [ X : Tau ; Y : Sigma ] := E1[Q / q(Z)] in (E2[Q / q(Z)]) .
+    eq (let [ X : Tau ] := E1 in E2)[Q / q(Y)] = let [ X : Tau ] := E1[Q / q(Y)] in (E2[Q / q(Y)]) .
+    eq (try { E1 } catch { E2 })[Q / q(Y)] = try { E1[Q / q(Y)] } catch { E2[Q / q(Y)] } .
+    eq (assert E1 is Q in E2)[R / q(Y)] = assert (E1[R / q(Y)]) is (Q[R / q(Y)]) in (E2[R / q(Y)]) .
+    eq groupWith(Q, F, E1, E2)[R / q(Y)] = groupWith(Q[R / q(Y)], F[R / q(Y)], E1[R / q(Y)], E2[R / q(Y)]) .
+    eq label(E1)[R / q(Y)] = label(E1[R / q(Y)]) .
+    eq copy(E1)[R / q(Y)] = copy(E1[R / q(Y)]) .
+    eq (E1 @ T)[Q / q(Y)] = (E1[Q / q(Y)]) @ (T[Q / q(Y)]) .
+    eq (Lambda v(X) . E1)[Q / q(Y)] = Lambda v(X) . (E1[Q / q(Y)]) .
+    ceq (Lambda q(X) . E1)[Q / q(Y)] = Lambda q(X) . (E1[Q / q(Y)])
+        if not(X elem Y, tyQuantVarsOf(Q)) .
+    ceq (Lambda q(X) . E1)[Q / q(Y)] = Lambda q(Z) . (E1[q(Z) / q(X)][Q / q(Y)])
+        if X elem Y, tyQuantVarsOf(Q) /\
+           Z := freshVar(X, Y, tyQuantVarsOf(E1), tyQuantVarsOf(Q)) .
+    eq (E1 @ Q)[R / q(Y)] = (E1[R / q(Y)]) @ (Q[R / q(Y)]) .
 
     sorts TyEnv TyRes TyCheck .
     subsort TyEnv < TyCheck .
@@ -169,11 +360,28 @@ mod STREAMS is
         if Gamma |- E => Sigma -| Delta /\
            Tau == demote(Sigma) .
 
-    op _@_ : TyQuant TyQuant -> TyQuant [comm assoc] .
-    eq 0 @ Q = Q .
-    eq * @ Q = * .
-    eq oo @ Q = oo .
-    eq N1 @ N2 = N1 + N2 .
+    crl Gamma |- (Lambda q(Y) . E) : 1 asset (forall q(Y) . Tau) => Delta
+        if Gamma |- E : Tau => Delta .
+    crl Gamma |- (Lambda q(Y) . E) : oo nonasset (forall q(Y) . Tau) => Gamma
+        if nil |- E : Tau => Delta .
+
+    crl Gamma |- (Lambda v(Y) . E) : 1 asset (forall v(Y) . Tau) => Delta
+        if Gamma |- E : Tau => Delta .
+    crl Gamma |- (Lambda v(Y) . E) : oo nonasset (forall v(Y) . Tau) => Gamma
+        if nil |- E : Tau => Delta .
+
+    crl Gamma |- E @ T : Tau => Delta
+        if Gamma |- E => Q M (forall v(Y) . Sigma) -| Delta /\
+           Tau == Sigma[T / v(Y)] .
+    crl Gamma |- E @ Q : Tau => Delta
+        if Gamma |- E => R M (forall q(Y) . Sigma) -| Delta /\
+           Tau == Sigma[Q / q(Y)] .
+
+    op _++_ : TyQuant TyQuant -> TyQuant [comm assoc] .
+    eq 0 ++ Q = Q .
+    eq * ++ Q = * .
+    eq oo ++ Q = oo .
+    eq N1 ++ N2 = N1 + N2 .
 
     rl Gamma |- {mt} : 0 M multiset Tau => Gamma .
     crl Gamma |- {E, Rest} : Q M multiset Tau => Xi
@@ -554,12 +762,17 @@ mod STREAMS is
                     [groupWith(*, sumSnds, {mt}, map [dropIdx ; groupWith(*, groupByIdx, {mt}, map [unindexKey ; 'ret])]); 'sel] .
 endm
 
---- set trace on .
---- set trace eq off .
---- rew nil |- groupWith(*, (lambda 'pair : * nonasset unit . 'pair), label({zero}), label({zero})) .
---- rew nil |- (lambda 'pair : 0 nonasset unit . 'pair) zero .
 rew nil |- label({zero}) : * nonasset multiset (1 nonasset (1 nonasset iden x 0 nonasset unit)) .
 rew nil |- sum({ { zero }, { zero, zero } }) : * nonasset multiset (0 nonasset unit) .
+
+rew nil |- (Lambda q('q). Lambda v('a) . lambda 'x : q('q) asset v('a) . 'x)
+        : oo nonasset (forall q('q) . oo nonasset (forall v('a) . oo nonasset (q('q) asset v('a) -> q('q) asset v('a)))) .
+
+set trace on .
+set trace eq off .
+rew nil |- (Lambda q('q). Lambda v('a) . Lambda q('r). Lambda v('b) . lambda 'pair : 1 asset (q('q) asset v('a) x q('r) asset v('b)) .
+                let ['left : q('q) asset v('a) ; 'right : q('r) asset v('b) ] := 'pair in 'left)
+            : oo nonasset (forall q('q). oo nonasset (forall v('a) . oo nonasset (forall q('r). oo nonasset (forall v('b) . oo nonasset (1 asset (* asset v('a) x * asset v('b)) -> * asset v('a)))))) .
 
 --- set profile on .
 --- set clear profile off .
