@@ -10,38 +10,8 @@
 
 module AST where
 
--- AST which implements the Trees That Grow idiom (see https://www.microsoft.com/en-us/research/uploads/prod/2016/11/trees-that-grow.pdf)
-
 import Data.Char (toLower)
 import Data.List (intercalate)
-
--- Compiler phases
-class Phase p where
-    extractBaseType :: XType p -> BaseType p
-    replaceBaseType :: XType p -> BaseType p -> XType p
-
-data Parsed
-data Preprocessed
-data Typechecked
-data Compiled
-
-instance Phase Parsed where
-    extractBaseType (Complete (q, t)) = t
-    extractBaseType (Infer t) = t
-    replaceBaseType (Complete (q, _)) t = Complete (q, t)
-    replaceBaseType (Infer _) t = Infer t
-
-instance Phase Preprocessed where
-    extractBaseType (q, t) = t
-    replaceBaseType (q, _) t = (q, t)
-
-instance Phase Typechecked where
-    extractBaseType (q, t) = t
-    replaceBaseType (q, _) t = (q, t)
-
-instance Phase Compiled where
-    extractBaseType (q, t) = t
-    replaceBaseType (q, _) t = (q, t)
 
 data Modifier = Fungible | Immutable | Consumable | Asset | Unique
     deriving (Show, Eq)
@@ -49,9 +19,33 @@ data Modifier = Fungible | Immutable | Consumable | Asset | Unique
 data TyQuant = Empty | Any | One | Nonempty
     deriving (Show, Eq)
 
-type family XType phase :: * where
-    XType Parsed = InferrableType Parsed -- Types with omitted type quantities are parsed into InferrableTypes and converted in preprocessing
-    XType phase = QuantifiedType phase
+-- Compiler phases
+data Parsed
+data Preprocessed
+data Typechecked
+data Compiled
+
+class DefinesXType p where
+    type XType p    :: *
+    extractBaseType :: XType p -> BaseType p
+    replaceBaseType :: XType p -> BaseType p -> XType p
+
+instance DefinesXType Parsed where
+    type XType Parsed = InferrableType Parsed
+    extractBaseType (Complete (q, t)) = t
+    extractBaseType (Infer t) = t
+    replaceBaseType (Complete (q, _)) t = Complete (q, t)
+    replaceBaseType (Infer _) t = Infer t
+
+instance DefinesXType Preprocessed where
+    type XType Preprocessed = QuantifiedType Preprocessed
+    extractBaseType (q, t) = t
+    replaceBaseType (q, _) t = (q, t)
+
+instance DefinesXType Typechecked where
+    type XType Typechecked = QuantifiedType Typechecked
+    extractBaseType (q, t) = t
+    replaceBaseType (q, _) t = (q, t)
 
 -- AST types, parameterized by compiler phase
 data BaseType phase = Nat | PsaBool | PsaString | Address
@@ -157,7 +151,6 @@ data SolDecl = Struct String [SolVarDecl]
 
 data Contract = Contract String String [SolDecl]
     deriving (Show, Eq)
-
 
 deriving instance Eq (XType phase) => Eq (BaseType phase)
 deriving instance Eq (XType phase) => Eq (InferrableType phase)
