@@ -1,8 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Error where
@@ -50,16 +48,3 @@ instance Show (XType phase) => PrettyPrint (Error phase) where
     prettyPrint (LookupError (LookupErrorVar s)) = ["LookupError: Variable " ++ s ++ " is not defined"]
     prettyPrint (LookupError (LookupErrorType s)) = ["LookupError: Type " ++ s ++ " is not defined"]
     prettyPrint (LookupError (LookupErrorTypeDecl (TransformerDecl tx _ _ _))) = ["LookupError: expected type but got transformer" ++ show tx]
-
--- dummy values that are returned as proxies when errors are encountered
-dummyBaseType :: Phase p => BaseType p
-dummyBaseType  = Bot
-
-dummyType :: QuantifiedType Typechecked
-dummyType = (Any, Bot)
-
-dummyDecl :: forall p. Phase p => Decl p
-dummyDecl = TypeDecl "unknownDecl__" [] (dummyBaseType @p)
-
-dummySolExpr :: SolExpr
-dummySolExpr = SolVar "unknownExpr__"
