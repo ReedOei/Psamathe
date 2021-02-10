@@ -6,7 +6,7 @@ import Control.Lens
 import Control.Monad.State
 import Control.Monad
 
-import Text.Parsec
+import Text.Parsec (parse)
 
 import System.Exit
 
@@ -15,12 +15,16 @@ import Compiler
 import Env
 import Parser
 import Preprocessor
+import Transform
 import Typechecker
 
 import Config
 
 main :: IO ()
 main = compileFile =<< getArgs
+
+(>>>) :: ProgramTransform p1 p2 => (a, Env p1) -> (a -> State (Env p2) b) -> (b, Env p2)
+(a, s) >>> f = runState (f a) (transformEnv s)
 
 compileFile :: Config -> IO ()
 compileFile config = do
@@ -30,7 +34,7 @@ compileFile config = do
         Right prog -> do
             debugPretty config "Parsed program:" prog
 
-            let (compiled, env) = runState (compileProg =<< typecheck =<< preprocess prog) newEnv
+            let (compiled, env) = runState (preprocess prog) newEnv >>> typecheck >>> compileProg
 
             if not $ null $ env^.errors then do
                 putStrLn "Compilation failed! Errors:"
