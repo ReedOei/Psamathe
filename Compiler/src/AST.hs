@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -13,17 +12,13 @@ module AST where
 import Data.Char (toLower)
 import Data.List (intercalate)
 
+import Phase
+
 data Modifier = Fungible | Immutable | Consumable | Asset | Unique
     deriving (Show, Eq)
 
 data TyQuant = Empty | Any | One | Nonempty
     deriving (Show, Eq)
-
--- Compiler phases
-data Parsed
-data Preprocessed
-data Typechecked
-data Compiled
 
 class DefinesXType p where
     type XType p    :: *

@@ -31,6 +31,7 @@ import Debug.Trace
 import AST
 import Env
 import Error
+import Phase
 
 freshVar :: State (Env Typechecked) (Locator Typechecked)
 freshVar = Var <$> freshName

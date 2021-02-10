@@ -8,6 +8,7 @@ import Control.Monad.State
 
 import AST
 import Env
+import Phase
 import Transform
 
 instance ProgramTransform Preprocessed Typechecked where

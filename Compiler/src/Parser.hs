@@ -9,6 +9,7 @@ import Text.Parsec hiding (Empty)
 import Text.Parsec.Expr
 
 import AST
+import Phase
 
 type Parser a = forall s st m. Stream s m Char => ParsecT s st m a
 

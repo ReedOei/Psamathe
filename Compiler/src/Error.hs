@@ -6,6 +6,7 @@
 module Error where
 
 import AST
+import Phase
 
 data Error phase = FlowError String
            | SyntaxError String

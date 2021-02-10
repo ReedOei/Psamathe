@@ -19,6 +19,7 @@ import qualified Data.Map as Map
 
 import AST
 import Error
+import Phase
 
 data Env phase = Env { _freshCounter :: Integer,
                        _typeEnv      :: Map String (BaseType phase),
@@ -65,7 +66,7 @@ modifiers typeName = do
     case decl of
         TypeDecl _ mods _ -> pure mods
 
-isFungible :: Phase p => BaseType p -> State (Env p) Bool
+isFungible :: (Phase a, Phase b, PhaseTransition a b) => BaseType a -> State (Env b) Bool
 isFungible Nat = pure True
 isFungible (Named t)  = (Fungible `elem`) <$> modifiers t
 -- TODO: Update this for later, because tables should be fungible too?
@@ -121,6 +122,7 @@ keyTypes Address = pure [Address]
 keyTypes (Named t) = do
     demotedT <- demoteBaseType (Named t)
     pure [Named t, demotedT]
+
 keyTypes table@(Table ["key"] t) = do
     let (Record ["key"] [ VarDef "key" keyT, VarDef "value" _ ]) = extractBaseType @p t
     pure [table, extractBaseType keyT]
