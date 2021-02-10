@@ -38,7 +38,7 @@ compileFile config = do
 
             if not $ null $ env^.errors then do
                 putStrLn "Compilation failed! Errors:"
-                mapM_ (putStrLn . prettyStr) $ env^.errors
+                putStrLn $ prettyStr (view errors env)
                 exitFailure
             else do
                 if config^.debug > 0 then do
