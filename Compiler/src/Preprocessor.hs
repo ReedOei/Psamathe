@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -12,9 +13,10 @@ import qualified Data.Map as Map
 import AST
 import Env
 import Error
+import Phase
 import Transform
 
-inferQuant :: BaseType Preprocessed -> State (Env Preprocessed) TyQuant
+inferQuant :: (Phase a, PhaseTransition Parsed a) => BaseType Parsed -> State (Env a) TyQuant
 inferQuant baseT = do
     tIsFungible <- isFungible baseT
     if tIsFungible then
@@ -26,7 +28,7 @@ instance ProgramTransform Parsed Preprocessed where
     transformXType (Complete qt) = transformQuantifiedType qt
     transformXType (Infer baseT) = do
         transformedBaseT <- transformBaseType baseT
-        tq <- inferQuant transformedBaseT
+        tq <- inferQuant baseT
         pure (tq, transformedBaseT)
 
 preprocess :: Program Parsed -> State (Env Preprocessed) (Program Preprocessed)
@@ -153,8 +155,8 @@ expandCond (BinOp OpIn a b) = do
     transformedA <- transformLocator a
     transformedB <- transformLocator b
     tyA <- typeOfLoc transformedA
-    qt <- inferQuant tyA
-    pure [ Flow (Select transformedB (Multiset (qt, tyA) [transformedA])) transformedB ]
+    fungible <- isFungible tyA
+    pure [ Flow (Select transformedB (Multiset (if fungible then Any else One, tyA) [transformedA])) transformedB ]
 
 expandCond (BinOp OpNe a b) = do
     failure <- expandCond (BinOp OpEq a b)
