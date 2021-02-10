@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -32,6 +33,10 @@ import AST
 import Env
 import Error
 import Phase
+import Transform
+
+instance ProgramTransform Typechecked Typechecked where
+    transformXType x = pure x
 
 freshVar :: State (Env Typechecked) (Locator Typechecked)
 freshVar = Var <$> freshName

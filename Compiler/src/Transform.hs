@@ -135,6 +135,7 @@ transformDecl (TransformerDecl name args ret body) = do
     transformedBody <- mapM transformStmt body
     pure $ TransformerDecl name transformedArgs transformedRet transformedBody
 
+transformEnv :: forall a b. (Phase a, Phase b, ProgramTransform a b, PhaseTransition a a) => Env a -> Env b
 transformEnv env = let (transformedTypeEnvs, s) = runState (mapM transformBaseType (view typeEnv env)) env
                        (transformedDecls, _) = runState (mapM transformDecl (view declarations env)) env
                    in Env { _freshCounter = env ^. freshCounter,

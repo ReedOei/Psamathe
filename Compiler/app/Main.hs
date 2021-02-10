@@ -14,6 +14,7 @@ import AST
 import Compiler
 import Env
 import Parser
+import Phase
 import Preprocessor
 import Transform
 import Typechecker
@@ -23,7 +24,7 @@ import Config
 main :: IO ()
 main = compileFile =<< getArgs
 
-(>>>) :: ProgramTransform p1 p2 => (a, Env p1) -> (a -> State (Env p2) b) -> (b, Env p2)
+(>>>) :: (ProgramTransform p1 p2, PhaseTransition p1 p1) => (a, Env p1) -> (a -> State (Env p2) b) -> (b, Env p2)
 (a, s) >>> f = runState (f a) (transformEnv s)
 
 compileFile :: Config -> IO ()
