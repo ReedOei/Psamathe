@@ -64,6 +64,14 @@ transformLocator (NewVar name baseT) = do
     transformedBaseT <- transformBaseType baseT
     pure $ NewVar name transformedBaseT
 
+transformLocator Consume = pure Consume
+
+transformLocator (RecordLit keys members) = do
+    let (varDefs, locators) = unzip members
+    transformedVarDefs <- mapM transformVarDef varDefs
+    transformedLocators <- mapM transformLocator locators
+    pure $ RecordLit keys (zip transformedVarDefs transformedLocators)
+
 transformLocator (Filter l q predName args) = do
     transformedL <- transformLocator l
     transformedArgs <- mapM transformLocator args
