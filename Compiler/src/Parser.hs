@@ -69,7 +69,7 @@ parseVarDef :: Parser (VarDef Parsed)
 parseVarDef = do
     name <- parseVarName
     symbol $ string ":"
-    VarDef name . Complete <$> parseType
+    VarDef name <$> parseType
 
 parseStmt :: Parser (Stmt Parsed)
 parseStmt = try parseFlowTransform <|> try parseFlowTransformBackwards <|>
@@ -292,7 +292,7 @@ parseMultiset = do
     symbol $ string ";"
     elems <- parseLocators
     symbol $ string "]"
-    pure $ Multiset (Complete t) elems
+    pure $ Multiset t elems
 
 parseVar :: Parser (Locator Parsed)
 parseVar = Var <$> parseVarName
@@ -314,8 +314,13 @@ parseNewVar = do
     t <- symbol parseBaseType
     pure $ NewVar x t
 
-parseType :: Parser (QuantifiedType Parsed)
-parseType = (,) <$> symbol parseQuant <*> symbol parseBaseType
+parseType :: Parser (InferrableType Parsed)
+parseType = try parseCompleteType <|>
+            try parseInferredType
+    where
+        parseCompleteType = curry Complete <$> symbol parseQuant <*> symbol parseBaseType
+        parseInferredType = Infer <$> symbol parseBaseType
+
 
 parseQuant :: Parser TyQuant
 parseQuant = try (parseConst "empty" Empty) <|>
@@ -339,7 +344,7 @@ parseMapType = do
     keyTy <- parseType
     symbol $ string "=>"
     valTy <- parseType
-    pure $ Table ["key"] (Complete (One, Record ["key"] [ VarDef "key" (Complete keyTy), VarDef "value" (Complete valTy) ]))
+    pure $ Table ["key"] (Complete (One, Record ["key"] [ VarDef "key" keyTy, VarDef "value" valTy ]))
 
 parseRecordType :: Parser (BaseType Parsed)
 parseRecordType = do
@@ -355,7 +360,7 @@ parseNamedType = Named <$> parseVarName
 parseMultisetType :: Parser (BaseType Parsed)
 parseMultisetType = do
     symbol $ choice [string "list", string "multiset"] -- TODO: Change this
-    Table [] . Complete <$> parseType
+    Table []  <$> parseType
 
 parseInt :: Parser (Locator Parsed)
 parseInt = IntConst . read <$> symbol (many1 digit)
