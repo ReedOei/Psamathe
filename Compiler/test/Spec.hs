@@ -42,11 +42,15 @@ evalEnv env toEval = do
     finalEnv^.errors `shouldBe` []
     pure res
 
+evalStr prog = do
+    parsed <- parseAndCheck parseProgram prog
+    (Program _ progStmts) <- evalEnv newEnv (preprocess parsed)
+    pure progStmts
+
 shouldPreprocessAs :: State (Env Preprocessed) [Stmt Preprocessed] -> String -> IO ()
 x `shouldPreprocessAs` prog = do
     stmts <- evalEnv newEnv x
-    parsed <- parseAndCheck parseProgram prog
-    (Program _ progStmts) <- evalEnv newEnv (preprocess parsed)
+    progStmts <- evalStr prog
     stmts `shouldBe` progStmts
 
 preprocessorTests = do
@@ -93,6 +97,17 @@ preprocessorTests = do
             expected <- parseAndCheck parsePrecondition "(0 != 1) or (x != y and 0 >= 10)"
             res <- evalEnv newEnv (expandNegate cond)
             res `shouldBe` expected
+
+    describe "preprocess" $ do
+        it "infers ommitted any type quantities" $ do
+            complete <- evalStr "[ any nat ; ] --> var m : map any nat => any nat"
+            inferred <- evalStr "[ nat ; ] --> var m : map nat => nat"
+            complete `shouldBe` inferred
+
+        it "infers ommitted one type quantities" $ do
+            complete <- evalStr "[ one address ; ] --> var m : map one address => one address"
+            inferred <- evalStr "[ address ; ] --> var m : map address => address"
+            complete `shouldBe` inferred
 
 parserTests = do
     describe "parseStmt" $ do
