@@ -44,50 +44,50 @@ instance DefinesXType Compiling where
 
 -- AST types, parameterized by compiler phase
 data BaseType phase = Nat | PsaBool | PsaString | Address
-              | Record [String] [VarDef phase]
-              | Table [String] (XType phase)
-              | Named String
-              | Bot
+                    | Record [String] [VarDef phase]
+                    | Table [String] (XType phase)
+                    | Named String
+                    | Bot
 
 type QuantifiedType phase = (TyQuant, BaseType phase)
 
 data InferrableType phase = Complete (QuantifiedType phase)
-                    | Infer (BaseType phase)
+                          | Infer (BaseType phase)
 
 data VarDef phase = VarDef String (XType phase)
 
 data Locator phase = IntConst Integer
-             | BoolConst Bool
-             | StrConst String
-             | AddrConst String
-             | Var String
-             | Field (Locator phase) String
-             | Multiset (XType phase) [Locator phase]
-             | NewVar String (BaseType phase)
-             | Consume
-             | RecordLit [String] [(VarDef phase, Locator phase)]
-             | Filter (Locator phase) TyQuant String [Locator phase]
-             | Select (Locator phase) (Locator phase)
+                   | BoolConst Bool
+                   | StrConst String
+                   | AddrConst String
+                   | Var String
+                   | Field (Locator phase) String
+                   | Multiset (XType phase) [Locator phase]
+                   | NewVar String (BaseType phase)
+                   | Consume
+                   | RecordLit [String] [(VarDef phase, Locator phase)]
+                   | Filter (Locator phase) TyQuant String [Locator phase]
+                   | Select (Locator phase) (Locator phase)
 
 data Transformer phase = Call String [Locator phase]
-                 | Construct String [Locator phase]
+                       | Construct String [Locator phase]
 
 data Op = OpLt | OpGt | OpLe | OpGe | OpEq | OpNe | OpIn | OpNotIn
     deriving (Show, Eq)
 
 data Precondition phase = Conj [Precondition phase]
-                  | Disj [Precondition phase]
-                  | BinOp Op (Locator phase) (Locator phase)
-                  | NegateCond (Precondition phase)
+                        | Disj [Precondition phase]
+                        | BinOp Op (Locator phase) (Locator phase)
+                        | NegateCond (Precondition phase)
 
 data Stmt phase = Flow (Locator phase) (Locator phase)
-          | FlowTransform (Locator phase) (Transformer phase) (Locator phase)
-          | OnlyWhen (Precondition phase)
-          | Revert
-          | Try [Stmt phase] [Stmt phase]
+                | FlowTransform (Locator phase) (Transformer phase) (Locator phase)
+                | OnlyWhen (Precondition phase)
+                | Revert
+                | Try [Stmt phase] [Stmt phase]
 
 data Decl phase = TypeDecl String [Modifier] (BaseType phase)
-          | TransformerDecl String [VarDef phase] (VarDef phase) [Stmt phase]
+                | TransformerDecl String [VarDef phase] (VarDef phase) [Stmt phase]
 
 data Program phase = Program [Decl phase] [Stmt phase]
 

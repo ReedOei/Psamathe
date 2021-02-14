@@ -11,17 +11,17 @@ import AST
 import Phase
 
 data Error phase = FlowError String
-                   | SyntaxError String
-                   | UnimplementedError String String
-                   | TypeError String (BaseType phase)
-                   | FieldNotFoundError String (BaseType phase)
-                   | LookupError (LookupErrorCat phase)
+                 | SyntaxError String
+                 | UnimplementedError String String
+                 | TypeError String (BaseType phase)
+                 | FieldNotFoundError String (BaseType phase)
+                 | LookupError (LookupErrorCat phase)
 
 data LookupErrorCat phase = LookupErrorVar String | LookupErrorType String | LookupErrorTypeDecl (Decl phase)
 
 data ErrorCat = PreprocessorError (Error Preprocessing)
-                | TypecheckerError (Error Typechecking)
-                | CompilerError (Error Compiling)
+              | TypecheckerError (Error Typechecking)
+              | CompilerError (Error Compiling)
     deriving (Eq, Show)
 
 class Errorable e where
