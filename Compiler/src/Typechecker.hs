@@ -24,7 +24,4 @@ checkDecl :: Decl Preprocessed -> State (Env Typechecked) (Decl Typechecked)
 checkDecl = transformDecl
 
 checkStmt :: Stmt Preprocessed -> State (Env Typechecked) (Stmt Typechecked)
-checkStmt (Flow src dst) = do
-    transformedSource <- transformLocator src
-    transformedDest <- transformLocator dst
-    pure $ Flow transformedSource transformedDest
+checkStmt = transformStmt

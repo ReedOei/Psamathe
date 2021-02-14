@@ -52,6 +52,7 @@ transformVarDef (VarDef name t) = do
 
 transformLocator :: forall a b c. (Phase a, Phase b, Phase c, ProgramTransform a b, PhaseTransition a c) => Locator a -> State (Env c) (Locator b)
 transformLocator (IntConst i) = pure $ IntConst i
+transformLocator (BoolConst b) = pure $ BoolConst b
 transformLocator (StrConst s) = pure $ StrConst s
 transformLocator (AddrConst addr) = pure $ AddrConst addr
 transformLocator (Var var) = pure $ Var var
