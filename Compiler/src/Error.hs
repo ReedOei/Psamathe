@@ -64,9 +64,12 @@ groupErrors (x:xs) = (groupParsed ++ packedParsed, groupPreprocessed ++ packedPr
             (CompilerError e) -> ([], [], [e])
         (groupParsed, groupPreprocessed, groupTypechecked) = groupErrors xs
 
+indentString :: String -> String
+indentString = unlines . map indent . lines
+
 instance PrettyPrint [ErrorCat] where
-    prettyPrint errors = [ "Preprocessor errors: \n" ++ intercalate "\n" (map prettyStr preprocessorErrors),
-                           "Typechecker errors: \n" ++ intercalate "\n" (map prettyStr typecheckerErrors),
-                           "Compiler errors: \n" ++ intercalate "\n" (map prettyStr compilerErrors) ]
+    prettyPrint errors = filter (not . null) [ if (not . null) preprocessorErrors then "Preprocessor errors\n" ++ indentString (intercalate "\n" (map prettyStr preprocessorErrors)) else "",
+                                               if (not . null) typecheckerErrors then "Typechecker errors: \n" ++ indentString (intercalate "\n" (map prettyStr typecheckerErrors)) else "",
+                                               if (not .null) compilerErrors then "Compiler errors: \n" ++ indentString (intercalate "\n" (map prettyStr compilerErrors)) else "" ]
         where
             (preprocessorErrors, typecheckerErrors, compilerErrors) = groupErrors errors

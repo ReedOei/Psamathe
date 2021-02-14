@@ -8,6 +8,7 @@ import Control.Monad
 
 import Text.Parsec (parse)
 
+import System.IO (hPutStrLn, stderr)
 import System.Exit
 
 import AST
@@ -24,6 +25,8 @@ import Config
 main :: IO ()
 main = compileFile =<< getArgs
 
+putError = hPutStrLn stderr
+
 compileFile :: Config -> IO ()
 compileFile config = do
     content <- obtainContent config
@@ -35,8 +38,9 @@ compileFile config = do
             let (compiled, env) = runState (preprocess prog) newEnv >>> typecheck >>> compileProg
 
             if not $ null $ env^.errors then do
-                putStrLn "Compilation failed! Errors:"
-                putStrLn $ prettyStr (view errors env)
+                putError "Compilation failed!"
+                putError "-------------------"
+                putError $ prettyStr (view errors env)
                 exitFailure
             else do
                 if config^.debug > 0 then do
