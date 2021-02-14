@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 import Control.Lens ((^.))
-import Control.Monad.State
 
 import Data.Either (isRight)
 
@@ -38,22 +37,16 @@ x `shouldParseTo` stmtsStr = do
     x `shouldReturn` res
 
 -- | A version of evalState that asserts that there were no errors before returning the result
-evalEnv env toEval f = do
-    let (res, finalEnv) = f $ runState toEval env
+evalEnv env toEval = do
+    let (res, finalEnv) = runState toEval env
     finalEnv^.errors `shouldBe` []
     pure res
 
--- | Parses string and calls evalEnv on it
-evalStmts :: String -> ((Program Preprocessed, Env Preprocessed) -> (Program p, Env p)) -> IO [Stmt p]
-evalStmts prog f = do
-    parsed <- parseAndCheck parseProgram prog
-    (Program _ stmts) <- evalEnv newEnv (preprocess parsed) f
-    pure stmts
-
 shouldPreprocessAs :: State (Env Preprocessed) [Stmt Preprocessed] -> String -> IO ()
 x `shouldPreprocessAs` prog = do
-    stmts <- evalEnv newEnv x id
-    progStmts <- evalStmts prog id
+    stmts <- evalEnv newEnv x
+    parsed <- parseAndCheck parseProgram prog
+    (Program _ progStmts) <- evalEnv newEnv (preprocess parsed)
     stmts `shouldBe` progStmts
 
 preprocessorTests = do
@@ -98,7 +91,7 @@ preprocessorTests = do
         it "pushes negations down to the atomic conditions" $ do
             cond <- parseAndCheck parsePrecondition "(0 = 1) and (x = y or 0 < 10)"
             expected <- parseAndCheck parsePrecondition "(0 != 1) or (x != y and 0 >= 10)"
-            res <- evalEnv newEnv (expandNegate cond) id
+            res <- evalEnv newEnv (expandNegate cond)
             res `shouldBe` expected
 
 parserTests = do
