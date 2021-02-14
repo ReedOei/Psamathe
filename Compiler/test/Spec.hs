@@ -7,13 +7,17 @@ import Data.Either (isRight)
 
 import Test.Hspec
 
-import Text.Parsec
+import Text.Parsec (parse, many, eof)
+
+import Control.Monad.State
 
 import AST
 import Env
 import Preprocessor
 import Parser
+import Phase
 import Compiler
+import Transform
 import Typechecker
 
 main :: IO ()
@@ -29,34 +33,47 @@ parseAndCheck parser str =
             undefined
         Right term -> pure term
 
-x `shouldBeStmts` stmtsStr = do
+x `shouldParseTo` stmtsStr = do
     res <- parseAndCheck (do { x <- many parseStmt; eof; pure x }) stmtsStr
     x `shouldReturn` res
 
 -- | A version of evalState that asserts that there were no errors before returning the result
-evalEnv env toEval = do
-    let (res, finalEnv) = runState toEval env
+evalEnv env toEval f = do
+    let (res, finalEnv) = f $ runState toEval env
     finalEnv^.errors `shouldBe` []
     pure res
+
+-- | Parses string and calls evalEnv on it
+evalStmts :: String -> ((Program Preprocessed, Env Preprocessed) -> (Program p, Env p)) -> IO [Stmt p]
+evalStmts prog f = do
+    parsed <- parseAndCheck parseProgram prog
+    (Program _ stmts) <- evalEnv newEnv (preprocess parsed) f
+    pure stmts
+
+shouldPreprocessAs :: State (Env Preprocessed) [Stmt Preprocessed] -> String -> IO ()
+x `shouldPreprocessAs` prog = do
+    stmts <- evalEnv newEnv x id
+    progStmts <- evalStmts prog id
+    stmts `shouldBe` progStmts
 
 preprocessorTests = do
     describe "preprocessCond" $ do
         it "expands simple preconditions" $ do
-            evalEnv newEnv (preprocessCond (BinOp OpLe (Var "x") (Var "y")))
-                `shouldBeStmts` "y --[ x ]-> y"
+            preprocessCond (BinOp OpLe (Var "x") (Var "y"))
+                `shouldPreprocessAs` "y --[ x ]-> y"
 
-            evalEnv newEnv (preprocessCond (BinOp OpEq (Select (Var "x") (Var "vs")) (Var "y")))
-                `shouldBeStmts` unlines ["x[vs] --[ y ]-> x[vs]",
-                                         "y --[ x[vs] ]-> y"]
+            preprocessCond (BinOp OpEq (Select (Var "x") (Var "vs")) (Var "y"))
+                `shouldPreprocessAs` unlines ["x[vs] --[ y ]-> x[vs]",
+                                              "y --[ x[vs] ]-> y"]
 
-            evalEnv newEnv (preprocessCond (BinOp OpLe (IntConst 1) (IntConst 3)))
-                `shouldBeStmts` unlines ["1 --> var v0 : nat",
-                                         "3 --> var v1 : nat",
-                                         "v1 --[ v0 ]-> v1"]
+            preprocessCond (BinOp OpLe (IntConst 1) (IntConst 3))
+                `shouldPreprocessAs` unlines ["1 --> var v0 : nat",
+                                              "3 --> var v1 : nat",
+                                              "v1 --[ v0 ]-> v1"]
 
         it "expands conjunctions of preconditions" $ do
-            evalEnv newEnv (preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (IntConst 0) (Var "x")]))
-                `shouldBeStmts` unlines ["try {",
+            preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (IntConst 0) (Var "x")])
+                `shouldPreprocessAs` unlines ["try {",
                                          "    x --[ y ]-> x",
                                          "    y --[ x ]-> y",
                                          "    revert",
@@ -65,8 +82,8 @@ preprocessorTests = do
                                          "x --[ [ any nat; v0 ] ]-> x"]
 
         it "expands disjunctions of preconditions" $ do
-            evalEnv newEnv (preprocessCond (Disj [NegateCond (BinOp OpIn (IntConst 0) (Var "z")), BinOp OpEq (Var "x") (Var "z")]))
-                `shouldBeStmts` unlines ["try {",
+            preprocessCond (Disj [NegateCond (BinOp OpIn (IntConst 0) (Var "z")), BinOp OpEq (Var "x") (Var "z")])
+                `shouldPreprocessAs` unlines ["try {",
                                          "    0 --> var v0 : nat",
                                          "    try {",
                                          "        z --[ [ any nat; v0] ]-> z",
@@ -81,7 +98,8 @@ preprocessorTests = do
         it "pushes negations down to the atomic conditions" $ do
             cond <- parseAndCheck parsePrecondition "(0 = 1) and (x = y or 0 < 10)"
             expected <- parseAndCheck parsePrecondition "(0 != 1) or (x != y and 0 >= 10)"
-            expandNegate cond `shouldBe` expected
+            res <- evalEnv newEnv (expandNegate cond) id
+            res `shouldBe` expected
 
 parserTests = do
     describe "parseStmt" $ do
