@@ -16,7 +16,7 @@ import Error
 import Phase
 import Transform
 
-inferQuant :: (Phase a, PhaseTransition Parsed a) => BaseType Parsed -> State (Env a) TyQuant
+inferQuant :: (Phase a, PhaseTransition Preprocessing a) => BaseType Preprocessing -> State (Env a) TyQuant
 inferQuant baseT = do
     tIsFungible <- isFungible baseT
     if tIsFungible then
@@ -24,21 +24,21 @@ inferQuant baseT = do
     else
         pure One
 
-instance ProgramTransform Parsed Preprocessed where
+instance ProgramTransform Preprocessing Typechecking where
     transformXType (Complete qt) = transformQuantifiedType qt
     transformXType (Infer baseT) = do
         transformedBaseT <- transformBaseType baseT
         tq <- inferQuant baseT
         pure (tq, transformedBaseT)
 
-preprocess :: Program Parsed -> State (Env Preprocessed) (Program Preprocessed)
+preprocess :: Program Preprocessing -> State (Env Typechecking) (Program Typechecking)
 preprocess (Program decls stmts) = do
     newProg <- Program <$> (concat <$> mapM preprocessDecl decls)
                        <*> (concat <$> mapM preprocessStmt stmts)
     modify $ set typeEnv Map.empty
     pure newProg
 
-preprocessDecl :: Decl Parsed -> State (Env Preprocessed) [Decl Preprocessed]
+preprocessDecl :: Decl Preprocessing -> State (Env Typechecking) [Decl Typechecking]
 preprocessDecl (TransformerDecl name args ret body) = do
     newBody <- concat <$> mapM preprocessStmt body
     modify $ set typeEnv Map.empty
@@ -51,7 +51,7 @@ preprocessDecl d = do
     pure [transformedDecl]
 
 -- TODO: Might need to make this more flexible, in case we need to generate declarations or something
-preprocessStmt :: Stmt Parsed -> State (Env Preprocessed) [Stmt Preprocessed]
+preprocessStmt :: Stmt Preprocessing -> State (Env Typechecking) [Stmt Typechecking]
 preprocessStmt (OnlyWhen cond) = preprocessCond cond
 preprocessStmt s@(Flow _ dst) = do
     declareVars dst
@@ -67,14 +67,14 @@ preprocessStmt s = do
     transformedStmt <- transformStmt s
     pure [transformedStmt]
 
-declareVars :: Locator Parsed -> State (Env Preprocessed) ()
+declareVars :: Locator Preprocessing -> State (Env Typechecking) ()
 declareVars (NewVar x baseT) = do
     transformedBaseT <- transformBaseType baseT
     modify $ over typeEnv $ Map.insert x transformedBaseT
 
 declareVars _ = pure ()
 
-preprocessCond :: Precondition Parsed -> State (Env Preprocessed) [Stmt Preprocessed]
+preprocessCond :: Precondition Preprocessing -> State (Env Typechecking) [Stmt Typechecking]
 preprocessCond (Conj conds) = concat <$> mapM preprocessCond conds
 preprocessCond (Disj []) = pure []
 preprocessCond (Disj [cond]) = preprocessCond cond
@@ -95,7 +95,7 @@ preprocessCond (BinOp op a b) = do
     res <- expandCond $ BinOp op newA newB
     pure $ newAllocA ++ newAllocB ++ res
 
-expandNegate :: Precondition Parsed -> State (Env Preprocessed) (Precondition Parsed)
+expandNegate :: Precondition Preprocessing -> State (Env Typechecking) (Precondition Preprocessing)
 expandNegate (BinOp OpEq a b) = pure (BinOp OpNe a b)
 expandNegate (BinOp OpNe a b) = pure (BinOp OpEq a b)
 expandNegate (BinOp OpLt a b) = pure (BinOp OpGe a b)
@@ -114,7 +114,7 @@ expandNegate (Disj conds) = do
 
 expandNegate (NegateCond cond) = pure cond
 
-allocateVar :: Locator Parsed -> State (Env Preprocessed) ([Stmt Parsed], Locator Parsed)
+allocateVar :: Locator Preprocessing -> State (Env Typechecking) ([Stmt Preprocessing], Locator Preprocessing)
 allocateVar (IntConst n) = do
     x <- freshName
     pure ([ Flow (IntConst n) (NewVar x Nat) ], Var x)
@@ -129,7 +129,7 @@ allocateVar l@(Multiset elemT elems) = do
 
 allocateVar l = pure ([], l)
 
-expandCond :: Precondition Parsed -> State (Env Preprocessed) [Stmt Preprocessed]
+expandCond :: Precondition Preprocessing -> State (Env Typechecking) [Stmt Typechecking]
 -- TODO: We need to be able to write things like "x + 1" in locators for this to work out nicely (alternatively, we could compile things like:
 -- only when a <= b
 -- into
@@ -138,11 +138,11 @@ expandCond :: Precondition Parsed -> State (Env Preprocessed) [Stmt Preprocessed
 -- temp --> b
 -- But that's kind of annoying, and requires type information)
 expandCond cond@(BinOp OpLt a b) = do
-    addError $ UnimplementedError @Parsed "only when" $ show cond
+    addError $ UnimplementedError @Preprocessing "only when" $ show cond
     pure []
 
 expandCond cond@(BinOp OpGt a b) = do
-    addError $ UnimplementedError @Parsed "only when" $ show cond
+    addError $ UnimplementedError @Preprocessing "only when" $ show cond
     pure []
 
 expandCond (BinOp OpEq a b) = do

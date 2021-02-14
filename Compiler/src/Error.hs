@@ -19,21 +19,21 @@ data Error phase = FlowError String
 
 data LookupErrorCat phase = LookupErrorVar String | LookupErrorType String | LookupErrorTypeDecl (Decl phase)
 
-data ErrorCat = PreprocessorError (Error Parsed)
-                | TypecheckerError (Error Preprocessed)
-                | CompilerError (Error Typechecked)
+data ErrorCat = PreprocessorError (Error Preprocessing)
+                | TypecheckerError (Error Typechecking)
+                | CompilerError (Error Compiling)
     deriving (Eq, Show)
 
 class Errorable e where
     toErrorCat :: e -> ErrorCat
 
-instance Errorable (Error Parsed) where
+instance Errorable (Error Preprocessing) where
     toErrorCat e = PreprocessorError e
 
-instance Errorable (Error Preprocessed) where
+instance Errorable (Error Typechecking) where
     toErrorCat e = TypecheckerError e
 
-instance Errorable (Error Typechecked) where
+instance Errorable (Error Compiling) where
     toErrorCat e = CompilerError e
 
 deriving instance Eq (XType phase) => Eq (Error phase)
@@ -54,7 +54,7 @@ instance Show (XType phase) => PrettyPrint (Error phase) where
     prettyPrint (LookupError (LookupErrorType s)) = ["LookupError: Type " ++ s ++ " is not defined"]
     prettyPrint (LookupError (LookupErrorTypeDecl (TransformerDecl tx _ _ _))) = ["LookupError: expected type but got transformer" ++ show tx]
 
-groupErrors :: [ErrorCat] -> ([Error Parsed], [Error Preprocessed], [Error Typechecked])
+groupErrors :: [ErrorCat] -> ([Error Preprocessing], [Error Typechecking], [Error Compiling])
 groupErrors [] = ([], [], [])
 groupErrors (x:xs) = (groupParsed ++ packedParsed, groupPreprocessed ++ packedPreprocessed, groupTypechecked ++ packedTypechecked)
     where

@@ -4,18 +4,17 @@
 module Phase where
 
 -- Compiler phases
-data Parsed
-data Preprocessed
-data Typechecked
-data Compiled
+data Preprocessing
+data Typechecking
+data Compiling
 
 -- Phase transitions - either moving to next phase or staying in current phase
 class PhaseTransition a b
 
-instance PhaseTransition Parsed Parsed
-instance PhaseTransition Parsed Preprocessed
+instance PhaseTransition Preprocessing Preprocessing
+instance PhaseTransition Preprocessing Typechecking
 
-instance PhaseTransition Preprocessed Preprocessed
-instance PhaseTransition Preprocessed Typechecked
+instance PhaseTransition Typechecking Typechecking
+instance PhaseTransition Typechecking Compiling
 
-instance PhaseTransition Typechecked Typechecked
+instance PhaseTransition Compiling Compiling

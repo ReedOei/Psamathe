@@ -25,20 +25,20 @@ class DefinesXType p where
     extractBaseType :: XType p -> BaseType p
     replaceBaseType :: XType p -> BaseType p -> XType p
 
-instance DefinesXType Parsed where
-    type XType Parsed = InferrableType Parsed
+instance DefinesXType Preprocessing where
+    type XType Preprocessing = InferrableType Preprocessing
     extractBaseType (Complete (q, t)) = t
     extractBaseType (Infer t) = t
     replaceBaseType (Complete (q, _)) t = Complete (q, t)
     replaceBaseType (Infer _) t = Infer t
 
-instance DefinesXType Preprocessed where
-    type XType Preprocessed = QuantifiedType Preprocessed
+instance DefinesXType Typechecking where
+    type XType Typechecking = QuantifiedType Typechecking
     extractBaseType (q, t) = t
     replaceBaseType (q, _) t = (q, t)
 
-instance DefinesXType Typechecked where
-    type XType Typechecked = QuantifiedType Typechecked
+instance DefinesXType Compiling where
+    type XType Compiling = QuantifiedType Compiling
     extractBaseType (q, t) = t
     replaceBaseType (q, _) t = (q, t)
 

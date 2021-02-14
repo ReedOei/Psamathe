@@ -165,14 +165,14 @@ demoteBaseType (Named t) = do
         TypeDecl _ _ baseT -> demoteBaseType baseT
 demoteBaseType Bot = pure Bot
 
-demoteType :: QuantifiedType Typechecked -> State (Env Typechecked) (QuantifiedType Typechecked)
+demoteType :: QuantifiedType Compiling -> State (Env Compiling) (QuantifiedType Compiling)
 demoteType (q, t) = (q,) <$> demoteBaseType t
 
 -- dummy values that are returned as proxies when errors are encountered
 dummyBaseType :: Phase p => BaseType p
 dummyBaseType  = Bot
 
-dummyType :: QuantifiedType Typechecked
+dummyType :: QuantifiedType Compiling
 dummyType = (Any, Bot)
 
 dummyDecl :: forall p. Phase p => Decl p

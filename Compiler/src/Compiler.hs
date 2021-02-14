@@ -35,13 +35,13 @@ import Error
 import Phase
 import Transform
 
-instance ProgramTransform Typechecked Typechecked where
+instance ProgramTransform Compiling Compiling where
     transformXType x = pure x
 
-freshVar :: State (Env Typechecked) (Locator Typechecked)
+freshVar :: State (Env Compiling) (Locator Compiling)
 freshVar = Var <$> freshName
 
-allocateNew :: SolType -> State (Env Typechecked) (SolExpr, [SolStmt])
+allocateNew :: SolType -> State (Env Compiling) (SolExpr, [SolStmt])
 allocateNew t = do
     curState <- Map.lookup t . view allocators <$> get
     allocator <- case curState of
@@ -53,13 +53,13 @@ allocateNew t = do
 
     pure (SolCall (FieldAccess (SolVar allocator) "push") [], [])
 
-buildExpr :: Locator Typechecked -> State (Env Typechecked) SolExpr
+buildExpr :: Locator Compiling -> State (Env Compiling) SolExpr
 buildExpr (Var s) = pure $ SolVar s
 buildExpr l = do
-    addError $ SyntaxError @Typechecked ("Unsupported locator: " ++ show l)
+    addError $ SyntaxError @Compiling ("Unsupported locator: " ++ show l)
     pure dummySolExpr
 
-compileProg :: Program Typechecked -> State (Env Typechecked) Contract
+compileProg :: Program Compiling -> State (Env Compiling) Contract
 compileProg (Program decls mainBody) = do
     mapM_ compileDecl decls
     stmts <- concat <$> mapM compileStmt mainBody
@@ -68,7 +68,7 @@ compileProg (Program decls mainBody) = do
     let allocatorDecls = [ FieldDef (SolVarDecl (SolArray t) x) | (t,x) <- allocators ]
     pure $ Contract "0.7.5" "C" $ allocatorDecls ++ compiledDecls ++ [Constructor [] stmts]
 
-compileDecl :: Decl Typechecked -> State (Env Typechecked) ()
+compileDecl :: Decl Compiling -> State (Env Compiling) ()
 compileDecl decl@(TypeDecl name _ baseT) = do
     modify $ over declarations $ Map.insert name decl
     defineStruct name baseT
@@ -85,7 +85,7 @@ compileDecl decl@(TransformerDecl name args ret body) = do
 
     modify $ over solDecls $ Map.insert name (Function name solArgs Internal rets bodyStmts)
 
-defineStruct :: String -> BaseType Typechecked -> State (Env Typechecked) ()
+defineStruct :: String -> BaseType Compiling -> State (Env Compiling) ()
 defineStruct name Nat = pure ()
 defineStruct name PsaBool = pure ()
 defineStruct name PsaString = pure ()
@@ -105,7 +105,7 @@ defineStruct name ty@(Table ["key"] (One, Record ["key"] [ VarDef "key" (_,keyTy
 defineStruct name t = do
     addError $ TypeError "Cannot create struct for" t
 
-compileStmt :: Stmt Typechecked -> State (Env Typechecked) [SolStmt]
+compileStmt :: Stmt Compiling -> State (Env Compiling) [SolStmt]
 compileStmt (Flow src dst) = do
     (srcLoc, srcComp) <- locate src
     (dstLoc, dstComp) <- locate dst
@@ -157,7 +157,7 @@ compileStmt (Try tryBlock catchBlock) = do
 
 compileStmt Revert = pure [ SolRevert (SolStr "REVERT") ]
 
-makeConstructor :: String -> State (Env Typechecked) ([SolExpr] -> SolExpr)
+makeConstructor :: String -> State (Env Compiling) ([SolExpr] -> SolExpr)
 makeConstructor t = do
     decl <- lookupTypeDecl t
     case decl of
@@ -171,30 +171,30 @@ makeConstructor t = do
             addError $ TypeError "Cannot make constructor for" t
             pure $ \_ -> dummySolExpr
         tx@TransformerDecl{} -> do
-            addError $ SyntaxError @Typechecked ("Cannot make constructor for transformer" ++ show tx)
+            addError $ SyntaxError @Compiling ("Cannot make constructor for transformer" ++ show tx)
             pure $ \_ -> dummySolExpr
 
-makeClosureArgs :: [String] -> State (Env Typechecked) [SolVarDecl]
+makeClosureArgs :: [String] -> State (Env Compiling) [SolVarDecl]
 makeClosureArgs vars = concat <$> mapM go vars
     where
         go x = declareVar x =<< typeOf x
 
-makeClosureRets :: [String] -> State (Env Typechecked) [SolVarDecl]
+makeClosureRets :: [String] -> State (Env Compiling) [SolVarDecl]
 makeClosureRets vars = concat <$> mapM go vars
     where
         go x = declareVar (x ++ "_out") =<< typeOf x
 
-makeUnpackClosureBlock :: [String] -> State (Env Typechecked) [SolStmt]
+makeUnpackClosureBlock :: [String] -> State (Env Compiling) [SolStmt]
 makeUnpackClosureBlock vars = concat <$> mapM go vars
     where
         go x = pure [ SolAssign (SolVar x) (SolVar (x ++ "_out")) ]
 
-makePackClosureBlock :: [String] -> State (Env Typechecked) [SolStmt]
+makePackClosureBlock :: [String] -> State (Env Compiling) [SolStmt]
 makePackClosureBlock vars = concat <$> mapM go vars
     where
         go x = pure [ SolAssign (SolVar (x ++ "_out")) (SolVar x) ]
 
-locate :: Locator Typechecked -> State (Env Typechecked) (Locator Typechecked, [SolStmt])
+locate :: Locator Compiling -> State (Env Compiling) (Locator Compiling, [SolStmt])
 locate (NewVar x t) = do
     modify $ over typeEnv $ Map.insert x t
     defs <- defineVar x t
@@ -216,7 +216,7 @@ locate (RecordLit keys members) = do
 
 locate l = pure (l, [])
 
-lookupValue :: Locator Typechecked -> (BaseType Typechecked-> SolExpr -> SolExpr -> State (Env Typechecked) [SolStmt]) -> State (Env Typechecked) [SolStmt]
+lookupValue :: Locator Compiling -> (BaseType Compiling-> SolExpr -> SolExpr -> State (Env Compiling) [SolStmt]) -> State (Env Compiling) [SolStmt]
 lookupValue (IntConst i) f = f Nat (SolInt i) (SolInt i)
 lookupValue (BoolConst b) f = f PsaBool (SolBool b) (SolBool b)
 lookupValue (StrConst s) f = f PsaString (SolStr s) (SolStr s)
@@ -279,7 +279,7 @@ lookupValue (Select l k) f = do
                         pure [ If (SolEq valL valK) body ]
 
                     _ -> do
-                        addError $ UnimplementedError @Typechecked "lookupValue Select" (show kTy)
+                        addError $ UnimplementedError @Compiling "lookupValue Select" (show kTy)
                         pure []
 
 lookupValue (Filter l q predName args) f = do
@@ -303,14 +303,14 @@ lookupValue (Filter l q predName args) f = do
         checkCounter Nonempty counter = SolLte (SolInt 1) counter
 
 lookupValue l _ = do
-    addError $ UnimplementedError @Typechecked "lookupValue" (show l)
+    addError $ UnimplementedError @Compiling "lookupValue" (show l)
     pure []
 
-lookupValues :: [Locator Typechecked] -> ([SolExpr] -> State (Env Typechecked) [SolStmt]) -> State (Env Typechecked) [SolStmt]
+lookupValues :: [Locator Compiling] -> ([SolExpr] -> State (Env Compiling) [SolStmt]) -> State (Env Compiling) [SolStmt]
 lookupValues [] f = f []
 lookupValues (l:ls) f = lookupValue l $ \lTy origL srcL -> lookupValues ls $ \rest -> f (srcL:rest)
 
-sendExpr :: BaseType Typechecked -> SolExpr -> (BaseType Typechecked -> SolExpr -> SolExpr -> State (Env Typechecked) [SolStmt]) -> State (Env Typechecked) [SolStmt]
+sendExpr :: BaseType Compiling -> SolExpr -> (BaseType Compiling -> SolExpr -> SolExpr -> State (Env Compiling) [SolStmt]) -> State (Env Compiling) [SolStmt]
 sendExpr Nat e f = f Nat e e
 sendExpr PsaBool e f  = f PsaBool e e
 sendExpr PsaString e f = f PsaString e e
@@ -350,11 +350,11 @@ sendExpr (Named t) e f = f (Named t) e e
 sendExpr (Record keys fields) e f = f (Record keys fields) e e
 
 sendExpr t e f = do
-    addError $ UnimplementedError @Typechecked "lookupValue Var" (show t)
+    addError $ UnimplementedError @Compiling "lookupValue Var" (show t)
     pure []
 
 
-receiveValue :: BaseType Typechecked -> SolExpr -> SolExpr -> Locator Typechecked -> State (Env Typechecked) [SolStmt]
+receiveValue :: BaseType Compiling -> SolExpr -> SolExpr -> Locator Compiling -> State (Env Compiling) [SolStmt]
 receiveValue _ orig src (Var x) = do
     t <- typeOf x
     receiveExpr t orig src (SolVar x)
@@ -375,10 +375,10 @@ receiveValue t orig src Consume = do
         _ -> pure [Delete orig]
 
 receiveValue _ orig src dst = do
-    addError $ FlowError @Typechecked ("Cannot recieve values in destination" ++ show dst)
+    addError $ FlowError @Compiling ("Cannot recieve values in destination" ++ show dst)
     pure []
 
-receiveExpr :: BaseType Typechecked -> SolExpr -> SolExpr -> SolExpr -> State (Env Typechecked) [SolStmt]
+receiveExpr :: BaseType Compiling -> SolExpr -> SolExpr -> SolExpr -> State (Env Compiling) [SolStmt]
 receiveExpr t orig src dst = do
     demotedT <- demoteBaseType t
     tIsFungible <- isFungible t
@@ -418,7 +418,7 @@ receiveExpr t orig src dst = do
                       [ Delete orig ])
 
             _ -> do
-                addError $ FlowError @Typechecked ("receiveExpr not implemented for: " ++ show demotedT)
+                addError $ FlowError @Compiling ("receiveExpr not implemented for: " ++ show demotedT)
                 pure ([], [])
 
     pure $ if isPrimitiveExpr orig then main else main ++ cleanup
@@ -432,7 +432,7 @@ receiveExpr t orig src dst = do
             | src /= dst = (assign, cleanup)
             | otherwise = ([], [])
 
-dataLocFor :: BaseType Typechecked -> State (Env Typechecked) (Maybe DataLoc)
+dataLocFor :: BaseType Compiling -> State (Env Compiling) (Maybe DataLoc)
 dataLocFor t = do
     demotedT <- demoteBaseType t
     useStorage <- inStorage t
@@ -443,14 +443,14 @@ dataLocFor t = do
     else
         pure $ Just Memory
 
-declareWithLoc :: String -> BaseType Typechecked -> Maybe DataLoc -> State (Env Typechecked) [SolVarDecl]
+declareWithLoc :: String -> BaseType Compiling -> Maybe DataLoc -> State (Env Compiling) [SolVarDecl]
 declareWithLoc x t Nothing = pure <$> (SolVarDecl <$> toSolType t <*> pure x)
 declareWithLoc x t (Just loc) = pure <$> (SolVarLocDecl <$> toSolType t <*> pure loc <*> pure x)
 
-declareVar :: String -> BaseType Typechecked -> State (Env Typechecked) [SolVarDecl]
+declareVar :: String -> BaseType Compiling -> State (Env Compiling) [SolVarDecl]
 declareVar x t = declareWithLoc x t =<< dataLocFor t
 
-defineVar :: String -> BaseType Typechecked -> State (Env Typechecked) [SolStmt]
+defineVar :: String -> BaseType Compiling -> State (Env Compiling) [SolStmt]
 defineVar x t = do
     loc <- dataLocFor t
     case loc of
@@ -462,7 +462,7 @@ defineVar x t = do
 
         _ -> map SolVarDef <$> declareVar x t
 
-toSolArg :: VarDef Typechecked -> State (Env Typechecked) [SolVarDecl]
+toSolArg :: VarDef Compiling -> State (Env Compiling) [SolVarDecl]
 -- TODO: May need to generate multiple var decls per vardef b/c of Solidity (numerous) shortcomings regarding structs
 toSolArg (VarDef x (_,t)) = declareVar x t
 
@@ -477,14 +477,14 @@ isPrimitiveExpr (SolStr _) = True
 isPrimitiveExpr (SolAddr _) = True
 isPrimitiveExpr _ = False
 
-isPrimitive :: BaseType Typechecked -> Bool
+isPrimitive :: BaseType Compiling -> Bool
 isPrimitive Nat = True
 isPrimitive PsaBool = True
 isPrimitive PsaString = True
 isPrimitive Address = True
 isPrimitive _ = False
 
-isAsset :: BaseType Typechecked -> State (Env Typechecked) Bool
+isAsset :: BaseType Compiling -> State (Env Compiling) Bool
 isAsset (Named t) = do
     decl <- lookupTypeDecl t
     case decl of
@@ -495,7 +495,7 @@ isAsset (Record _ fields) = or <$> mapM (\(VarDef _ (_,t)) -> isAsset t) fields
 isAsset (Table _ (_,t)) = isAsset t
 isAsset _ = pure False
 
-toSolType :: BaseType Typechecked -> State (Env Typechecked) SolType
+toSolType :: BaseType Compiling -> State (Env Compiling) SolType
 toSolType Nat = pure $ SolTypeName "uint"
 toSolType PsaBool = pure $ SolTypeName "bool"
 toSolType PsaString = pure $ SolTypeName "string"
@@ -514,7 +514,7 @@ toSolType (Named t) = do
     else
         pure $ SolTypeName t
 
-encodeBaseType :: BaseType Typechecked -> String
+encodeBaseType :: BaseType Compiling -> String
 encodeBaseType Nat = "nat"
 encodeBaseType PsaBool = "bool"
 encodeBaseType PsaString = "string"
@@ -527,7 +527,7 @@ encodeBaseType (Record keys fields) =
         go (VarDef x (q,t)) = x ++ "_" ++ show q ++ "_" ++ encodeBaseType t
 encodeBaseType (Named t) = t
 
-inStorage :: BaseType Typechecked -> State (Env Typechecked) Bool
+inStorage :: BaseType Compiling -> State (Env Compiling) Bool
 inStorage (Table _ _) = pure True
 inStorage (Record _ fields) = or <$> mapM (\(VarDef _ (_,t)) -> inStorage t) fields
 inStorage (Named t) = do

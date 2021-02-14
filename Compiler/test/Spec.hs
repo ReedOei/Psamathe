@@ -47,7 +47,7 @@ evalStr prog = do
     (Program _ progStmts) <- evalEnv newEnv (preprocess parsed)
     pure progStmts
 
-shouldPreprocessAs :: State (Env Preprocessed) [Stmt Preprocessed] -> String -> IO ()
+shouldPreprocessAs :: State (Env Typechecking) [Stmt Typechecking] -> String -> IO ()
 x `shouldPreprocessAs` prog = do
     stmts <- evalEnv newEnv x
     progStmts <- evalStr prog

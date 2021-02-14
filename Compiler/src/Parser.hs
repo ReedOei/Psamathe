@@ -13,18 +13,18 @@ import Phase
 
 type Parser a = forall s st m. Stream s m Char => ParsecT s st m a
 
-parseProgram :: Parser (Program Parsed)
+parseProgram :: Parser (Program Preprocessing)
 parseProgram = do
     prog <- Program <$> many parseDecl <*> many parseStmt
     eof
     pure prog
 
-parseDecl :: Parser (Decl Parsed)
+parseDecl :: Parser (Decl Preprocessing)
 parseDecl = try parseTypeDecl <|>
             try parseTransformerDeclNoRet <|>
             try parseTransformerDecl
 
-parseTypeDecl :: Parser (Decl Parsed)
+parseTypeDecl :: Parser (Decl Preprocessing)
 parseTypeDecl = do
     symbol $ string "type"
     name <- parseVarName
@@ -39,7 +39,7 @@ parseModifier = try (parseConst "fungible" Fungible) <|>
                 try (parseConst "immutable" Immutable) <|>
                 try (parseConst "unique" Unique)
 
-parseTransformerDecl :: Parser (Decl Parsed)
+parseTransformerDecl :: Parser (Decl Preprocessing)
 parseTransformerDecl = do
     symbol $ string "transformer"
     name <- parseVarName
@@ -53,7 +53,7 @@ parseTransformerDecl = do
     symbol $ string "}"
     pure $ TransformerDecl name args ret body
 
-parseTransformerDeclNoRet :: Parser (Decl Parsed)
+parseTransformerDeclNoRet :: Parser (Decl Preprocessing)
 parseTransformerDeclNoRet = do
     symbol $ string "transformer"
     name <- parseVarName
@@ -65,13 +65,13 @@ parseTransformerDeclNoRet = do
     symbol $ string "}"
     pure $ TransformerDecl name args (VarDef "__success" (Complete (Any, PsaBool))) $ body ++ [ Flow (BoolConst True) (Var "__success") ]
 
-parseVarDef :: Parser (VarDef Parsed)
+parseVarDef :: Parser (VarDef Preprocessing)
 parseVarDef = do
     name <- parseVarName
     symbol $ string ":"
     VarDef name <$> parseType
 
-parseStmt :: Parser (Stmt Parsed)
+parseStmt :: Parser (Stmt Preprocessing)
 parseStmt = try parseFlowTransform <|> try parseFlowTransformBackwards <|>
             try parseFlowSel <|> try parseFlowSelBackwards <|>
             try parseFlowFilter <|> try parseFlowFilterBackwards <|>
@@ -80,16 +80,16 @@ parseStmt = try parseFlowTransform <|> try parseFlowTransformBackwards <|>
             try parseOnlyWhen <|>
             try (parseConst "revert" Revert)
 
-parseOnlyWhen :: Parser (Stmt Parsed)
+parseOnlyWhen :: Parser (Stmt Preprocessing)
 parseOnlyWhen = do
     symbol $ string "only"
     symbol $ string "when"
     OnlyWhen <$> parsePrecondition
 
-parsePrecondition :: Parser (Precondition Parsed)
+parsePrecondition :: Parser (Precondition Preprocessing)
 parsePrecondition = buildExpressionParser precondTable $ symbol parseCondAtom
 
-precondTable :: Stream s m Char => OperatorTable s st m (Precondition Parsed)
+precondTable :: Stream s m Char => OperatorTable s st m (Precondition Preprocessing)
 precondTable =
     [
         [ prefix "!" NegateCond ],
@@ -104,13 +104,13 @@ prefix name f = Prefix $ do
     symbol $ string name
     pure f
 
-parseCondAtom :: Parser (Precondition Parsed)
+parseCondAtom :: Parser (Precondition Preprocessing)
 parseCondAtom = try binOpCond <|> try parseBracketedCond
 
-parseBracketedCond :: Parser (Precondition Parsed)
+parseBracketedCond :: Parser (Precondition Preprocessing)
 parseBracketedCond = between (symbol (string "(")) (symbol (string ")")) parsePrecondition
 
-binOpCond :: Parser (Precondition Parsed)
+binOpCond :: Parser (Precondition Preprocessing)
 binOpCond = do
     a <- parseLocator
     op <- symbol $ choice $ map try [ parseConst "<=" OpLe, parseConst "<" OpLt,
@@ -122,21 +122,21 @@ binOpCond = do
     where
         parseNotIn = symbol (string "not") >> symbol (string "in") >> pure OpNotIn
 
-parseFlow :: Parser (Stmt Parsed)
+parseFlow :: Parser (Stmt Preprocessing)
 parseFlow = do
     src <- parseLocator
     symbol $ string "-->"
     dst <- parseLocator
     pure $ Flow src dst
 
-parseFlowBackwards :: Parser (Stmt Parsed)
+parseFlowBackwards :: Parser (Stmt Preprocessing)
 parseFlowBackwards = do
     dst <- parseLocator
     symbol $ string "<--"
     src <- parseLocator
     pure $ Flow src dst
 
-parseFlowSel :: Parser (Stmt Parsed)
+parseFlowSel :: Parser (Stmt Preprocessing)
 parseFlowSel = do
     src <- parseLocator
     symbol $ string "--["
@@ -145,7 +145,7 @@ parseFlowSel = do
     dst <- parseLocator
     pure $ Flow (Select src sel) dst
 
-parseFlowSelBackwards :: Parser (Stmt Parsed)
+parseFlowSelBackwards :: Parser (Stmt Preprocessing)
 parseFlowSelBackwards = do
     dst <- parseLocator
     symbol $ string "<-["
@@ -154,7 +154,7 @@ parseFlowSelBackwards = do
     src <- parseLocator
     pure $ Flow (Select src sel) dst
 
-parseFlowFilter :: Parser (Stmt Parsed)
+parseFlowFilter :: Parser (Stmt Preprocessing)
 parseFlowFilter = do
     src <- parseLocator
     symbol $ string "--["
@@ -169,7 +169,7 @@ parseFlowFilter = do
     dst <- parseLocator
     pure $ Flow (Filter src q f args) dst
 
-parseFlowFilterBackwards :: Parser (Stmt Parsed)
+parseFlowFilterBackwards :: Parser (Stmt Preprocessing)
 parseFlowFilterBackwards = do
     dst <- parseLocator
     symbol $ string "<-["
@@ -184,7 +184,7 @@ parseFlowFilterBackwards = do
     src <- parseLocator
     pure $ Flow (Filter src q f args) dst
 
-parseFlowTransform :: Parser (Stmt Parsed)
+parseFlowTransform :: Parser (Stmt Preprocessing)
 parseFlowTransform = do
     src <- parseLocator
     symbol $ string "-->"
@@ -193,7 +193,7 @@ parseFlowTransform = do
     dst <- parseLocator
     pure $ FlowTransform src transformer dst
 
-parseFlowTransformBackwards :: Parser (Stmt Parsed)
+parseFlowTransformBackwards :: Parser (Stmt Preprocessing)
 parseFlowTransformBackwards = do
     src <- parseLocator
     symbol $ string "<--"
@@ -202,7 +202,7 @@ parseFlowTransformBackwards = do
     dst <- parseLocator
     pure $ FlowTransform src transformer dst
 
-parseTry :: Parser (Stmt Parsed)
+parseTry :: Parser (Stmt Preprocessing)
 parseTry = do
     symbol $ string "try"
     symbol $ string "{"
@@ -214,7 +214,7 @@ parseTry = do
     symbol $ string "}"
     pure $ Try tryBlock catchBlock
 
-parseTransformer :: Parser (Transformer Parsed)
+parseTransformer :: Parser (Transformer Preprocessing)
 parseTransformer = try parseConstruct <|> try parseCall
     where
         parseConstruct = do
@@ -232,10 +232,10 @@ parseTransformer = try parseConstruct <|> try parseCall
             symbol $ string ")"
             pure $ Call name args
 
-parseLocator :: Parser (Locator Parsed)
+parseLocator :: Parser (Locator Preprocessing)
 parseLocator = buildExpressionParser locOpTable $ symbol parseLocatorSingle
 
-locOpTable :: Stream s m Char => OperatorTable s st m (Locator Parsed)
+locOpTable :: Stream s m Char => OperatorTable s st m (Locator Preprocessing)
 locOpTable =
     [
         [Postfix $ try $ do
@@ -252,7 +252,7 @@ locOpTable =
         ]
     ]
 
-parseLocatorSingle :: Parser (Locator Parsed)
+parseLocatorSingle :: Parser (Locator Preprocessing)
 parseLocatorSingle = try parseAddr <|>
                      try parseInt <|>
                      try parseString <|>
@@ -263,12 +263,12 @@ parseLocatorSingle = try parseAddr <|>
                      try parseConsume <|>
                      try parseVar
 
-parseConsume :: Parser (Locator Parsed)
+parseConsume :: Parser (Locator Preprocessing)
 parseConsume = do
     symbol $ string "consume"
     pure Consume
 
-parseRecordLit :: Parser (Locator Parsed)
+parseRecordLit :: Parser (Locator Preprocessing)
 parseRecordLit = do
     symbol $ string "{"
     members <- parseDelimList "," parseRecordMember
@@ -276,16 +276,16 @@ parseRecordLit = do
 
     pure $ RecordLit [] members
 
-parseRecordMember :: Parser (VarDef Parsed, Locator Parsed)
+parseRecordMember :: Parser (VarDef Preprocessing, Locator Preprocessing)
 parseRecordMember = do
     vdef <- parseVarDef
     symbol $ string "|->"
     (vdef,) <$> parseLocator
 
-parseLocators :: Parser [Locator Parsed]
+parseLocators :: Parser [Locator Preprocessing]
 parseLocators = parseDelimList "," parseLocator
 
-parseMultiset :: Parser (Locator Parsed)
+parseMultiset :: Parser (Locator Preprocessing)
 parseMultiset = do
     symbol $ string "["
     t <- symbol parseType
@@ -294,7 +294,7 @@ parseMultiset = do
     symbol $ string "]"
     pure $ Multiset t elems
 
-parseVar :: Parser (Locator Parsed)
+parseVar :: Parser (Locator Preprocessing)
 parseVar = Var <$> parseVarName
 
 parseVarName :: Parser String
@@ -306,7 +306,7 @@ parseVarName = do
         prefix = ['a'..'z'] ++ ['A'..'Z'] ++ ['_']
         cs = ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_']
 
-parseNewVar :: Parser (Locator Parsed)
+parseNewVar :: Parser (Locator Preprocessing)
 parseNewVar = do
     string "var"
     x <- symbol parseVarName
@@ -314,7 +314,7 @@ parseNewVar = do
     t <- symbol parseBaseType
     pure $ NewVar x t
 
-parseType :: Parser (InferrableType Parsed)
+parseType :: Parser (InferrableType Preprocessing)
 parseType = try parseCompleteType <|>
             try parseInferredType
     where
@@ -328,7 +328,7 @@ parseQuant = try (parseConst "empty" Empty) <|>
              try (parseConst "one" One) <|>
              try (parseConst "nonempty" Nonempty)
 
-parseBaseType :: Parser (BaseType Parsed)
+parseBaseType :: Parser (BaseType Preprocessing)
 parseBaseType = try (parseConst "nat" Nat) <|>
                 try (parseConst "bool" PsaBool) <|>
                 try (parseConst "string" PsaString) <|>
@@ -338,7 +338,7 @@ parseBaseType = try (parseConst "nat" Nat) <|>
                 try parseMapType <|>
                 try parseNamedType
 
-parseMapType :: Parser (BaseType Parsed)
+parseMapType :: Parser (BaseType Preprocessing)
 parseMapType = do
     symbol $ string "map"
     keyTy <- parseType
@@ -346,7 +346,7 @@ parseMapType = do
     valTy <- parseType
     pure $ Table ["key"] (Complete (One, Record ["key"] [ VarDef "key" keyTy, VarDef "value" valTy ]))
 
-parseRecordType :: Parser (BaseType Parsed)
+parseRecordType :: Parser (BaseType Preprocessing)
 parseRecordType = do
     symbol $ string "{"
     fields <- parseDelimList "," parseVarDef
@@ -354,26 +354,26 @@ parseRecordType = do
 
     pure $ Record [] fields
 
-parseNamedType :: Parser (BaseType Parsed)
+parseNamedType :: Parser (BaseType Preprocessing)
 parseNamedType = Named <$> parseVarName
 
-parseMultisetType :: Parser (BaseType Parsed)
+parseMultisetType :: Parser (BaseType Preprocessing)
 parseMultisetType = do
     symbol $ choice [string "list", string "multiset"] -- TODO: Change this
     Table []  <$> parseType
 
-parseInt :: Parser (Locator Parsed)
+parseInt :: Parser (Locator Preprocessing)
 parseInt = IntConst . read <$> symbol (many1 digit)
 
-parseBool :: Parser (Locator Parsed)
+parseBool :: Parser (Locator Preprocessing)
 parseBool = BoolConst <$> symbol (parseConst "true" True <|> parseConst "false" False)
 
-parseAddr :: Parser (Locator Parsed)
+parseAddr :: Parser (Locator Preprocessing)
 parseAddr = do
     symbol $ string "0x"
     AddrConst . ("0x"++) <$> many (oneOf "1234567890abcdef")
 
-parseString :: Parser (Locator Parsed)
+parseString :: Parser (Locator Preprocessing)
 parseString = StrConst <$> symbol (between (string "\"") (string "\"") $ many $ noneOf "\"")
 
 whitespace :: Parser ()
