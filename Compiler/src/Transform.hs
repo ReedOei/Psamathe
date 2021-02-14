@@ -16,6 +16,10 @@ import AST
 import Env
 import Phase
 
+-- | Applies functions accross to (result, Env) pairs across phases
+(>>>) :: (ProgramTransform p1 p2, PhaseTransition p1 p1) => (a, Env p1) -> (a -> State (Env p2) b) -> (b, Env p2)
+(a, s) >>> f = runState (f a) (transformEnv s)
+
 -- AST transforms
 class (Phase a, Phase b) => ProgramTransform a b where
     transformXType :: (Phase c, PhaseTransition a c) => XType a -> State (Env c) (XType b)

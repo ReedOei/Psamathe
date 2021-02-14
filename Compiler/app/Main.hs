@@ -24,9 +24,6 @@ import Config
 main :: IO ()
 main = compileFile =<< getArgs
 
-(>>>) :: (ProgramTransform p1 p2, PhaseTransition p1 p1) => (a, Env p1) -> (a -> State (Env p2) b) -> (b, Env p2)
-(a, s) >>> f = runState (f a) (transformEnv s)
-
 compileFile :: Config -> IO ()
 compileFile config = do
     content <- obtainContent config
