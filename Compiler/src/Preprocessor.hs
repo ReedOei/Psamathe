@@ -104,13 +104,9 @@ expandNegate (BinOp OpLe a b) = pure (BinOp OpGt a b)
 expandNegate (BinOp OpGe a b) = pure (BinOp OpLt a b)
 expandNegate (BinOp OpIn a b) = pure (BinOp OpNotIn a b)
 expandNegate (BinOp OpNotIn a b) = pure (BinOp OpIn a b)
-expandNegate (Conj conds) = do
-    expandedConds <- mapM expandNegate conds
-    pure $ Disj expandedConds
+expandNegate (Conj conds) = Disj <$> mapM expandNegate conds
 
-expandNegate (Disj conds) = do
-    expandedConds <- mapM expandNegate conds
-    pure $ Conj expandedConds
+expandNegate (Disj conds) = Conj <$> mapM expandNegate conds
 
 expandNegate (NegateCond cond) = pure cond
 

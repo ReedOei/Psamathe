@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -41,14 +42,10 @@ transformBaseType (Table keys t) = do
     pure $ Table keys transformedT
 
 transformQuantifiedType :: forall a b c. (Phase a, Phase b, Phase c, ProgramTransform a b, PhaseTransition a c) => QuantifiedType a -> State (Env c) (QuantifiedType b)
-transformQuantifiedType (q, t) = do
-    transformedT <- transformBaseType t
-    pure (q, transformedT)
+transformQuantifiedType (q, t) = (q,) <$> transformBaseType t
 
 transformVarDef :: forall a b c. (Phase a, Phase b, Phase c, ProgramTransform a b, PhaseTransition a c) => VarDef a -> State (Env c) (VarDef b)
-transformVarDef (VarDef name t) = do
-    transformedT <- transformXType @a @b t
-    pure $ VarDef name transformedT
+transformVarDef (VarDef name t) = VarDef name <$> transformXType @a @b t
 
 transformLocator :: forall a b c. (Phase a, Phase b, Phase c, ProgramTransform a b, PhaseTransition a c) => Locator a -> State (Env c) (Locator b)
 transformLocator (IntConst i) = pure $ IntConst i
@@ -56,19 +53,14 @@ transformLocator (BoolConst b) = pure $ BoolConst b
 transformLocator (StrConst s) = pure $ StrConst s
 transformLocator (AddrConst addr) = pure $ AddrConst addr
 transformLocator (Var var) = pure $ Var var
-transformLocator (Field l name) = do
-    transformedL <- transformLocator l
-    pure $ Field transformedL name
+transformLocator (Field l name) = flip Field name <$> transformLocator l
 
 transformLocator (Multiset t locators) = do
     transformedT <- transformXType @a @b t
     transformedLocators <- mapM transformLocator locators
     pure $ Multiset transformedT transformedLocators
 
-transformLocator (NewVar name baseT) = do
-    transformedBaseT <- transformBaseType baseT
-    pure $ NewVar name transformedBaseT
-
+transformLocator (NewVar name baseT) = NewVar name <$> transformBaseType baseT
 transformLocator Consume = pure Consume
 
 transformLocator (RecordLit keys members) = do
@@ -88,31 +80,19 @@ transformLocator (Select l k) = do
     pure $ Select transformedL transformedK
 
 transformTransformer :: (Phase a, Phase b, Phase c, ProgramTransform a b, PhaseTransition a c) => Transformer a -> State (Env c) (Transformer b)
-transformTransformer (Construct name args) = do
-    transformedArgs <- mapM transformLocator args
-    pure $ Construct name transformedArgs
-
-transformTransformer (Call name args) = do
-    transformedArgs <- mapM transformLocator args
-    pure $ Call name transformedArgs
+transformTransformer (Construct name args) = Construct name <$> mapM transformLocator args
+transformTransformer (Call name args) = Call name <$> mapM transformLocator args
 
 transformPrecondition :: (Phase a, Phase b, Phase c, ProgramTransform a b, PhaseTransition a c) => Precondition a -> State (Env c) (Precondition b)
-transformPrecondition (Conj conds) = do
-    transformedConds <- mapM transformPrecondition conds
-    pure $ Conj transformedConds
-
-transformPrecondition (Disj conds) = do
-    transformedConds <- mapM transformPrecondition conds
-    pure $ Disj transformedConds
+transformPrecondition (Conj conds) = Conj <$> mapM transformPrecondition conds
+transformPrecondition (Disj conds) = Disj <$> mapM transformPrecondition conds
 
 transformPrecondition (BinOp op a b) = do
     transformedA <- transformLocator a
     transformedB <- transformLocator b
     pure $ BinOp op transformedA transformedB
 
-transformPrecondition (NegateCond cond) = do
-    transformedCond <- transformPrecondition cond
-    pure $ NegateCond transformedCond
+transformPrecondition (NegateCond cond) = NegateCond <$> transformPrecondition cond
 
 transformStmt :: (Phase a, Phase b, Phase c, ProgramTransform a b, PhaseTransition a c) => Stmt a -> State (Env c) (Stmt b)
 transformStmt (Flow src dst) = do
@@ -126,9 +106,7 @@ transformStmt (FlowTransform src transformer dst) = do
     transformedTransformer <- transformTransformer transformer
     pure $ FlowTransform transformedSrc transformedTransformer transformedDst
 
-transformStmt (OnlyWhen precondition) = do
-    transformedPrecondition <- transformPrecondition precondition
-    pure $ OnlyWhen transformedPrecondition
+transformStmt (OnlyWhen precondition) = OnlyWhen <$> transformPrecondition precondition
 
 transformStmt (Try checkC1 checkCs) = do
     transformedC1 <- mapM transformStmt checkC1
@@ -138,9 +116,7 @@ transformStmt (Try checkC1 checkCs) = do
 transformStmt Revert = pure Revert
 
 transformDecl :: (Phase a, Phase b, Phase c, ProgramTransform a b, PhaseTransition a c) => Decl a -> State (Env c) (Decl b)
-transformDecl (TypeDecl s modifiers baseT) = do
-    transformedBaseT <- transformBaseType baseT
-    pure $ TypeDecl s modifiers transformedBaseT
+transformDecl (TypeDecl s modifiers baseT) = TypeDecl s modifiers <$> transformBaseType baseT
 
 transformDecl (TransformerDecl name args ret body) = do
     transformedArgs <- mapM transformVarDef args
