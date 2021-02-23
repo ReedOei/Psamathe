@@ -59,14 +59,17 @@ groupErrors = mconcat . map groupError
     where
         groupError (PreprocessorError e) = ([e], [], [])
         groupError (TypecheckerError e) = ([], [e], [])
-        groupERror (CompilerError e) = ([], [], [e])
+        groupError (CompilerError e) = ([], [], [e])
 
 indentString :: String -> String
 indentString = unlines . map indent . lines
 
 instance PrettyPrint [ErrorCat] where
-    prettyPrint errors = filter (not . null) [ if (not . null) preprocessorErrors then "Preprocessor errors\n" ++ indentString (intercalate "\n" (map prettyStr preprocessorErrors)) else "",
-                                               if (not . null) typecheckerErrors then "Typechecker errors: \n" ++ indentString (intercalate "\n" (map prettyStr typecheckerErrors)) else "",
-                                               if (not .null) compilerErrors then "Compiler errors: \n" ++ indentString (intercalate "\n" (map prettyStr compilerErrors)) else "" ]
+    prettyPrint errors = concat [
+            printError "Preprocessor errors" preprocessorErrors,
+            printError "Typechecker errors" typecheckerErrors,
+            printError "Compiler errors" compilerErrors
+        ]
         where
             (preprocessorErrors, typecheckerErrors, compilerErrors) = groupErrors errors
+            printError phase errors  = if (not . null) errors then phase : map indent (concatMap prettyPrint errors) else []
