@@ -55,14 +55,11 @@ instance Show (XType phase) => PrettyPrint (Error phase) where
     prettyPrint (LookupError (LookupErrorTypeDecl (TransformerDecl tx _ _ _))) = ["LookupError: expected type but got transformer" ++ show tx]
 
 groupErrors :: [ErrorCat] -> ([Error Preprocessing], [Error Typechecking], [Error Compiling])
-groupErrors [] = ([], [], [])
-groupErrors (x:xs) = (groupParsed ++ packedParsed, groupPreprocessed ++ packedPreprocessed, groupTypechecked ++ packedTypechecked)
+groupErrors = mconcat . map groupError
     where
-        (packedParsed, packedPreprocessed, packedTypechecked) = case x of
-            (PreprocessorError e) -> ([e], [], [])
-            (TypecheckerError e) -> ([], [e], [])
-            (CompilerError e) -> ([], [], [e])
-        (groupParsed, groupPreprocessed, groupTypechecked) = groupErrors xs
+        groupError (PreprocessorError e) = ([e], [], [])
+        groupError (TypecheckerError e) = ([], [e], [])
+        groupERror (CompilerError e) = ([], [], [e])
 
 indentString :: String -> String
 indentString = unlines . map indent . lines
