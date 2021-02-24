@@ -95,8 +95,7 @@ preprocessorTests = do
         it "pushes negations down to the atomic conditions" $ do
             cond <- parseAndCheck parsePrecondition "(0 = 1) and (x = y or 0 < 10)"
             expected <- parseAndCheck parsePrecondition "(0 != 1) or (x != y and 0 >= 10)"
-            res <- evalEnv newEnv (expandNegate cond)
-            res `shouldBe` expected
+            expandNegate cond `shouldBe` expected
 
     describe "preprocess" $ do
         it "infers ommitted any type quantities" $ do

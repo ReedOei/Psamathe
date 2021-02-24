@@ -96,11 +96,11 @@ transformDecl (TypeDecl s modifiers baseT) = TypeDecl s modifiers <$> transformB
 transformDecl (TransformerDecl name args ret body) = TransformerDecl name <$> mapM transformVarDef args <*> transformVarDef ret <*> mapM transformStmt body
 
 transformEnv :: forall a b. (Phase a, Phase b, ProgramTransform a b, PhaseTransition a a) => Env a -> Env b
-transformEnv env = let (transformedTypeEnvs, s) = runState (mapM transformBaseType (view typeEnv env)) env
-                       (transformedDecls, _) = runState (mapM transformDecl (view declarations env)) env
-                   in Env { _freshCounter = env ^. freshCounter,
+transformEnv env = let (transformedTypeEnvs, s) = runState (mapM transformBaseType $ env^.typeEnv) env
+                       (transformedDecls, _) = runState (mapM transformDecl $ env^.declarations) env
+                   in Env { _freshCounter = env^.freshCounter,
                             _typeEnv = transformedTypeEnvs,
                             _declarations = transformedDecls,
-                            _solDecls = env ^. solDecls,
-                            _allocators = env ^. allocators,
-                            _errors = env ^. errors }
+                            _solDecls = env^.solDecls,
+                            _allocators = env^.allocators,
+                            _errors = env^.errors }

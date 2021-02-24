@@ -40,7 +40,7 @@ compileFile config = do
             if not $ null $ env^.errors then do
                 putError "Compilation failed!"
                 putError "-------------------"
-                putError $ prettyStr (view errors env)
+                putError $ prettyStr $ env^.errors
                 exitFailure
             else do
                 if config^.debug > 0 then do

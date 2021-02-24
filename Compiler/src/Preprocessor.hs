@@ -16,7 +16,7 @@ import Error
 import Phase
 import Transform
 
-inferQuant :: (Phase a, PhaseTransition Preprocessing a) => BaseType Preprocessing -> State (Env a) TyQuant
+inferQuant :: (Phase a, Phase b, PhaseTransition a b) => BaseType a -> State (Env b) TyQuant
 inferQuant baseT = do
     tIsFungible <- isFungible baseT
     if tIsFungible then
@@ -83,9 +83,7 @@ preprocessCond (Disj (c1:cs)) = do
     checkCs <- preprocessCond $ Disj cs
     pure [ Try checkC1 checkCs ]
 
-preprocessCond (NegateCond cond) = do
-    expandedCond <- expandNegate cond
-    preprocessCond expandedCond
+preprocessCond (NegateCond cond) = preprocessCond $ expandNegate cond
 
 preprocessCond (BinOp op a b) = do
     (allocA, newA) <- allocateVar a
@@ -95,20 +93,20 @@ preprocessCond (BinOp op a b) = do
     res <- expandCond $ BinOp op newA newB
     pure $ newAllocA ++ newAllocB ++ res
 
-expandNegate :: Precondition Preprocessing -> State (Env Typechecking) (Precondition Preprocessing)
-expandNegate (BinOp OpEq a b) = pure (BinOp OpNe a b)
-expandNegate (BinOp OpNe a b) = pure (BinOp OpEq a b)
-expandNegate (BinOp OpLt a b) = pure (BinOp OpGe a b)
-expandNegate (BinOp OpGt a b) = pure (BinOp OpLe a b)
-expandNegate (BinOp OpLe a b) = pure (BinOp OpGt a b)
-expandNegate (BinOp OpGe a b) = pure (BinOp OpLt a b)
-expandNegate (BinOp OpIn a b) = pure (BinOp OpNotIn a b)
-expandNegate (BinOp OpNotIn a b) = pure (BinOp OpIn a b)
-expandNegate (Conj conds) = Disj <$> mapM expandNegate conds
+expandNegate :: Precondition Preprocessing -> Precondition Preprocessing
+expandNegate (BinOp OpEq a b) = BinOp OpNe a b
+expandNegate (BinOp OpNe a b) = BinOp OpEq a b
+expandNegate (BinOp OpLt a b) = BinOp OpGe a b
+expandNegate (BinOp OpGt a b) = BinOp OpLe a b
+expandNegate (BinOp OpLe a b) = BinOp OpGt a b
+expandNegate (BinOp OpGe a b) = BinOp OpLt a b
+expandNegate (BinOp OpIn a b) = BinOp OpNotIn a b
+expandNegate (BinOp OpNotIn a b) = BinOp OpIn a b
+expandNegate (Conj conds) = Disj $ map expandNegate conds
 
-expandNegate (Disj conds) = Conj <$> mapM expandNegate conds
+expandNegate (Disj conds) = Conj $ map expandNegate conds
 
-expandNegate (NegateCond cond) = pure cond
+expandNegate (NegateCond cond) = cond
 
 allocateVar :: Locator Preprocessing -> State (Env Typechecking) ([Stmt Preprocessing], Locator Preprocessing)
 allocateVar (IntConst n) = do
@@ -151,8 +149,8 @@ expandCond (BinOp OpIn a b) = do
     transformedA <- transformLocator a
     transformedB <- transformLocator b
     tyA <- typeOfLoc transformedA
-    fungible <- isFungible tyA
-    pure [ Flow (Select transformedB (Multiset (if fungible then Any else One, tyA) [transformedA])) transformedB ]
+    quant <- inferQuant tyA
+    pure [ Flow (Select transformedB (Multiset (quant, tyA) [transformedA])) transformedB ]
 
 expandCond (BinOp OpNe a b) = do
     failure <- expandCond (BinOp OpEq a b)
