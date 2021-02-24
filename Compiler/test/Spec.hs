@@ -108,6 +108,12 @@ preprocessorTests = do
             inferred <- evalStr "[ address ; ] --> var m : map address => address"
             complete `shouldBe` inferred
 
+        it "infers user defined fungible types as any" $ do
+            let defineType = "type Token is fungible asset nat"
+            complete <- evalStr $ unlines [defineType, "[ Token ; ] --> var tokens : list Token"]
+            inferred <- evalStr $ unlines [defineType, "[ any Token ; ] --> var tokens : list any Token"]
+            complete `shouldBe` inferred
+
 parserTests = do
     describe "parseStmt" $ do
         it "parses simple flows" $ do
