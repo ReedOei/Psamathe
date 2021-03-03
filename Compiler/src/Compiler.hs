@@ -69,9 +69,7 @@ compileProg (Program decls mainBody) = do
     pure $ Contract "0.7.5" "C" $ allocatorDecls ++ compiledDecls ++ [Constructor [] stmts]
 
 compileDecl :: Decl Compiling -> State (Env Compiling) ()
-compileDecl decl@(TypeDecl name _ baseT) = do
-    modify $ over declarations $ Map.insert name decl
-    defineStruct name baseT
+compileDecl decl@(TypeDecl name _ baseT) = defineStruct name baseT
 
 compileDecl decl@(TransformerDecl name args ret body) = do
     modify $ over declarations $ Map.insert name decl

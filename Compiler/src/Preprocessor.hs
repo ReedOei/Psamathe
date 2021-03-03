@@ -33,10 +33,18 @@ instance ProgramTransform Preprocessing Typechecking where
 
 preprocess :: Program Preprocessing -> State (Env Typechecking) (Program Typechecking)
 preprocess (Program decls stmts) = do
+    mapM_ defineType decls
     newProg <- Program <$> (concat <$> mapM preprocessDecl decls)
                        <*> (concat <$> mapM preprocessStmt stmts)
     modify $ set typeEnv Map.empty
     pure newProg
+
+defineType :: Decl Preprocessing -> State (Env Typechecking) ()
+defineType decl@(TypeDecl name _ _) = do
+    transformedDecl <- transformDecl decl
+    modify $ over declarations $ Map.insert name transformedDecl
+
+defineType _ = pure ()
 
 preprocessDecl :: Decl Preprocessing -> State (Env Typechecking) [Decl Typechecking]
 preprocessDecl (TransformerDecl name args ret body) = do
