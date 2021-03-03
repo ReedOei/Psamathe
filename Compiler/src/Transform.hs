@@ -103,4 +103,9 @@ transformEnv env = let (transformedTypeEnvs, s) = runState (mapM transformBaseTy
                             _declarations = transformedDecls,
                             _solDecls = env^.solDecls,
                             _allocators = env^.allocators,
-                            _errors = env^.errors }
+                            _errors = env^.errors,
+                            _phaseMarker = promotePhase $ env^.phaseMarker }
+    where
+        promotePhase Preprocessor = Typechecker
+        promotePhase Typechecker  = Compiler
+        promotePhase Compiler     = Compiler

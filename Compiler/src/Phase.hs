@@ -8,6 +8,10 @@ data Preprocessing
 data Typechecking
 data Compiling
 
+-- A marker type for phases
+data PhaseMarker = Preprocessor | Typechecker | Compiler
+    deriving (Show, Eq)
+
 -- Phase transitions - either moving to next phase or staying in current phase
 class PhaseTransition a b
 

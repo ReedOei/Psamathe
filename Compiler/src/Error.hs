@@ -19,22 +19,28 @@ data Error phase = FlowError String
 
 data LookupErrorCat phase = LookupErrorVar String | LookupErrorType String | LookupErrorTypeDecl (Decl phase)
 
-data ErrorCat = PreprocessorError (Error Preprocessing)
-              | TypecheckerError (Error Typechecking)
-              | CompilerError (Error Compiling)
-    deriving (Eq, Show)
+type ErrorPreprocessing = Either (Error Preprocessing) (Error Typechecking)
+type ErrorTypechecking = Either (Error Typechecking) (Error Compiling)
+type ErrorCompiling = Error Compiling
+
+data ErrorCat = PreprocessorError ErrorPreprocessing
+              | TypecheckerError ErrorTypechecking
+              | CompilerError ErrorCompiling
+    deriving (Show, Eq)
 
 class Errorable e where
-    toErrorCat :: e -> ErrorCat
+    toErrorCat :: e -> PhaseMarker -> ErrorCat
 
 instance Errorable (Error Preprocessing) where
-    toErrorCat e = PreprocessorError e
+    toErrorCat e Preprocessor = PreprocessorError $ Left e
 
 instance Errorable (Error Typechecking) where
-    toErrorCat e = TypecheckerError e
+    toErrorCat e Preprocessor = PreprocessorError $ Right e
+    toErrorCat e Typechecker = TypecheckerError $ Left e
 
 instance Errorable (Error Compiling) where
-    toErrorCat e = CompilerError e
+    toErrorCat e Typechecker = TypecheckerError $ Right e
+    toErrorCat e Compiler = CompilerError e
 
 deriving instance Eq (XType phase) => Eq (Error phase)
 
@@ -54,7 +60,7 @@ instance Show (XType phase) => PrettyPrint (Error phase) where
     prettyPrint (LookupError (LookupErrorType s)) = ["LookupError: Type " ++ s ++ " is not defined"]
     prettyPrint (LookupError (LookupErrorTypeDecl (TransformerDecl tx _ _ _))) = ["LookupError: expected type but got transformer" ++ show tx]
 
-groupErrors :: [ErrorCat] -> ([Error Preprocessing], [Error Typechecking], [Error Compiling])
+groupErrors :: [ErrorCat] -> ([ErrorPreprocessing], [ErrorTypechecking], [ErrorCompiling])
 groupErrors = mconcat . map groupError
     where
         groupError (PreprocessorError e) = ([e], [], [])
@@ -63,6 +69,14 @@ groupErrors = mconcat . map groupError
 
 indentString :: String -> String
 indentString = unlines . map indent . lines
+
+instance PrettyPrint ErrorPreprocessing where
+    prettyPrint (Left e) = prettyPrint e
+    prettyPrint (Right e) = prettyPrint e
+
+instance PrettyPrint ErrorTypechecking where
+    prettyPrint (Left e) = prettyPrint e
+    prettyPrint (Right e) = prettyPrint e
 
 instance PrettyPrint [ErrorCat] where
     prettyPrint errors = concat [

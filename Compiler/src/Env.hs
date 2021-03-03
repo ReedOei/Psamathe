@@ -26,7 +26,8 @@ data Env phase = Env { _freshCounter :: Integer,
                        _declarations :: Map String (Decl phase),
                        _solDecls     :: Map String SolDecl,
                        _allocators   :: Map SolType String,
-                       _errors       :: [ErrorCat] }
+                       _errors       :: [ErrorCat],
+                       _phaseMarker  :: PhaseMarker }
 deriving instance Eq (XType phase) => Eq (Env phase)
 deriving instance Show (XType phase) => Show (Env phase)
 makeLenses ''Env
@@ -34,16 +35,20 @@ makeLenses ''Env
 type Phase p = (Eq (XType p), Show (XType p), DefinesXType p, Errorable (Error p))
 
 addError :: (Errorable e, Phase p) => e -> State (Env p) ()
-addError e = modify $ over errors (toErrorCat e:)
+addError e = do
+    error <- toErrorCat e . view phaseMarker <$> get
+    modify $ over errors (error:)
 
-newEnv = Env { _freshCounter = 0,
-               _typeEnv = Map.empty,
-               _declarations = Map.empty,
-               _solDecls = Map.empty,
-               _allocators = Map.empty,
-               _errors = [] }
+newEnv :: forall p. Phase p => PhaseMarker -> Env p
+newEnv phaseMarker = Env { _freshCounter = 0,
+                           _typeEnv      = Map.empty,
+                           _declarations = Map.empty,
+                           _solDecls     = Map.empty,
+                           _allocators   = Map.empty,
+                           _errors       = [],
+                           _phaseMarker  = phaseMarker }
 
-freshName :: State (Env phase) String
+freshName :: forall p. Phase p => State (Env p) String
 freshName = do
     i <- freshCounter <<+= 1
     pure $ "v" ++ show i

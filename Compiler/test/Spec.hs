@@ -44,12 +44,12 @@ evalEnv env toEval = do
 
 evalStr prog = do
     parsed <- parseAndCheck parseProgram prog
-    (Program _ progStmts) <- evalEnv newEnv (preprocess parsed)
+    (Program _ progStmts) <- evalEnv (newEnv Preprocessor) (preprocess parsed)
     pure progStmts
 
 shouldPreprocessAs :: State (Env Typechecking) [Stmt Typechecking] -> String -> IO ()
 x `shouldPreprocessAs` prog = do
-    stmts <- evalEnv newEnv x
+    stmts <- evalEnv (newEnv Preprocessor) x
     progStmts <- evalStr prog
     stmts `shouldBe` progStmts
 
@@ -170,9 +170,9 @@ parserTests = do
 compilerTests = do
     describe "receiveValue" $ do
         it "subtracts from uint types flowed into consume " $ do
-            stmts <- evalEnv newEnv (receiveValue Nat (SolVar "x") (SolVar "x") Consume)
+            stmts <- evalEnv (newEnv Compiler) (receiveValue Nat (SolVar "x") (SolVar "x") Consume)
             stmts `shouldBe` [SolAssign (SolVar "x") (SolSub (SolVar "x") (SolVar "x"))]
 
         it "deletes non-uint types flowed into consume" $ do
-            stmts <- evalEnv newEnv (receiveValue PsaBool (SolVar "x") (SolVar "x") Consume)
+            stmts <- evalEnv (newEnv Compiler) (receiveValue PsaBool (SolVar "x") (SolVar "x") Consume)
             stmts `shouldBe` [Delete (SolVar "x")]

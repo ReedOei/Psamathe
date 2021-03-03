@@ -35,7 +35,7 @@ compileFile config = do
         Right prog -> do
             debugPretty config "Parsed program:" prog
 
-            let (compiled, env) = runState (preprocess prog) newEnv >>> typecheck >>> compileProg
+            let (compiled, env) = runState (preprocess prog) (newEnv Preprocessor) >>> typecheck >>> compileProg
 
             if not $ null $ env^.errors then do
                 putError "Compilation failed!"
