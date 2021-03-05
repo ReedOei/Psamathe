@@ -1,19 +1,22 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 import Control.Lens ((^.))
-import Control.Monad.State
 
 import Data.Either (isRight)
 
 import Test.Hspec
 
-import Text.Parsec
+import Text.Parsec (parse, many, eof)
+
+import Control.Monad.State
 
 import AST
 import Env
 import Preprocessor
 import Parser
+import Phase
 import Compiler
+import Transform
 import Typechecker
 
 main :: IO ()
@@ -29,7 +32,7 @@ parseAndCheck parser str =
             undefined
         Right term -> pure term
 
-x `shouldBeStmts` stmtsStr = do
+x `shouldParseTo` stmtsStr = do
     res <- parseAndCheck (do { x <- many parseStmt; eof; pure x }) stmtsStr
     x `shouldReturn` res
 
@@ -39,24 +42,35 @@ evalEnv env toEval = do
     finalEnv^.errors `shouldBe` []
     pure res
 
+evalStr prog = do
+    parsed <- parseAndCheck parseProgram prog
+    (Program _ progStmts) <- evalEnv (newEnv Preprocessor) (preprocess parsed)
+    pure progStmts
+
+shouldPreprocessAs :: State (Env Typechecking) [Stmt Typechecking] -> String -> IO ()
+x `shouldPreprocessAs` prog = do
+    stmts <- evalEnv (newEnv Preprocessor) x
+    progStmts <- evalStr prog
+    stmts `shouldBe` progStmts
+
 preprocessorTests = do
     describe "preprocessCond" $ do
         it "expands simple preconditions" $ do
-            evalEnv newEnv (preprocessCond (BinOp OpLe (Var "x") (Var "y")))
-                `shouldBeStmts` "y --[ x ]-> y"
+            preprocessCond (BinOp OpLe (Var "x") (Var "y"))
+                `shouldPreprocessAs` "y --[ x ]-> y"
 
-            evalEnv newEnv (preprocessCond (BinOp OpEq (Select (Var "x") (Var "vs")) (Var "y")))
-                `shouldBeStmts` unlines ["x[vs] --[ y ]-> x[vs]",
-                                         "y --[ x[vs] ]-> y"]
+            preprocessCond (BinOp OpEq (Select (Var "x") (Var "vs")) (Var "y"))
+                `shouldPreprocessAs` unlines ["x[vs] --[ y ]-> x[vs]",
+                                              "y --[ x[vs] ]-> y"]
 
-            evalEnv newEnv (preprocessCond (BinOp OpLe (IntConst 1) (IntConst 3)))
-                `shouldBeStmts` unlines ["1 --> var v0 : nat",
-                                         "3 --> var v1 : nat",
-                                         "v1 --[ v0 ]-> v1"]
+            preprocessCond (BinOp OpLe (IntConst 1) (IntConst 3))
+                `shouldPreprocessAs` unlines ["1 --> var v0 : nat",
+                                              "3 --> var v1 : nat",
+                                              "v1 --[ v0 ]-> v1"]
 
         it "expands conjunctions of preconditions" $ do
-            evalEnv newEnv (preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (IntConst 0) (Var "x")]))
-                `shouldBeStmts` unlines ["try {",
+            preprocessCond (Conj [BinOp OpNe (Var "x") (Var "y"), BinOp OpIn (IntConst 0) (Var "x")])
+                `shouldPreprocessAs` unlines ["try {",
                                          "    x --[ y ]-> x",
                                          "    y --[ x ]-> y",
                                          "    revert",
@@ -65,8 +79,8 @@ preprocessorTests = do
                                          "x --[ [ any nat; v0 ] ]-> x"]
 
         it "expands disjunctions of preconditions" $ do
-            evalEnv newEnv (preprocessCond (Disj [NegateCond (BinOp OpIn (IntConst 0) (Var "z")), BinOp OpEq (Var "x") (Var "z")]))
-                `shouldBeStmts` unlines ["try {",
+            preprocessCond (Disj [NegateCond (BinOp OpIn (IntConst 0) (Var "z")), BinOp OpEq (Var "x") (Var "z")])
+                `shouldPreprocessAs` unlines ["try {",
                                          "    0 --> var v0 : nat",
                                          "    try {",
                                          "        z --[ [ any nat; v0] ]-> z",
@@ -83,13 +97,32 @@ preprocessorTests = do
             expected <- parseAndCheck parsePrecondition "(0 != 1) or (x != y and 0 >= 10)"
             expandNegate cond `shouldBe` expected
 
+    describe "preprocess" $ do
+        it "infers ommitted any type quantities" $ do
+            complete <- evalStr "[ any nat ; ] --> var m : map any nat => any nat"
+            inferred <- evalStr "[ nat ; ] --> var m : map nat => nat"
+            complete `shouldBe` inferred
+
+        it "infers ommitted one type quantities" $ do
+            complete <- evalStr "[ one address ; ] --> var m : map one address => one address"
+            inferred <- evalStr "[ address ; ] --> var m : map address => address"
+            complete `shouldBe` inferred
+
+        it "infers user defined fungible types as any" $ do
+            let defineType = "type Token is fungible asset nat"
+            complete <- evalStr $ unlines [defineType, "[ Token ; ] --> var tokens : list Token"]
+            inferred <- evalStr $ unlines [defineType, "[ any Token ; ] --> var tokens : list any Token"]
+            complete `shouldBe` inferred
+
 parserTests = do
     describe "parseStmt" $ do
         it "parses simple flows" $ do
             parse parseStmt "" "x --> y"
                 `shouldBe` Right (Flow (Var "x") (Var "y"))
             parse parseStmt "" "[ any nat ; ] --> var m : map any nat => any nat"
-                `shouldBe` Right (Flow (Multiset (Any,Nat) []) (NewVar "m" (Table ["key"] (One,Record ["key"] [("key",(Any,Nat)),("value",(Any,Nat))]))))
+                `shouldBe` Right (Flow (Multiset (Complete (Any, Nat)) []) (
+                    NewVar "m" (Table ["key"] (Complete (One, Record ["key"] [VarDef "key" (Complete (Any, Nat)), VarDef "value" (Complete (Any, Nat))])))))
+
         it "parses simple backwards flows" $
             parse parseStmt "" "y <-- 1"
                 `shouldBe` Right (Flow (IntConst 1) (Var "y"))
@@ -97,9 +130,10 @@ parserTests = do
         it "parses transformer flows" $
             parse parseStmt "" "x --> f() --> var t : nat"
                 `shouldBe` Right (FlowTransform (Var "x") (Call "f" []) (NewVar "t" Nat))
+
         it "parses backwards transformer flows" $
             parse parseStmt "" "var ts : multiset any nat <-- g(y) <-- [ any nat; ]"
-                `shouldBe` Right (FlowTransform (NewVar "ts" (Table [] (Any,Nat))) (Call "g" [Var "y"]) (Multiset (Any,Nat) []))
+                `shouldBe` Right (FlowTransform (NewVar "ts" (Table [] (Complete (Any, Nat)))) (Call "g" [Var "y"]) (Multiset (Complete (Any, Nat)) []))
 
         it "parses try-catch statements" $
             parse parseStmt "" "try {} catch {}"
@@ -108,13 +142,15 @@ parserTests = do
         it "parses flows with selector arrow" $
             parse parseStmt "" "x --[ 5 ]-> y"
                 `shouldBe` Right (Flow (Select (Var "x") (IntConst 5)) (Var "y"))
+
         it "parses backwards flows with selector arrow" $
             parse parseStmt "" "var t : bool <-[ z ]-- [ any bool; true, false] "
-                `shouldBe` Right (Flow (Select (Multiset (Any,PsaBool) [BoolConst True,BoolConst False]) (Var "z")) (NewVar "t" PsaBool))
+                `shouldBe` Right (Flow (Select (Multiset (Complete (Any, PsaBool)) [BoolConst True, BoolConst False]) (Var "z")) (NewVar "t" PsaBool))
 
         it "parses flows with filters" $ do
             parse parseStmt "" "A --[ nonempty such that isWinner(winNum) ]-> var winners : mutliset one Ticket"
                 `shouldBe` Right (Flow (Filter (Var "A") Nonempty "isWinner" [Var "winNum"]) (NewVar "winners" (Named "mutliset")))
+
         it "parses backwards flows with filters" $ do
             parse parseStmt "" "vals <-[ any such that nonzero() ]-- src"
                 `shouldBe` Right (Flow (Filter (Var "src") Any "nonzero" []) (Var "vals"))
@@ -134,9 +170,9 @@ parserTests = do
 compilerTests = do
     describe "receiveValue" $ do
         it "subtracts from uint types flowed into consume " $ do
-            stmts <- evalEnv newEnv (receiveValue Nat (SolVar "x") (SolVar "x") Consume)
+            stmts <- evalEnv (newEnv Compiler) (receiveValue Nat (SolVar "x") (SolVar "x") Consume)
             stmts `shouldBe` [SolAssign (SolVar "x") (SolSub (SolVar "x") (SolVar "x"))]
 
         it "deletes non-uint types flowed into consume" $ do
-            stmts <- evalEnv newEnv (receiveValue PsaBool (SolVar "x") (SolVar "x") Consume)
+            stmts <- evalEnv (newEnv Compiler) (receiveValue PsaBool (SolVar "x") (SolVar "x") Consume)
             stmts `shouldBe` [Delete (SolVar "x")]

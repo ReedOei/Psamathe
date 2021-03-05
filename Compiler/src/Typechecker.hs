@@ -1,3 +1,6 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module Typechecker where
 
 import Control.Lens
@@ -5,18 +8,20 @@ import Control.Monad.State
 
 import AST
 import Env
+import Phase
+import Transform
 
--- TODO: Probably want to have multiple AST types for better type safety
-typecheck :: Program -> State Env Program
+instance ProgramTransform Typechecking Compiling where
+    transformXType = transformQuantifiedType
+
+typecheck :: Program Typechecking -> State (Env Compiling) (Program Compiling)
 typecheck prog@(Program decls stmts) = do
-    -- NOTE: May need to transform program
-    mapM_ checkDecl decls
-    mapM_ checkStmt stmts
-    pure prog
+    checkedDecls <- mapM checkDecl decls
+    checkedStmts <- mapM checkStmt stmts
+    pure $ Program checkedDecls checkedStmts
 
-checkDecl :: Decl -> State Env ()
-checkDecl d = pure ()
+checkDecl :: Decl Typechecking -> State (Env Compiling) (Decl Compiling)
+checkDecl = transformDecl
 
-checkStmt :: Stmt -> State Env ()
-checkStmt s = pure ()
-
+checkStmt :: Stmt Typechecking -> State (Env Compiling) (Stmt Compiling)
+checkStmt = transformStmt
