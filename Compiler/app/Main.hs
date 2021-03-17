@@ -14,6 +14,7 @@ import System.Directory (createDirectoryIfMissing)
 import System.IO (hPutStrLn, stderr, writeFile)
 import System.Exit
 import System.FilePath
+import System.Process
 
 import AST
 import Compiler
@@ -41,9 +42,19 @@ main = do
             when (config^.debug > 0) $ do
                 putStrLn "Compiled program:"
                 putStrLn prog
-            let fileName = takeFileName $ fromJust $ config^.srcName
+
+            let fileName = (joinPath ["__psacache__", replaceExtension base "sol"]) where base = takeFileName $ fromJust $ config^.srcName
             createDirectoryIfMissing True "__psacache__"
-            writeFile (joinPath ["__psacache__", replaceExtension fileName "sol"]) prog
+            writeFile fileName prog
+
+            (exitCode, stdout, stderr) <- readProcessWithExitCode "solc" [fileName, "--ast-json", "-o", "__psacache__"] ""
+            if exitCode /= ExitSuccess then do
+                putError $ "solc returned non-zero exit code:"
+                putError $ stderr
+                exitFailure
+            else do
+                putStrLn stdout
+                exitSuccess
 
 putError = hPutStrLn stderr
 

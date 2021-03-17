@@ -27,6 +27,7 @@ dependencies:
 - lens
 - mtl
 - parsec
+- process
 - optparse-applicative
 
 library:
