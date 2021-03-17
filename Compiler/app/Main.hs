@@ -8,12 +8,17 @@ import Control.Monad
 
 import Text.Parsec (parse)
 
-import System.IO (hPutStrLn, stderr)
+import Data.Maybe (fromJust)
+
+import System.Directory (createDirectoryIfMissing)
+import System.IO (hPutStrLn, stderr, writeFile)
 import System.Exit
+import System.FilePath
 
 import AST
 import Compiler
 import Env
+import Error
 import Parser
 import Phase
 import Preprocessor
@@ -23,11 +28,26 @@ import Typechecker
 import Config
 
 main :: IO ()
-main = compileFile =<< getArgs
+main = do
+    config <- getArgs
+    result <- compileFile config
+    case result of
+        Left err -> do
+            putError "Compilation failed!"
+            putError "-------------------"
+            putError $ prettyStr err
+            exitFailure
+        Right prog -> do
+            when (config^.debug > 0) $ do
+                putStrLn "Compiled program:"
+                putStrLn prog
+            let fileName = takeFileName $ fromJust $ config^.srcName
+            createDirectoryIfMissing True "__psacache__"
+            writeFile (joinPath ["__psacache__", replaceExtension fileName "sol"]) prog
 
 putError = hPutStrLn stderr
 
-compileFile :: Config -> IO ()
+compileFile :: Config -> IO (Either [ErrorCat] String)
 compileFile config = do
     content <- obtainContent config
     case parse parseProgram "" content of
@@ -37,22 +57,11 @@ compileFile config = do
 
             let (compiled, env) = runState (preprocess prog) (newEnv Preprocessor) >>> typecheck >>> compileProg
 
-            if not $ null $ env^.errors then do
-                putError "Compilation failed!"
-                putError "-------------------"
-                putError $ prettyStr $ env^.errors
-                exitFailure
-            else do
-                if config^.debug > 0 then do
-                    putStrLn "Compiled program:"
-                else pure ()
-
-                putStrLn $ prettyStr compiled
-
             if config^.debug > 1 then print env
             else pure ()
 
-    exitSuccess
+            if not $ null $ env^.errors then pure . Left $ env^.errors
+            else pure . Right $ prettyStr compiled
 
 obtainContent :: Config -> IO String
 obtainContent config =
