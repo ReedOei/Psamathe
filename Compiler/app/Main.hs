@@ -2,19 +2,17 @@
 
 module Main where
 
+import Paths_Psamathe
+
 import Control.Lens
 import Control.Monad.State
 import Control.Monad
 
-import Text.Parsec (parse)
-
-import Data.Maybe (fromJust)
-
-import System.Directory (createDirectoryIfMissing)
-import System.IO (hPutStrLn, stderr, writeFile)
-import System.Exit
 import System.FilePath
+import System.IO
 import System.Process
+
+import Text.Parsec (parse)
 
 import AST
 import Compiler
@@ -27,38 +25,26 @@ import Transform
 import Typechecker
 
 import Config
+import Deploy
 
 main :: IO ()
 main = do
     config <- getArgs
-    result <- compileFile config
-    case result of
-        Left err -> do
-            putError "Compilation failed!"
-            putError "-------------------"
-            putError $ prettyStr err
-            exitFailure
-        Right prog -> do
-            when (config^.debug > 0) $ do
-                putStrLn "Compiled program:"
-                putStrLn prog
+    case config of
+        Init -> initialize
+        Exec execConfig -> deployFile execConfig =<< compileFile execConfig
 
-            let fileName = (joinPath ["__psacache__", replaceExtension base "sol"]) where base = takeFileName $ fromJust $ config^.srcName
-            createDirectoryIfMissing True "__psacache__"
-            writeFile fileName prog
-
-            (exitCode, stdout, stderr) <- readProcessWithExitCode "solc" [fileName, "--ast-json", "-o", "__psacache__"] ""
-            if exitCode /= ExitSuccess then do
-                putError $ "solc returned non-zero exit code:"
-                putError $ stderr
-                exitFailure
-            else do
-                putStrLn stdout
-                exitSuccess
-
+putError :: String -> IO ()
 putError = hPutStrLn stderr
 
-compileFile :: Config -> IO (Either [ErrorCat] String)
+initialize :: IO ()
+initialize = do
+    (_, stdout, _) <- readProcessWithExitCode "truffle" ["init"] ""
+    config <- readFile =<< getDataFileName (joinPath ["data", "default-config.js"])
+    writeFile "truffle-config.js" config
+    putStrLn stdout
+
+compileFile :: ExecConfig -> IO String
 compileFile config = do
     content <- obtainContent config
     case parse parseProgram "" content of
@@ -71,17 +57,19 @@ compileFile config = do
             if config^.debug > 1 then print env
             else pure ()
 
-            if not $ null $ env^.errors then pure . Left $ env^.errors
-            else pure . Right $ prettyStr compiled
+            if not $ null $ env^.errors then
+                error $ prettyStr $ env^.errors
+            else
+                pure $ prettyStr compiled
 
-obtainContent :: Config -> IO String
+obtainContent :: ExecConfig -> IO String
 obtainContent config =
     case config^.srcName of
         Just "-" -> getContents
         Nothing -> getContents
         Just path -> readFile path
 
-debugPretty :: PrettyPrint a => Config -> String -> a -> IO a
+debugPretty :: PrettyPrint a => ExecConfig -> String -> a -> IO a
 debugPretty config message x = do
     if config^.debug > 0 then do
         putStrLn message
@@ -91,4 +79,3 @@ debugPretty config message x = do
     else pure ()
 
     pure x
-
